@@ -4231,6 +4231,9 @@ body.resizing-panels * {
   --accent-soft: rgba(0, 122, 255, 0.1);
   --accent-border: rgba(0, 122, 255, 0.28);
   --accent-contrast: #ffffff;
+  --titlebar-start: #071520;
+  --titlebar-mid: #0a3557;
+  --titlebar-end: #096bb7;
   --ink: #1d1d1f;
   --muted: #6e6e73;
   --line: rgba(60, 60, 67, 0.14);
@@ -4255,6 +4258,9 @@ body.resizing-panels * {
   --accent-hover: #0e704b;
   --accent-soft: rgba(22, 132, 91, 0.11);
   --accent-border: rgba(22, 132, 91, 0.3);
+  --titlebar-start: #061b1b;
+  --titlebar-mid: #082c2a;
+  --titlebar-end: #08705d;
 }
 
 :root[data-accent='orange'] {
@@ -4262,6 +4268,9 @@ body.resizing-panels * {
   --accent-hover: #a94700;
   --accent-soft: rgba(255, 149, 0, 0.12);
   --accent-border: rgba(196, 85, 0, 0.3);
+  --titlebar-start: #21130a;
+  --titlebar-mid: #4d260c;
+  --titlebar-end: #b84d05;
 }
 
 :root[data-accent='graphite'] {
@@ -4269,6 +4278,9 @@ body.resizing-panels * {
   --accent-hover: #474a4e;
   --accent-soft: rgba(95, 99, 104, 0.12);
   --accent-border: rgba(95, 99, 104, 0.3);
+  --titlebar-start: #151516;
+  --titlebar-mid: #2b2b2e;
+  --titlebar-end: #5b5b61;
 }
 
 :root[data-theme='dark'] {
@@ -4342,10 +4354,24 @@ textarea,
 [data-theme='dark'] .app-titlebar {
   color: rgba(236, 255, 251, 0.82);
   background:
-    radial-gradient(circle at 18% -260%, rgba(75, 194, 188, 0.28), transparent 44%),
-    radial-gradient(circle at 88% 190%, rgba(35, 155, 117, 0.22), transparent 42%),
-    linear-gradient(108deg, #061b1b 0%, #082c2a 42%, #07534a 72%, #08705d 100%);
-  border-bottom: 1px solid rgba(3, 44, 40, 0.72);
+    radial-gradient(
+      circle at 18% -260%,
+      color-mix(in srgb, var(--titlebar-end) 34%, transparent),
+      transparent 44%
+    ),
+    radial-gradient(
+      circle at 88% 190%,
+      color-mix(in srgb, var(--accent) 28%, transparent),
+      transparent 42%
+    ),
+    linear-gradient(
+      108deg,
+      var(--titlebar-start) 0%,
+      var(--titlebar-mid) 45%,
+      color-mix(in srgb, var(--titlebar-mid) 42%, var(--titlebar-end)) 72%,
+      var(--titlebar-end) 100%
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--titlebar-start) 78%, black);
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.065),
     inset 0 -1px rgba(0, 19, 18, 0.3);
