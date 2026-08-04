@@ -128,7 +128,7 @@ const messages = {
   },
   en: {
     appName: 'Tier Note',
-    appTagline: 'Knowledge · Agent · Private',
+    appTagline: 'Knowledge · AI · Private',
     home: 'Home',
     aiChat: 'AI Chat',
     myPlan: 'My Plan',
