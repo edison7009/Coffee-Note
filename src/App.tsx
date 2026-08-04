@@ -2322,7 +2322,7 @@ function HomeView({
       <section className="hero">
         <div className="hero-kicker">
           <Layers3 size={15} />
-          Welcome
+          WELCOME
         </div>
         <h1>{t(greetingKey)}</h1>
       </section>
