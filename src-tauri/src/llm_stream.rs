@@ -83,6 +83,18 @@ pub enum ContentBlock {
     },
 }
 
+/// Token usage reported by the upstream provider for one model request.
+/// Cache fields are normalized across OpenAI-compatible and Anthropic APIs.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmUsage {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub total_tokens: u64,
+    pub cache_hit_tokens: u64,
+    pub cache_miss_tokens: u64,
+}
+
 /// Events emitted during streaming.
 #[derive(Debug, Clone)]
 pub enum LlmEvent {
@@ -92,6 +104,7 @@ pub enum LlmEvent {
     ToolCallStart { id: String, name: String },
     ToolCallDelta { id: String, args_chunk: String },
     ToolCallEnd { id: String },
+    Usage(LlmUsage),
     Done { stop_reason: String },
     Error(String),
 }
@@ -221,6 +234,7 @@ impl LlmClient {
             "model": self.config.model,
             "messages": msgs,
             "stream": true,
+            "stream_options": { "include_usage": true },
         });
         if !tools_json.is_empty() {
             body["tools"] = json!(tools_json);
@@ -253,6 +267,9 @@ impl LlmClient {
             // index -> (id, name, args)
             let mut tool_acc: std::collections::HashMap<i64, (String, String, String)> =
                 std::collections::HashMap::new();
+            let mut pending_stop_reason = "stop".to_string();
+            let mut done_sent = false;
+            let mut stream_failed = false;
             let mut events: std::collections::VecDeque<Result<Event, reqwest_eventsource::Error>> =
                 pending.into_iter().map(Ok).collect();
 
@@ -269,6 +286,7 @@ impl LlmClient {
                                     SSE_CHUNK_TIMEOUT.as_secs()
                                 )))
                                 .await;
+                            stream_failed = true;
                             break;
                         }
                     }
@@ -277,16 +295,26 @@ impl LlmClient {
                 match event {
                     Ok(Event::Message(msg)) => {
                         if msg.data == "[DONE]" {
+                            for (_, (id, _, _)) in tool_acc.drain() {
+                                let _ = tx.send(LlmEvent::ToolCallEnd { id }).await;
+                            }
                             let _ = tx
                                 .send(LlmEvent::Done {
-                                    stop_reason: "stop".into(),
+                                    stop_reason: pending_stop_reason.clone(),
                                 })
                                 .await;
+                            done_sent = true;
                             break;
                         }
                         let Ok(chunk) = serde_json::from_str::<Value>(&msg.data) else {
                             continue;
                         };
+
+                        // Usage commonly arrives in its own final chunk with an empty
+                        // `choices` array, so parse it before looking for a delta.
+                        if let Some(usage) = chunk.get("usage").and_then(openai_usage) {
+                            let _ = tx.send(LlmEvent::Usage(usage)).await;
+                        }
 
                         let delta = match chunk.pointer("/choices/0/delta") {
                             Some(d) => d,
@@ -295,12 +323,7 @@ impl LlmClient {
                                     .pointer("/choices/0/finish_reason")
                                     .and_then(Value::as_str)
                                 {
-                                    let _ = tx
-                                        .send(LlmEvent::Done {
-                                            stop_reason: reason.into(),
-                                        })
-                                        .await;
-                                    break;
+                                    pending_stop_reason = reason.to_string();
                                 }
                                 continue;
                             }
@@ -332,12 +355,7 @@ impl LlmClient {
                             for (_, (id, _, _)) in tool_acc.drain() {
                                 let _ = tx.send(LlmEvent::ToolCallEnd { id }).await;
                             }
-                            let _ = tx
-                                .send(LlmEvent::Done {
-                                    stop_reason: reason.into(),
-                                })
-                                .await;
-                            break;
+                            pending_stop_reason = reason.to_string();
                         }
                     }
                     Ok(Event::Open) => {}
@@ -353,9 +371,22 @@ impl LlmClient {
                             other => format!("Stream error: {other}"),
                         };
                         let _ = tx.send(LlmEvent::Error(msg)).await;
+                        stream_failed = true;
                         break;
                     }
                 }
+            }
+            // A few compatible gateways close the SSE stream without a literal
+            // `[DONE]`. Still finish cleanly after consuming their final usage.
+            if !done_sent && !stream_failed {
+                for (_, (id, _, _)) in tool_acc.drain() {
+                    let _ = tx.send(LlmEvent::ToolCallEnd { id }).await;
+                }
+                let _ = tx
+                    .send(LlmEvent::Done {
+                        stop_reason: pending_stop_reason,
+                    })
+                    .await;
             }
         });
 
@@ -422,6 +453,8 @@ impl LlmClient {
         tokio::spawn(async move {
             let mut current_tool_id = String::new();
             let mut done_sent = false;
+            let mut usage = LlmUsage::default();
+            let mut usage_sent = false;
             let mut events: std::collections::VecDeque<Result<Event, reqwest_eventsource::Error>> =
                 pending.into_iter().map(Ok).collect();
 
@@ -449,6 +482,11 @@ impl LlmClient {
                             continue;
                         };
                         match msg.event.as_str() {
+                            "message_start" => {
+                                if let Some(value) = data.pointer("/message/usage") {
+                                    merge_anthropic_usage(&mut usage, value);
+                                }
+                            }
                             "content_block_start" => {
                                 if let Some(block) = data.get("content_block") {
                                     if block.get("type").and_then(Value::as_str) == Some("tool_use")
@@ -531,9 +569,16 @@ impl LlmClient {
                                 }
                             }
                             "message_delta" => {
+                                if let Some(value) = data.get("usage") {
+                                    merge_anthropic_usage(&mut usage, value);
+                                }
                                 if let Some(reason) =
                                     data.pointer("/delta/stop_reason").and_then(Value::as_str)
                                 {
+                                    if !usage_sent && usage.total_tokens > 0 {
+                                        let _ = tx.send(LlmEvent::Usage(usage.clone())).await;
+                                        usage_sent = true;
+                                    }
                                     let _ = tx
                                         .send(LlmEvent::Done {
                                             stop_reason: reason.to_string(),
@@ -543,6 +588,9 @@ impl LlmClient {
                                 }
                             }
                             "message_stop" => {
+                                if !usage_sent && usage.total_tokens > 0 {
+                                    let _ = tx.send(LlmEvent::Usage(usage.clone())).await;
+                                }
                                 if !done_sent {
                                     let _ = tx
                                         .send(LlmEvent::Done {
@@ -606,6 +654,60 @@ fn anthropic_endpoint(base_url: &str) -> String {
     } else {
         format!("{trimmed}/v1/messages")
     }
+}
+
+fn token_value(value: &Value, key: &str) -> u64 {
+    value.get(key).and_then(Value::as_u64).unwrap_or(0)
+}
+
+/// Normalize usage from DeepSeek, OpenAI and OpenAI-compatible gateways.
+fn openai_usage(value: &Value) -> Option<LlmUsage> {
+    let prompt_tokens = token_value(value, "prompt_tokens").max(token_value(value, "input_tokens"));
+    let completion_tokens =
+        token_value(value, "completion_tokens").max(token_value(value, "output_tokens"));
+    let cache_hit_tokens = token_value(value, "prompt_cache_hit_tokens")
+        .max(token_value(value, "cache_read_input_tokens"))
+        .max(
+            value
+                .pointer("/prompt_tokens_details/cached_tokens")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
+        );
+    let explicit_miss = token_value(value, "prompt_cache_miss_tokens")
+        .max(token_value(value, "cache_creation_input_tokens"));
+    let cache_miss_tokens = if explicit_miss > 0 {
+        explicit_miss
+    } else {
+        prompt_tokens.saturating_sub(cache_hit_tokens)
+    };
+    let total_tokens =
+        token_value(value, "total_tokens").max(prompt_tokens.saturating_add(completion_tokens));
+
+    (total_tokens > 0).then_some(LlmUsage {
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        cache_hit_tokens,
+        cache_miss_tokens,
+    })
+}
+
+fn merge_anthropic_usage(usage: &mut LlmUsage, value: &Value) {
+    let uncached = token_value(value, "input_tokens");
+    let cache_read = token_value(value, "cache_read_input_tokens");
+    let cache_creation = token_value(value, "cache_creation_input_tokens");
+    if uncached > 0 || cache_read > 0 || cache_creation > 0 {
+        usage.prompt_tokens = uncached
+            .saturating_add(cache_read)
+            .saturating_add(cache_creation);
+        usage.cache_hit_tokens = cache_read;
+        usage.cache_miss_tokens = uncached.saturating_add(cache_creation);
+    }
+    let output = token_value(value, "output_tokens");
+    if output > 0 {
+        usage.completion_tokens = output;
+    }
+    usage.total_tokens = usage.prompt_tokens.saturating_add(usage.completion_tokens);
 }
 
 fn message_to_openai_json(m: &Message) -> Value {
@@ -944,6 +1046,52 @@ mod tests {
             anthropic_endpoint("https://api.anthropic.com/v1/messages"),
             "https://api.anthropic.com/v1/messages"
         );
+    }
+
+    #[test]
+    fn parses_deepseek_cache_usage() {
+        let usage = openai_usage(&json!({
+            "prompt_tokens": 1200,
+            "completion_tokens": 80,
+            "total_tokens": 1280,
+            "prompt_cache_hit_tokens": 960,
+            "prompt_cache_miss_tokens": 240
+        }))
+        .expect("usage");
+        assert_eq!(usage.cache_hit_tokens, 960);
+        assert_eq!(usage.cache_miss_tokens, 240);
+        assert_eq!(usage.total_tokens, 1280);
+    }
+
+    #[test]
+    fn parses_openai_nested_cached_tokens() {
+        let usage = openai_usage(&json!({
+            "prompt_tokens": 1000,
+            "completion_tokens": 100,
+            "prompt_tokens_details": { "cached_tokens": 750 }
+        }))
+        .expect("usage");
+        assert_eq!(usage.cache_hit_tokens, 750);
+        assert_eq!(usage.cache_miss_tokens, 250);
+        assert_eq!(usage.total_tokens, 1100);
+    }
+
+    #[test]
+    fn merges_anthropic_cache_usage() {
+        let mut usage = LlmUsage::default();
+        merge_anthropic_usage(
+            &mut usage,
+            &json!({
+                "input_tokens": 200,
+                "cache_read_input_tokens": 700,
+                "cache_creation_input_tokens": 100
+            }),
+        );
+        merge_anthropic_usage(&mut usage, &json!({ "output_tokens": 50 }));
+        assert_eq!(usage.prompt_tokens, 1000);
+        assert_eq!(usage.cache_hit_tokens, 700);
+        assert_eq!(usage.cache_miss_tokens, 300);
+        assert_eq!(usage.total_tokens, 1050);
     }
 
     #[test]

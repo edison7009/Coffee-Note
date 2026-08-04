@@ -142,6 +142,14 @@ export interface CaptureDraft {
   sourceUrl?: string;
 }
 
+export interface LlmUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+}
+
 // ── Agent events (from Rust backend via Tauri) ──
 
 export type AgentEvent =
@@ -150,6 +158,7 @@ export type AgentEvent =
   | { type: 'tool_call_args'; conversationId?: string; id: string; args: string }
   | { type: 'tool_result'; conversationId?: string; id: string; output: string; success: boolean }
   | { type: 'memory_suggestion'; conversationId?: string; suggestion: MemorySuggestion }
+  | { type: 'usage'; conversationId?: string; usage: LlmUsage }
   | { type: 'done'; conversationId?: string }
   | { type: 'error'; conversationId?: string; message: string }
   | { type: 'state'; conversationId?: string; state: string };

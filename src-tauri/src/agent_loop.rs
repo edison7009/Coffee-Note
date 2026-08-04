@@ -16,7 +16,8 @@ use crate::agent_tools;
 use crate::conversations;
 use crate::json_repair;
 use crate::llm_stream::{
-    self, ContentBlock, LlmClient, LlmConfig, LlmEvent, LlmProvider, Message, MessageContent,
+    self, ContentBlock, LlmClient, LlmConfig, LlmEvent, LlmProvider, LlmUsage, Message,
+    MessageContent,
 };
 use crate::memory;
 
@@ -24,9 +25,15 @@ use crate::memory;
 
 const MAX_TOOL_LOOPS: usize = 150;
 const MAX_CONTEXT_BYTES: usize = 1_000_000;
-const RECENT_CONTEXT_BYTES: usize = 800_000;
+const SNIP_CONTEXT_BYTES: usize = 600_000;
+const PRUNE_CONTEXT_BYTES: usize = 800_000;
+const RECENT_CONTEXT_BYTES: usize = 500_000;
 const COMPACTED_HISTORY_MAX_BYTES: usize = 150_000;
 const COMPACTED_LINE_MAX_CHARS: usize = 720;
+const TOOL_RESULT_MIN_BYTES: usize = 1_024;
+const PROTECTED_RECENT_MESSAGES: usize = 8;
+const SNIPPED_TOOL_HEAD_CHARS: usize = 6_000;
+const SNIPPED_TOOL_TAIL_CHARS: usize = 1_200;
 const MAX_SSE_RETRIES: u32 = 3;
 const FIRST_TOKEN_TIMEOUT_SECS: u64 = 60;
 const INTER_TOKEN_TIMEOUT_SECS: u64 = 120;
@@ -73,6 +80,12 @@ pub enum AgentEvent {
         #[serde(rename = "conversationId")]
         conversation_id: String,
         suggestion: memory::MemorySuggestion,
+    },
+    #[serde(rename = "usage")]
+    Usage {
+        #[serde(rename = "conversationId")]
+        conversation_id: String,
+        usage: LlmUsage,
     },
     #[serde(rename = "done")]
     Done {
@@ -445,6 +458,59 @@ fn serialized_message_size(message: &Message) -> usize {
         .unwrap_or(256)
 }
 
+fn total_message_size(messages: &[Message]) -> usize {
+    messages.iter().map(serialized_message_size).sum()
+}
+
+fn snip_tool_result(content: &str) -> String {
+    let count = content.chars().count();
+    if count <= SNIPPED_TOOL_HEAD_CHARS + SNIPPED_TOOL_TAIL_CHARS {
+        return content.to_string();
+    }
+    let head = content
+        .chars()
+        .take(SNIPPED_TOOL_HEAD_CHARS)
+        .collect::<String>();
+    let tail = content
+        .chars()
+        .skip(count - SNIPPED_TOOL_TAIL_CHARS)
+        .collect::<String>();
+    format!(
+        "{head}\n\n[… Tier Note locally snipped {} characters from this stale tool result …]\n\n{tail}",
+        count - SNIPPED_TOOL_HEAD_CHARS - SNIPPED_TOOL_TAIL_CHARS
+    )
+}
+
+/// Apply staged maintenance to the request copy only. The complete session
+/// remains persisted locally while stale tool output consumes fewer tokens.
+fn maintain_stale_tool_results(messages: &mut [Message], prune: bool) {
+    let protected_from = messages.len().saturating_sub(PROTECTED_RECENT_MESSAGES);
+    for message in &mut messages[..protected_from] {
+        let MessageContent::Blocks(blocks) = &mut message.content else {
+            continue;
+        };
+        for block in blocks {
+            let ContentBlock::ToolResult { content, .. } = block else {
+                continue;
+            };
+            if content.len() < TOOL_RESULT_MIN_BYTES
+                || content.contains("[tool error]")
+                || content.contains("\"success\":false")
+            {
+                continue;
+            }
+            *content = if prune {
+                format!(
+                    "[Tier Note pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
+                    content.len()
+                )
+            } else {
+                snip_tool_result(content)
+            };
+        }
+    }
+}
+
 fn compactable_message_text(message: &Message) -> Option<String> {
     let text = match &message.content {
         MessageContent::Text(text) => text.clone(),
@@ -505,19 +571,27 @@ fn compact_history(messages: &[Message]) -> Option<String> {
 }
 
 fn context_window(messages: &[Message]) -> (Vec<Message>, Option<String>) {
-    let total = messages.iter().map(serialized_message_size).sum::<usize>();
-    if total <= MAX_CONTEXT_BYTES {
-        let mut owned = messages.to_vec();
-        ensure_tool_results_paired(&mut owned);
-        return (owned, None);
+    let mut maintained = messages.to_vec();
+    let mut total = total_message_size(&maintained);
+    if total >= SNIP_CONTEXT_BYTES {
+        maintain_stale_tool_results(&mut maintained, false);
+        total = total_message_size(&maintained);
+    }
+    if total >= PRUNE_CONTEXT_BYTES {
+        maintain_stale_tool_results(&mut maintained, true);
+        total = total_message_size(&maintained);
+    }
+    if total <= PRUNE_CONTEXT_BYTES {
+        ensure_tool_results_paired(&mut maintained);
+        return (maintained, None);
     }
 
-    let mut start = messages.len();
+    let mut start = maintained.len();
     let mut remaining = RECENT_CONTEXT_BYTES;
-    for (index, message) in messages.iter().enumerate().rev() {
+    for (index, message) in maintained.iter().enumerate().rev() {
         let size = serialized_message_size(message);
         if size > remaining {
-            if start == messages.len() && size <= MAX_CONTEXT_BYTES {
+            if start == maintained.len() && size <= MAX_CONTEXT_BYTES {
                 start = index;
             }
             break;
@@ -526,9 +600,20 @@ fn context_window(messages: &[Message]) -> (Vec<Message>, Option<String>) {
         start = index;
     }
 
-    let compacted = compact_history(&messages[..start]);
-    let mut recent = messages[start..].to_vec();
+    let compacted = compact_history(&maintained[..start]);
+    let mut recent = maintained[start..].to_vec();
     ensure_tool_results_paired(&mut recent);
+    if let Some(ref digest) = compacted {
+        // Keep the system prompt and tool schemas byte-stable for provider
+        // prefix caching. Compaction is a rare conversational cache reset.
+        recent.insert(
+            0,
+            Message {
+                role: "user".into(),
+                content: MessageContent::Text(format!("[local conversation digest]\n{digest}")),
+            },
+        );
+    }
     (recent, compacted)
 }
 
@@ -600,6 +685,16 @@ fn emit_memory_suggestion(
         AgentEvent::MemorySuggestion {
             conversation_id: conversation_id.to_string(),
             suggestion,
+        },
+    );
+}
+
+fn emit_usage(app: &AppHandle, conversation_id: &str, usage: LlmUsage) {
+    emit_event(
+        app,
+        AgentEvent::Usage {
+            conversation_id: conversation_id.to_string(),
+            usage,
         },
     );
 }
@@ -762,22 +857,16 @@ pub async fn run_agent(
         }
 
         // Keep recent messages verbatim and locally compact older conversation.
-        let (messages, compacted_history) = {
+        let messages = {
             let map = session_map.lock().await;
             let all: Vec<Message> = map
                 .get(&conversation_id)
                 .map(|s| s.messages.clone())
                 .unwrap_or_default();
-            context_window(&all)
+            context_window(&all).0
         };
-        let request_system_prompt = compacted_history
-            .map(|history| format!("{system_prompt}\n\n{history}"))
-            .unwrap_or_else(|| system_prompt.clone());
 
-        let mut rx = match client
-            .chat_stream(&messages, &tools, &request_system_prompt)
-            .await
-        {
+        let mut rx = match client.chat_stream(&messages, &tools, &system_prompt).await {
             Ok(rx) => rx,
             Err(ref e) if is_llm_server_down(e) => {
                 emit_error(&app, &conversation_id, format_server_down_error(e));
@@ -899,6 +988,9 @@ pub async fn run_agent(
                             // Repair common LLM JSON malformations before execution.
                             tc.arguments = json_repair::repair_tool_args(&tc.name, &final_args);
                         }
+                    }
+                    LlmEvent::Usage(usage) => {
+                        emit_usage(&app, &conversation_id, usage);
                     }
                     LlmEvent::Done {
                         stop_reason: reason,
@@ -1183,7 +1275,55 @@ mod tests {
                 MessageContent::Text(text) if text.contains("latest-message-must-remain")
             )
         }));
-        assert!(window.iter().map(serialized_message_size).sum::<usize>() <= RECENT_CONTEXT_BYTES);
+        assert!(
+            window.iter().map(serialized_message_size).sum::<usize>()
+                <= RECENT_CONTEXT_BYTES + COMPACTED_HISTORY_MAX_BYTES + 1_024
+        );
+        assert!(matches!(
+            window.first().map(|message| &message.content),
+            Some(MessageContent::Text(text)) if text.starts_with("[local conversation digest]")
+        ));
+    }
+
+    #[test]
+    fn stale_tool_results_are_snipped_but_recent_tail_is_preserved() {
+        let mut messages = vec![
+            Message {
+                role: "assistant".into(),
+                content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
+                    id: "old-call".into(),
+                    name: "search_library".into(),
+                    input: json!({}),
+                }]),
+            },
+            Message {
+                role: "tool".into(),
+                content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                    tool_use_id: "old-call".into(),
+                    content: "x".repeat(700_000),
+                }]),
+            },
+        ];
+        for index in 0..PROTECTED_RECENT_MESSAGES {
+            messages.push(text_message("user", format!("recent-{index}")));
+        }
+
+        let (window, _) = context_window(&messages);
+        let old_tool_text = window
+            .iter()
+            .find_map(|message| match &message.content {
+                MessageContent::Blocks(blocks) => blocks.iter().find_map(|block| match block {
+                    ContentBlock::ToolResult { content, .. } => Some(content),
+                    _ => None,
+                }),
+                _ => None,
+            })
+            .expect("paired old tool result remains");
+        assert!(old_tool_text.contains("locally snipped"));
+        assert!(window.iter().any(|message| matches!(
+            &message.content,
+            MessageContent::Text(text) if text == "recent-7"
+        )));
     }
 
     #[test]

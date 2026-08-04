@@ -76,11 +76,9 @@ import {
   deleteConversation,
   confirmMemorySuggestion,
 } from './api';
-import { ContextRing } from './chat/ContextRing';
 import {
   AGENT_CONTEXT_MAX_BYTES,
   estimateContextBytes,
-  formatContextUsage,
 } from './chat/contextUsage';
 import { fallbackLibrary, fallbackMarkdown } from './data';
 import { translate, type TranslationKey } from './i18n';
@@ -91,6 +89,7 @@ import type {
   ConversationSummary,
   LibrarySnapshot,
   Locale,
+  LlmUsage,
   MemorySuggestion,
   ModelConfig,
   ModelProvider,
@@ -112,6 +111,31 @@ const PRODUCT_WEBSITE = 'https://tiernote.life/';
 const FEEDBACK_URL = 'https://github.com/edison7009/TierNote/issues';
 const DISCLAIMER_PROGRESS_KEY = 'tiernote:disclaimer-progress:v2';
 const DISCLAIMER_REQUIRED_DAYS = 7;
+
+const EMPTY_USAGE: LlmUsage = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  cacheHitTokens: 0,
+  cacheMissTokens: 0,
+};
+
+function estimateDeepSeekCost(usage: LlmUsage, config: ModelConfig): number | null {
+  const identity = `${config.baseUrl} ${config.model}`.toLowerCase();
+  if (!identity.includes('deepseek')) return null;
+
+  // USD per million tokens (DeepSeek pricing snapshot: 2026-08-05).
+  // Unknown providers deliberately show no estimate.
+  const pro = /v4[-_. ]?pro/.test(identity);
+  const prices = pro
+    ? { cacheHit: 0.003625, cacheMiss: 0.435, output: 0.87 }
+    : { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 };
+  return (
+    usage.cacheHitTokens * prices.cacheHit
+    + usage.cacheMissTokens * prices.cacheMiss
+    + usage.completionTokens * prices.output
+  ) / 1_000_000;
+}
 
 function createAmbientAssignments(count: number) {
   const assignments: Array<{
@@ -722,6 +746,7 @@ function App() {
   const [activeConversationId, setActiveConversationId] = useState('');
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [contextBytes, setContextBytes] = useState(0);
+  const [usageByConversation, setUsageByConversation] = useState<Record<string, LlmUsage>>({});
   const [chatBusy, setChatBusy] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [resizingPane, setResizingPane] = useState<ResizeSide | null>(null);
@@ -1347,6 +1372,24 @@ function App() {
             },
           ]);
           break;
+        case 'usage': {
+          const conversationId = event.conversationId || activeConversationId;
+          if (!conversationId) break;
+          setUsageByConversation((current) => {
+            const previous = current[conversationId] || EMPTY_USAGE;
+            return {
+              ...current,
+              [conversationId]: {
+                promptTokens: previous.promptTokens + event.usage.promptTokens,
+                completionTokens: previous.completionTokens + event.usage.completionTokens,
+                totalTokens: previous.totalTokens + event.usage.totalTokens,
+                cacheHitTokens: previous.cacheHitTokens + event.usage.cacheHitTokens,
+                cacheMissTokens: previous.cacheMissTokens + event.usage.cacheMissTokens,
+              },
+            };
+          });
+          break;
+        }
         case 'done':
           setChatBusy(false);
           void refreshLibraryAfterAgent();
@@ -1687,13 +1730,9 @@ function App() {
           currentPage={currentPageTitle}
           contextBytes={contextBytes}
           contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
-          contextLabel={`${t('contextUsage')} ${formatContextUsage(
-            contextBytes,
-            AGENT_CONTEXT_MAX_BYTES,
-          )}`}
-          contextDescription={t('contextUsageDescription')}
-          contextCompactedLabel={t('contextCompacted')}
-          disclosure={t('disclosure')}
+          usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
+          modelConfig={modelConfig}
+          locale={locale}
         />
       </main>
 
@@ -3025,10 +3064,9 @@ function ChatComposer({
   currentPage,
   contextBytes,
   contextMaxBytes,
-  contextLabel,
-  contextDescription,
-  contextCompactedLabel,
-  disclosure,
+  usage,
+  modelConfig,
+  locale,
 }: {
   busy: boolean;
   onSend: (message: string) => void;
@@ -3040,12 +3078,21 @@ function ChatComposer({
   currentPage?: string;
   contextBytes: number;
   contextMaxBytes: number;
-  contextLabel: string;
-  contextDescription: string;
-  contextCompactedLabel: string;
-  disclosure: string;
+  usage: LlmUsage;
+  modelConfig: ModelConfig;
+  locale: Locale;
 }) {
   const [value, setValue] = useState('');
+  const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
+  const cacheHitRate = cacheTokens > 0
+    ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`
+    : '—';
+  const contextPercent = `${Math.min(100, Math.round((contextBytes / contextMaxBytes) * 100))}%`;
+  const cost = estimateDeepSeekCost(usage, modelConfig);
+  const costLabel = cost == null
+    ? '—'
+    : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
+  const numberFormat = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
 
   // Must match the `.composer textarea` CSS max-height (6 lines at 1.45).
   const autosize = useCallback(() => {
@@ -3102,13 +3149,6 @@ function ChatComposer({
         />
         <div className="composer-tools">
           {currentPage && <span className="composer-page-chip">{currentPage}</span>}
-          <ContextRing
-            bytes={contextBytes}
-            maxBytes={contextMaxBytes}
-            label={contextLabel}
-            description={contextDescription}
-            compactedLabel={contextCompactedLabel}
-          />
           <button
             type={busy ? 'button' : 'submit'}
             onClick={busy ? onAbort : undefined}
@@ -3119,7 +3159,20 @@ function ChatComposer({
           </button>
         </div>
       </form>
-      <p className="composer-disclosure">{disclosure}</p>
+      <div className="composer-metrics" aria-label={locale === 'zh' ? 'AI 用量统计' : 'AI usage'}>
+        <span>
+          <b>{locale === 'zh' ? '命中率' : 'Cache hit'}</b>{cacheHitRate}
+        </span>
+        <span>
+          <b>{locale === 'zh' ? '消耗 Tokens' : 'Tokens'}</b>{numberFormat.format(usage.totalTokens)}
+        </span>
+        <span>
+          <b>{locale === 'zh' ? '上下文' : 'Context'}</b>{contextPercent}
+        </span>
+        <span>
+          <b>{locale === 'zh' ? '费用' : 'Cost'}</b>{costLabel}
+        </span>
+      </div>
     </div>
   );
 }

@@ -2270,17 +2270,36 @@ body.resizing-panels * {
   white-space: nowrap;
 }
 
-.composer-disclosure {
-  margin: 0;
+.composer-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 17px;
   padding: 0 10px;
-  overflow: hidden;
-  color: #83938f;
+  overflow-x: auto;
+  color: #71847f;
   font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
   line-height: 1.4;
   pointer-events: none;
-  text-align: center;
-  text-overflow: ellipsis;
+  scrollbar-width: none;
   white-space: nowrap;
+}
+
+.composer-metrics::-webkit-scrollbar {
+  display: none;
+}
+
+.composer-metrics span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.composer-metrics b {
+  color: #9aa8a4;
+  font-weight: 500;
 }
 
 .disclaimer-backdrop {
@@ -3136,11 +3155,15 @@ body.resizing-panels * {
 [data-theme='dark'] .favorite-list small,
 [data-theme='dark'] .plan-shortcut-list small,
 [data-theme='dark'] .related-list small,
-[data-theme='dark'] .composer-disclosure,
+[data-theme='dark'] .composer-metrics,
 [data-theme='dark'] .dialog-titlebar-copy p,
 [data-theme='dark'] .dialog-meta > span,
 [data-theme='dark'] .capture-guide-note {
   color: #929794;
+}
+
+[data-theme='dark'] .composer-metrics b {
+  color: #747d79;
 }
 
 [data-theme='dark'] .disclaimer-dialog {

@@ -104,8 +104,6 @@ const messages = {
     planTitle: '我的资料',
     planSub: '把只属于你的背景、目标、偏好和记录放在一起。',
     comingSoon: '这里会逐步沉淀你的长期个人信息。',
-    disclosure:
-      '内容来自公开资料、本地知识与所选 AI 模型，请在使用前自行核验。',
     disclaimerTitle: '开源软件说明与使用边界',
     disclaimerIntro:
       'Tier Note 是依据 MIT 许可证提供的全球开源软件，用于整理公开资料、本地知识与 AI 生成内容。',
@@ -229,8 +227,6 @@ const messages = {
     planTitle: 'My information',
     planSub: 'Keep your background, goals, preferences, and records together.',
     comingSoon: 'This space will gradually become your long-term personal context.',
-    disclosure:
-      'Content comes from public sources, local knowledge, and your selected AI model. Verify it before use.',
     disclaimerTitle: 'Open-source software notice and use boundaries',
     disclaimerIntro:
       'Tier Note is global open-source software provided under the MIT License for organizing public sources, local knowledge, and AI-generated content.',

@@ -110,9 +110,9 @@ to the product template.
 - Keep the chat composer in a persistent bottom layout row. The content above
   it scrolls independently so the final message is never covered and the
   composer never disappears while scrolling.
-- Keep the composer compact. Below it, show only a single-line reminder that
-  public, local, and AI-generated content must be independently verified; do
-  not place consent controls there or in the right rail.
+- Keep the composer compact. Below it, show one restrained metrics line with
+  provider-reported cache hit rate and token usage, local context percentage,
+  and a cost estimate when current model pricing is known.
 - On startup, show a non-dismissible global open-source software use-boundary
   dialog until the user accepts it on seven consecutive distinct local calendar
   days. Same-day relaunches do not advance progress; missing a day or declining
@@ -134,11 +134,15 @@ to the product template.
   emit it into the chat UI or persist it in UI messages; only the final answer
   is user-visible. When loading conversations, remove reasoning-detail markup
   written by versions affected by the v0.0.6 streaming bug.
-- The chat composer shows context usage as a percentage with a themed
-  hover/focus explanation. Near the 1,000,000-byte app context budget, older
-  conversation is compacted locally while about 800 KB of recent messages
-  remains verbatim, up to 150 KB of compacted history is retained, and the
-  complete conversation stays on disk. The actual provider limit may be lower.
+- The chat composer shows context usage as a percentage in its metrics line.
+  Request-only context maintenance follows the staged Reasonix approach: at
+  about 60% of the 1,000,000-byte app budget, stale tool results are snipped;
+  at 80%, they are pruned to placeholders; if the request is still too large,
+  older history is compacted while about 500 KB of recent messages and up to
+  150 KB of deterministic digest remain. The system prompt stays byte-stable
+  between rare compactions to improve provider prefix-cache reuse, and the
+  complete original conversation always stays on disk. The actual provider
+  limit may be lower.
   AI chat exposes New chat actions in three places: the conversation header,
   beside AI chat in the fixed left navigation, and in the fixed right-rail
   header. On non-AI pages, the right-rail action returns to AI chat instead.
