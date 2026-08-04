@@ -1909,11 +1909,7 @@ function AppTitlebar({ locale, onSettings }: { locale: Locale; onSettings: () =>
       className={`app-titlebar ${isMacOSPlatform ? 'platform-macos' : 'platform-custom-controls'}`}
       data-tauri-drag-region
     >
-      <div className="titlebar-drag-area" data-tauri-drag-region>
-        <span className="titlebar-statement" data-tauri-drag-region>
-          {translate(locale, 'titlebarStatement')}
-        </span>
-      </div>
+      <div className="titlebar-drag-area" data-tauri-drag-region />
 
       <div className="window-controls">
         <button

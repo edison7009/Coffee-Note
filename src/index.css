@@ -92,18 +92,6 @@ a:focus-visible {
   overflow: hidden;
 }
 
-.titlebar-statement {
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(236, 255, 251, 0.76);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .window-controls {
   display: flex;
   justify-self: end;
@@ -151,7 +139,7 @@ a:focus-visible {
   position: relative;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(560px, 1fr) var(--right-rail-width);
-  grid-template-rows: 38px minmax(0, 1fr);
+  grid-template-rows: 30px minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
   background: var(--canvas);
@@ -159,7 +147,7 @@ a:focus-visible {
 
 .pane-resizer {
   position: absolute;
-  top: 38px;
+  top: 30px;
   bottom: 0;
   z-index: 12;
   width: 8px;
@@ -4362,12 +4350,6 @@ textarea,
 
 .app-titlebar::after {
   display: none;
-}
-
-.titlebar-statement {
-  color: var(--muted);
-  font-size: 11.5px;
-  letter-spacing: 0;
 }
 
 .window-controls button,
