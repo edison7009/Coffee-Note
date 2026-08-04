@@ -148,16 +148,28 @@ function loadConversationUsage(): Record<string, ConversationUsage> {
   }
 }
 
-function estimateDeepSeekCost(usage: LlmUsage, config: ModelConfig): number | null {
+function resolveCurrency(currencyMode: CurrencyMode, locale: Locale): 'CNY' | 'USD' {
+  return currencyMode === 'auto' ? (locale === 'zh' ? 'CNY' : 'USD') : currencyMode;
+}
+
+function estimateDeepSeekCost(
+  usage: LlmUsage,
+  config: ModelConfig,
+  currency: 'CNY' | 'USD',
+): number | null {
   const identity = `${config.baseUrl} ${config.model}`.toLowerCase();
   if (!identity.includes('deepseek')) return null;
 
-  // USD per million tokens (DeepSeek pricing snapshot: 2026-08-05).
+  // Official regional prices per million tokens (snapshot: 2026-08-05).
   // Unknown providers deliberately show no estimate.
   const pro = /v4[-_. ]?pro/.test(identity);
-  const prices = pro
-    ? { cacheHit: 0.003625, cacheMiss: 0.435, output: 0.87 }
-    : { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 };
+  const prices = currency === 'CNY'
+    ? pro
+      ? { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+      : { cacheHit: 0.02, cacheMiss: 1, output: 2 }
+    : pro
+      ? { cacheHit: 0.003625, cacheMiss: 0.435, output: 0.87 }
+      : { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 };
   return (
     usage.cacheHitTokens * prices.cacheHit
     + usage.cacheMissTokens * prices.cacheMiss
@@ -312,6 +324,8 @@ const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
   sleep: 'plans/daily-routine.md',
 };
 type ThemeMode = 'system' | 'light' | 'dark';
+type CurrencyMode = 'auto' | 'CNY' | 'USD';
+type SettingsSectionId = 'model' | 'knowledge' | 'appearance' | 'usage';
 type ResizeSide = 'left' | 'right';
 
 interface PaneSizes {
@@ -684,6 +698,10 @@ function App() {
   const [themeMode, setThemeMode] = useStoredState<ThemeMode>(
     'tiernote:theme',
     'system',
+  );
+  const [currencyMode, setCurrencyMode] = useStoredState<CurrencyMode>(
+    'tiernote:currency',
+    'auto',
   );
   const [paneSizes, setPaneSizes] = useStoredState<PaneSizes>(
     'tiernote:pane-sizes',
@@ -1789,6 +1807,7 @@ function App() {
           contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
           usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
           modelConfig={modelConfig}
+          currencyMode={currencyMode}
           locale={locale}
         />
       </main>
@@ -1834,6 +1853,8 @@ function App() {
           onLocale={setLocale}
           themeMode={themeMode}
           onThemeMode={setThemeMode}
+          currencyMode={currencyMode}
+          onCurrencyMode={setCurrencyMode}
           onChooseFolder={changeKnowledgeRoot}
           onClose={() => setSettingsOpen(false)}
           t={t}
@@ -3123,6 +3144,7 @@ function ChatComposer({
   contextMaxBytes,
   usage,
   modelConfig,
+  currencyMode,
   locale,
 }: {
   busy: boolean;
@@ -3137,6 +3159,7 @@ function ChatComposer({
   contextMaxBytes: number;
   usage: ConversationUsage;
   modelConfig: ModelConfig;
+  currencyMode: CurrencyMode;
   locale: Locale;
 }) {
   const [value, setValue] = useState('');
@@ -3145,12 +3168,14 @@ function ChatComposer({
     ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`
     : usage.requestCount === 0 ? '0%' : '—';
   const contextPercent = `${Math.min(100, Math.round((contextBytes / contextMaxBytes) * 100))}%`;
-  const cost = estimateDeepSeekCost(usage, modelConfig);
+  const currency = resolveCurrency(currencyMode, locale);
+  const currencySymbol = currency === 'CNY' ? '¥' : '$';
+  const cost = estimateDeepSeekCost(usage, modelConfig, currency);
   const costLabel = usage.requestCount === 0
-    ? '$0.00'
+    ? `${currencySymbol}0.00`
     : cost == null
       ? '—'
-    : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
+    : `${currencySymbol}${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
   const numberFormat = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
 
   // Must match the `.composer textarea` CSS max-height (6 lines at 1.45).
@@ -3634,9 +3659,11 @@ function SettingsDialog({
   config,
   knowledgeRoot,
   themeMode,
+  currencyMode,
   onChange,
   onLocale,
   onThemeMode,
+  onCurrencyMode,
   onChooseFolder,
   onClose,
   t,
@@ -3645,14 +3672,17 @@ function SettingsDialog({
   config: ModelSettings;
   knowledgeRoot: string;
   themeMode: ThemeMode;
+  currencyMode: CurrencyMode;
   onChange: (config: ModelSettings) => void;
   onLocale: (locale: Locale) => void;
   onThemeMode: (themeMode: ThemeMode) => void;
+  onCurrencyMode: (currencyMode: CurrencyMode) => void;
   onChooseFolder: () => void;
   onClose: () => void;
   t: (key: TranslationKey) => string;
 }) {
   const [draft, setDraft] = useState(config);
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>('model');
 
   const updateProvider = (provider: ModelProvider) => {
     const next = {
@@ -3678,6 +3708,19 @@ function SettingsDialog({
 
   const activeConfig = draft.providers[draft.activeProvider];
   const activeOption = providerOptions[draft.activeProvider];
+  const settingsSections: Array<{
+    id: SettingsSectionId;
+    label: string;
+    description: string;
+    icon: ReactNode;
+  }> = [
+    { id: 'model', label: t('settingsModel'), description: t('settingsModelDesc'), icon: <Bot size={16} /> },
+    { id: 'knowledge', label: t('settingsKnowledge'), description: t('settingsKnowledgeDesc'), icon: <FolderOpen size={16} /> },
+    { id: 'appearance', label: t('settingsAppearance'), description: t('settingsAppearanceDesc'), icon: <Monitor size={16} /> },
+    { id: 'usage', label: t('settingsUsage'), description: t('settingsUsageDesc'), icon: <Activity size={16} /> },
+  ];
+  const currentSection = settingsSections.find((section) => section.id === activeSection)!;
+  const resolvedCurrency = resolveCurrency(currencyMode, locale);
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -3690,105 +3733,138 @@ function SettingsDialog({
       >
         <DialogHeader
           icon={<Settings size={21} />}
-          title={t('modelSettings')}
+          title={t('settings')}
           titleId="settings-title"
           onClose={onClose}
           closeLabel={locale === 'zh' ? '关闭' : 'Close'}
         />
 
         <div className="settings-content">
-          <div className="settings-section">
-            <label>{t('provider')}</label>
-            <div className="provider-grid">
-              {(Object.keys(providerOptions) as ModelProvider[]).map((provider) => (
-                <button
-                  className={draft.activeProvider === provider ? 'active' : ''}
-                  onClick={() => updateProvider(provider)}
-                  key={provider}
-                >
-                  {providerOptions[provider].label[locale]}
-                  {draft.activeProvider === provider && <Check size={14} />}
+          <nav className="settings-nav" aria-label={locale === 'zh' ? '设置分类' : 'Settings sections'}>
+            {settingsSections.map((section) => (
+              <button
+                className={activeSection === section.id ? 'active' : ''}
+                onClick={() => setActiveSection(section.id)}
+                key={section.id}
+              >
+                {section.icon}
+                <span>{section.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="settings-panel">
+            <header className="settings-panel-heading">
+              <h3>{currentSection.label}</h3>
+              <p>{currentSection.description}</p>
+            </header>
+
+            {activeSection === 'model' && (
+              <div className="settings-section">
+                <label>{t('provider')}</label>
+                <div className="provider-grid">
+                  {(Object.keys(providerOptions) as ModelProvider[]).map((provider) => (
+                    <button
+                      className={draft.activeProvider === provider ? 'active' : ''}
+                      onClick={() => updateProvider(provider)}
+                      key={provider}
+                    >
+                      {providerOptions[provider].label[locale]}
+                      {draft.activeProvider === provider && <Check size={14} />}
+                    </button>
+                  ))}
+                </div>
+                <div className="field-row">
+                  <label>
+                    <span>{t('baseUrl')}</span>
+                    <input
+                      value={activeConfig.baseUrl}
+                      onChange={(event) => updateDraft({ baseUrl: event.target.value })}
+                      placeholder={activeOption.baseUrlPlaceholder}
+                    />
+                  </label>
+                  <label>
+                    <span>{t('model')}</span>
+                    <input
+                      value={activeConfig.model}
+                      onChange={(event) => updateDraft({ model: event.target.value })}
+                      placeholder={activeOption.modelPlaceholder}
+                    />
+                  </label>
+                </div>
+                <label className="full-field">
+                  <span>{t('apiKey')}</span>
+                  <input
+                    type="password"
+                    value={activeConfig.apiKey}
+                    onChange={(event) => updateDraft({ apiKey: event.target.value })}
+                    placeholder={activeOption.apiKeyPlaceholder}
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+            )}
+
+            {activeSection === 'knowledge' && (
+              <div className="settings-section">
+                <label>{t('knowledgeRoot')}</label>
+                <button className="folder-picker" onClick={onChooseFolder}>
+                  <span>
+                    <FolderOpen size={17} />
+                    <strong>{knowledgeRoot || '—'}</strong>
+                  </span>
+                  <span>{t('chooseFolder')}</span>
                 </button>
-              ))}
-            </div>
-            <div className="field-row">
-              <label>
-                <span>{t('baseUrl')}</span>
-                <input
-                  value={activeConfig.baseUrl}
-                  onChange={(event) => updateDraft({ baseUrl: event.target.value })}
-                  placeholder={activeOption.baseUrlPlaceholder}
-                />
-              </label>
-              <label>
-                <span>{t('model')}</span>
-                <input
-                  value={activeConfig.model}
-                  onChange={(event) => updateDraft({ model: event.target.value })}
-                  placeholder={activeOption.modelPlaceholder}
-                />
-              </label>
-            </div>
-            <label className="full-field">
-              <span>{t('apiKey')}</span>
-              <input
-                type="password"
-                value={activeConfig.apiKey}
-                onChange={(event) => updateDraft({ apiKey: event.target.value })}
-                placeholder={activeOption.apiKeyPlaceholder}
-                autoComplete="off"
-              />
-            </label>
-          </div>
+              </div>
+            )}
 
-          <div className="settings-section">
-            <label>{t('knowledgeRoot')}</label>
-            <button className="folder-picker" onClick={onChooseFolder}>
-              <span>
-                <FolderOpen size={17} />
-                <strong>{knowledgeRoot || '—'}</strong>
-              </span>
-              <span>{t('chooseFolder')}</span>
-            </button>
-          </div>
+            {activeSection === 'appearance' && (
+              <div className="settings-section settings-section-stack">
+                <div>
+                  <label>{t('appearance')}</label>
+                  <div className="theme-switch">
+                    <button className={themeMode === 'system' ? 'active' : ''} onClick={() => onThemeMode('system')}>
+                      <Monitor size={15} />{t('themeSystem')}
+                    </button>
+                    <button className={themeMode === 'light' ? 'active' : ''} onClick={() => onThemeMode('light')}>
+                      <Sun size={15} />{t('themeLight')}
+                    </button>
+                    <button className={themeMode === 'dark' ? 'active' : ''} onClick={() => onThemeMode('dark')}>
+                      <Moon size={15} />{t('themeDark')}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label>{t('language')}</label>
+                  <div className="language-switch">
+                    <button className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>中文</button>
+                    <button className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          <div className="settings-section">
-            <label>{t('appearance')}</label>
-            <div className="theme-switch">
-              <button
-                className={themeMode === 'system' ? 'active' : ''}
-                onClick={() => onThemeMode('system')}
-              >
-                <Monitor size={15} />
-                {t('themeSystem')}
-              </button>
-              <button
-                className={themeMode === 'light' ? 'active' : ''}
-                onClick={() => onThemeMode('light')}
-              >
-                <Sun size={15} />
-                {t('themeLight')}
-              </button>
-              <button
-                className={themeMode === 'dark' ? 'active' : ''}
-                onClick={() => onThemeMode('dark')}
-              >
-                <Moon size={15} />
-                {t('themeDark')}
-              </button>
-            </div>
-          </div>
-
-          <div className="settings-section">
-            <label>{t('language')}</label>
-            <div className="language-switch">
-              <button className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>
-                中文
-              </button>
-              <button className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>
-                English
-              </button>
-            </div>
+            {activeSection === 'usage' && (
+              <div className="settings-section">
+                <label>{t('pricingCurrency')}</label>
+                <div className="currency-switch">
+                  {(['auto', 'CNY', 'USD'] as CurrencyMode[]).map((currency) => (
+                    <button
+                      className={currencyMode === currency ? 'active' : ''}
+                      onClick={() => onCurrencyMode(currency)}
+                      key={currency}
+                    >
+                      {currency === 'auto'
+                        ? `${t('currencyAuto')} (${resolvedCurrency === 'CNY' ? '¥' : '$'})`
+                        : currency === 'CNY'
+                          ? `¥ ${t('currencyCny')}`
+                          : `$ ${t('currencyUsd')}`}
+                    </button>
+                  ))}
+                </div>
+                <p className="settings-hint">{t('currencyAutoHint')}</p>
+              </div>
+            )}
           </div>
         </div>
 

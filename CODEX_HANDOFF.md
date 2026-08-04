@@ -103,7 +103,9 @@ to the product template.
 - The desktop app is single-instance. Launching it again must restore and focus
   the existing main window instead of opening another process/window.
 - Settings is a gear button near the window controls, not a permanent sidebar
-  item.
+  item. Keep the dialog organized into four focused categories: AI model,
+  knowledge library, appearance, and usage/cost. Do not collapse unrelated
+  settings back into one long form.
 - Remove redundant headers, helper labels, dark duplicate divider lines,
   “30 秒结论”, model IDs in the chat box, local-context labels, and knowledge
   context cards.
@@ -114,6 +116,10 @@ to the product template.
   provider-reported cache hit rate and token usage, API request count, local
   context percentage, and a cost estimate when current model pricing is known.
   The metrics are stored per conversation and switch with the active chat.
+  The cost unit supports Auto, CNY, and USD. Auto follows the interface language
+  (Chinese uses CNY, English uses USD); CNY and USD use DeepSeek's official
+  regional token prices directly rather than converting through an exchange
+  rate. Persist the preference locally under `tiernote:currency`.
 - On startup, show a non-dismissible global open-source software use-boundary
   dialog until the user accepts it on seven consecutive distinct local calendar
   days. Same-day relaunches do not advance progress; missing a day or declining
