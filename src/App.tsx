@@ -13,7 +13,7 @@ import {
   Globe2,
   History,
   House,
-  Leaf,
+  Layers3,
   Library,
   LoaderCircle,
   MessageCircleMore,
@@ -2264,7 +2264,7 @@ function HomeView({
     <div className="home-view page">
       <section className="hero">
         <div className="hero-kicker">
-          <Leaf size={15} />
+          <Layers3 size={15} />
           TIER NOTE
         </div>
         <h1>{t('greeting')}</h1>
