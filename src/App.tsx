@@ -2281,13 +2281,13 @@ function HomeView({
           <ActionCard
             title={t('peopleCard')}
             description={t('peopleCardSub')}
-            onClick={onOrganize}
+            onClick={onPlan}
             ambient={ambientAssignments[1]}
           />
           <ActionCard
             title={t('aiPlanCard')}
             description={t('aiPlanCardSub')}
-            onClick={onPlan}
+            onClick={onOrganize}
             ambient={ambientAssignments[2]}
           />
         </div>
