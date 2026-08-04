@@ -103,9 +103,10 @@ to the product template.
 - The desktop app is single-instance. Launching it again must restore and focus
   the existing main window instead of opening another process/window.
 - Settings is a gear button near the window controls, not a permanent sidebar
-  item. Keep the dialog organized into four focused categories: AI model,
-  knowledge library, appearance, and usage/cost. Do not collapse unrelated
-  settings back into one long form.
+  item. Keep the dialog organized into three focused categories: model,
+  knowledge library, and appearance. Currency controls belong at the bottom of
+  the model page rather than in a separate usage/cost category. Do not collapse
+  unrelated settings back into one long form.
 - Remove redundant headers, helper labels, dark duplicate divider lines,
   “30 秒结论”, model IDs in the chat box, local-context labels, and knowledge
   context cards.

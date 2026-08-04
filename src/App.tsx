@@ -325,7 +325,7 @@ const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
 };
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'knowledge' | 'appearance' | 'usage';
+type SettingsSectionId = 'model' | 'knowledge' | 'appearance';
 type ResizeSide = 'left' | 'right';
 
 interface PaneSizes {
@@ -3717,9 +3717,10 @@ function SettingsDialog({
     { id: 'model', label: t('settingsModel'), description: t('settingsModelDesc'), icon: <Bot size={16} /> },
     { id: 'knowledge', label: t('settingsKnowledge'), description: t('settingsKnowledgeDesc'), icon: <FolderOpen size={16} /> },
     { id: 'appearance', label: t('settingsAppearance'), description: t('settingsAppearanceDesc'), icon: <Monitor size={16} /> },
-    { id: 'usage', label: t('settingsUsage'), description: t('settingsUsageDesc'), icon: <Activity size={16} /> },
   ];
-  const currentSection = settingsSections.find((section) => section.id === activeSection)!;
+  const currentSection = settingsSections.find((section) => section.id === activeSection)
+    ?? settingsSections[0];
+  const visibleSection = currentSection.id;
   const resolvedCurrency = resolveCurrency(currencyMode, locale);
 
   return (
@@ -3743,7 +3744,7 @@ function SettingsDialog({
           <nav className="settings-nav" aria-label={locale === 'zh' ? '设置分类' : 'Settings sections'}>
             {settingsSections.map((section) => (
               <button
-                className={activeSection === section.id ? 'active' : ''}
+                className={visibleSection === section.id ? 'active' : ''}
                 onClick={() => setActiveSection(section.id)}
                 key={section.id}
               >
@@ -3759,53 +3760,75 @@ function SettingsDialog({
               <p>{currentSection.description}</p>
             </header>
 
-            {activeSection === 'model' && (
-              <div className="settings-section">
-                <label>{t('provider')}</label>
-                <div className="provider-grid">
-                  {(Object.keys(providerOptions) as ModelProvider[]).map((provider) => (
-                    <button
-                      className={draft.activeProvider === provider ? 'active' : ''}
-                      onClick={() => updateProvider(provider)}
-                      key={provider}
-                    >
-                      {providerOptions[provider].label[locale]}
-                      {draft.activeProvider === provider && <Check size={14} />}
-                    </button>
-                  ))}
-                </div>
-                <div className="field-row">
-                  <label>
-                    <span>{t('baseUrl')}</span>
+            {visibleSection === 'model' && (
+              <>
+                <div className="settings-section">
+                  <label>{t('provider')}</label>
+                  <div className="provider-grid">
+                    {(Object.keys(providerOptions) as ModelProvider[]).map((provider) => (
+                      <button
+                        className={draft.activeProvider === provider ? 'active' : ''}
+                        onClick={() => updateProvider(provider)}
+                        key={provider}
+                      >
+                        {providerOptions[provider].label[locale]}
+                        {draft.activeProvider === provider && <Check size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="field-row">
+                    <label>
+                      <span>{t('baseUrl')}</span>
+                      <input
+                        value={activeConfig.baseUrl}
+                        onChange={(event) => updateDraft({ baseUrl: event.target.value })}
+                        placeholder={activeOption.baseUrlPlaceholder}
+                      />
+                    </label>
+                    <label>
+                      <span>{t('model')}</span>
+                      <input
+                        value={activeConfig.model}
+                        onChange={(event) => updateDraft({ model: event.target.value })}
+                        placeholder={activeOption.modelPlaceholder}
+                      />
+                    </label>
+                  </div>
+                  <label className="full-field">
+                    <span>{t('apiKey')}</span>
                     <input
-                      value={activeConfig.baseUrl}
-                      onChange={(event) => updateDraft({ baseUrl: event.target.value })}
-                      placeholder={activeOption.baseUrlPlaceholder}
+                      type="password"
+                      value={activeConfig.apiKey}
+                      onChange={(event) => updateDraft({ apiKey: event.target.value })}
+                      placeholder={activeOption.apiKeyPlaceholder}
+                      autoComplete="off"
                     />
                   </label>
-                  <label>
-                    <span>{t('model')}</span>
-                    <input
-                      value={activeConfig.model}
-                      onChange={(event) => updateDraft({ model: event.target.value })}
-                      placeholder={activeOption.modelPlaceholder}
-                    />
-                  </label>
                 </div>
-                <label className="full-field">
-                  <span>{t('apiKey')}</span>
-                  <input
-                    type="password"
-                    value={activeConfig.apiKey}
-                    onChange={(event) => updateDraft({ apiKey: event.target.value })}
-                    placeholder={activeOption.apiKeyPlaceholder}
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
+
+                <div className="settings-section">
+                  <label>{t('pricingCurrency')}</label>
+                  <div className="currency-switch">
+                    {(['auto', 'CNY', 'USD'] as CurrencyMode[]).map((currency) => (
+                      <button
+                        className={currencyMode === currency ? 'active' : ''}
+                        onClick={() => onCurrencyMode(currency)}
+                        key={currency}
+                      >
+                        {currency === 'auto'
+                          ? `${t('currencyAuto')} (${resolvedCurrency === 'CNY' ? '¥' : '$'})`
+                          : currency === 'CNY'
+                            ? `¥ ${t('currencyCny')}`
+                            : `$ ${t('currencyUsd')}`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="settings-hint">{t('currencyAutoHint')}</p>
+                </div>
+              </>
             )}
 
-            {activeSection === 'knowledge' && (
+            {visibleSection === 'knowledge' && (
               <div className="settings-section">
                 <label>{t('knowledgeRoot')}</label>
                 <button className="folder-picker" onClick={onChooseFolder}>
@@ -3818,7 +3841,7 @@ function SettingsDialog({
               </div>
             )}
 
-            {activeSection === 'appearance' && (
+            {visibleSection === 'appearance' && (
               <div className="settings-section settings-section-stack">
                 <div>
                   <label>{t('appearance')}</label>
@@ -3844,27 +3867,6 @@ function SettingsDialog({
               </div>
             )}
 
-            {activeSection === 'usage' && (
-              <div className="settings-section">
-                <label>{t('pricingCurrency')}</label>
-                <div className="currency-switch">
-                  {(['auto', 'CNY', 'USD'] as CurrencyMode[]).map((currency) => (
-                    <button
-                      className={currencyMode === currency ? 'active' : ''}
-                      onClick={() => onCurrencyMode(currency)}
-                      key={currency}
-                    >
-                      {currency === 'auto'
-                        ? `${t('currencyAuto')} (${resolvedCurrency === 'CNY' ? '¥' : '$'})`
-                        : currency === 'CNY'
-                          ? `¥ ${t('currencyCny')}`
-                          : `$ ${t('currencyUsd')}`}
-                    </button>
-                  ))}
-                </div>
-                <p className="settings-hint">{t('currencyAutoHint')}</p>
-              </div>
-            )}
           </div>
         </div>
 
