@@ -5346,6 +5346,94 @@ textarea,
   color: var(--accent);
 }
 
+/* Page icons stay as simple symbols; selection belongs to the row or card. */
+.plan-section-icon,
+.plan-focus-icon,
+.plan-shortcut-icon,
+.favorite-item-icon,
+.health-field-icon,
+.story-add-icon,
+.context-icon,
+.dialog-titlebar-icon,
+.dialog-titlebar-blue .dialog-titlebar-icon,
+[data-theme='dark'] .plan-section-icon,
+[data-theme='dark'] .plan-focus-icon,
+[data-theme='dark'] .plan-shortcut-icon,
+[data-theme='dark'] .favorite-item-icon,
+[data-theme='dark'] .health-field-icon,
+[data-theme='dark'] .story-add-icon,
+[data-theme='dark'] .context-icon,
+[data-theme='dark'] .dialog-titlebar-icon,
+[data-theme='dark'] .dialog-titlebar-blue .dialog-titlebar-icon {
+  background: transparent !important;
+  border-radius: 0;
+}
+
+.plan-section-icon,
+.plan-focus-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.plan-section-icon svg,
+.plan-focus-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.plan-shortcut-icon,
+.favorite-item-icon {
+  width: 26px;
+  height: 30px;
+}
+
+.plan-shortcut-icon svg,
+.favorite-item-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.health-field-icon {
+  width: 22px;
+  height: 24px;
+}
+
+.health-field-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.story-add-icon {
+  width: 30px;
+  height: 32px;
+}
+
+.story-add-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.context-icon {
+  width: 26px;
+  height: 30px;
+}
+
+.context-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.dialog-titlebar-icon {
+  flex-basis: 32px;
+  width: 32px;
+  height: 44px;
+}
+
+.dialog-titlebar-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
