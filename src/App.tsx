@@ -321,6 +321,7 @@ const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
   sleep: 'plans/daily-routine.md',
 };
 type ThemeMode = 'system' | 'light' | 'dark';
+type AccentMode = 'blue' | 'green' | 'orange' | 'graphite';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
 type SettingsSectionId = 'model' | 'knowledge' | 'appearance';
 type ResizeSide = 'left' | 'right';
@@ -660,6 +661,10 @@ function App() {
     'tiernote:theme',
     'system',
   );
+  const [accentMode, setAccentMode] = useStoredState<AccentMode>(
+    'tiernote:accent',
+    'blue',
+  );
   const [currencyMode, setCurrencyMode] = useStoredState<CurrencyMode>(
     'tiernote:currency',
     'auto',
@@ -796,6 +801,10 @@ function App() {
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
   }, [locale]);
+
+  useEffect(() => {
+    document.documentElement.dataset.accent = accentMode;
+  }, [accentMode]);
 
   const resizePane = (side: ResizeSide, requestedSize: number) => {
     const viewportWidth = window.innerWidth;
@@ -1781,6 +1790,8 @@ function App() {
           onLocale={setLocale}
           themeMode={themeMode}
           onThemeMode={setThemeMode}
+          accentMode={accentMode}
+          onAccentMode={setAccentMode}
           currencyMode={currencyMode}
           onCurrencyMode={setCurrencyMode}
           onChooseFolder={changeKnowledgeRoot}
@@ -3495,10 +3506,12 @@ function SettingsDialog({
   config,
   knowledgeRoot,
   themeMode,
+  accentMode,
   currencyMode,
   onChange,
   onLocale,
   onThemeMode,
+  onAccentMode,
   onCurrencyMode,
   onChooseFolder,
   onClose,
@@ -3508,10 +3521,12 @@ function SettingsDialog({
   config: ModelSettings;
   knowledgeRoot: string;
   themeMode: ThemeMode;
+  accentMode: AccentMode;
   currencyMode: CurrencyMode;
   onChange: (config: ModelSettings) => void;
   onLocale: (locale: Locale) => void;
   onThemeMode: (themeMode: ThemeMode) => void;
+  onAccentMode: (accentMode: AccentMode) => void;
   onCurrencyMode: (currencyMode: CurrencyMode) => void;
   onChooseFolder: () => void;
   onClose: () => void;
@@ -3691,6 +3706,24 @@ function SettingsDialog({
                     <button className={themeMode === 'dark' ? 'active' : ''} onClick={() => onThemeMode('dark')}>
                       <Moon size={15} />{t('themeDark')}
                     </button>
+                  </div>
+                </div>
+                <div>
+                  <label>{t('accentColor')}</label>
+                  <div className="accent-switch">
+                    {(['blue', 'green', 'orange', 'graphite'] as AccentMode[]).map((accent) => (
+                      <button
+                        className={accentMode === accent ? 'active' : ''}
+                        data-accent-option={accent}
+                        aria-pressed={accentMode === accent}
+                        onClick={() => onAccentMode(accent)}
+                        key={accent}
+                      >
+                        <span className="accent-swatch" aria-hidden="true" />
+                        {t(`accent${accent[0].toUpperCase()}${accent.slice(1)}` as TranslationKey)}
+                        {accentMode === accent && <Check size={14} />}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div>
