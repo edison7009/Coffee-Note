@@ -2276,6 +2276,12 @@ function SidebarButton({
   );
 }
 
+function getHomeGreetingKey(hour: number): TranslationKey {
+  if (hour >= 5 && hour < 12) return 'greetingMorning';
+  if (hour >= 12 && hour < 18) return 'greetingAfternoon';
+  return 'greetingEvening';
+}
+
 function HomeView({
   locale,
   library,
@@ -2301,15 +2307,24 @@ function HomeView({
     }));
   }, [library.supplements]);
   const ambientAssignments = useMemo(() => createAmbientAssignments(3), []);
+  const [greetingKey, setGreetingKey] = useState<TranslationKey>(() =>
+    getHomeGreetingKey(new Date().getHours()),
+  );
+
+  useEffect(() => {
+    const syncGreeting = () => setGreetingKey(getHomeGreetingKey(new Date().getHours()));
+    const intervalId = window.setInterval(syncGreeting, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   return (
     <div className="home-view page">
       <section className="hero">
         <div className="hero-kicker">
           <Layers3 size={15} />
-          TIER NOTE
+          Welcome
         </div>
-        <h1>{t('greeting')}</h1>
+        <h1>{t(greetingKey)}</h1>
       </section>
 
       <section className="start-section" aria-label={t('coreModules')}>
