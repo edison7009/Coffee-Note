@@ -225,10 +225,6 @@ For scientific content:
 - Update both the Chinese source and its `.en.md` companion.
 - Never commit real API keys, personal health records, or other sensitive data.
 
-## Medical disclaimer
-
-Tier Note is a knowledge-management and research-assistance tool. It does not provide diagnosis, prescriptions, or individualized medical advice. Decisions involving medication, supplements, tests, or interventions should consider individual circumstances and qualified medical guidance. Public protocols are provided for study, not direct imitation.
-
 ## License
 
 [MIT](LICENSE) © 2026 Tier Note contributors.

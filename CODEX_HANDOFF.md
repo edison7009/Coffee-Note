@@ -121,15 +121,6 @@ to the product template.
   (Chinese uses CNY, English uses USD); CNY and USD use DeepSeek's official
   regional token prices directly rather than converting through an exchange
   rate. Persist the preference locally under `tiernote:currency`.
-- On startup, show a non-dismissible global open-source software use-boundary
-  dialog until the user accepts it on seven consecutive distinct local calendar
-  days. Same-day relaunches do not advance progress; missing a day or declining
-  resets it, and declining closes the app. After day seven the dialog no longer
-  appears. Persist progress locally under `tiernote:disclaimer-progress:v2`.
-  Frame this dialog around the MIT-licensed software boundary: code and
-  information organization are provided as is, users select their models and
-  sources, verify outputs, and decide how to use them. Do not characterize the
-  project as a medical-liability actor or use injury/death language.
 - Chat uses a minimal two-sided conversation layout: user messages are compact
   bubbles aligned to the right, while Tier Note answers remain readable,
   unframed content aligned to the left. Do not show participant names or avatars;

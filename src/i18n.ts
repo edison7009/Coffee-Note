@@ -115,25 +115,6 @@ const messages = {
     planTitle: '我的资料',
     planSub: '把只属于你的背景、目标、偏好和记录放在一起。',
     comingSoon: '这里会逐步沉淀你的长期个人信息。',
-    disclaimerTitle: '开源软件说明与使用边界',
-    disclaimerIntro:
-      'Tier Note 是依据 MIT 许可证提供的全球开源软件，用于整理公开资料、本地知识与 AI 生成内容。',
-    disclaimerBoundaryTitle: '这是软件工具',
-    disclaimerBoundaryBody:
-      'Tier Note 提供代码、界面和信息整理能力，不提供诊断、处方、治疗或紧急服务，也不与用户建立任何专业服务关系。',
-    disclaimerAiTitle: '内容需要自行核验',
-    disclaimerAiBody:
-      '公开资料、本地知识和 AI 输出可能不完整、过时或错误。AI 内容由用户选择的第三方模型生成，不代表项目贡献者的意见或承诺。',
-    disclaimerSafetyTitle: '用户自主决定用途',
-    disclaimerSafetyBody:
-      '用户自行选择模型、资料来源和使用方式，负责核验输出并决定是否在软件之外采取行动。开发者不参与、控制或代替用户作出这些决定。',
-    disclaimerLiabilityTitle: '按现状提供',
-    disclaimerLiabilityBody:
-      '本软件依照 MIT 许可证按现状提供，不对准确性、完整性、时效性、适用性、持续可用性或任何特定结果作出保证。',
-    disclaimerProgress:
-      '为确认你持续理解这些边界，需要在连续 7 个不同自然日启动软件并选择同意。漏一天或选择不同意，进度将重新开始。',
-    disclaimerDecline: '不同意并退出',
-    disclaimerAccept: '我已理解并同意',
   },
   en: {
     appName: 'Tier Note',
@@ -249,25 +230,6 @@ const messages = {
     planTitle: 'My information',
     planSub: 'Keep your background, goals, preferences, and records together.',
     comingSoon: 'This space will gradually become your long-term personal context.',
-    disclaimerTitle: 'Open-source software notice and use boundaries',
-    disclaimerIntro:
-      'Tier Note is global open-source software provided under the MIT License for organizing public sources, local knowledge, and AI-generated content.',
-    disclaimerBoundaryTitle: 'A software tool',
-    disclaimerBoundaryBody:
-      'Tier Note provides code, an interface, and information-organizing capabilities. It does not provide diagnosis, prescriptions, treatment, or emergency services, and it creates no professional service relationship.',
-    disclaimerAiTitle: 'Verify the content yourself',
-    disclaimerAiBody:
-      'Public sources, local knowledge, and AI output may be incomplete, outdated, or wrong. AI content comes from the third-party model selected by the user and does not represent a view or promise from project contributors.',
-    disclaimerSafetyTitle: 'You decide how to use it',
-    disclaimerSafetyBody:
-      'You choose the model, sources, and use of the software. You verify its output and decide whether to act outside the software. Developers do not participate in, control, or make those decisions for you.',
-    disclaimerLiabilityTitle: 'Provided as is',
-    disclaimerLiabilityBody:
-      'The software is provided as is under the MIT License, without promises of accuracy, completeness, timeliness, fitness, continuous availability, or any particular result.',
-    disclaimerProgress:
-      'To confirm continued understanding, open the software and agree on 7 consecutive, distinct calendar days. Missing a day or declining restarts the progress.',
-    disclaimerDecline: 'Decline and exit',
-    disclaimerAccept: 'I understand and agree',
   },
 } as const;
 
