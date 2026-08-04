@@ -5217,7 +5217,7 @@ textarea,
 [data-theme='dark'] .accent-switch button.active {
   color: var(--accent);
   background: var(--accent-soft);
-  border-color: var(--accent-border);
+  border-color: transparent;
 }
 
 .accent-switch {
