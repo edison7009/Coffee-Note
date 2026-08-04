@@ -3143,11 +3143,13 @@ function ChatComposer({
   const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitRate = cacheTokens > 0
     ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`
-    : '—';
+    : usage.requestCount === 0 ? '0%' : '—';
   const contextPercent = `${Math.min(100, Math.round((contextBytes / contextMaxBytes) * 100))}%`;
   const cost = estimateDeepSeekCost(usage, modelConfig);
-  const costLabel = cost == null
-    ? '—'
+  const costLabel = usage.requestCount === 0
+    ? '$0.00'
+    : cost == null
+      ? '—'
     : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
   const numberFormat = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
 
