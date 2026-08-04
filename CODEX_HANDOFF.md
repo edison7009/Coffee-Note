@@ -111,8 +111,9 @@ to the product template.
   it scrolls independently so the final message is never covered and the
   composer never disappears while scrolling.
 - Keep the composer compact. Below it, show one restrained metrics line with
-  provider-reported cache hit rate and token usage, local context percentage,
-  and a cost estimate when current model pricing is known.
+  provider-reported cache hit rate and token usage, API request count, local
+  context percentage, and a cost estimate when current model pricing is known.
+  The metrics are stored per conversation and switch with the active chat.
 - On startup, show a non-dismissible global open-source software use-boundary
   dialog until the user accepts it on seven consecutive distinct local calendar
   days. Same-day relaunches do not advance progress; missing a day or declining

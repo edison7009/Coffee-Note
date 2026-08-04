@@ -87,6 +87,11 @@ pub enum AgentEvent {
         conversation_id: String,
         usage: LlmUsage,
     },
+    #[serde(rename = "request_started")]
+    RequestStarted {
+        #[serde(rename = "conversationId")]
+        conversation_id: String,
+    },
     #[serde(rename = "done")]
     Done {
         #[serde(rename = "conversationId")]
@@ -699,6 +704,15 @@ fn emit_usage(app: &AppHandle, conversation_id: &str, usage: LlmUsage) {
     );
 }
 
+fn emit_request_started(app: &AppHandle, conversation_id: &str) {
+    emit_event(
+        app,
+        AgentEvent::RequestStarted {
+            conversation_id: conversation_id.to_string(),
+        },
+    );
+}
+
 fn emit_done(app: &AppHandle, conversation_id: &str) {
     emit_event(
         app,
@@ -866,6 +880,7 @@ pub async fn run_agent(
             context_window(&all).0
         };
 
+        emit_request_started(&app, &conversation_id);
         let mut rx = match client.chat_stream(&messages, &tools, &system_prompt).await {
             Ok(rx) => rx,
             Err(ref e) if is_llm_server_down(e) => {

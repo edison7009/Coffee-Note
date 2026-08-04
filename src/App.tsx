@@ -111,14 +111,42 @@ const PRODUCT_WEBSITE = 'https://tiernote.life/';
 const FEEDBACK_URL = 'https://github.com/edison7009/TierNote/issues';
 const DISCLAIMER_PROGRESS_KEY = 'tiernote:disclaimer-progress:v2';
 const DISCLAIMER_REQUIRED_DAYS = 7;
+const CONVERSATION_USAGE_KEY = 'tiernote:conversation-usage:v1';
 
-const EMPTY_USAGE: LlmUsage = {
+type ConversationUsage = LlmUsage & { requestCount: number };
+
+const EMPTY_USAGE: ConversationUsage = {
   promptTokens: 0,
   completionTokens: 0,
   totalTokens: 0,
   cacheHitTokens: 0,
   cacheMissTokens: 0,
+  requestCount: 0,
 };
+
+function loadConversationUsage(): Record<string, ConversationUsage> {
+  const count = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(CONVERSATION_USAGE_KEY) || '{}');
+    if (!stored || typeof stored !== 'object') return {};
+    return Object.fromEntries(
+      Object.entries(stored as Record<string, Partial<ConversationUsage>>).map(([id, usage]) => [
+        id,
+        {
+          promptTokens: count(usage.promptTokens),
+          completionTokens: count(usage.completionTokens),
+          totalTokens: count(usage.totalTokens),
+          cacheHitTokens: count(usage.cacheHitTokens),
+          cacheMissTokens: count(usage.cacheMissTokens),
+          requestCount: count(usage.requestCount),
+        },
+      ]),
+    );
+  } catch {
+    return {};
+  }
+}
 
 function estimateDeepSeekCost(usage: LlmUsage, config: ModelConfig): number | null {
   const identity = `${config.baseUrl} ${config.model}`.toLowerCase();
@@ -746,7 +774,9 @@ function App() {
   const [activeConversationId, setActiveConversationId] = useState('');
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [contextBytes, setContextBytes] = useState(0);
-  const [usageByConversation, setUsageByConversation] = useState<Record<string, LlmUsage>>({});
+  const [usageByConversation, setUsageByConversation] = useState<Record<string, ConversationUsage>>(
+    loadConversationUsage,
+  );
   const [chatBusy, setChatBusy] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [resizingPane, setResizingPane] = useState<ResizeSide | null>(null);
@@ -1230,6 +1260,14 @@ function App() {
   }, [chatMessages]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(CONVERSATION_USAGE_KEY, JSON.stringify(usageByConversation));
+    } catch {
+      // Usage metrics are best-effort and never block chat.
+    }
+  }, [usageByConversation]);
+
+  useEffect(() => {
     if (!activeConversationId || loadingConversations) return;
     const timer = window.setTimeout(() => {
       void persistConversationMessages(activeConversationId, chatMessages);
@@ -1252,6 +1290,12 @@ function App() {
   const handleDeleteConversation = async (id: string) => {
     if (chatBusy) return;
     const summaries = await deleteConversation(id);
+    setUsageByConversation((current) => {
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setConversationSummaries(summaries);
     if (id !== activeConversationId) return;
     if (summaries.length > 0) {
@@ -1385,7 +1429,20 @@ function App() {
                 totalTokens: previous.totalTokens + event.usage.totalTokens,
                 cacheHitTokens: previous.cacheHitTokens + event.usage.cacheHitTokens,
                 cacheMissTokens: previous.cacheMissTokens + event.usage.cacheMissTokens,
+                requestCount: previous.requestCount,
               },
+            };
+          });
+          break;
+        }
+        case 'request_started': {
+          const conversationId = event.conversationId || activeConversationId;
+          if (!conversationId) break;
+          setUsageByConversation((current) => {
+            const previous = current[conversationId] || EMPTY_USAGE;
+            return {
+              ...current,
+              [conversationId]: { ...previous, requestCount: previous.requestCount + 1 },
             };
           });
           break;
@@ -3078,7 +3135,7 @@ function ChatComposer({
   currentPage?: string;
   contextBytes: number;
   contextMaxBytes: number;
-  usage: LlmUsage;
+  usage: ConversationUsage;
   modelConfig: ModelConfig;
   locale: Locale;
 }) {
@@ -3165,6 +3222,9 @@ function ChatComposer({
         </span>
         <span>
           <b>{locale === 'zh' ? '消耗 Tokens' : 'Tokens'}</b>{numberFormat.format(usage.totalTokens)}
+        </span>
+        <span>
+          <b>{locale === 'zh' ? '请求次数' : 'Requests'}</b>{numberFormat.format(usage.requestCount)}
         </span>
         <span>
           <b>{locale === 'zh' ? '上下文' : 'Context'}</b>{contextPercent}

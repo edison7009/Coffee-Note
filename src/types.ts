@@ -159,6 +159,7 @@ export type AgentEvent =
   | { type: 'tool_result'; conversationId?: string; id: string; output: string; success: boolean }
   | { type: 'memory_suggestion'; conversationId?: string; suggestion: MemorySuggestion }
   | { type: 'usage'; conversationId?: string; usage: LlmUsage }
+  | { type: 'request_started'; conversationId?: string }
   | { type: 'done'; conversationId?: string }
   | { type: 'error'; conversationId?: string; message: string }
   | { type: 'state'; conversationId?: string; state: string };

@@ -2271,18 +2271,19 @@ body.resizing-panels * {
 }
 
 .composer-metrics {
-  display: flex;
+  display: grid;
+  grid-template-columns: 0.95fr 1.3fr 0.9fr 0.85fr 0.9fr;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  min-height: 17px;
-  padding: 0 10px;
+  width: 100%;
+  min-height: 25px;
+  padding: 0;
   overflow-x: auto;
   color: #71847f;
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.4;
   pointer-events: none;
+  border-top: 1px solid rgba(135, 158, 152, 0.2);
   scrollbar-width: none;
   white-space: nowrap;
 }
@@ -2294,12 +2295,23 @@ body.resizing-panels * {
 .composer-metrics span {
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
+  justify-content: center;
+  gap: 2px;
+  min-width: 112px;
+  padding: 4px 12px 3px;
+}
+
+.composer-metrics span + span {
+  border-left: 1px solid rgba(135, 158, 152, 0.28);
 }
 
 .composer-metrics b {
   color: #9aa8a4;
   font-weight: 500;
+}
+
+.composer-metrics b::after {
+  content: '：';
 }
 
 .disclaimer-backdrop {
@@ -3164,6 +3176,11 @@ body.resizing-panels * {
 
 [data-theme='dark'] .composer-metrics b {
   color: #747d79;
+}
+
+[data-theme='dark'] .composer-metrics,
+[data-theme='dark'] .composer-metrics span + span {
+  border-color: rgba(160, 174, 168, 0.2);
 }
 
 [data-theme='dark'] .disclaimer-dialog {
