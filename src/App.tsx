@@ -351,51 +351,51 @@ function getPlanSections(locale: Locale): Array<{
   return [
     {
       id: 'supplements',
-      title: locale === 'zh' ? '现在要做' : 'Do now',
+      title: locale === 'zh' ? '关于我' : 'About me',
       description:
         locale === 'zh'
-          ? '已经足够清楚，可以推进的行动'
-          : 'Actions clear enough to move forward',
+          ? '个人简介、经历与当前状态'
+          : 'Your background, experience, and current context',
       icon: <Pill size={17} />,
       accent: '#f1d9d5',
     },
     {
       id: 'exercise',
-      title: locale === 'zh' ? '需要决定' : 'Decide',
+      title: locale === 'zh' ? '我的目标' : 'My goals',
       description:
         locale === 'zh'
-          ? '把依据、代价与取舍放在一起'
-          : 'Put evidence, trade-offs, and cost together',
+          ? '正在推进的事，以及想得到的结果'
+          : 'What you are working toward and why',
       icon: <Dumbbell size={17} />,
       accent: '#d7e9e5',
     },
     {
       id: 'diet',
-      title: locale === 'zh' ? '等待信息' : 'Wait for evidence',
+      title: locale === 'zh' ? '偏好与限制' : 'Preferences',
       description:
         locale === 'zh'
-          ? '还缺少关键资料或验证的判断'
-          : 'Judgments that still need key information',
+          ? '在意什么、避开什么，以及现实边界'
+          : 'What matters to you and the constraints you have',
       icon: <Utensils size={17} />,
       accent: '#efe4c9',
     },
     {
       id: 'sleep',
-      title: locale === 'zh' ? '以后再看' : 'Later',
+      title: locale === 'zh' ? '重要记录' : 'Key records',
       description:
         locale === 'zh'
-          ? '重要但还不需要占用今天的注意力'
-          : 'Important, but not worth today’s attention',
+          ? '简历、项目、经历与值得回看的资料'
+          : 'Resumes, projects, experiences, and useful reference',
       icon: <Moon size={17} />,
       accent: '#dce3f2',
     },
     {
       id: 'log',
-      title: locale === 'zh' ? '行动记录' : 'Action log',
+      title: locale === 'zh' ? '我的记录' : 'My log',
       description:
         locale === 'zh'
-          ? '记下做过什么、学到了什么、下一步是什么'
-          : 'Record what happened, what changed, and what is next',
+          ? '随手记下重要变化和想法'
+          : 'Keep track of important changes and thoughts',
       icon: <NotebookPen size={17} />,
       accent: '#cfeae3',
     },
