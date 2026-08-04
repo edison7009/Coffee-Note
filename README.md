@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="src-tauri/icons/icon.png" width="112" alt="Tier Note logo">
+  <img src="src-tauri/icons/icon.png" width="112" alt="TierNote logo">
 </p>
 
-<h1 align="center">Tier Note(开源延寿)</h1>
+<h1 align="center">TierNote(开源延寿)</h1>
 
 <p align="center"><strong>Longevity is humanity’s most valuable investment in the age of AI.</strong></p>
 
-![Tier Note home screen](docs/assets/product-ui/home-en.webp)
+![TierNote home screen](docs/assets/product-ui/home-en.webp)
 
 <p align="center">
   <strong>Longevity science should not be reserved for the wealthy.</strong><br>
-  Tier Note takes Bryan Johnson’s longevity plan as a starting blueprint.
+  TierNote takes Bryan Johnson’s longevity plan as a starting blueprint.
 </p>
 
 <p align="center">
@@ -24,9 +24,9 @@
 > Wealth can buy private medical teams, continuous measurement, research support, and rapidly evolving personal protocols.<br>
 > Everyone should have the tools to understand evidence, manage personal knowledge, and benefit from responsible AI.
 
-Tier Note turns scattered papers, public protocols, and personal notes into a workspace that people can read, inspect, grow, and control. It does not sell an immortality shortcut, and it does not suggest copying an expensive protocol blindly. It offers a transparent, traceable, local-first foundation for learning about longevity science.
+TierNote turns scattered papers, public protocols, and personal notes into a workspace that people can read, inspect, grow, and control. It does not sell an immortality shortcut, and it does not suggest copying an expensive protocol blindly. It offers a transparent, traceable, local-first foundation for learning about longevity science.
 
-## Why Tier Note
+## Why TierNote
 
 Longevity science has a serious access gap:
 
@@ -58,7 +58,7 @@ T1–T5 is a starting framework for reading and discussion—not a medical ranki
 
 ### Organize webpages and source material with AI
 
-Paste a public webpage, paper abstract, article text, or rough note. Tier Note can:
+Paste a public webpage, paper abstract, article text, or rough note. TierNote can:
 
 1. Extract readable webpage content.
 2. Ask your configured OpenAI-compatible model for a structured Markdown draft.
@@ -72,7 +72,7 @@ The capture flow limits download size and duration and blocks access to localhos
 
 ### Ask AI against your own local notes
 
-![Tier Note AI conversation](docs/assets/product-ui/chat-en.webp)
+![TierNote AI conversation](docs/assets/product-ui/chat-en.webp)
 
 AI context is prioritized in this order:
 
@@ -83,7 +83,7 @@ AI context is prioritized in this order:
 
 When an answer depends on local material, the assistant is instructed to preserve the corresponding note path for further inspection.
 
-For evidence-oriented questions, Tier Note can also build a concise
+For evidence-oriented questions, TierNote can also build a concise
 English biomedical query that excludes personal identifiers and retrieve a small live snapshot from PubMed,
 ClinicalTrials.gov, and bioRxiv. The answer receives deterministic PMID, NCT,
 and preprint links and must distinguish papers, trial registrations/results,
@@ -99,11 +99,11 @@ and non-peer-reviewed preprints.
 
 ### Configure your model and local library
 
-![Tier Note model settings](docs/assets/product-ui/settings-en.webp)
+![TierNote model settings](docs/assets/product-ui/settings-en.webp)
 
 ### Visit the project website
 
-![Tier Note website](docs/assets/product-ui/website-en.webp)
+![TierNote website](docs/assets/product-ui/website-en.webp)
 
 ### Keep control of your data
 
@@ -119,7 +119,7 @@ and non-peer-reviewed preprints.
 
 ## Default library locations
 
-Tier Note creates its own local library on first launch:
+TierNote creates its own local library on first launch:
 
 | Platform | Default directory |
 | --- | --- |
@@ -227,4 +227,4 @@ For scientific content:
 
 ## License
 
-[MIT](LICENSE) © 2026 Tier Note contributors.
+[MIT](LICENSE) © 2026 TierNote contributors.

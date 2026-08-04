@@ -3,7 +3,7 @@ locale: en
 translation_of: index.md
 ---
 
-# Tier Note Knowledge Base
+# TierNote Knowledge Base
 
 A local-first, source-traceable document library for longevity research.
 

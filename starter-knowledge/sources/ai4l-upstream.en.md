@@ -28,11 +28,11 @@ translation_of: sources/ai4l-upstream.md
 | `docs/Limitations.md` | AI and audit limitations | `627ca322fd2f3f6344887dae09a75ab83bea442a0473e6432afc90f5e59b38e3` |
 | `LICENSE` | Original MIT license | `ba7cefd3b80d4324725f76f9e723d3c0a7a100e44109b49a5849968799d0cada` |
 
-## Role in Tier Note
+## Role in TierNote
 
-AI4L is a **source for research methods**, not a factual source for Tier Note conclusions and not a web template to copy verbatim.
+AI4L is a **source for research methods**, not a factual source for TierNote conclusions and not a web template to copy verbatim.
 
-Tier Note adopts:
+TierNote adopts:
 
 - The create → independent audit → correct → re-audit cycle;
 - Item-by-item verification of links, titles, identifiers, and link semantics;
@@ -40,7 +40,7 @@ Tier Note adopts:
 - Separation of auditor and author to reduce confirmation bias from shared context;
 - Preservation of unknowns, conflicts, competing interests, and failed endpoints in the body.
 
-Tier Note does not directly adopt:
+TierNote does not directly adopt:
 
 - Experts, commercial databases, or brands as sources of efficacy conclusions;
 - “Functional-medicine optimal ranges” unsupported by guidelines;
@@ -52,7 +52,7 @@ See the [localized AI4L method](../methods/ai4l-adaptation.en.md) for specific d
 
 ## License and Attribution
 
-AI4L uses the MIT license. Tier Note’s localized method is a reorganized derivative checklist framework that preserves the upstream project name, link, version, and license record. See [AI4L-MIT.md](../licenses/AI4L-MIT.md) for the original MIT license.
+AI4L uses the MIT license. TierNote’s localized method is a reorganized derivative checklist framework that preserves the upstream project name, link, version, and license record. See [AI4L-MIT.md](../licenses/AI4L-MIT.md) for the original MIT license.
 
 ## Update Rules
 
@@ -60,6 +60,6 @@ Do not overwrite old records when upstream changes:
 
 1. Acquire the new version and record the new commit;
 2. Compare `prompts/AI4L.md`, the skill file, and the limitations document;
-3. Merge only changes compatible with Tier Note’s source policy into the local framework;
+3. Merge only changes compatible with TierNote’s source policy into the local framework;
 4. Record added, rejected, and changed items in the research log;
 5. Existing dossier Tiers do not change automatically when the upstream template changes.

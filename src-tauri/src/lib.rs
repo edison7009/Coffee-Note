@@ -26,12 +26,10 @@ const MAX_CAPTURE_DOWNLOAD_BYTES: usize = 600_000;
 const MAX_CAPTURE_SOURCE_BYTES: usize = 110_000;
 const MAX_RESEARCH_CONTEXT_BYTES: usize = 32_000;
 const STARTER_PACK_VERSION: &str = "12";
-const LATEST_RELEASE_API: &str =
-    "https://api.github.com/repos/edison7009/TierNote/releases/latest";
+const LATEST_RELEASE_API: &str = "https://api.github.com/repos/edison7009/TierNote/releases/latest";
 const WEBSITE_VERSION_API: &str = "https://tiernote.life/version.json?platform=windows";
 const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://tiernote.life/download/windows";
-const RELEASE_DOWNLOAD_PREFIX: &str =
-    "https://github.com/edison7009/TierNote/releases/download/";
+const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/releases/download/";
 const REMOVED_STARTER_FILES: &[&str] = &[
     "cases/ray-lui.md",
     "research-log/2026-07-21-ray-lui-case.md",
@@ -354,7 +352,7 @@ fn ensure_starter_library(root: &Path) -> Result<(), String> {
     {
         let path = root.join(relative_path);
         if let Ok(existing) = fs::read_to_string(&path) {
-            let renamed = existing.replace("TierNote", "Tier Note");
+            let renamed = existing.replace(concat!("Tier", " Note"), "TierNote");
             if renamed != existing {
                 fs::write(&path, renamed)
                     .map_err(|error| format!("Could not migrate starter branding: {error}"))?;
@@ -1138,7 +1136,7 @@ async fn fetch_capture_source(url: &reqwest::Url) -> Result<String, String> {
         .ok_or_else(|| "The source URL has no usable port".to_string())?;
     let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(35))
-        .user_agent("Tier Note/0.0.1")
+        .user_agent("TierNote/0.0.1")
         .redirect(reqwest::redirect::Policy::custom({
             let source_host = source_host.clone();
             move |attempt| {
@@ -1235,7 +1233,7 @@ async fn request_model_text(
         .post(chat_endpoint(base_url))
         .bearer_auth(api_key)
         .header("HTTP-Referer", "https://tiernote.science")
-        .header("X-Title", "Tier Note")
+        .header("X-Title", "TierNote")
         .json(&json!({
             "model": model,
             "messages": messages
@@ -1329,7 +1327,7 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         "使用简体中文撰写笔记。"
     };
     let system_prompt = format!(
-        "You organize source material for Tier Note, a scientific longevity knowledge library. \
+        "You organize source material for TierNote, a scientific longevity knowledge library. \
          Preserve factual nuance and clearly distinguish evidence from inference. Never invent a study, \
          sample size, result, limitation, quotation, or source. If information is absent, say it is not \
          stated. Do not diagnose or prescribe. {language_rule} Return JSON only with exactly two string \
@@ -1871,7 +1869,7 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         "使用简体中文回答。"
     };
     let system_prompt = format!(
-        "You are Tier Note, a local-first scientific longevity assistant. \
+        "You are TierNote, a local-first scientific longevity assistant. \
          The user's local notes are your primary memory. Use the supplied notes before general knowledge. \
          Cite the local note path in parentheses when a statement depends on it. \
          Clearly separate the user's personal protocol from general information. \
@@ -2295,7 +2293,7 @@ pub fn run() {
             download_and_install_update
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Tier Note");
+        .expect("error while running TierNote");
 }
 
 #[cfg(test)]
@@ -2668,7 +2666,7 @@ mod tests {
         ensure_starter_library(&root).expect("starter branding should migrate");
         let migrated_index =
             fs::read_to_string(root.join("index.md")).expect("migrated index should be readable");
-        assert!(migrated_index.contains("# Tier Note 知识库"));
+        assert!(migrated_index.contains("# TierNote 知识库"));
         assert!(migrated_index.contains("用户保留的其他内容。"));
 
         fs::write(root.join("cases/ray-lui.md"), "# retired starter case")

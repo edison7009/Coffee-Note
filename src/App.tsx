@@ -2069,8 +2069,8 @@ function Sidebar({
               onClick={() => void handleUpdate()}
               aria-label={
                 locale === 'zh'
-                  ? `更新至 Tier Note ${availableVersion}`
-                  : `Update Tier Note to ${availableVersion}`
+                  ? `更新至 TierNote ${availableVersion}`
+                  : `Update TierNote to ${availableVersion}`
               }
               disabled={installingUpdate}
             >
@@ -3226,7 +3226,7 @@ function DialogHeader({
       <div className="dialog-titlebar-main">
         <span className="dialog-titlebar-icon">{icon}</span>
         <div className="dialog-titlebar-copy">
-          <span className="dialog-titlebar-eyebrow">TIER NOTE</span>
+          <span className="dialog-titlebar-eyebrow">TIERNOTE</span>
           <h2 id={titleId}>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
         </div>
@@ -3386,7 +3386,7 @@ function RightRail({
                 </strong>
                 <small>
                   {locale === 'zh'
-                    ? '把当前目标和相关资料交给 Tier Note，先看清冲突、选择与下一步。'
+                    ? '把当前目标和相关资料交给 TierNote，先看清冲突、选择与下一步。'
                     : 'Bring a goal and the relevant material. Start by seeing conflicts, choices, and the next step.'}
                 </small>
               </div>
@@ -3754,7 +3754,7 @@ function SettingsDialog({
               className="version-link"
               onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}
             >
-              Tier Note · v{APP_VERSION}
+              TierNote · v{APP_VERSION}
             </button>
             <button onClick={() => void openExternalUrl(FEEDBACK_URL)}>
               <Github size={13} strokeWidth={1.8} />

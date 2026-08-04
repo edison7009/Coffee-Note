@@ -2,7 +2,7 @@
 name = "tiernote"
 version = "0.1.1"
 description = "Local-first note system with tier-based organization and AI assistance"
-authors = ["Tier Note"]
+authors = ["TierNote"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.77.2"

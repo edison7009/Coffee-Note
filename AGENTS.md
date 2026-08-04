@@ -1,7 +1,7 @@
-# Tier Note agent notes
+# TierNote agent notes
 
-Tier Note is a sister product forked from the original longevity app. Its visible product
-name must always include the space: **Tier Note**. Internal directories,
+TierNote is a sister product forked from the original longevity app. Its visible product
+name must always use the closed wordmark: **TierNote**. Internal directories,
 package names, storage keys, and identifiers use `TierNote` or `tiernote`.
 The copied longevity content is transitional and will be replaced with a clean,
 general-purpose note model. The homepage tier list remains the core experience.

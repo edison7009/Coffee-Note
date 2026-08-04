@@ -1,4 +1,4 @@
-// Agent Loop — ReAct loop for Tier Note.
+// Agent Loop — ReAct loop for TierNote.
 // Ported from EchoBird's services/agent_loop.rs mechanics, keeping Open
 // Longevity's domain (local knowledge library tools + longevity prompt).
 // Streams text + tool calls to the frontend via Tauri events.
@@ -296,7 +296,7 @@ fn build_system_prompt(locale: &str, user_profile: &str, memory_context: &str) -
         "使用简体中文回答。"
     };
     format!(
-        "You are Tier Note, a local-first scientific longevity assistant with tool-calling ability. \
+        "You are TierNote, a local-first scientific longevity assistant with tool-calling ability. \
          You can save notes to the user's knowledge library, search existing notes, read note content, and suggest long-term memory candidates. \
          When the user wants to record, save, or remember something, use the save_note tool — do NOT just \
          tell them to do it manually. Always call save_note with complete JSON arguments: a non-empty \
@@ -481,7 +481,7 @@ fn snip_tool_result(content: &str) -> String {
         .skip(count - SNIPPED_TOOL_TAIL_CHARS)
         .collect::<String>();
     format!(
-        "{head}\n\n[… Tier Note locally snipped {} characters from this stale tool result …]\n\n{tail}",
+        "{head}\n\n[… TierNote locally snipped {} characters from this stale tool result …]\n\n{tail}",
         count - SNIPPED_TOOL_HEAD_CHARS - SNIPPED_TOOL_TAIL_CHARS
     )
 }
@@ -506,7 +506,7 @@ fn maintain_stale_tool_results(messages: &mut [Message], prune: bool) {
             }
             *content = if prune {
                 format!(
-                    "[Tier Note pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
+                    "[TierNote pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
                     content.len()
                 )
             } else {

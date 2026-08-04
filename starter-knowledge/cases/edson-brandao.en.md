@@ -45,10 +45,10 @@ He sells an anti-aging e-book and publicly mentions partnerships with health bra
 | "He completely avoids 9 categories of food" | ⚠️ Current self-report | The list includes white bread, sugary cereal, fried/fast food, processed cheese, candy and chocolate, sugar-sweetened beverages, and ultra-processed snacks; no independent food record exists |
 | "Fruit, fish, eggs, and vegetables make him look 30 years younger" | ✅ Direction can inform practice | These foods can form a healthy dietary pattern and inform the diet strategy adopted by this project |
 | "He has never had surgery, Botox, or fillers" | ❓ Cannot be independently confirmed | Multiple articles repeat the same statement from him; complete medical records are unavailable |
-| "Applying frozen cucumber every day is anti-aging" | ⚠️ May temporarily cool and reduce puffiness | It may provide immediate cooling or transient reduction in puffiness; it is a personal skincare preference and is not an Tier Note strategy |
+| "Applying frozen cucumber every day is anti-aging" | ⚠️ May temporarily cool and reduce puffiness | It may provide immediate cooling or transient reduction in puffiness; it is a personal skincare preference and is not an TierNote strategy |
 | "Mouth taping improves nasal breathing and sleep" | ⚠️ Should not be copied | People with nasal obstruction or sleep apnea may face risks; the cause of nighttime mouth breathing should be investigated first |
 | "Magnesium glycinate improves sleep" | ⚠️ Conditional | Only the 2026 article is confirmed to mention it, with no dose disclosed; a systematic review rates human evidence for insomnia as low to very low quality |
-| "Morning ginger improves energy, clarity, and digestion" | ❓ Personal experience | A personal dietary habit; not an Tier Note strategy |
+| "Morning ginger improves energy, clarity, and digestion" | ❓ Personal experience | A personal dietary habit; not an TierNote strategy |
 | "He does not rely on supplements" | ❌ Versions conflict | The 2026 narrative emphasizes food first, but a 2020 report records promotion of supplement products and the 2026 account mentions magnesium; no complete current list exists |
 
 ## What General Readers Can Reasonably Learn
@@ -95,7 +95,7 @@ Reference: [Systematic review of the safety and efficacy of nighttime mouth tapi
 
 ### Magnesium Glycinate for Sleep
 
-A systematic review in older adults with insomnia found only 3 randomized trials with 151 participants. It does not support a universal recommendation that everyone take magnesium before bed. Edson's claimed magnesium glycinate protocol is a personal habit and is not an Tier Note strategy.
+A systematic review in older adults with insomnia found only 3 randomized trials with 151 participants. It does not support a universal recommendation that everyone take magnesium before bed. Edson's claimed magnesium glycinate protocol is a personal habit and is not an TierNote strategy.
 
 People with impaired kidney function face a risk of magnesium accumulation. Magnesium also affects absorption of some antibiotics and bisphosphonates. Decisions about supplementation should return to diet, deficiency risk, kidney function, symptoms, and medication use.
 
@@ -103,7 +103,7 @@ References: [Systematic review of oral magnesium and insomnia in older adults (P
 
 ### "Natural, Therefore Effective" Skincare Techniques
 
-Frozen cucumber, dry brushing, silk pillowcases, and back sleeping are personal preferences and are not Tier Note strategies. Direct skin contact with excessively cold material may also cause irritation or cold injury. Skin disease, pigment abnormalities, or persistent puffiness warrants professional assessment.
+Frozen cucumber, dry brushing, silk pillowcases, and back sleeping are personal preferences and are not TierNote strategies. Direct skin contact with excessively cold material may also cause irritation or cold injury. Skin disease, pigment abnormalities, or persistent puffiness warrants professional assessment.
 
 ## Commercial and Source Boundaries
 

@@ -1,6 +1,6 @@
 # Bilingual starter library
 
-Tier Note keeps one logical knowledge library rather than two independent copies.
+TierNote keeps one logical knowledge library rather than two independent copies.
 
 ## File pairing
 

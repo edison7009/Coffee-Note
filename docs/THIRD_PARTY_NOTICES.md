@@ -2,7 +2,7 @@
 
 ## DeepSeek-Reasonix
 
-Tier Note's staged context maintenance and provider cache-usage normalization
+TierNote's staged context maintenance and provider cache-usage normalization
 were adapted from ideas and implementation patterns in
 [esengine/DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix),
 reviewed at commit `2c54501`.

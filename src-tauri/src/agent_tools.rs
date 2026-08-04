@@ -1,4 +1,4 @@
-// Agent Tools — domain-specific tools for Tier Note.
+// Agent Tools — domain-specific tools for TierNote.
 // save_note, search_library, read_note operate on the local knowledge library.
 
 use serde_json::{json, Value};

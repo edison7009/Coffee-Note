@@ -1,8 +1,8 @@
-# Tier Note 架构说明
+# TierNote 架构说明
 
 ## 产品边界
 
-Tier Note 不是一个换皮的代码 Agent。它只暴露延寿知识工作所需的安全能力：
+TierNote 不是一个换皮的代码 Agent。它只暴露延寿知识工作所需的安全能力：
 
 1. 读取用户明确选择的知识库；
 2. 检索延寿策略、人物案例、延寿轶事、个人计划与论文笔记；
@@ -21,7 +21,7 @@ Tier Note 不是一个换皮的代码 Agent。它只暴露延寿知识工作所�
 
 ## 独立资料库
 
-Tier Note 不读取或绑定开发者的私人 `Life extension` 目录。默认资料库位于各平台的应用数据目录：
+TierNote 不读取或绑定开发者的私人 `Life extension` 目录。默认资料库位于各平台的应用数据目录：
 
 ```text
 Windows  %LOCALAPPDATA%/TierNote/library
@@ -41,7 +41,7 @@ Linux    $XDG_DATA_HOME/TierNote/library
 
 Pi 的 `pi-ai` 与 `pi-agent-core` 很适合统一模型调用、工具循环和状态管理；但 Pi 的主要运行时是 TypeScript/Node/Bun，而 Tauri WebView 本身不是 Node 环境。直接嵌入通常需要额外 sidecar、跨平台二进制打包和更大的权限面。Pi 官方说明也明确指出它本身不提供文件系统、进程、网络或凭证的内建权限系统。
 
-因此首版使用小型 Rust 核心，只实现 Tier Note 必需的能力。接口应保持可替换：
+因此首版使用小型 Rust 核心，只实现 TierNote 必需的能力。接口应保持可替换：
 
 ```text
 React UI

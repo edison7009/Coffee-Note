@@ -11,7 +11,7 @@ Date: `2026-07-20`
 
 - Cloned AI4L `1.2.0` into the local raw-material area and pinned the commit;
 - Registered the upstream version, SHA-256 hashes of key files, MIT license, and update rules;
-- Reorganized the upstream 404-item review specification into Tier Note's 47-item core audit template;
+- Reorganized the upstream 404-item review specification into TierNote's 47-item core audit template;
 - Added the workflow `create → independent audit → correct → re-audit`;
 - Explicitly rejected brand recommendations, unsupported functional-medicine "optimal ranges," and substituting a perfect score for fact-checking;
 - Completed the first audit using spermidine;
@@ -20,7 +20,7 @@ Date: `2026-07-20`
 
 ## Why Finished AI4L Reviews Were Not Copied Directly
 
-AI4L's examples are complete, long-form English evidence reviews suited to close reading by researchers. Tier Note's entry point is the general reader. Direct copying would undermine the current "plain language first, evidence second" reading structure and would import expert platforms, brands, and functional-medicine ranges into the product.
+AI4L's examples are complete, long-form English evidence reviews suited to close reading by researchers. TierNote's entry point is the general reader. Direct copying would undermine the current "plain language first, evidence second" reading structure and would import expert platforms, brands, and functional-medicine ranges into the product.
 
 The project therefore uses a two-layer document model:
 

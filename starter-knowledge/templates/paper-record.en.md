@@ -50,7 +50,7 @@ translation_of: templates/paper-record.md
 
 - 
 
-## Significance for Tier Note
+## Significance for TierNote
 
 - What it supports:
 - What it does not support:

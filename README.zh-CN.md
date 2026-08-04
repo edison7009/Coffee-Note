@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="src-tauri/icons/icon.png" width="112" alt="Tier Note logo">
+  <img src="src-tauri/icons/icon.png" width="112" alt="TierNote logo">
 </p>
 
-<h1 align="center">Tier Note · 开源延寿</h1>
+<h1 align="center">TierNote · 开源延寿</h1>
 
 <p align="center"><strong>延寿，是人类在 AI 时代最有价值的投资。</strong></p>
 
-![Tier Note 中文首页](docs/assets/product-ui/home-zh.webp)
+![TierNote 中文首页](docs/assets/product-ui/home-zh.webp)
 
 <p align="center">
   <a href="README.md">English</a> · <strong>简体中文</strong>
@@ -14,7 +14,7 @@
 
 <p align="center">
   <strong>科学延寿，不再是富豪专属。</strong><br>
-  Tier Note 以 Bryan Johnson 的延寿计划为蓝本。
+  TierNote 以 Bryan Johnson 的延寿计划为蓝本。
 </p>
 
 <p align="center">
@@ -28,9 +28,9 @@
 > 富豪可以组建医疗团队、持续追踪指标、整理研究并迭代个人方案。<br>
 > 普通人同样应该拥有理解科学证据、管理个人知识和使用 AI 工具的权利。
 
-Tier Note 希望把散落在论文、公开人物方案和个人记录中的延寿知识，变成每个人都能阅读、核查、积累和使用的开放工具。它不兜售“永生捷径”，也不把昂贵方案简单复制给所有人；它提供的是一套透明、可追溯、可在本地掌控的科学延寿工作台。
+TierNote 希望把散落在论文、公开人物方案和个人记录中的延寿知识，变成每个人都能阅读、核查、积累和使用的开放工具。它不兜售“永生捷径”，也不把昂贵方案简单复制给所有人；它提供的是一套透明、可追溯、可在本地掌控的科学延寿工作台。
 
-## 为什么做 Tier Note
+## 为什么做 TierNote
 
 今天的延寿科技存在明显的信息落差：
 
@@ -62,7 +62,7 @@ T1–T5 是用于阅读和讨论的起始框架，不是适用于所有人的医
 
 ### 把网页和原始资料交给 AI
 
-粘贴公开网页链接、论文摘要、网页正文或临时笔记，Tier Note 会：
+粘贴公开网页链接、论文摘要、网页正文或临时笔记，TierNote 会：
 
 1. 提取可读正文；
 2. 让你配置的 OpenAI-compatible 模型生成结构化 Markdown 草稿；
@@ -76,7 +76,7 @@ T1–T5 是用于阅读和讨论的起始框架，不是适用于所有人的医
 
 ### 基于自己的本地资料与 AI 对话
 
-![Tier Note 中文 AI 对话](docs/assets/product-ui/chat-zh.webp)
+![TierNote 中文 AI 对话](docs/assets/product-ui/chat-zh.webp)
 
 AI 回答会优先参考：
 
@@ -87,7 +87,7 @@ AI 回答会优先参考：
 
 当回答依赖本地资料时，应用会要求模型保留对应的笔记路径，帮助用户继续核查。
 
-对于论文、证据和临床试验类问题，Tier Note 还会生成排除个人标识与个人测量值的英文医学检索式，
+对于论文、证据和临床试验类问题，TierNote 还会生成排除个人标识与个人测量值的英文医学检索式，
 实时查询 PubMed、ClinicalTrials.gov 与 bioRxiv。程序会附上确定的 PMID、NCT
 和预印本链接，并要求模型区分正式论文、试验登记/结果以及未经同行评审的预印本。
 
@@ -101,11 +101,11 @@ AI 回答会优先参考：
 
 ### 配置模型与本地知识库
 
-![Tier Note 中文模型设置](docs/assets/product-ui/settings-zh.webp)
+![TierNote 中文模型设置](docs/assets/product-ui/settings-zh.webp)
 
 ### 访问项目网站
 
-![Tier Note 中文网站](docs/assets/product-ui/website-zh.webp)
+![TierNote 中文网站](docs/assets/product-ui/website-zh.webp)
 
 ### 保持数据可控
 
@@ -229,11 +229,11 @@ git push origin vX.Y.Z
 
 ## 医疗免责声明
 
-Tier Note 是知识整理与研究辅助工具，不提供诊断、处方或个体化医疗建议。任何涉及药物、补充剂、检测和干预的决定，都应结合个人情况并咨询合格的医疗专业人员。公开人物的方案只适用于理解和研究，不应直接照搬。
+TierNote 是知识整理与研究辅助工具，不提供诊断、处方或个体化医疗建议。任何涉及药物、补充剂、检测和干预的决定，都应结合个人情况并咨询合格的医疗专业人员。公开人物的方案只适用于理解和研究，不应直接照搬。
 
 ## License
 
-[MIT](LICENSE) © 2026 Tier Note contributors.
+[MIT](LICENSE) © 2026 TierNote contributors.
 
 ---
 
@@ -241,6 +241,6 @@ Tier Note 是知识整理与研究辅助工具，不提供诊断、处方或个�
 
 **Longevity science should not be reserved for the wealthy.**
 
-Tier Note is an open-source, local-first desktop workspace for reading scientific longevity knowledge, organizing public research with AI, and asking questions grounded in your own Markdown library. It supports Chinese and English, OpenAI-compatible providers, and Windows, macOS, and Linux.
+TierNote is an open-source, local-first desktop workspace for reading scientific longevity knowledge, organizing public research with AI, and asking questions grounded in your own Markdown library. It supports Chinese and English, OpenAI-compatible providers, and Windows, macOS, and Linux.
 
-Your library and AI provider configuration stay on your computer by default. The API key is saved in plaintext in the current user's local app-data directory. Tier Note is a knowledge and research tool—not medical advice.
+Your library and AI provider configuration stay on your computer by default. The API key is saved in plaintext in the current user's local app-data directory. TierNote is a knowledge and research tool—not medical advice.

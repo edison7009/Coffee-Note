@@ -1,6 +1,6 @@
-# Tier Note website
+# TierNote website
 
-The public website for [Tier Note](https://github.com/edison7009/TierNote).
+The public website for [TierNote](https://github.com/edison7009/TierNote).
 It is plain HTML, CSS, and JavaScript and does not require a build step.
 
 ## Development

@@ -87,12 +87,12 @@ jobs:
           if [ -z "$ID" ]; then
             ID=$(gh api --method POST "repos/${REPO}/releases" \
               -f tag_name="${TAG}" \
-              -f name="Tier Note ${TAG}" \
-              -f body="Tier Note ${TAG#v}
+              -f name="TierNote ${TAG}" \
+              -f body="TierNote ${TAG#v}
 
           This release includes the changes recorded in the repository history since the previous version.
 
-          Tier Note takes Bryan Johnson’s longevity plan as a starting blueprint, then adds AI and scientific evidence in a local-first desktop workspace, with Windows, macOS, and Linux builds.
+          TierNote takes Bryan Johnson’s longevity plan as a starting blueprint, then adds AI and scientific evidence in a local-first desktop workspace, with Windows, macOS, and Linux builds.
 
           These binaries are not code-signed. Your operating system may display an unverified-developer warning." \
               -F draft=true \

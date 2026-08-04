@@ -1,5 +1,5 @@
 #!/bin/sh
-# Tier Note installer / updater for macOS and Linux
+# TierNote installer / updater for macOS and Linux
 # Usage: curl -fsSL https://tiernote.life/install.sh | sh
 
 set -eu
@@ -33,7 +33,7 @@ case "$OS" in
   *) fail "Unsupported operating system: $OS" ;;
 esac
 
-printf '\n  Tier Note Installer\n  ------------------------\n'
+printf '\n  TierNote Installer\n  ------------------------\n'
 say "Checking the latest release..."
 VERSION="$(curl -fsSL "$SITE/version.json?platform=$PLATFORM" 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' || true)"
 DOWNLOAD="$SITE/download/$PLATFORM"
@@ -56,7 +56,11 @@ say "Latest: v$VERSION"
 
 INSTALLED_VERSION=""
 if [ "$OS" = "Darwin" ]; then
-  APP_PATH="/Applications/Tier Note.app"
+  APP_PATH="/Applications/TierNote.app"
+  LEGACY_APP_PATH="/Applications/Tier"" Note.app"
+  if [ ! -d "$APP_PATH" ] && [ -d "$LEGACY_APP_PATH" ]; then
+    APP_PATH="$LEGACY_APP_PATH"
+  fi
   if [ -d "$APP_PATH" ]; then
     INSTALLED_VERSION="$(defaults read "$APP_PATH/Contents/Info" CFBundleShortVersionString 2>/dev/null || true)"
   fi
@@ -71,7 +75,7 @@ fi
 if [ -n "$INSTALLED_VERSION" ]; then
   say "Installed: v$INSTALLED_VERSION"
   if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
-    printf '\n  Tier Note is already up to date.\n\n'
+    printf '\n  TierNote is already up to date.\n\n'
     exit 0
   fi
   say "Upgrading v$INSTALLED_VERSION -> v$VERSION..."
@@ -92,13 +96,15 @@ if [ "$OS" = "Darwin" ]; then
   [ -n "$APP" ] || fail "The disk image does not contain an application."
   say "Installing to /Applications..."
   if [ -w "/Applications" ]; then
-    rm -rf "/Applications/Tier Note.app"
-    cp -R "$APP" "/Applications/Tier Note.app"
+    rm -rf "/Applications/TierNote.app"
+    rm -rf "$LEGACY_APP_PATH"
+    cp -R "$APP" "/Applications/TierNote.app"
   else
-    sudo rm -rf "/Applications/Tier Note.app"
-    sudo cp -R "$APP" "/Applications/Tier Note.app"
+    sudo rm -rf "/Applications/TierNote.app"
+    sudo rm -rf "$LEGACY_APP_PATH"
+    sudo cp -R "$APP" "/Applications/TierNote.app"
   fi
-  xattr -cr "/Applications/Tier Note.app" 2>/dev/null || true
+  xattr -cr "/Applications/TierNote.app" 2>/dev/null || true
   hdiutil detach "$MOUNT" -quiet || true
 elif [ "$EXT" = "deb" ]; then
   say "Installing the Debian package..."
@@ -115,4 +121,4 @@ else
   say "Installed AppImage to $TARGET"
 fi
 
-printf '\n  Tier Note v%s is installed.\n\n' "$VERSION"
+printf '\n  TierNote v%s is installed.\n\n' "$VERSION"

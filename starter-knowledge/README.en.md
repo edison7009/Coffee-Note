@@ -3,9 +3,9 @@ locale: en
 translation_of: README.md
 ---
 
-# Tier Note Starter Knowledge Base
+# TierNote Starter Knowledge Base
 
-This is the independent, local-first knowledge base created when Tier Note is launched for the first time. The starter content provides a reasonably complete foundation for reading and AI context, while containing no health parameters from the developer or any real user.
+This is the independent, local-first knowledge base created when TierNote is launched for the first time. The starter content provides a reasonably complete foundation for reading and AI context, while containing no health parameters from the developer or any real user.
 
 Directory conventions:
 
@@ -29,10 +29,10 @@ The starter library includes strategy dossiers, public-figure cases, papers, sou
 
 ## Internal Links Between Articles
 
-When the full Chinese or English title of another article appears in the body text, Tier Note automatically displays the first occurrence as an internal link. A target may also be specified explicitly in Markdown:
+When the full Chinese or English title of another article appears in the body text, TierNote automatically displays the first occurrence as an internal link. A target may also be specified explicitly in Markdown:
 
 - `[Strength Training](#/supplement/strength-training)`
 - `[Bryan Johnson](#/person/bryan-johnson)`
 - `[Okinawa's Longevity Culture](#/story/okinawa-longevity)`
 
-The final part of the link uses the `id` from the target article's frontmatter. Internal links switch articles only within Tier Note; external reference sites continue to open in the system's default browser.
+The final part of the link uses the `id` from the target article's frontmatter. Internal links switch articles only within TierNote; external reference sites continue to open in the system's default browser.

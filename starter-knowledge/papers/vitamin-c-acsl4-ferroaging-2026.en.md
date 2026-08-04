@@ -70,7 +70,7 @@ Iron accumulation → ACSL4 upregulation → lipid peroxidation (increased ROS a
 - Supported by the Institute of Zoology, Chinese Academy of Sciences; Xuanwu Hospital; and other institutions
 - No commercial conflict of interest reported
 
-## Relevance to Tier Note
+## Relevance to TierNote
 
 - Supports: vitamin C was associated with multi-organ biological-age changes in primates; the study proposes mechanisms including ACSL4 inhibition and Nrf2 activation
 - Supports: multi-organ biological-age reversal at the primate level provides important evidence for human longevity research

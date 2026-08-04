@@ -12,9 +12,9 @@ Date: `2026-07-20`
 
 ## Why It Was Introduced
 
-Tier Note already has a source policy, Tier rules, and a dossier format for general readers. This method adds a reproducible **second-pass review**. The most valuable part of AI4L is not any ready-made review, but its separation of evidence review into creation, independent audit, correction, and re-audit, with line-by-line verification of links and conclusions.
+TierNote already has a source policy, Tier rules, and a dossier format for general readers. This method adds a reproducible **second-pass review**. The most valuable part of AI4L is not any ready-made review, but its separation of evidence review into creation, independent audit, correction, and re-audit, with line-by-line verification of links and conclusions.
 
-This method condenses AI4L’s 404 criteria into 47 core checks suited to Tier Note. The condensation does not lower the standard. It removes inapplicable assumptions about formatting, commercial databases, brands, and populations, and concentrates review on whether conclusions are traceable and their boundaries are clear.
+This method condenses AI4L’s 404 criteria into 47 core checks suited to TierNote. The condensation does not lower the standard. It removes inapplicable assumptions about formatting, commercial databases, brands, and populations, and concentrates review on whether conclusions are traceable and their boundaries are clear.
 
 ## Two-Layer Documents
 
@@ -74,7 +74,7 @@ The complete 47-item template is in [intervention-audit.md](../templates/interve
 
 ### 1. General readers first
 
-AI4L’s intended readers lean toward health-optimization users willing to execute complex protocols. Tier Note retains general readers as the entry point, puts specialist information in research appendices, and does not require clinical terminology throughout.
+AI4L’s intended readers lean toward health-optimization users willing to execute complex protocols. TierNote retains general readers as the entry point, puts specialist information in research appendices, and does not require clinical terminology throughout.
 
 ### 2. No default “treatment regimen”
 
@@ -102,4 +102,4 @@ When links are inaccessible, full text is missing, funding is unknown, or long-t
 
 ## Upstream Limitations
 
-AI4L explicitly notes that a clean audit may still miss errors, 100% means only that the checklist was passed, tool availability and model quality affect results, and evidence reviews cannot replace medical care. Tier Note retains these limitations and additionally requires local snapshots and human-traceable records.
+AI4L explicitly notes that a clean audit may still miss errors, 100% means only that the checklist was passed, tool availability and model quality affect results, and evidence reviews cannot replace medical care. TierNote retains these limitations and additionally requires local snapshots and human-traceable records.

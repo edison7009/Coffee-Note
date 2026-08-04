@@ -81,7 +81,7 @@ DNA-methylation clocks are among the most important surrogate endpoints in aging
 - Changes in disease or mortality risk;
 - Cross-validation across multiple clocks and laboratories.
 
-Tier Note classifies methylation clocks as surrogate endpoints and combines them with functional outcomes when assessing the longevity value of Ca-AKG.
+TierNote classifies methylation clocks as surrogate endpoints and combines them with functional outcomes when assessing the longevity value of Ca-AKG.
 
 ## Food, AKG, and Ca-AKG
 

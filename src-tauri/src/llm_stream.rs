@@ -255,7 +255,7 @@ impl LlmClient {
                 "HTTP-Referer",
                 HeaderValue::from_static("https://tiernote.science"),
             );
-            headers.insert("X-Title", HeaderValue::from_static("Tier Note"));
+            headers.insert("X-Title", HeaderValue::from_static("TierNote"));
             Ok(http.post(&url_owned).headers(headers).json(&body_owned))
         };
 
@@ -443,7 +443,7 @@ impl LlmClient {
                 "HTTP-Referer",
                 HeaderValue::from_static("https://tiernote.science"),
             );
-            headers.insert("X-Title", HeaderValue::from_static("Tier Note"));
+            headers.insert("X-Title", HeaderValue::from_static("TierNote"));
             Ok(http.post(&url_owned).headers(headers).json(&body_owned))
         };
 

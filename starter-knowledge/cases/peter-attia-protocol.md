@@ -11,7 +11,7 @@ commercial_note: 与 Thorne 存在合作/代言关系，相关品牌记录为 sp
 Peter Attia，延寿医学医生、前外科医生，《Outlive: The Science and Art of Longevity》作者、The Drive 播客主理人。他的定位是**把医学从"治病"转向"防病 + 延长健康寿命"**，方案以运动为第一杠杆、以可测量指标驱动，补剂态度相对克制。
 
 ::: tip 阅读方式
-本页记录 Attia 的公开框架与做法，用于发现值得进一步研究的策略，不等于 Tier Note 对剂量、处方或品牌的推荐。尚未逐条归档一手来源的内容标为 `needs-source-check`；与 Thorne 的合作关系单独披露。
+本页记录 Attia 的公开框架与做法，用于发现值得进一步研究的策略，不等于 TierNote 对剂量、处方或品牌的推荐。尚未逐条归档一手来源的内容标为 `needs-source-check`；与 Thorne 的合作关系单独披露。
 :::
 
 ## 核心理念

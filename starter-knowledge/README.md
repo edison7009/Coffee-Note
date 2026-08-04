@@ -1,6 +1,6 @@
-# Tier Note 出厂知识库
+# TierNote 出厂知识库
 
-这是 Tier Note 首次启动时创建的独立、本地优先知识库。出厂内容提供相对完整的阅读与 AI 上下文基础，同时不包含开发者或任何真实用户的健康参数。
+这是 TierNote 首次启动时创建的独立、本地优先知识库。出厂内容提供相对完整的阅读与 AI 上下文基础，同时不包含开发者或任何真实用户的健康参数。
 
 目录约定：
 
@@ -24,10 +24,10 @@
 
 ## 文章之间的站内链接
 
-正文中出现其他文章的完整中英文标题时，Tier Note 会自动把首次出现的标题显示为站内链接。也可以在 Markdown 中明确指定目标：
+正文中出现其他文章的完整中英文标题时，TierNote 会自动把首次出现的标题显示为站内链接。也可以在 Markdown 中明确指定目标：
 
 - `[力量训练](#/supplement/strength-training)`
 - `[Bryan Johnson](#/person/bryan-johnson)`
 - `[日本冲绳的延寿文化](#/story/okinawa-longevity)`
 
-链接末尾使用相应文章 frontmatter 中的 `id`。站内链接只在 Tier Note 内切换文章；外部参考网站仍由系统默认浏览器打开。
+链接末尾使用相应文章 frontmatter 中的 `id`。站内链接只在 TierNote 内切换文章；外部参考网站仍由系统默认浏览器打开。

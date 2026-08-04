@@ -1,4 +1,4 @@
-# Tier Note installer / updater for Windows
+# TierNote installer / updater for Windows
 # Usage: irm https://tiernote.life/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
@@ -6,7 +6,7 @@ $repository = "edison7009/TierNote"
 $headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "Open-Longevity-Installer" }
 
 Write-Host ""
-Write-Host "  Tier Note Installer" -ForegroundColor Cyan
+Write-Host "  TierNote Installer" -ForegroundColor Cyan
 Write-Host "  ------------------------" -ForegroundColor DarkGray
 Write-Host "  Checking the latest Windows release..." -ForegroundColor Gray
 
@@ -34,9 +34,12 @@ $registryPaths = @(
   "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
   "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
 )
+$legacyProductName = "Tier" + " Note"
 foreach ($path in $registryPaths) {
   $entry = Get-ItemProperty $path -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -like "Tier Note*" } | Select-Object -First 1
+    Where-Object {
+      $_.DisplayName -like "TierNote*" -or $_.DisplayName -like "$legacyProductName*"
+    } | Select-Object -First 1
   if ($entry) { $installedVersion = $entry.DisplayVersion; break }
 }
 
@@ -51,7 +54,7 @@ if ($installedVersion) {
   Write-Host "  Installed: v$installedVersion" -ForegroundColor Gray
   if ($installedVersion -eq $latestVersion) {
     Write-Host ""
-    Write-Host "  Tier Note is already up to date." -ForegroundColor Green
+    Write-Host "  TierNote is already up to date." -ForegroundColor Green
     exit 0
   }
   Write-Host "  Upgrading v$installedVersion -> v$latestVersion..." -ForegroundColor Yellow
@@ -67,7 +70,7 @@ try {
   Write-Host "  Starting setup..." -ForegroundColor Gray
   Start-Process -FilePath $installerPath -Wait
   Write-Host ""
-  Write-Host "  Tier Note v$latestVersion is installed." -ForegroundColor Green
+  Write-Host "  TierNote v$latestVersion is installed." -ForegroundColor Green
 } catch {
   Write-Host ""
   Write-Host "  Installation failed: $($_.Exception.Message)" -ForegroundColor Red

@@ -1,4 +1,4 @@
-# Tier Note — portable Codex project memory
+# TierNote — portable Codex project memory
 
 Updated: 2026-08-05
 
@@ -6,26 +6,26 @@ This file preserves the decisions and working context needed to continue the
 project on another machine. It contains no API keys, private user parameters,
 or temporary deployment credentials.
 
-## Tier Note fork status
+## TierNote fork status
 
-- This repository is the Tier Note sister product forked from the original longevity app.
-- Visible product name: **Tier Note** (always keep the space).
+- This repository is the TierNote sister product forked from the original longevity app.
+- Visible product name: **TierNote** (always use the closed wordmark, without a space).
 - Internal directory/package/storage identifiers may use `TierNote` or `tiernote`.
-- Tier Note is a clean, general-purpose note system rather than a longevity product.
+- TierNote is a clean, general-purpose note system rather than a longevity product.
 - The homepage editable T1–T5 tier list is the core interaction model because it
   makes prioritization and decisions immediately legible.
 - Longevity-specific starter content and product copy below are inherited context
-  awaiting replacement; they are not the Tier Note product direction.
+  awaiting replacement; they are not the TierNote product direction.
 
 ## Legacy source-product context
 
 The remaining notes describe the source product and are retained temporarily so
-the working behavior is not lost during migration. The Tier Note rules above take
+the working behavior is not lost during migration. The TierNote rules above take
 precedence whenever they conflict.
 
 ## Product identity
 
-- Product name: **Tier Note** (always include the space in visible text).
+- Product name: **TierNote** (always use the closed wordmark in visible text).
 - Chinese product name: **科学延寿**. Use **延寿** consistently in Chinese
   product, website, documentation, and starter-library copy; keep the previous
   product-domain term out of new copy.
@@ -124,7 +124,7 @@ to the product template.
   regional token prices directly rather than converting through an exchange
   rate. Persist the preference locally under `tiernote:currency`.
 - Chat uses a minimal two-sided conversation layout: user messages are compact
-  bubbles aligned to the right, while Tier Note answers remain readable,
+  bubbles aligned to the right, while TierNote answers remain readable,
   unframed content aligned to the left. Do not show participant names or avatars;
   message position already communicates the speaker.
 - Opening AI chat or switching conversations must position the message area at
@@ -171,7 +171,7 @@ to the product template.
   current user's app-data directory (`TierNote/config.json`). They must
   never be written into the repository or knowledge library.
 - Modal headers share one standard component: a fixed 44 x 44 icon tile aligned
-  to the vertical center of an `TIER NOTE` eyebrow plus main title block.
+  to the vertical center of an `TIERNOTE` eyebrow plus main title block.
   Settings and capture dialogs use the same header and add a close action on the
   right; do not maintain separate modal-title alignment rules.
 - Local knowledge retrieval uses an in-process Rust knowledge map: cached
@@ -219,15 +219,15 @@ to the product template.
   - Chinese: **延寿，是人类在 AI 时代最有价值的投资。**
   - English: **Longevity is humanity’s most valuable investment in the age of AI.**
 - Website hero lead is one unified subtitle paragraph at one visual level:
-  **富豪花费百万美元借助科技延寿，而 Tier Note 希望把生命之光同样带给普通家庭；以
+  **富豪花费百万美元借助科技延寿，而 TierNote 希望把生命之光同样带给普通家庭；以
   Bryan Johnson 公开的延寿计划为蓝本，融入 AI 与科学依据，让普通人也能拥有富豪级的延寿策略。**
   Do not render the Bryan Johnson sentence as a smaller note.
 - The hero installer uses text-only platform tabs with no underline indicator.
-  Its Chinese primary actions are **安装 Tier Note** and **在 GitHub 上点星**;
-  English keeps **Install Tier Note** and **Star on GitHub**. Align the
+  Its Chinese primary actions are **安装 TierNote** and **在 GitHub 上点星**;
+  English keeps **Install TierNote** and **Star on GitHub**. Align the
   install label and release version by their text baselines.
   Its macOS fallback note is the compact inline command: `macOS 首次需在「终端」
-  xattr -cr '/Applications/Tier Note.app'`. Keep this installation area
+  xattr -cr '/Applications/TierNote.app'`. Keep this installation area
   comfortably readable: 12px platform tabs, 13px desktop command text, and a
   14px macOS note; mobile may ellipsize the visible command while copying the
   complete value.
