@@ -165,11 +165,11 @@ const isMacOSPlatform =
   typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
 const tierMeta: Record<string, { label: Record<Locale, string>; color: string }> = {
-  T1: { label: { zh: '基础支柱', en: 'Foundation' }, color: '#f27c78' },
-  T2: { label: { zh: '高价值', en: 'High value' }, color: '#efb06e' },
-  T3: { label: { zh: '条件明确', en: 'Targeted' }, color: '#efd269' },
-  T4: { label: { zh: '特定情境', en: 'Contextual' }, color: '#9fcfc1' },
-  T5: { label: { zh: '探索跟踪', en: 'Exploratory' }, color: '#b7dd91' },
+  T1: { label: { zh: '现在处理', en: 'Now' }, color: '#f27c78' },
+  T2: { label: { zh: '接下来', en: 'Next' }, color: '#efb06e' },
+  T3: { label: { zh: '需要选择', en: 'Decide' }, color: '#efd269' },
+  T4: { label: { zh: '等待信息', en: 'Wait' }, color: '#9fcfc1' },
+  T5: { label: { zh: '以后再看', en: 'Later' }, color: '#b7dd91' },
   pending: { label: { zh: '待整理', en: 'Inbox' }, color: '#c8d3df' },
 };
 
@@ -295,10 +295,8 @@ interface NavigationLocation {
   filePath?: string;
 }
 
-const FAVORITES_SEED_FLAG = 'tiernote:favorites-seeded:v1';
-const DEFAULT_FAVORITES: FavoriteReference[] = [
-  { kind: 'person', id: 'bryan-johnson', addedAt: 0 },
-];
+const FAVORITES_SEED_FLAG = 'tiernote:favorites-seeded:v2';
+const DEFAULT_FAVORITES: FavoriteReference[] = [];
 
 type HealthLogField = 'exercise' | 'diet' | 'body';
 
@@ -353,51 +351,51 @@ function getPlanSections(locale: Locale): Array<{
   return [
     {
       id: 'supplements',
-      title: locale === 'zh' ? '补剂计划' : 'Supplement plan',
+      title: locale === 'zh' ? '现在要做' : 'Do now',
       description:
         locale === 'zh'
-          ? '成分、剂量、频率与安全检查'
-          : 'Ingredients, dose, schedule, and safety',
+          ? '已经足够清楚，可以推进的行动'
+          : 'Actions clear enough to move forward',
       icon: <Pill size={17} />,
       accent: '#f1d9d5',
     },
     {
       id: 'exercise',
-      title: locale === 'zh' ? '运动计划' : 'Exercise plan',
+      title: locale === 'zh' ? '需要决定' : 'Decide',
       description:
         locale === 'zh'
-          ? '力量、有氧、活动量与恢复'
-          : 'Strength, cardio, activity, and recovery',
+          ? '把依据、代价与取舍放在一起'
+          : 'Put evidence, trade-offs, and cost together',
       icon: <Dumbbell size={17} />,
       accent: '#d7e9e5',
     },
     {
       id: 'diet',
-      title: locale === 'zh' ? '饮食计划' : 'Diet plan',
+      title: locale === 'zh' ? '等待信息' : 'Wait for evidence',
       description:
         locale === 'zh'
-          ? '饮食结构、蛋白质与执行记录'
-          : 'Eating pattern, protein, and adherence',
+          ? '还缺少关键资料或验证的判断'
+          : 'Judgments that still need key information',
       icon: <Utensils size={17} />,
       accent: '#efe4c9',
     },
     {
       id: 'sleep',
-      title: locale === 'zh' ? '作息计划' : 'Daily routine',
+      title: locale === 'zh' ? '以后再看' : 'Later',
       description:
         locale === 'zh'
-          ? '起床、进食、运动与就寝时间表'
-          : 'Wake, meal, exercise, and bedtime schedule',
+          ? '重要但还不需要占用今天的注意力'
+          : 'Important, but not worth today’s attention',
       icon: <Moon size={17} />,
       accent: '#dce3f2',
     },
     {
       id: 'log',
-      title: locale === 'zh' ? '健康记录' : 'Health log',
+      title: locale === 'zh' ? '行动记录' : 'Action log',
       description:
         locale === 'zh'
-          ? '按天记录运动、饮食与身体数据'
-          : 'Daily notes for movement, food, and body',
+          ? '记下做过什么、学到了什么、下一步是什么'
+          : 'Record what happened, what changed, and what is next',
       icon: <NotebookPen size={17} />,
       accent: '#cfeae3',
     },
@@ -1563,7 +1561,7 @@ function App() {
                   locale={locale}
                   library={library}
                   onCapture={() => setCaptureGuideOpen(true)}
-                  onPeople={() => navigate('people')}
+                  onOrganize={() => navigate('ai')}
                   onPlan={() => navigate('plan')}
                   onSupplement={openSupplement}
                   t={t}
@@ -2240,7 +2238,7 @@ function HomeView({
   locale,
   library,
   onCapture,
-  onPeople,
+  onOrganize,
   onPlan,
   onSupplement,
   t,
@@ -2248,7 +2246,7 @@ function HomeView({
   locale: Locale;
   library: LibrarySnapshot;
   onCapture: () => void;
-  onPeople: () => void;
+  onOrganize: () => void;
   onPlan: () => void;
   onSupplement: (supplement: Supplement) => void;
   t: (key: TranslationKey) => string;
@@ -2283,7 +2281,7 @@ function HomeView({
           <ActionCard
             title={t('peopleCard')}
             description={t('peopleCardSub')}
-            onClick={onPeople}
+            onClick={onOrganize}
             ambient={ambientAssignments[1]}
           />
           <ActionCard
@@ -2298,6 +2296,7 @@ function HomeView({
       <section className="tier-section" aria-label={t('evidenceMap')}>
         <div className="section-heading">
           <div>
+            <h2>{t('evidenceMap')}</h2>
             <p>{t('evidenceMapSub')}</p>
           </div>
           <span className="section-stat">{library.supplements.length} items</span>
@@ -3386,12 +3385,12 @@ function RightRail({
               <div>
                 <strong>
                   {library.noteCount}{' '}
-                  {locale === 'zh' ? '篇科学延寿资料' : 'scientific longevity resources'}
+                  {locale === 'zh' ? '条本地资料' : 'local source items'}
                 </strong>
                 <small>
                   {locale === 'zh'
-                    ? '个人方案与资料笔记会进入记忆上下文，每次对话内容都是你的个人量身定制'
-                    : 'Personal plans and knowledge notes enter memory context, so every conversation is tailored to you'}
+                    ? '把当前目标和相关资料交给 Tier Note，先看清冲突、选择与下一步。'
+                    : 'Bring a goal and the relevant material. Start by seeing conflicts, choices, and the next step.'}
                 </small>
               </div>
             </div>
