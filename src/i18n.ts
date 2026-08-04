@@ -3,7 +3,7 @@ import type { Locale } from './types';
 const messages = {
   zh: {
     appName: 'Tier Note',
-    appTagline: '笔记 · Agent · 私有',
+    appTagline: '笔记 · 智能体 · 私有',
     home: '概览',
     aiChat: '整理资料',
     myPlan: '行动板',
