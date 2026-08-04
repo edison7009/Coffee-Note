@@ -4340,12 +4340,17 @@ textarea,
 
 .app-titlebar,
 [data-theme='dark'] .app-titlebar {
-  color: var(--muted);
-  background: color-mix(in srgb, var(--sidebar-surface) 94%, transparent);
-  border-bottom: 1px solid var(--line);
-  box-shadow: none;
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  color: rgba(236, 255, 251, 0.82);
+  background:
+    radial-gradient(circle at 18% -260%, rgba(75, 194, 188, 0.28), transparent 44%),
+    radial-gradient(circle at 88% 190%, rgba(35, 155, 117, 0.22), transparent 42%),
+    linear-gradient(108deg, #061b1b 0%, #082c2a 42%, #07534a 72%, #08705d 100%);
+  border-bottom: 1px solid rgba(3, 44, 40, 0.72);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.065),
+    inset 0 -1px rgba(0, 19, 18, 0.3);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .app-titlebar::after {
@@ -4354,13 +4359,13 @@ textarea,
 
 .window-controls button,
 [data-theme='dark'] .window-controls button {
-  color: var(--muted);
+  color: rgba(236, 255, 251, 0.78);
 }
 
 .window-controls button:hover,
 [data-theme='dark'] .window-controls button:hover {
-  color: var(--ink);
-  background: var(--tertiary-surface);
+  color: #ffffff;
+  background: rgba(218, 255, 246, 0.13);
 }
 
 .window-controls .window-close:hover,
