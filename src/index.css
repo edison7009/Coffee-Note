@@ -2283,7 +2283,6 @@ body.resizing-panels * {
   font-variant-numeric: tabular-nums;
   line-height: 1.4;
   pointer-events: none;
-  border-top: 1px solid rgba(135, 158, 152, 0.2);
   scrollbar-width: none;
   white-space: nowrap;
 }
@@ -2299,10 +2298,6 @@ body.resizing-panels * {
   gap: 2px;
   min-width: 112px;
   padding: 4px 12px 3px;
-}
-
-.composer-metrics span + span {
-  border-left: 1px solid rgba(135, 158, 152, 0.28);
 }
 
 .composer-metrics b {
@@ -3176,11 +3171,6 @@ body.resizing-panels * {
 
 [data-theme='dark'] .composer-metrics b {
   color: #747d79;
-}
-
-[data-theme='dark'] .composer-metrics,
-[data-theme='dark'] .composer-metrics span + span {
-  border-color: rgba(160, 174, 168, 0.2);
 }
 
 [data-theme='dark'] .disclaimer-dialog {
