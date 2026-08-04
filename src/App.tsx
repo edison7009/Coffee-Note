@@ -2268,7 +2268,6 @@ function HomeView({
           TIER NOTE
         </div>
         <h1>{t('greeting')}</h1>
-        <p className="hero-welcome">{t('heroWelcome')}</p>
       </section>
 
       <section className="start-section" aria-label={t('coreModules')}>
@@ -2297,7 +2296,6 @@ function HomeView({
       <section className="tier-section" aria-label={t('evidenceMap')}>
         <div className="section-heading">
           <div>
-            <h2>{t('evidenceMap')}</h2>
             <p>{t('evidenceMapSub')}</p>
           </div>
           <span className="section-stat">{library.supplements.length} items</span>

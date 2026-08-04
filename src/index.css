@@ -592,7 +592,8 @@ body.resizing-panels * {
 }
 
 .home-view {
-  padding-top: 24px;
+  --home-section-gap: 24px;
+  padding-top: 20px;
 }
 
 .hero,
@@ -608,7 +609,7 @@ body.resizing-panels * {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   color: #188678;
   font-size: 12px;
   font-weight: 700;
@@ -663,7 +664,7 @@ body.resizing-panels * {
 
 .start-section,
 .tier-section {
-  margin-top: 34px;
+  margin-top: var(--home-section-gap);
 }
 
 .start-cards {
@@ -736,7 +737,7 @@ body.resizing-panels * {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 34px;
+  margin-bottom: var(--home-section-gap);
 }
 
 .section-heading p {
