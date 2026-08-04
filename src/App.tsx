@@ -2268,6 +2268,7 @@ function HomeView({
           TIER NOTE
         </div>
         <h1>{t('greeting')}</h1>
+        <p className="hero-welcome">{t('heroWelcome')}</p>
       </section>
 
       <section className="start-section" aria-label={t('coreModules')}>
