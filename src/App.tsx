@@ -351,7 +351,7 @@ function getPlanSections(locale: Locale): Array<{
   return [
     {
       id: 'supplements',
-      title: locale === 'zh' ? '关于我' : 'About me',
+      title: locale === 'zh' ? '我的简历' : 'My resume',
       description:
         locale === 'zh'
           ? '个人简介、经历与当前状态'
@@ -371,7 +371,7 @@ function getPlanSections(locale: Locale): Array<{
     },
     {
       id: 'diet',
-      title: locale === 'zh' ? '偏好与限制' : 'Preferences',
+      title: locale === 'zh' ? '经验与教训' : 'Lessons learned',
       description:
         locale === 'zh'
           ? '在意什么、避开什么，以及现实边界'
@@ -391,7 +391,7 @@ function getPlanSections(locale: Locale): Array<{
     },
     {
       id: 'log',
-      title: locale === 'zh' ? '我的记录' : 'My log',
+      title: locale === 'zh' ? '我的日记' : 'My journal',
       description:
         locale === 'zh'
           ? '随手记下重要变化和想法'
