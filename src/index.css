@@ -2435,7 +2435,9 @@ body.resizing-panels * {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(790px, calc(100vw - 48px));
-  min-height: min(560px, calc(100vh - 48px));
+  height: min(600px, calc(100vh - 48px));
+  min-height: 0;
+  background: #fff;
   animation: fade-in 130ms ease-out;
 }
 
@@ -2444,6 +2446,7 @@ body.resizing-panels * {
   grid-template-columns: 168px minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
+  background: #fff;
 }
 
 .settings-nav {
@@ -2451,7 +2454,7 @@ body.resizing-panels * {
   flex-direction: column;
   gap: 4px;
   padding: 18px 10px 18px 16px;
-  background: #f3f6f5;
+  background: #fff;
 }
 
 .settings-nav button {
@@ -2480,6 +2483,7 @@ body.resizing-panels * {
   min-width: 0;
   padding: 24px 26px 28px;
   overflow-y: auto;
+  background: #fff;
 }
 
 .settings-panel-heading {
@@ -2649,7 +2653,7 @@ body.resizing-panels * {
   align-items: center;
   justify-content: space-between;
   padding: 13px 22px;
-  background: #f3f6f5;
+  background: #fff;
 }
 
 .dialog-meta {
@@ -3158,7 +3162,8 @@ body.resizing-panels * {
 @media (max-width: 760px) {
   .settings-dialog {
     width: min(650px, calc(100vw - 28px));
-    min-height: min(620px, calc(100vh - 28px));
+    height: calc(100vh - 28px);
+    min-height: 0;
   }
 
   .settings-content {

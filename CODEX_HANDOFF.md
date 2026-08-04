@@ -106,7 +106,9 @@ to the product template.
   item. Keep the dialog organized into three focused categories: model,
   knowledge library, and appearance. Currency controls belong at the bottom of
   the model page rather than in a separate usage/cost category. Do not collapse
-  unrelated settings back into one long form.
+  unrelated settings back into one long form. In the light theme, keep the
+  entire settings shell pure white, and keep all category panels at one fixed
+  outer height so switching never moves the dialog boundaries.
 - Remove redundant headers, helper labels, dark duplicate divider lines,
   “30 秒结论”, model IDs in the chat box, local-context labels, and knowledge
   context cards.
