@@ -3619,7 +3619,6 @@ function SettingsDialog({
                         key={provider}
                       >
                         {providerOptions[provider].label[locale]}
-                        {draft.activeProvider === provider && <Check size={14} />}
                       </button>
                     ))}
                   </div>
@@ -3717,7 +3716,6 @@ function SettingsDialog({
                       >
                         <span className="accent-swatch" aria-hidden="true" />
                         {t(`accent${accent[0].toUpperCase()}${accent.slice(1)}` as TranslationKey)}
-                        {accentMode === accent && <Check size={14} />}
                       </button>
                     ))}
                   </div>
