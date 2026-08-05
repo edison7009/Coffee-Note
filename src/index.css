@@ -4725,7 +4725,7 @@ textarea,
   display: grid;
   overflow: hidden;
   gap: 0;
-  background: color-mix(in srgb, var(--secondary-surface) 42%, var(--paper));
+  background: var(--paper);
   border: 0;
   border-radius: 16px;
   box-shadow: none;
@@ -4786,7 +4786,7 @@ textarea,
   background: transparent;
   border: 0;
   border-radius: 0;
-  font-size: 15.5px;
+  font-size: 20px;
   font-weight: 580;
   line-height: 1.35;
   cursor: grab;
