@@ -4722,10 +4722,12 @@ textarea,
 
 .tier-map,
 [data-theme='dark'] .tier-map {
-  overflow: visible;
-  background: var(--paper);
+  display: grid;
+  overflow: hidden;
+  gap: 0;
+  background: color-mix(in srgb, var(--secondary-surface) 42%, var(--paper));
   border: 0;
-  border-radius: 0;
+  border-radius: 16px;
   box-shadow: none;
 }
 
@@ -4733,12 +4735,28 @@ textarea,
 [data-theme='dark'] .tier-row {
   grid-template-columns: 80px minmax(0, 1fr);
   min-height: 80px;
+  gap: 0;
   border: 0;
 }
 
-.tier-label,
+.tier-label {
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--tier-color) 68%, var(--paper)) 0%,
+    color-mix(in srgb, var(--tier-color) 44%, var(--paper)) 100%
+  );
+  border-radius: 0;
+  box-shadow: inset 0 1px color-mix(in srgb, #fff 34%, transparent);
+}
+
 [data-theme='dark'] .tier-label {
-  background: color-mix(in srgb, var(--tier-color) 14%, var(--paper));
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--tier-color) 34%, var(--paper)) 0%,
+    color-mix(in srgb, var(--tier-color) 20%, var(--paper)) 100%
+  );
+  box-shadow: inset 0 1px color-mix(in srgb, #fff 7%, transparent);
 }
 
 .tier-label::before {
@@ -4799,7 +4817,7 @@ textarea,
   min-width: 0;
   height: 80px;
   min-height: 80px;
-  border-radius: 0;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 11%, var(--paper));
   animation: tier-placeholder-arrive 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -4874,7 +4892,12 @@ textarea,
 .tier-items button:hover,
 [data-theme='dark'] .tier-items button:hover {
   color: var(--ink);
-  background: var(--secondary-surface);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 10%, var(--secondary-surface)) 0%,
+    var(--secondary-surface) 100%
+  );
+  border-radius: 10px;
 }
 
 .tier-items.drag-over,
