@@ -84,6 +84,16 @@ export async function loadLibrary(root: string | undefined, locale: 'zh' | 'en')
   return invoke<LibrarySnapshot>('load_library', { root: root || null, locale });
 }
 
+export async function moveTierItem(
+  root: string,
+  itemId: string,
+  targetTier: string,
+  targetIndex: number,
+): Promise<void> {
+  if (!isTauri) return;
+  await invoke('move_tier_item', { root, itemId, targetTier, targetIndex });
+}
+
 export async function readNote(root: string, relativePath: string): Promise<string> {
   if (!isTauri) {
     return (

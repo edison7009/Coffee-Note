@@ -4730,7 +4730,7 @@ textarea,
 
 .tier-row,
 [data-theme='dark'] .tier-row {
-  min-height: 64px;
+  min-height: 62px;
   border-color: var(--line);
 }
 
@@ -4750,21 +4750,69 @@ textarea,
 
 .tier-items,
 [data-theme='dark'] .tier-items {
-  gap: 6px 28px;
-  padding: 8px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  align-items: stretch;
+  gap: 7px;
+  padding: 7px 10px;
   background: var(--paper);
 }
 
 .tier-items button,
 [data-theme='dark'] .tier-items button {
-  min-height: 40px;
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 5px 10px;
+  align-items: center;
   color: var(--ink);
-  font-size: 14.5px;
+  background: var(--secondary-surface);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 14px;
   font-weight: 580;
+  line-height: 1.35;
+  cursor: grab;
+  user-select: none;
+  transition: none;
 }
 
-.tier-items button:hover {
+.tier-items button span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.tier-items button:hover,
+[data-theme='dark'] .tier-items button:hover {
+  color: var(--ink);
+  background: var(--tertiary-surface);
+}
+
+.tier-items button.dragging,
+[data-theme='dark'] .tier-items button.dragging {
+  opacity: 0.42;
+  cursor: grabbing;
+}
+
+.tier-items button.drop-target,
+[data-theme='dark'] .tier-items button.drop-target {
   color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tier-items.drag-over,
+[data-theme='dark'] .tier-items.drag-over {
+  background: color-mix(in srgb, var(--accent) 3%, var(--paper));
+}
+
+.tier-items .tier-empty {
+  grid-column: 1 / -1;
+  align-self: center;
 }
 
 .plan-section-grid {

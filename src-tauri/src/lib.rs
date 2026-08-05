@@ -10,7 +10,6 @@ mod llm_stream;
 mod memory;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -335,7 +334,16 @@ fn ensure_starter_library(root: &Path) -> Result<(), String> {
     for (relative_path, content) in STARTER_FILES {
         let path = root.join(relative_path);
         let is_catalog = *relative_path == "catalog/strategies.csv";
-        if path.exists() && !is_catalog {
+        if path.exists() {
+            if is_catalog {
+                let existing = fs::read_to_string(&path)
+                    .map_err(|error| format!("Could not read starter catalog: {error}"))?;
+                let merged = merge_starter_catalog(&existing, content);
+                if merged != existing {
+                    fs::write(&path, merged)
+                        .map_err(|error| format!("Could not merge starter catalog: {error}"))?;
+                }
+            }
             continue;
         }
         if let Some(parent) = path.parent() {
@@ -482,6 +490,120 @@ fn split_csv_line(line: &str) -> Vec<String> {
     fields
 }
 
+fn encode_csv_field(value: &str) -> String {
+    if value.contains([',', '"', '\r', '\n']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
+fn join_csv_fields(fields: &[String]) -> String {
+    fields
+        .iter()
+        .map(|field| encode_csv_field(field))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn merge_starter_catalog(existing: &str, starter: &str) -> String {
+    let mut lines = existing.lines().map(str::to_string).collect::<Vec<_>>();
+    if lines.is_empty() {
+        return format!("{}\n", starter.trim_end());
+    }
+
+    let mut known_ids = lines
+        .iter()
+        .skip(1)
+        .filter_map(|line| split_csv_line(line).first().cloned())
+        .collect::<Vec<_>>();
+    for line in starter.lines().skip(1) {
+        let Some(id) = split_csv_line(line).first().cloned() else {
+            continue;
+        };
+        if id.is_empty() || known_ids.iter().any(|known| known == &id) {
+            continue;
+        }
+        known_ids.push(id);
+        lines.push(line.to_string());
+    }
+
+    format!("{}\n", lines.join("\n"))
+}
+
+fn tier_rank(tier: &str) -> usize {
+    match tier {
+        "T1" => 0,
+        "T2" => 1,
+        "T3" => 2,
+        "T4" => 3,
+        "T5" => 4,
+        _ => 5,
+    }
+}
+
+fn move_catalog_item(
+    existing: &str,
+    item_id: &str,
+    target_tier: &str,
+    target_index: usize,
+) -> Result<String, String> {
+    const VALID_TIERS: [&str; 5] = ["T1", "T2", "T3", "T4", "T5"];
+    if !VALID_TIERS.contains(&target_tier) {
+        return Err(format!("Invalid target tier: {target_tier}"));
+    }
+
+    let mut lines = existing.lines();
+    let header = lines
+        .next()
+        .filter(|line| !line.trim().is_empty())
+        .ok_or_else(|| "Strategy catalog is empty".to_string())?
+        .to_string();
+    let mut rows = lines.map(str::to_string).collect::<Vec<_>>();
+    let source_index = rows
+        .iter()
+        .position(|line| {
+            split_csv_line(line)
+                .first()
+                .is_some_and(|id| id.eq_ignore_ascii_case(item_id))
+        })
+        .ok_or_else(|| format!("Could not find '{item_id}' in the strategy catalog"))?;
+
+    let mut fields = split_csv_line(&rows[source_index]);
+    if fields.len() < 7 {
+        return Err(format!("Catalog row for '{item_id}' is incomplete"));
+    }
+    fields[6] = target_tier.to_string();
+    let moved_row = join_csv_fields(&fields);
+    rows.remove(source_index);
+
+    let target_positions = rows
+        .iter()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let fields = split_csv_line(line);
+            (fields.get(6).map(String::as_str) == Some(target_tier)).then_some(index)
+        })
+        .collect::<Vec<_>>();
+    let insertion_index = if let Some(index) = target_positions.get(target_index) {
+        *index
+    } else if let Some(index) = target_positions.last() {
+        index + 1
+    } else {
+        let target_rank = tier_rank(target_tier);
+        rows.iter()
+            .position(|line| {
+                split_csv_line(line)
+                    .get(6)
+                    .is_some_and(|tier| tier_rank(tier) > target_rank)
+            })
+            .unwrap_or(rows.len())
+    };
+    rows.insert(insertion_index, moved_row);
+
+    Ok(format!("{}\n{}\n", header, rows.join("\n")))
+}
+
 fn clean_markdown_text(value: &str) -> String {
     value
         .replace("**", "")
@@ -622,7 +744,7 @@ fn load_supplements(root: &Path, locale: &str) -> Vec<Supplement> {
         return Vec::new();
     };
 
-    let preferred_order = [
+    let supported_ids = [
         "strength-training",
         "aerobic-exercise",
         "healthy-diet",
@@ -641,12 +763,6 @@ fn load_supplements(root: &Path, locale: &str) -> Vec<Supplement> {
         "ca-akg",
         "partial-reprogramming",
     ];
-    let order: HashMap<&str, usize> = preferred_order
-        .iter()
-        .enumerate()
-        .map(|(index, id)| (*id, index))
-        .collect();
-
     let mut supplements = Vec::new();
     for line in catalog.lines().skip(1) {
         let fields = split_csv_line(line);
@@ -654,7 +770,7 @@ fn load_supplements(root: &Path, locale: &str) -> Vec<Supplement> {
             continue;
         }
         let id = fields[0].clone();
-        if !order.contains_key(id.as_str()) {
+        if !supported_ids.contains(&id.as_str()) {
             continue;
         }
 
@@ -686,12 +802,6 @@ fn load_supplements(root: &Path, locale: &str) -> Vec<Supplement> {
         });
     }
 
-    supplements.sort_by_key(|supplement| {
-        order
-            .get(supplement.id.as_str())
-            .copied()
-            .unwrap_or(usize::MAX)
-    });
     supplements
 }
 
@@ -820,6 +930,27 @@ fn load_stories(root: &Path, locale: &str) -> Vec<Story> {
         .collect::<Vec<_>>();
     stories.sort_by(|left, right| left.title.cmp(&right.title));
     stories
+}
+
+#[tauri::command]
+fn move_tier_item(
+    root: String,
+    item_id: String,
+    target_tier: String,
+    target_index: usize,
+) -> Result<(), String> {
+    let root = PathBuf::from(root);
+    let relative_path = if root.join("catalog/strategies.csv").is_file() {
+        "catalog/strategies.csv"
+    } else {
+        "catalog/supplements.csv"
+    };
+    let catalog_path = safe_existing_path(&root, relative_path)?;
+    let existing = fs::read_to_string(&catalog_path)
+        .map_err(|error| format!("Could not read strategy catalog: {error}"))?;
+    let updated = move_catalog_item(&existing, item_id.trim(), target_tier.trim(), target_index)?;
+    fs::write(catalog_path, updated)
+        .map_err(|error| format!("Could not update strategy catalog: {error}"))
 }
 
 #[tauri::command]
@@ -2276,6 +2407,7 @@ pub fn run() {
             load_model_config,
             save_model_config,
             load_library,
+            move_tier_item,
             read_note,
             prepare_capture,
             save_capture,
@@ -2304,6 +2436,49 @@ mod tests {
     fn csv_parser_preserves_quoted_commas() {
         let fields = split_csv_line(r#"one,"two, still two",three"#);
         assert_eq!(fields, vec!["one", "two, still two", "three"]);
+    }
+
+    #[test]
+    fn tier_item_move_updates_tier_order_and_preserves_csv_fields() {
+        let catalog =
+            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\n\
+a,甲,A,分类,reference,reviewed,T1,maintain,\"alpha, note\"\n\
+b,乙,B,分类,reference,reviewed,T1,maintain,beta\n\
+c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
+        let moved = move_catalog_item(catalog, "a", "T2", 1).expect("move should succeed");
+        let rows = moved.lines().skip(1).collect::<Vec<_>>();
+        assert_eq!(split_csv_line(rows[0])[0], "b");
+        assert_eq!(split_csv_line(rows[1])[0], "c");
+        let moved_fields = split_csv_line(rows[2]);
+        assert_eq!(moved_fields[0], "a");
+        assert_eq!(moved_fields[6], "T2");
+        assert_eq!(moved_fields[8], "alpha, note");
+
+        let reordered =
+            move_catalog_item(&moved, "c", "T2", 1).expect("same-tier reorder should succeed");
+        let reordered_ids = reordered
+            .lines()
+            .skip(1)
+            .map(|line| split_csv_line(line)[0].clone())
+            .collect::<Vec<_>>();
+        assert_eq!(reordered_ids, vec!["b", "a", "c"]);
+    }
+
+    #[test]
+    fn starter_catalog_merge_preserves_user_order_and_tiers() {
+        let existing =
+            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\n\
+a,甲,A,分类,reference,reviewed,T5,maintain,changed\n";
+        let starter =
+            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\n\
+a,甲,A,分类,reference,reviewed,T1,maintain,starter\n\
+b,乙,B,分类,reference,reviewed,T2,review,new\n";
+        let merged = merge_starter_catalog(existing, starter);
+        let rows = merged.lines().skip(1).collect::<Vec<_>>();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(split_csv_line(rows[0])[0], "a");
+        assert_eq!(split_csv_line(rows[0])[6], "T5");
+        assert_eq!(split_csv_line(rows[1])[0], "b");
     }
 
     #[test]

@@ -40,6 +40,7 @@ import {
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   FormEvent,
+  PointerEvent as ReactPointerEvent,
   ReactNode,
   useCallback,
   useEffect,
@@ -58,6 +59,7 @@ import {
   isTauri,
   loadModelConfig,
   loadLibrary,
+  moveTierItem,
   onSelfUpdateProgress,
   openExternalUrl,
   prepareCapture,
@@ -233,6 +235,33 @@ const tierMeta: Record<string, { label: Record<Locale, string>; color: string }>
   T5: { label: { zh: '以后再看', en: 'Later' }, color: '#b7dd91' },
   pending: { label: { zh: '待整理', en: 'Inbox' }, color: '#c8d3df' },
 };
+
+const TIER_IDS = ['T1', 'T2', 'T3', 'T4', 'T5'] as const;
+type TierId = (typeof TIER_IDS)[number];
+
+function reorderTierItems(
+  items: Supplement[],
+  itemId: string,
+  targetTier: TierId,
+  targetIndex: number,
+): Supplement[] {
+  const moved = items.find((item) => item.id === itemId);
+  if (!moved) return items;
+
+  const remaining = items.filter((item) => item.id !== itemId);
+  const visible = TIER_IDS.flatMap((tier) => {
+    const tierItems = remaining.filter((item) => item.tier === tier);
+    if (tier === targetTier) {
+      tierItems.splice(Math.min(Math.max(targetIndex, 0), tierItems.length), 0, {
+        ...moved,
+        tier: targetTier,
+      });
+    }
+    return tierItems;
+  });
+  const hidden = remaining.filter((item) => !TIER_IDS.includes(item.tier as TierId));
+  return [...visible, ...hidden];
+}
 
 function useStoredState<T>(key: string, initial: T): [T, (value: T) => void] {
   const [state, setState] = useState<T>(() => {
@@ -717,6 +746,7 @@ function App() {
   const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
   const libraryRootRef = useRef(library.root || knowledgeRoot || '');
+  const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
   libraryRootRef.current = library.root || knowledgeRoot || '';
   const fileNotePathRef = useRef(fileNotePath);
   fileNotePathRef.current = fileNotePath;
@@ -1009,6 +1039,36 @@ function App() {
         ),
       )
       .finally(() => setNoteLoading(false));
+  };
+
+  const handleTierMove = (itemId: string, targetTier: TierId, targetIndex: number) => {
+    setLibrary((current) => ({
+      ...current,
+      supplements: reorderTierItems(current.supplements, itemId, targetTier, targetIndex),
+    }));
+
+    if (!isTauri) return;
+    const root = libraryRootRef.current;
+    tierMoveQueueRef.current = tierMoveQueueRef.current
+      .then(async () => {
+        await moveTierItem(root, itemId, targetTier, targetIndex);
+        const snapshot = await loadLibrary(root || undefined, locale);
+        setLibrary(snapshot);
+      })
+      .catch(async (error) => {
+        try {
+          setLibrary(await loadLibrary(root || undefined, locale));
+        } catch {
+          // Keep the optimistic state if the library cannot be reloaded yet.
+        }
+        setToast({
+          message:
+            locale === 'zh'
+              ? `榜单调整失败：${String(error).replace(/^Error:\s*/i, '')}`
+              : `Could not update the tier list: ${String(error).replace(/^Error:\s*/i, '')}`,
+          kind: 'status',
+        });
+      });
   };
 
   const openPlanSection = (section: PlanSection) => {
@@ -1619,6 +1679,7 @@ function App() {
                   onOrganize={() => navigate('ai')}
                   onPlan={() => navigate('plan')}
                   onSupplement={openSupplement}
+                  onMoveSupplement={handleTierMove}
                   t={t}
                 />
               )}
@@ -2289,6 +2350,7 @@ function HomeView({
   onOrganize,
   onPlan,
   onSupplement,
+  onMoveSupplement,
   t,
 }: {
   locale: Locale;
@@ -2297,16 +2359,30 @@ function HomeView({
   onOrganize: () => void;
   onPlan: () => void;
   onSupplement: (supplement: Supplement) => void;
+  onMoveSupplement: (itemId: string, targetTier: TierId, targetIndex: number) => void;
   t: (key: TranslationKey) => string;
 }) {
   const tiered = useMemo(() => {
-    const tiers = ['T1', 'T2', 'T3', 'T4', 'T5'];
-    return tiers.map((tier) => ({
+    return TIER_IDS.map((tier) => ({
       tier,
       supplements: library.supplements.filter((supplement) => supplement.tier === tier),
     }));
   }, [library.supplements]);
   const ambientAssignments = useMemo(() => createAmbientAssignments(3), []);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    tier: TierId;
+    index: number;
+    anchorId?: string;
+  } | null>(null);
+  const pointerDragRef = useRef<{
+    itemId: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressTierClickRef = useRef(false);
   const [greetingKey, setGreetingKey] = useState<TranslationKey>(() =>
     getHomeGreetingKey(new Date().getHours()),
   );
@@ -2316,6 +2392,101 @@ function HomeView({
     const intervalId = window.setInterval(syncGreeting, 60_000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  const clearDragState = () => {
+    setDraggedId(null);
+    setDropTarget(null);
+  };
+
+  const moveDraggedItem = (itemId: string, targetTier: TierId, targetIndex: number) => {
+    const moved = library.supplements.find((item) => item.id === itemId);
+    if (!moved) {
+      clearDragState();
+      return;
+    }
+
+    if (moved.tier === targetTier) {
+      const sourceIndex = library.supplements
+        .filter((item) => item.tier === targetTier)
+        .findIndex((item) => item.id === itemId);
+      if (sourceIndex >= 0 && sourceIndex < targetIndex) targetIndex -= 1;
+      if (sourceIndex === targetIndex) {
+        clearDragState();
+        return;
+      }
+    }
+
+    onMoveSupplement(itemId, targetTier, targetIndex);
+    clearDragState();
+  };
+
+  const pointerDropTarget = (clientX: number, clientY: number) => {
+    const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const item = hit?.closest<HTMLElement>('[data-tier-item]');
+    if (item) {
+      const tier = item.dataset.tier as TierId;
+      const index = Number(item.dataset.tierIndex);
+      const bounds = item.getBoundingClientRect();
+      return {
+        tier,
+        index: index + (clientX >= bounds.left + bounds.width / 2 ? 1 : 0),
+        anchorId: item.dataset.tierItem,
+      };
+    }
+
+    const row = hit?.closest<HTMLElement>('[data-tier-row]');
+    if (!row) return null;
+    return {
+      tier: row.dataset.tierRow as TierId,
+      index: Number(row.dataset.tierCount),
+    };
+  };
+
+  const beginPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>, itemId: string) => {
+    if (event.button !== 0) return;
+    pointerDragRef.current = {
+      itemId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const continuePointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) {
+      return;
+    }
+    if (!drag.moved) {
+      drag.moved = true;
+      setDraggedId(drag.itemId);
+    }
+    const target = pointerDropTarget(event.clientX, event.clientY);
+    if (target) setDropTarget(target);
+  };
+
+  const endPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    pointerDragRef.current = null;
+
+    if (drag.moved) {
+      const target = pointerDropTarget(event.clientX, event.clientY) || dropTarget;
+      if (target) moveDraggedItem(drag.itemId, target.tier, target.index);
+      event.currentTarget.blur();
+      suppressTierClickRef.current = true;
+      window.setTimeout(() => {
+        suppressTierClickRef.current = false;
+      }, 0);
+    }
+    clearDragState();
+  };
 
   return (
     <div className="home-view page">
@@ -2366,10 +2537,35 @@ function HomeView({
               >
                 <strong>{tier}</strong>
               </div>
-              <div className="tier-items">
+              <div
+                className={`tier-items${draggedId ? ' is-dragging' : ''}${
+                  dropTarget?.tier === tier ? ' drag-over' : ''
+                }`}
+                data-tier-count={supplements.length}
+                data-tier-row={tier}
+              >
                 {supplements.length ? (
-                  supplements.map((supplement) => (
-                    <button key={supplement.id} onClick={() => onSupplement(supplement)}>
+                  supplements.map((supplement, index) => (
+                    <button
+                      className={`${draggedId === supplement.id ? 'dragging' : ''}${
+                        dropTarget?.anchorId === supplement.id ? ' drop-target' : ''
+                      }`}
+                      data-tier={tier}
+                      data-tier-index={index}
+                      data-tier-item={supplement.id}
+                      key={supplement.id}
+                      onClick={(event) => {
+                        if (suppressTierClickRef.current) {
+                          event.preventDefault();
+                          return;
+                        }
+                        onSupplement(supplement);
+                      }}
+                      onPointerCancel={endPointerDrag}
+                      onPointerDown={(event) => beginPointerDrag(event, supplement.id)}
+                      onPointerMove={continuePointerDrag}
+                      onPointerUp={endPointerDrag}
+                    >
                       <span>{locale === 'zh' ? supplement.nameZh : supplement.nameEn}</span>
                     </button>
                   ))
