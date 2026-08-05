@@ -4775,6 +4775,7 @@ textarea,
   font-weight: 580;
   line-height: 1.35;
   cursor: grab;
+  touch-action: none;
   user-select: none;
   transition: none;
 }
@@ -4787,22 +4788,83 @@ textarea,
   line-clamp: 2;
 }
 
+.tier-drag-placeholder {
+  min-width: 0;
+  min-height: 46px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--secondary-surface));
+  animation: tier-placeholder-arrive 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tier-item-ghost {
+  position: fixed;
+  z-index: 100000;
+  display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 46px;
+  padding: 5px 10px;
+  align-items: center;
+  overflow: hidden;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 88%, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, var(--line));
+  border-radius: 8px;
+  box-shadow:
+    0 18px 36px color-mix(in srgb, #000 28%, transparent),
+    0 5px 12px color-mix(in srgb, #000 18%, transparent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 580;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0.98;
+  transform: scale(1.025);
+  transform-origin: center;
+  will-change: left, top, transform;
+  animation: tier-ghost-lift 130ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tier-item-ghost span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.tier-drag-active,
+.tier-drag-active * {
+  cursor: grabbing !important;
+}
+
+@keyframes tier-ghost-lift {
+  from {
+    opacity: 0.72;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 0.98;
+    transform: scale(1.025);
+  }
+}
+
+@keyframes tier-placeholder-arrive {
+  from {
+    opacity: 0.2;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .tier-items button:hover,
 [data-theme='dark'] .tier-items button:hover {
   color: var(--ink);
   background: var(--tertiary-surface);
-}
-
-.tier-items button.dragging,
-[data-theme='dark'] .tier-items button.dragging {
-  opacity: 0.42;
-  cursor: grabbing;
-}
-
-.tier-items button.drop-target,
-[data-theme='dark'] .tier-items button.drop-target {
-  color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .tier-items.drag-over,
@@ -4813,6 +4875,13 @@ textarea,
 .tier-items .tier-empty {
   grid-column: 1 / -1;
   align-self: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier-item-ghost,
+  .tier-drag-placeholder {
+    animation: none;
+  }
 }
 
 .plan-section-grid {

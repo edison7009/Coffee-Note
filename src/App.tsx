@@ -2362,25 +2362,29 @@ function HomeView({
   onMoveSupplement: (itemId: string, targetTier: TierId, targetIndex: number) => void;
   t: (key: TranslationKey) => string;
 }) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const tiered = useMemo(() => {
     return TIER_IDS.map((tier) => ({
       tier,
-      supplements: library.supplements.filter((supplement) => supplement.tier === tier),
+      supplements: library.supplements.filter(
+        (supplement) => supplement.tier === tier && supplement.id !== draggedId,
+      ),
     }));
-  }, [library.supplements]);
+  }, [draggedId, library.supplements]);
   const ambientAssignments = useMemo(() => createAmbientAssignments(3), []);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{
     tier: TierId;
     index: number;
-    anchorId?: string;
   } | null>(null);
+  const dropTargetRef = useRef<typeof dropTarget>(null);
+  const tierMapRef = useRef<HTMLDivElement>(null);
+  const ghostRef = useRef<HTMLButtonElement | null>(null);
+  const flipRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const pointerDragRef = useRef<{
     itemId: string;
-    pointerId: number;
-    startX: number;
-    startY: number;
     moved: boolean;
+    sourceTier: TierId;
+    sourceIndex: number;
   } | null>(null);
   const suppressTierClickRef = useRef(false);
   const [greetingKey, setGreetingKey] = useState<TranslationKey>(() =>
@@ -2393,9 +2397,62 @@ function HomeView({
     return () => window.clearInterval(intervalId);
   }, []);
 
+  useEffect(
+    () => () => {
+      ghostRef.current?.remove();
+      document.documentElement.classList.remove('tier-drag-active');
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    if (!flipRectsRef.current.size || !tierMapRef.current) return;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const cards = tierMapRef.current.querySelectorAll<HTMLElement>('[data-tier-item]');
+    for (const card of cards) {
+      card.getAnimations().forEach((animation) => animation.cancel());
+      const previous = flipRectsRef.current.get(card.dataset.tierItem || '');
+      if (!previous || reduceMotion) continue;
+      const next = card.getBoundingClientRect();
+      const deltaX = previous.left - next.left;
+      const deltaY = previous.top - next.top;
+      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) continue;
+      card.animate(
+        [
+          { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)` },
+          { transform: 'translate3d(0, 0, 0)' },
+        ],
+        {
+          duration: 240,
+          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        },
+      );
+    }
+    flipRectsRef.current = new Map();
+  }, [draggedId, dropTarget]);
+
+  const captureTierRects = () => {
+    const positions = new Map<string, DOMRect>();
+    const cards = tierMapRef.current?.querySelectorAll<HTMLElement>('[data-tier-item]');
+    cards?.forEach((card) => {
+      const id = card.dataset.tierItem;
+      if (id) positions.set(id, card.getBoundingClientRect());
+    });
+    flipRectsRef.current = positions;
+  };
+
+  const setActiveDropTarget = (target: NonNullable<typeof dropTarget>) => {
+    const current = dropTargetRef.current;
+    if (current?.tier === target.tier && current.index === target.index) return;
+    captureTierRects();
+    dropTargetRef.current = target;
+    setDropTarget(target);
+  };
+
   const clearDragState = () => {
     setDraggedId(null);
     setDropTarget(null);
+    dropTargetRef.current = null;
   };
 
   const moveDraggedItem = (itemId: string, targetTier: TierId, targetIndex: number) => {
@@ -2405,23 +2462,13 @@ function HomeView({
       return;
     }
 
-    if (moved.tier === targetTier) {
-      const sourceIndex = library.supplements
-        .filter((item) => item.tier === targetTier)
-        .findIndex((item) => item.id === itemId);
-      if (sourceIndex >= 0 && sourceIndex < targetIndex) targetIndex -= 1;
-      if (sourceIndex === targetIndex) {
-        clearDragState();
-        return;
-      }
-    }
-
     onMoveSupplement(itemId, targetTier, targetIndex);
     clearDragState();
   };
 
   const pointerDropTarget = (clientX: number, clientY: number) => {
     const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    if (hit?.closest('[data-tier-placeholder]')) return dropTargetRef.current;
     const item = hit?.closest<HTMLElement>('[data-tier-item]');
     if (item) {
       const tier = item.dataset.tier as TierId;
@@ -2430,7 +2477,6 @@ function HomeView({
       return {
         tier,
         index: index + (clientX >= bounds.left + bounds.width / 2 ? 1 : 0),
-        anchorId: item.dataset.tierItem,
       };
     }
 
@@ -2444,48 +2490,125 @@ function HomeView({
 
   const beginPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>, itemId: string) => {
     if (event.button !== 0) return;
+    const card = event.currentTarget;
+    const bounds = card.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const offsetX = startX - bounds.left;
+    const offsetY = startY - bounds.top;
+    const source = library.supplements.find((item) => item.id === itemId);
+    if (!source) return;
+    const sourceIndex = library.supplements
+      .filter((item) => item.tier === source.tier)
+      .findIndex((item) => item.id === itemId);
     pointerDragRef.current = {
       itemId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
       moved: false,
+      sourceTier: source.tier as TierId,
+      sourceIndex,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
 
-  const continuePointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = pointerDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) {
-      return;
-    }
-    if (!drag.moved) {
-      drag.moved = true;
-      setDraggedId(drag.itemId);
-    }
-    const target = pointerDropTarget(event.clientX, event.clientY);
-    if (target) setDropTarget(target);
-  };
+    const positionGhost = (clientX: number, clientY: number) => {
+      if (!ghostRef.current) return;
+      ghostRef.current.style.left = `${clientX - offsetX}px`;
+      ghostRef.current.style.top = `${clientY - offsetY}px`;
+    };
 
-  const endPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = pointerDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    pointerDragRef.current = null;
+    const onMove = (moveEvent: PointerEvent) => {
+      const drag = pointerDragRef.current;
+      if (!drag) return;
+      if (
+        !drag.moved &&
+        Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 6
+      ) {
+        return;
+      }
 
-    if (drag.moved) {
-      const target = pointerDropTarget(event.clientX, event.clientY) || dropTarget;
-      if (target) moveDraggedItem(drag.itemId, target.tier, target.index);
-      event.currentTarget.blur();
+      if (!drag.moved) {
+        drag.moved = true;
+        captureTierRects();
+        dropTargetRef.current = { tier: source.tier as TierId, index: sourceIndex };
+        setDropTarget(dropTargetRef.current);
+        setDraggedId(itemId);
+        document.documentElement.classList.add('tier-drag-active');
+
+        const ghost = card.cloneNode(true) as HTMLButtonElement;
+        ghost.className = 'tier-item-ghost';
+        ghost.removeAttribute('data-tier-item');
+        ghost.removeAttribute('data-tier-index');
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.style.width = `${bounds.width}px`;
+        ghost.style.height = `${bounds.height}px`;
+        document.body.appendChild(ghost);
+        ghostRef.current = ghost;
+      }
+
+      positionGhost(moveEvent.clientX, moveEvent.clientY);
+      const target = pointerDropTarget(moveEvent.clientX, moveEvent.clientY);
+      if (target) setActiveDropTarget(target);
+    };
+
+    const onUp = (upEvent: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      document.documentElement.classList.remove('tier-drag-active');
+
+      const drag = pointerDragRef.current;
+      pointerDragRef.current = null;
+      if (!drag?.moved) return;
+
+      const target = pointerDropTarget(upEvent.clientX, upEvent.clientY) || dropTargetRef.current;
+      const ghost = ghostRef.current;
+      ghostRef.current = null;
+      const placeholder = tierMapRef.current?.querySelector<HTMLElement>('[data-tier-placeholder]');
+      if (ghost && placeholder && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const from = ghost.getBoundingClientRect();
+        const to = placeholder.getBoundingClientRect();
+        const animation = ghost.animate(
+          [
+            { transform: 'translate3d(0, 0, 0) scale(1.025)', opacity: 0.98 },
+            {
+              transform: `translate3d(${to.left - from.left}px, ${to.top - from.top}px, 0) scale(1)`,
+              opacity: 0.18,
+            },
+          ],
+          { duration: 170, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+        );
+        animation.finished.finally(() => ghost.remove());
+      } else {
+        ghost?.remove();
+      }
+
+      if (
+        target &&
+        (target.tier !== drag.sourceTier || target.index !== drag.sourceIndex)
+      ) {
+        moveDraggedItem(drag.itemId, target.tier, target.index);
+      } else {
+        clearDragState();
+      }
+      card.blur();
       suppressTierClickRef.current = true;
       window.setTimeout(() => {
         suppressTierClickRef.current = false;
       }, 0);
-    }
-    clearDragState();
+    };
+
+    const onCancel = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      document.documentElement.classList.remove('tier-drag-active');
+      pointerDragRef.current = null;
+      ghostRef.current?.remove();
+      ghostRef.current = null;
+      clearDragState();
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
   };
 
   return (
@@ -2528,53 +2651,77 @@ function HomeView({
           </div>
           <span className="section-stat">{library.supplements.length} items</span>
         </div>
-        <div className="tier-map">
-          {tiered.map(({ tier, supplements }) => (
-            <div className="tier-row" key={tier}>
+        <div className="tier-map" ref={tierMapRef}>
+          {tiered.map(({ tier, supplements }) => {
+            const insertAt =
+              dropTarget?.tier === tier
+                ? Math.min(Math.max(dropTarget.index, 0), supplements.length)
+                : -1;
+            const cards: ReactNode[] = [];
+            supplements.forEach((supplement, index) => {
+              if (index === insertAt) {
+                cards.push(
+                  <div
+                    className="tier-drag-placeholder"
+                    data-tier-placeholder
+                    key="drag-placeholder"
+                  />,
+                );
+              }
+              cards.push(
+                <button
+                  data-tier={tier}
+                  data-tier-index={index}
+                  data-tier-item={supplement.id}
+                  key={supplement.id}
+                  onClick={(event) => {
+                    if (suppressTierClickRef.current) {
+                      event.preventDefault();
+                      return;
+                    }
+                    onSupplement(supplement);
+                  }}
+                  onPointerDown={(pointerEvent) => beginPointerDrag(pointerEvent, supplement.id)}
+                >
+                  <span>{locale === 'zh' ? supplement.nameZh : supplement.nameEn}</span>
+                </button>,
+              );
+            });
+            if (insertAt === supplements.length) {
+              cards.push(
+                <div
+                  className="tier-drag-placeholder"
+                  data-tier-placeholder
+                  key="drag-placeholder"
+                />,
+              );
+            }
+
+            return (
               <div
-                className="tier-label"
-                style={{ '--tier-color': tierMeta[tier]?.color } as React.CSSProperties}
-              >
-                <strong>{tier}</strong>
-              </div>
-              <div
-                className={`tier-items${draggedId ? ' is-dragging' : ''}${
-                  dropTarget?.tier === tier ? ' drag-over' : ''
-                }`}
+                className="tier-row"
                 data-tier-count={supplements.length}
                 data-tier-row={tier}
+                key={tier}
               >
-                {supplements.length ? (
-                  supplements.map((supplement, index) => (
-                    <button
-                      className={`${draggedId === supplement.id ? 'dragging' : ''}${
-                        dropTarget?.anchorId === supplement.id ? ' drop-target' : ''
-                      }`}
-                      data-tier={tier}
-                      data-tier-index={index}
-                      data-tier-item={supplement.id}
-                      key={supplement.id}
-                      onClick={(event) => {
-                        if (suppressTierClickRef.current) {
-                          event.preventDefault();
-                          return;
-                        }
-                        onSupplement(supplement);
-                      }}
-                      onPointerCancel={endPointerDrag}
-                      onPointerDown={(event) => beginPointerDrag(event, supplement.id)}
-                      onPointerMove={continuePointerDrag}
-                      onPointerUp={endPointerDrag}
-                    >
-                      <span>{locale === 'zh' ? supplement.nameZh : supplement.nameEn}</span>
-                    </button>
-                  ))
-                ) : (
-                  <span className="tier-empty">—</span>
-                )}
+                <div
+                  className="tier-label"
+                  style={{ '--tier-color': tierMeta[tier]?.color } as React.CSSProperties}
+                >
+                  <strong>{tier}</strong>
+                </div>
+                <div
+                  className={`tier-items${draggedId ? ' is-dragging' : ''}${
+                    dropTarget?.tier === tier ? ' drag-over' : ''
+                  }`}
+                  data-tier-count={supplements.length}
+                  data-tier-row={tier}
+                >
+                  {cards.length ? cards : <span className="tier-empty">—</span>}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>
