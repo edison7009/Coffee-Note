@@ -4741,22 +4741,14 @@ textarea,
 
 .tier-label {
   overflow: hidden;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--tier-color) 68%, var(--paper)) 0%,
-    color-mix(in srgb, var(--tier-color) 44%, var(--paper)) 100%
-  );
+  background: color-mix(in srgb, var(--tier-color) 72%, var(--paper));
   border-radius: 0;
-  box-shadow: inset 0 1px color-mix(in srgb, #fff 34%, transparent);
+  box-shadow: none;
 }
 
 [data-theme='dark'] .tier-label {
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--tier-color) 34%, var(--paper)) 0%,
-    color-mix(in srgb, var(--tier-color) 20%, var(--paper)) 100%
-  );
-  box-shadow: inset 0 1px color-mix(in srgb, #fff 7%, transparent);
+  background: color-mix(in srgb, var(--tier-color) 28%, var(--paper));
+  box-shadow: none;
 }
 
 .tier-label::before {
@@ -4771,7 +4763,7 @@ textarea,
 .tier-items,
 [data-theme='dark'] .tier-items {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   grid-auto-rows: 80px;
   align-items: stretch;
   gap: 0;
@@ -4892,11 +4884,7 @@ textarea,
 .tier-items button:hover,
 [data-theme='dark'] .tier-items button:hover {
   color: var(--ink);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent) 10%, var(--secondary-surface)) 0%,
-    var(--secondary-surface) 100%
-  );
+  background: var(--secondary-surface);
   border-radius: 10px;
 }
 

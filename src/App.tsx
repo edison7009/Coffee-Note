@@ -228,11 +228,11 @@ const isMacOSPlatform =
   typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
 const tierMeta: Record<string, { label: Record<Locale, string>; color: string }> = {
-  T1: { label: { zh: '现在处理', en: 'Now' }, color: '#f27c78' },
-  T2: { label: { zh: '接下来', en: 'Next' }, color: '#efb06e' },
-  T3: { label: { zh: '需要选择', en: 'Decide' }, color: '#efd269' },
-  T4: { label: { zh: '等待信息', en: 'Wait' }, color: '#9fcfc1' },
-  T5: { label: { zh: '以后再看', en: 'Later' }, color: '#b7dd91' },
+  T1: { label: { zh: '现在处理', en: 'Now' }, color: '#efa6a4' },
+  T2: { label: { zh: '接下来', en: 'Next' }, color: '#f1c18f' },
+  T3: { label: { zh: '需要选择', en: 'Decide' }, color: '#ead68f' },
+  T4: { label: { zh: '等待信息', en: 'Wait' }, color: '#a6d5ca' },
+  T5: { label: { zh: '以后再看', en: 'Later' }, color: '#bdd8a3' },
   pending: { label: { zh: '待整理', en: 'Inbox' }, color: '#c8d3df' },
 };
 
