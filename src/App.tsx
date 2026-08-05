@@ -2386,6 +2386,7 @@ function HomeView({
     sourceTier: TierId;
     sourceIndex: number;
   } | null>(null);
+  const draggedSizeRef = useRef<{ width: number; height: number } | null>(null);
   const suppressTierClickRef = useRef(false);
   const [greetingKey, setGreetingKey] = useState<TranslationKey>(() =>
     getHomeGreetingKey(new Date().getHours()),
@@ -2453,6 +2454,7 @@ function HomeView({
     setDraggedId(null);
     setDropTarget(null);
     dropTargetRef.current = null;
+    draggedSizeRef.current = null;
   };
 
   const moveDraggedItem = (itemId: string, targetTier: TierId, targetIndex: number) => {
@@ -2526,6 +2528,7 @@ function HomeView({
 
       if (!drag.moved) {
         drag.moved = true;
+        draggedSizeRef.current = { width: bounds.width, height: bounds.height };
         captureTierRects();
         dropTargetRef.current = { tier: source.tier as TierId, index: sourceIndex };
         setDropTarget(dropTargetRef.current);
@@ -2537,7 +2540,6 @@ function HomeView({
         ghost.removeAttribute('data-tier-item');
         ghost.removeAttribute('data-tier-index');
         ghost.setAttribute('aria-hidden', 'true');
-        ghost.style.width = `${bounds.width}px`;
         ghost.style.height = `${bounds.height}px`;
         document.body.appendChild(ghost);
         ghostRef.current = ghost;
@@ -2611,6 +2613,13 @@ function HomeView({
     window.addEventListener('pointercancel', onCancel);
   };
 
+  // The drop placeholder must expand to the exact footprint of the card being
+  // dragged so the row layout during the drag matches the layout after the drop.
+  const draggedSize = draggedSizeRef.current;
+  const placeholderStyle = draggedSize
+    ? { width: `${draggedSize.width}px`, height: `${draggedSize.height}px` }
+    : undefined;
+
   return (
     <div className="home-view page">
       <section className="hero">
@@ -2665,6 +2674,7 @@ function HomeView({
                     className="tier-drag-placeholder"
                     data-tier-placeholder
                     key="drag-placeholder"
+                    style={placeholderStyle}
                   />,
                 );
               }
@@ -2693,6 +2703,7 @@ function HomeView({
                   className="tier-drag-placeholder"
                   data-tier-placeholder
                   key="drag-placeholder"
+                  style={placeholderStyle}
                 />,
               );
             }

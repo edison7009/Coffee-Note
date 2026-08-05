@@ -153,8 +153,12 @@ to the product template.
 - Avoid hover tooltips and decorative hover motion throughout the app.
 - Use generous, older-adult-friendly typography, especially in the center
   reading area.
-- Tier-list items are plain large text sized to their content. Do not render
-  them as bordered buttons, add arrows, or force equal widths.
+- The home tier list keeps the original Open Longevity card presentation:
+  a rounded bordered card with thin row dividers, tinted tier label cells with
+  a left color strip, and plain large text items sized to their content. Do
+  not render items as bordered buttons or equal-width grid cells, and do not
+  add arrows. Pointer drag-and-drop reordering between and within tiers stays
+  enabled in this presentation.
 - The right pane stacks two persistent sections: **Favorites** on top and
   **My Plan** shortcuts (supplements, exercise, diet, daily routine, health log) below; when a note
   is open its sources appear as a third section. The old header star toggle is
