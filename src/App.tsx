@@ -1790,24 +1790,24 @@ function App() {
               )}
             </>
           )}
-        </div>
 
-        <ChatComposer
-          busy={chatBusy}
-          onSend={handleSend}
-          onAbort={() => abortAgent(activeConversationId)}
-          placeholder={t('askPlaceholder')}
-          sendLabel={t('send')}
-          stopLabel={t('stopGenerating')}
-          inputRef={chatComposerRef}
-          currentPage={currentPageTitle}
-          contextBytes={contextBytes}
-          contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
-          usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
-          modelConfig={modelConfig}
-          currencyMode={currencyMode}
-          locale={locale}
-        />
+          <ChatComposer
+            busy={chatBusy}
+            onSend={handleSend}
+            onAbort={() => abortAgent(activeConversationId)}
+            placeholder={t('askPlaceholder')}
+            sendLabel={t('send')}
+            stopLabel={t('stopGenerating')}
+            inputRef={chatComposerRef}
+            currentPage={currentPageTitle}
+            contextBytes={contextBytes}
+            contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
+            usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
+            modelConfig={modelConfig}
+            currencyMode={currencyMode}
+            locale={locale}
+          />
+        </div>
       </main>
 
       <PaneResizer

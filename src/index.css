@@ -557,15 +557,17 @@ body.resizing-panels * {
 
 .main-pane {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   grid-row: 2;
-  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   overflow: hidden;
 }
 
 .content-scroll {
-  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1759,12 +1761,13 @@ body.resizing-panels * {
 }
 
 .composer-wrap {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   z-index: 2;
   display: grid;
-  grid-row: 2;
   gap: 4px;
-  padding: 6px max(34px, calc((100% - 850px) / 2)) 6px;
+  margin-top: auto;
+  padding: 6px max(28px, calc((100% - 880px) / 2)) 6px;
   background: var(--canvas);
   pointer-events: none;
 }
@@ -1774,7 +1777,7 @@ body.resizing-panels * {
   display: flex;
   flex-direction: column;
   min-height: 64px; /* one text line + one fixed tools line */
-  padding: 4px 9px 3px 16px;
+  padding: 4px 9px 9px 16px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid #ccd9d6;
   border-radius: 17px;
@@ -1784,9 +1787,6 @@ body.resizing-panels * {
 
 .composer:focus-within {
   border-color: #8fc4b9;
-  box-shadow:
-    0 14px 40px rgba(29, 66, 62, 0.13),
-    0 0 0 3px rgba(52, 166, 146, 0.08);
 }
 
 .composer textarea {
@@ -1826,16 +1826,17 @@ body.resizing-panels * {
   height: 32px;
   padding: 0;
   place-items: center;
-  color: white;
-  background: linear-gradient(145deg, #28799a, #16a88e);
+  color: var(--paper);
+  background: var(--accent);
   border: 0;
-  border-radius: 10px;
-  box-shadow: 0 5px 12px rgba(24, 130, 119, 0.22);
+  border-radius: 50%;
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--accent) 26%, transparent);
   cursor: pointer;
 }
 
 .composer-tools button:disabled {
-  background: #c8d2d0;
+  color: var(--paper);
+  background: color-mix(in srgb, var(--accent) 30%, var(--paper));
   box-shadow: none;
   cursor: default;
 }
@@ -4560,7 +4561,12 @@ textarea,
 
 .main-pane,
 .content-scroll,
-.composer-wrap,
+.composer-wrap {
+  background: #faf9f6;
+}
+
+[data-theme='dark'] .main-pane,
+[data-theme='dark'] .content-scroll,
 [data-theme='dark'] .composer-wrap {
   background: var(--canvas);
 }
@@ -5121,7 +5127,6 @@ textarea,
 
 .composer:focus-within {
   border-color: var(--accent-border);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .composer-tools button,
@@ -5131,6 +5136,11 @@ textarea,
   background: var(--accent);
   border: 0;
   box-shadow: none;
+}
+
+.composer-tools button,
+.composer-tools button:disabled {
+  color: var(--paper);
 }
 
 .composer-tools button:hover:not(:disabled),
