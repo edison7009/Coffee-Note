@@ -380,7 +380,7 @@ fn query_terms(query: &str) -> Vec<String> {
         if token.chars().count() < 2 || STOP_WORDS.contains(&token) {
             continue;
         }
-        if token.chars().any(|character| !character.is_ascii()) {
+        if !token.is_ascii() {
             let characters = token.chars().collect::<Vec<_>>();
             for width in [2usize, 3] {
                 for window in characters.windows(width) {

@@ -194,6 +194,16 @@ to the product template.
   downloads the published NSIS installer with circular progress and launches
   it; unsupported platforms or failed installs fall back to the product
   website.
+- Note Agent economy mode is now persisted with model settings (default on for
+  new and migrated configs). It caps routine chat/capture output and tool rounds
+  for cheaper DeepSeek-compatible note governance; full mode is available in
+  Settings for deep synthesis.
+- Memory routing keeps two user-visible sources of truth separate: confirmed
+  facts are written into the managed `我的资料/plans/*.md` pages, while the
+  user-selected knowledge directory remains the research/source library. The
+  app-data `memory.json` is only a rebuildable source index; personal context is
+  retrieved from Markdown with a small question-aware byte budget and is placed
+  in the user message so the system prompt stays cache-stable.
 - A future night mode is desirable but not yet a release blocker.
 
 ## Website
@@ -298,3 +308,77 @@ and machine-specific. The website itself has no generated build directory.
 5. Test the published `v0.1.1` installers on real Windows, macOS, and Linux
    machines. Future production releases should add Windows and Apple code
    signing when certificates are available.
+
+## Agent-logic optimization references (added 2026-08-07)
+
+The AI-chat empty state advertises three capabilities that TierNote already
+implements partially. When optimizing the agent loop later, borrow from these
+references:
+
+- DeepSeek cache optimization and hit rate — [Reasonix](https://github.com/esengine/DeepSeek-Reasonix):
+  keep the system prompt byte-stable, reuse provider context caches, and report
+  cache hit rate in the composer metrics line.
+- Anti-over-engineering prompts — [ponytail](https://github.com/DietrichGebert/ponytail):
+  keep agent instructions minimal and specific; avoid bloated system prompts.
+- Library Graph — Markdown version of [code-review-graph](https://github.com/tirth8205/code-review-graph):
+  build an in-process graph over the local Markdown library (links, paths,
+  headings) instead of external services.
+
+The UI copy on the empty chat screen: **DeepSeek 缓存极致优化 + 高命中率记忆路由 +
+Library Graph 检索 + 短输出、少调用、自动压缩** (English: DeepSeek cache
+optimization + high-hit memory routing + Library Graph retrieval + shorter
+output, fewer calls, automatic compaction). The empty state is a
+semi-transparent watermark that disappears as soon as a conversation starts,
+with the closing value line **让每一个 Token，产出至少两倍价值。** (English:
+Make every token deliver at least twice the value.)
+
+## Reference archive and next-work plan (2026-08-07)
+
+`references/` holds shallow clones of projects studied for TierNote. It is
+gitignored (never committed); on a new machine, re-clone as needed. A memory
+file with full analysis lives at `references/README.md`.
+
+Archived repos:
+
+- `markitdown/` — Microsoft's file → clean Markdown converter (PDF/Word/PPT/
+  Excel/HTML/images/audio/YouTube). Highest direct value: TierNote's
+  "paste material → AI structures and saves it" flow lacks this preprocessing
+  layer. MIT license.
+- `codebase-memory-mcp/` — tree-sitter → persistent code knowledge graph.
+  Architecture blueprint for TierNote's Library Graph over the Markdown
+  library (persistent registry, backlinks, structural queries). ~1.3 GB clone;
+  self-reported benchmarks (arXiv:2603.27277) — borrow design, not numbers.
+- `pi-llm-wiki/` — Karpathy-style LLM Wiki: four-layer model (immutable raw /
+  editable wiki pages / generated meta / config), ownership guardrails,
+  deterministic lint, agent working memory. Read `docs/architecture.md`.
+- `Agent-Reach/` — web-reading capability layer (Jina Reader for pages,
+  yt-dlp subtitles, RSS, gh CLI; per-channel primary/fallback routing +
+  `doctor` health checks). Directly relevant to the home capture flow
+  "paste a link → AI structures and saves a note". Borrow the zero-config
+  channels and self-healing routing; do NOT bundle its CLI installs or
+  login-cookie channels into the desktop product.
+- `DeepSeek-Reasonix/`, `ponytail/`, `code-review-graph/` — cache-hit
+  optimization, anti-over-engineering prompts, MD link-graph prototype.
+
+Not archived (analyzed, low/borrow-only): taste-skill (anti-slop prompt
+reference only),
+OpenMontage (cost transparency + self-review gates only).
+
+Next-work plan:
+
+1. **Phase 1 — Import preprocessing layer** (markitdown + Agent-Reach pattern):
+   detect source type → multi-backend routing → fallback. URLs use the
+   zero-config read chain (Jina Reader / built-in HTML cleaning / yt-dlp
+   subtitles / RSS); local files use built-in Rust conversion for
+   md/html/txt/pdf/docx subset, optional markitdown CLI for complex formats.
+   Local-file-only, SSRF-safe, no login-cookie channels. Acceptance: pasting
+   a PDF or a URL produces a structured Markdown note.
+2. **Phase 2 — Library Graph** (codebase-memory-mcp + pi-llm-wiki blueprints):
+   evolve `knowledge_map.rs` into a persistent registry + backlinks + orphan/
+   broken-link lint + deterministic metadata rebuild after agent runs;
+   measure token and tool-call savings.
+3. **Phase 3 — Cache hit rate and cost** (Reasonix) + prompt slimming
+   (ponytail): audit `agent_loop.rs` system prompt.
+4. **Phase 4 — Evidence-retrieval self-healing routing** (Agent-Reach pattern):
+   primary/fallback endpoints for Europe PMC / PubMed / ClinicalTrials with
+   health checks and automatic degradation.

@@ -30,6 +30,7 @@ pub struct LlmConfig {
     pub base_url: String,
     pub api_key: String,
     pub model: String,
+    pub max_output_tokens: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,6 +236,7 @@ impl LlmClient {
             "messages": msgs,
             "stream": true,
             "stream_options": { "include_usage": true },
+            "max_tokens": self.config.max_output_tokens,
         });
         if !tools_json.is_empty() {
             body["tools"] = json!(tools_json);
@@ -421,7 +423,7 @@ impl LlmClient {
             "model": self.config.model,
             "system": system_prompt,
             "messages": msgs,
-            "max_tokens": 4096,
+            "max_tokens": self.config.max_output_tokens,
             "stream": true,
         });
         if !tools_json.is_empty() {

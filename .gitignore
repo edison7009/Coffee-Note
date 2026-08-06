@@ -2,6 +2,7 @@ node_modules/
 dist/
 src-tauri/target/
 tmp/
+references/
 设计思路/
 .DS_Store
 Thumbs.db

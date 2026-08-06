@@ -253,23 +253,34 @@ body.resizing-panels * {
   object-fit: cover;
 }
 
-[data-theme='dark'] .brand img {
+.chat-empty-heading img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+}
+
+[data-theme='dark'] .brand img,
+[data-theme='dark'] .chat-empty-heading img {
   content: url('/brand/logo-dark.png');
 }
 
-:root:not([data-theme='dark'])[data-accent='blue'] .brand img {
+:root:not([data-theme='dark'])[data-accent='blue'] .brand img,
+:root:not([data-theme='dark'])[data-accent='blue'] .chat-empty-heading img {
   content: url('/brand/logo-blue.png');
 }
 
-:root:not([data-theme='dark'])[data-accent='green'] .brand img {
+:root:not([data-theme='dark'])[data-accent='green'] .brand img,
+:root:not([data-theme='dark'])[data-accent='green'] .chat-empty-heading img {
   content: url('/brand/logo-green.png');
 }
 
-:root:not([data-theme='dark'])[data-accent='orange'] .brand img {
+:root:not([data-theme='dark'])[data-accent='orange'] .brand img,
+:root:not([data-theme='dark'])[data-accent='orange'] .chat-empty-heading img {
   content: url('/brand/logo-orange.png');
 }
 
-:root:not([data-theme='dark'])[data-accent='graphite'] .brand img {
+:root:not([data-theme='dark'])[data-accent='graphite'] .brand img,
+:root:not([data-theme='dark'])[data-accent='graphite'] .chat-empty-heading img {
   content: url('/brand/logo-graphite.png');
 }
 
@@ -1335,6 +1346,10 @@ body.resizing-panels * {
   padding-top: 24px;
 }
 
+.plan-view .page-intro {
+  max-width: none;
+}
+
 .page-back {
   display: grid;
   width: 38px;
@@ -1671,8 +1686,54 @@ body.resizing-panels * {
 }
 
 .conversation-view {
+  display: flex;
+  flex-direction: column;
   width: min(780px, calc(100% - 72px));
+  min-height: 100%;
   padding-top: 24px;
+}
+
+.chat-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 24px;
+  margin: auto;
+  opacity: 0.68;
+  pointer-events: none;
+  text-align: center;
+  user-select: none;
+}
+
+.chat-empty-heading {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.chat-empty-wordmark {
+  color: var(--accent);
+  font-family: 'Lora', ui-serif, Georgia, 'Times New Roman', serif;
+  font-size: 64px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.chat-empty-features {
+  max-width: 650px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+  text-align: center;
+}
+
+.chat-empty-value {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 
 .back-chevron {
@@ -3060,6 +3121,78 @@ body.resizing-panels * {
   cursor: default;
 }
 
+.economy-section {
+  padding-top: 2px;
+}
+
+.economy-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.economy-heading > label {
+  margin-bottom: 0;
+}
+
+.economy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #0f766c;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.economy-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  margin-top: 12px;
+  padding: 5px 11px 5px 7px;
+  color: #637a76;
+  background: #f1f5f4;
+  border: 1px solid #dfe7e5;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.economy-toggle.active {
+  color: #0f766c;
+  background: #e5f3ef;
+  border-color: #afd3ca;
+}
+
+.economy-toggle-track {
+  display: inline-flex;
+  align-items: center;
+  width: 28px;
+  height: 16px;
+  padding: 2px;
+  background: #b7c8c4;
+  border-radius: 10px;
+}
+
+.economy-toggle-track span {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 160ms ease;
+}
+
+.economy-toggle.active .economy-toggle-track {
+  background: #3a9a8c;
+}
+
+.economy-toggle.active .economy-toggle-track span {
+  transform: translateX(12px);
+}
+
 .capture-dialog {
   width: min(700px, calc(100vw - 48px));
 }
@@ -3248,6 +3381,16 @@ body.resizing-panels * {
   width: min(360px, calc(100vw - 48px));
   height: auto;
   min-height: 0;
+}
+
+.add-material-dialog .capture-guide-actions button {
+  min-width: 0;
+  width: 52px;
+}
+
+html:lang(en) .add-material-dialog .capture-guide-actions button {
+  min-width: 0;
+  width: 65px;
 }
 
 .add-material-body {
@@ -4851,6 +4994,10 @@ textarea,
 }
 
 [data-theme='dark'] .brand strong {
+  color: var(--ink);
+}
+
+[data-theme='dark'] .chat-empty-wordmark {
   color: var(--ink);
 }
 

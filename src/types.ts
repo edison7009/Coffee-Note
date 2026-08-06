@@ -67,6 +67,7 @@ export interface ModelConfig extends ProviderConfig {
 export interface ModelSettings {
   activeProvider: ModelProvider;
   providers: Record<ModelProvider, ProviderConfig>;
+  economyMode: boolean;
 }
 
 export interface MemorySuggestion {
@@ -74,11 +75,16 @@ export interface MemorySuggestion {
   kind: 'goal' | 'preference' | 'constraint' | 'profile' | 'correction' | 'health_context';
   content: string;
   sourceConversationId: string;
+  locale?: Locale;
 }
 
 export interface MemoryItem extends MemorySuggestion {
   createdAt: number;
   updatedAt: number;
+  sourceType?: string;
+  sourcePath?: string;
+  status?: string;
+  contentHash?: string;
 }
 
 export interface ChatMessage {
@@ -137,6 +143,7 @@ export interface PrepareCaptureRequest {
   model: string;
   input: string;
   locale: Locale;
+  economyMode?: boolean;
 }
 
 export interface CaptureDraft {
@@ -181,6 +188,7 @@ export interface AgentRequest {
   baseUrl: string;
   model: string;
   provider?: string;
+  economyMode?: boolean;
   message: string;
   locale: Locale;
   knowledgeRoot: string;

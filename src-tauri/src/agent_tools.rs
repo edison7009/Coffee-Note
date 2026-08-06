@@ -3,7 +3,7 @@
 
 use serde_json::{json, Value};
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use crate::knowledge_map;
 use crate::llm_stream::ToolDef;
@@ -52,24 +52,27 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "update_plan".into(),
-            description: "Update one of the user's personal plan pages in the knowledge library. \
-                Use this whenever the user asks to organize, update, or write their exercise, \
-                supplement, diet, or daily-routine plan. Each module maps to its own page: \
-                'exercise' -> plans/exercise.md, 'supplements' -> plans/supplements.md, \
-                'diet' -> plans/diet.md, 'daily_routine' -> plans/daily-routine.md. \
-                You MUST provide a non-empty 'module' and the full Markdown 'content' for the page. \
-                Follow the page's standard format: goals, current status, concrete arrangements \
-                (sets/reps or dose/frequency), and review notes. For the 'supplements' module, \
-                include a '品牌' section with per-supplement top pick and alternatives (quality \
-                tiers P1–P3 from the library's products/ brand-tier notes; tiers reflect quality \
-                and transparency, not efficacy). Write the complete page, not just a diff."
+            description: "Update one of the user's visible My information pages. \
+                Use 'supplements' for My resume/profile, 'exercise' for My goals, \
+                'experience' for My experience, 'lessons' for My lessons, and \
+                'daily_routine' for key records. The legacy 'diet' module remains available \
+                for existing diet-plan content. Provide the complete Markdown page and preserve \
+                its established structure. Confirmed-memory sections are protected by TierNote \
+                and must not be invented, copied, removed, or rewritten by the model."
                 .into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
                     "module": {
                         "type": "string",
-                        "enum": ["exercise", "supplements", "diet", "daily_routine"],
+                        "enum": [
+                            "exercise",
+                            "supplements",
+                            "diet",
+                            "daily_routine",
+                            "experience",
+                            "lessons"
+                        ],
                         "description": "Which plan page to update"
                     },
                     "content": {
@@ -169,7 +172,8 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
             name: "suggest_memory".into(),
             description: "Suggest one to three long-term memory candidates for the user to confirm. \
                 Use only for durable user-stated goals, preferences, constraints, corrections, profile facts, or health context that should help future conversations. \
-                This tool does not save memory; it only asks the frontend to show confirmation cards.".into(),
+                This tool does not save memory; it only asks the frontend to show confirmation cards. \
+                Once confirmed, TierNote writes the fact into a visible page under My information and keeps only source metadata in its local memory index.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -225,6 +229,84 @@ pub async fn execute_tool(
     }
 }
 
+fn validate_relative_path(path: &str, required_extension: &str) -> Result<Vec<String>, String> {
+    let normalized = path.replace('\\', "/");
+    if normalized.trim().is_empty() || !normalized.ends_with(required_extension) {
+        return Err(format!(
+            "Path must be a relative {required_extension} file inside the selected library"
+        ));
+    }
+    let mut parts = Vec::new();
+    for component in Path::new(&normalized).components() {
+        match component {
+            Component::Normal(part) => parts.push(part.to_string_lossy().to_string()),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err("Path must stay inside the selected library".to_string())
+            }
+        }
+    }
+    if parts.is_empty() {
+        return Err("Path must stay inside the selected library".to_string());
+    }
+    Ok(parts)
+}
+
+fn safe_write_path(root: &Path, relative: &str, extension: &str) -> Result<PathBuf, String> {
+    let parts = validate_relative_path(relative, extension)?;
+    fs::create_dir_all(root)
+        .map_err(|error| format!("Cannot create library root {}: {error}", root.display()))?;
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))?;
+    let (file_name, directories) = parts
+        .split_last()
+        .ok_or_else(|| "Path must include a file name".to_string())?;
+    let mut parent = canonical_root.clone();
+    for directory in directories {
+        let candidate = parent.join(directory);
+        if fs::symlink_metadata(&candidate).is_err() {
+            fs::create_dir(&candidate)
+                .map_err(|error| format!("Cannot create {}: {error}", candidate.display()))?;
+        }
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|error| format!("Cannot resolve {}: {error}", candidate.display()))?;
+        if !canonical.starts_with(&canonical_root) || !canonical.is_dir() {
+            return Err("Refusing to write outside the selected library".to_string());
+        }
+        parent = canonical;
+    }
+    let candidate = parent.join(file_name);
+    if fs::symlink_metadata(&candidate).is_ok() {
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|error| format!("Cannot resolve {}: {error}", candidate.display()))?;
+        if !canonical.starts_with(&canonical_root) || !canonical.is_file() {
+            return Err("Refusing to write outside the selected library".to_string());
+        }
+        return Ok(canonical);
+    }
+    Ok(candidate)
+}
+
+fn safe_read_path(root: &Path, relative: &str, extension: &str) -> Result<PathBuf, String> {
+    let parts = validate_relative_path(relative, extension)?;
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))?;
+    let candidate = parts
+        .iter()
+        .fold(canonical_root.clone(), |path, part| path.join(part));
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("Cannot read {relative}: {error}"))?;
+    if !canonical.starts_with(&canonical_root) || !canonical.is_file() {
+        return Err("Refusing to read outside the selected library".to_string());
+    }
+    Ok(canonical)
+}
+
 // ── save_note ──
 
 fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
@@ -278,16 +360,16 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
     // Sanitize filename
     let safe_name = sanitize_filename(title);
     let filename = format!("{safe_name}.md");
-    let dir = root.join(category);
-
-    if let Err(e) = fs::create_dir_all(&dir) {
-        return ToolResult {
-            success: false,
-            output: format!("Cannot create directory {}: {e}", dir.display()),
-        };
-    }
-
-    let file_path = dir.join(&filename);
+    let relative = format!("{category}/{filename}");
+    let file_path = match safe_write_path(root, &relative, ".md") {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
 
     // Build the note with frontmatter
     let note = format!(
@@ -305,20 +387,13 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
     };
 
     match fs::write(&file_path, &note) {
-        Ok(_) => {
-            let relative = file_path
-                .strip_prefix(root)
-                .unwrap_or(&file_path)
-                .to_string_lossy()
-                .replace('\\', "/");
-            ToolResult {
-                success: true,
-                output: format!(
-                    "Saved note to {relative} ({note_len} chars)",
-                    note_len = note.chars().count()
-                ),
-            }
-        }
+        Ok(_) => ToolResult {
+            success: true,
+            output: format!(
+                "Saved note to {relative} ({note_len} chars)",
+                note_len = note.chars().count()
+            ),
+        },
         Err(e) => ToolResult {
             success: false,
             output: format!("Failed to write {}: {e}", file_path.display()),
@@ -328,7 +403,37 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
 
 // ── update_plan ──
 
-fn exec_update_plan(args: &Value, root: &Path, _locale: &str) -> ToolResult {
+fn content_without_memory_section(content: &str) -> String {
+    const MARKER: &str = "<!-- tiernote-memory-section:v1 -->";
+    let Some(marker_pos) = content.find(MARKER) else {
+        return content.trim_end().to_string();
+    };
+    let section_start = content[..marker_pos]
+        .rfind("\n## ")
+        .map(|position| position + 1)
+        .unwrap_or(marker_pos);
+    content[..section_start].trim_end().to_string()
+}
+
+fn preserve_confirmed_memory(content: &str, existing: &str) -> String {
+    const MARKER: &str = "<!-- tiernote-memory-section:v1 -->";
+    let clean_content = content_without_memory_section(content);
+    let Some(marker_pos) = existing.find(MARKER) else {
+        return clean_content;
+    };
+    let section_start = existing[..marker_pos]
+        .rfind("\n## ")
+        .map(|position| position + 1)
+        .unwrap_or(marker_pos);
+    let preserved = existing[section_start..].trim();
+    if preserved.is_empty() {
+        clean_content
+    } else {
+        format!("{}\n\n{}", clean_content, preserved)
+    }
+}
+
+fn exec_update_plan(args: &Value, root: &Path, locale: &str) -> ToolResult {
     if !args.is_object() {
         return ToolResult {
             success: false,
@@ -343,7 +448,8 @@ fn exec_update_plan(args: &Value, root: &Path, _locale: &str) -> ToolResult {
             return ToolResult {
                 success: false,
                 output: "Missing or empty 'module' — update_plan requires 'module' to be one of: \
-                    exercise, supplements, diet, daily_routine. Retry with complete arguments."
+                    exercise, supplements, diet, daily_routine, experience, lessons. \
+                    Retry with complete arguments."
                     .into(),
             }
         }
@@ -359,30 +465,50 @@ fn exec_update_plan(args: &Value, root: &Path, _locale: &str) -> ToolResult {
             }
         }
     };
-    let filename = match module {
+    let base_filename = match module {
         "exercise" => "exercise.md",
         "supplements" => "supplements.md",
         "diet" => "diet.md",
         "daily_routine" => "daily-routine.md",
+        "experience" => "experience.md",
+        "lessons" => "lessons.md",
         _ => {
             return ToolResult {
                 success: false,
                 output: format!(
                     "Invalid module '{module}' — must be one of: exercise, supplements, diet, \
-                     daily_routine."
+                     daily_routine, experience, lessons."
                 ),
             }
         }
     };
 
-    let dir = root.join("plans");
-    if let Err(e) = fs::create_dir_all(&dir) {
-        return ToolResult {
-            success: false,
-            output: format!("Cannot create directory {}: {e}", dir.display()),
-        };
-    }
-    let file_path = dir.join(filename);
+    let filename = if locale == "en" {
+        base_filename.replace(".md", ".en.md")
+    } else {
+        base_filename.to_string()
+    };
+    let relative = format!("plans/{filename}");
+    let file_path = match safe_write_path(root, &relative, ".md") {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
+    let existing = match fs::read_to_string(&file_path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!("Cannot read {} before updating it: {error}", file_path.display()),
+            }
+        }
+    };
+    let content = preserve_confirmed_memory(content, &existing);
     match fs::write(&file_path, format!("{content}\n")) {
         Ok(_) => ToolResult {
             success: true,
@@ -421,11 +547,7 @@ fn exec_update_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         }
     };
     let clean = path.replace('\\', "/");
-    if clean.starts_with('/')
-        || clean.contains(':')
-        || clean.contains("..")
-        || !clean.ends_with(".md")
-    {
+    if validate_relative_path(&clean, ".md").is_err() {
         return ToolResult {
             success: false,
             output: "Invalid 'path' — must be a relative Markdown path inside the library \
@@ -458,25 +580,15 @@ fn exec_update_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         }
     }
 
-    let file_path = root.join(&clean);
-    // Belt and braces: Path::join replaces the root when given an absolute
-    // path, so confirm the resolved path still lives under the library.
-    if !file_path.starts_with(root) {
-        return ToolResult {
-            success: false,
-            output: "Invalid 'path' — resolved outside the knowledge library. Retry with a \
-                relative path."
-                .into(),
-        };
-    }
-    if let Some(parent) = file_path.parent() {
-        if let Err(e) = fs::create_dir_all(parent) {
+    let file_path = match safe_write_path(root, &clean, ".md") {
+        Ok(path) => path,
+        Err(error) => {
             return ToolResult {
                 success: false,
-                output: format!("Cannot create directory {}: {e}", parent.display()),
-            };
+                output: error,
+            }
         }
-    }
+    };
     match fs::write(&file_path, format!("{body}\n")) {
         Ok(_) => ToolResult {
             success: true,
@@ -689,16 +801,15 @@ fn exec_read_note(args: &Value, root: &Path) -> ToolResult {
         }
     };
 
-    // Security: prevent path traversal
-    let clean = path.replace('\\', "/");
-    if clean.contains("..") {
-        return ToolResult {
-            success: false,
-            output: "Path must not contain '..'".into(),
-        };
-    }
-
-    let full_path = root.join(&clean);
+    let full_path = match safe_read_path(root, path, ".md") {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
     match fs::read_to_string(&full_path) {
         Ok(content) => {
             let truncated = if content.len() > 50_000 {
@@ -817,6 +928,68 @@ mod tests {
     }
 
     #[test]
+    fn update_plan_writes_english_companion_for_english_requests() {
+        let dir = std::env::temp_dir().join(format!("ol-update-plan-en-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let result = exec_update_plan(
+            &json!({"module": "experience", "content": "# My Experience\n\nA result"}),
+            &dir,
+            "en",
+        );
+        assert!(result.success, "{}", result.output);
+        assert!(dir.join("plans/experience.en.md").is_file());
+        assert!(!dir.join("plans/experience.md").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn update_plan_preserves_confirmed_memory_block() {
+        let dir = std::env::temp_dir().join(format!(
+            "ol-update-plan-memory-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
+        fs::write(
+            dir.join("plans/exercise.md"),
+            "# 运动计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 每周走路三次 <!-- tiernote-memory:id -->\n",
+        )
+        .expect("existing plan should be writable");
+        let result = exec_update_plan(
+            &json!({"module": "exercise", "content": "# 运动计划\n\n新的训练安排"}),
+            &dir,
+            "zh",
+        );
+        assert!(result.success, "{}", result.output);
+        let body = fs::read_to_string(dir.join("plans/exercise.md")).unwrap();
+        assert!(body.contains("新的训练安排"));
+        assert!(body.contains("每周走路三次"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn update_plan_discards_model_supplied_memory_section() {
+        let dir = std::env::temp_dir().join(format!("ol-update-plan-memory-guard-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
+        fs::write(
+            dir.join("plans/exercise.md"),
+            "# 运动计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 真实记忆 <!-- tiernote-memory:real -->\n",
+        )
+        .expect("existing plan should be writable");
+        let result = exec_update_plan(
+            &json!({"module": "exercise", "content": "# 新计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 模型伪造 <!-- tiernote-memory:fake -->"}),
+            &dir,
+            "zh",
+        );
+        assert!(result.success, "{}", result.output);
+        let body = fs::read_to_string(dir.join("plans/exercise.md")).unwrap();
+        assert!(body.contains("真实记忆"));
+        assert!(!body.contains("模型伪造"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn update_plan_rejects_invalid_module_and_empty_content() {
         let dir =
             std::env::temp_dir().join(format!("ol-update-plan-test-{}-b", std::process::id()));
@@ -862,6 +1035,17 @@ mod tests {
             exec_update_note(&json!({"path": "C:/escape.md", "content": "x"}), &dir, "zh");
         assert!(!absolute.success);
         assert!(absolute.output.contains("Invalid 'path'"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_note_rejects_absolute_paths() {
+        let dir = std::env::temp_dir().join(format!("ol-read-note-path-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let result = exec_read_note(&json!({"path": "C:/Windows/win.ini"}), &dir);
+        assert!(!result.success);
+        assert!(result.output.contains("inside the selected library"));
         let _ = fs::remove_dir_all(&dir);
     }
 

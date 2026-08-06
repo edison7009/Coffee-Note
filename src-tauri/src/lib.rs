@@ -162,6 +162,8 @@ struct PrepareCaptureRequest {
     model: String,
     input: String,
     locale: String,
+    #[serde(default = "default_economy_mode")]
+    economy_mode: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -191,6 +193,12 @@ struct ProviderModelConfigs {
 struct ModelSettings {
     active_provider: String,
     providers: ProviderModelConfigs,
+    #[serde(default = "default_economy_mode")]
+    economy_mode: bool,
+}
+
+fn default_economy_mode() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -234,6 +242,7 @@ impl From<LegacyModelConfig> for ModelSettings {
         Self {
             active_provider,
             providers,
+            economy_mode: true,
         }
     }
 }
@@ -307,9 +316,15 @@ const DEMO_NOTES: &[(&str, &str)] = &[
 
 const MY_INFO_PLAN_FILES: &[&str] = &[
     "plans/supplements.md",
+    "plans/supplements.en.md",
     "plans/exercise.md",
-    "plans/diet.md",
+    "plans/exercise.en.md",
+    "plans/experience.md",
+    "plans/experience.en.md",
+    "plans/lessons.md",
+    "plans/lessons.en.md",
     "plans/daily-routine.md",
+    "plans/daily-routine.en.md",
 ];
 
 fn ensure_demo_library(root: &Path) -> Result<(), String> {
@@ -972,9 +987,10 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
         .filter(|value| !value.trim().is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| managed_root.clone());
+    ensure_my_info(&my_info_root())?;
+    memory::migrate_legacy_store(&my_info_root())?;
     if root == managed_root {
         ensure_demo_library(&root)?;
-        ensure_my_info(&my_info_root())?;
     }
     let connected = root.is_dir();
     let supplements = if connected {
@@ -1467,7 +1483,17 @@ fn retrieve_context(
     selected_paths: &[String],
     locale: &str,
 ) -> String {
-    knowledge_map::retrieve_context(root, question, selected_paths, locale, MAX_CONTEXT_BYTES)
+    retrieve_context_with_budget(root, question, selected_paths, locale, MAX_CONTEXT_BYTES)
+}
+
+fn retrieve_context_with_budget(
+    root: &Path,
+    question: &str,
+    selected_paths: &[String],
+    locale: &str,
+    max_bytes: usize,
+) -> String {
+    knowledge_map::retrieve_context(root, question, selected_paths, locale, max_bytes)
 }
 
 fn chat_endpoint(base_url: &str) -> String {
@@ -1519,10 +1545,13 @@ fn blocked_capture_address(address: std::net::IpAddr) -> bool {
                 || (address.octets()[0] == 100 && (64..=127).contains(&address.octets()[1]))
         }
         std::net::IpAddr::V6(address) => {
+            let octets = address.octets();
+            let unique_local = octets[0] & 0xfe == 0xfc;
+            let unicast_link_local = octets[0] == 0xfe && octets[1] & 0xc0 == 0x80;
             address.is_loopback()
                 || address.is_unspecified()
-                || address.is_unique_local()
-                || address.is_unicast_link_local()
+                || unique_local
+                || unicast_link_local
                 || address.is_multicast()
         }
     }
@@ -1676,6 +1705,7 @@ async fn request_model_text(
     api_key: &str,
     base_url: &str,
     model: &str,
+    max_tokens: u32,
     messages: Vec<Value>,
 ) -> Result<String, String> {
     let client = reqwest::Client::builder()
@@ -1689,7 +1719,8 @@ async fn request_model_text(
         .header("X-Title", "TierNote")
         .json(&json!({
             "model": model,
-            "messages": messages
+            "messages": messages,
+            "max_tokens": max_tokens,
         }))
         .send()
         .await
@@ -1802,6 +1833,7 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         &request.api_key,
         &request.base_url,
         &request.model,
+        if request.economy_mode { 1200 } else { 3000 },
         messages,
     )
     .await?;
@@ -1873,6 +1905,7 @@ async fn plan_research_query(request: &ChatRequest) -> Option<String> {
         &request.api_key,
         &request.base_url,
         &request.model,
+        300,
         messages,
     )
     .await
@@ -2363,6 +2396,7 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         &request.api_key,
         &request.base_url,
         &request.model,
+        3000,
         messages,
     )
     .await?;
@@ -2663,11 +2697,12 @@ async fn agent_send_message(
         None
     };
     let knowledge_root = PathBuf::from(&request.knowledge_root);
-    let local_ctx = retrieve_context(
+    let local_ctx = retrieve_context_with_budget(
         &knowledge_root,
         &request.message,
         &request.context_paths,
         &request.locale,
+        if request.economy_mode { 24_000 } else { MAX_CONTEXT_BYTES },
     );
     let mut full_research = research_context.unwrap_or_default();
     if !local_ctx.is_empty() {
@@ -2923,6 +2958,7 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
         let path = root.join("config.json");
         let config = ModelSettings {
             active_provider: "anthropic".to_string(),
+            economy_mode: true,
             providers: ProviderModelConfigs {
                 openai: ProviderModelConfig {
                     base_url: "https://openai.example.com/v1".to_string(),
@@ -2980,6 +3016,7 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
         assert_eq!(migrated.providers.anthropic.model, "legacy-model");
         assert_eq!(migrated.providers.anthropic.api_key, "legacy-key");
         assert_eq!(migrated.providers.openai, ProviderModelConfig::default());
+        assert!(migrated.economy_mode);
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
 
@@ -3103,6 +3140,7 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
                 .expect("mock request should be readable");
             let request = String::from_utf8_lossy(&request_bytes[..read]);
             assert!(request.starts_with("POST /v1/chat/completions "));
+            assert!(request.contains("\"max_tokens\":1200"));
             let model_content =
                 r###"{"title":"Creatine trial","content":"## Findings\n\nA structured draft."}"###;
             let payload = json!({
@@ -3125,6 +3163,7 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
             model: "test-model".to_string(),
             input: "A 12-week creatine trial with 42 participants.".to_string(),
             locale: "en".to_string(),
+            economy_mode: true,
         }))
         .expect("capture should be prepared");
         server.join().expect("mock model should finish");

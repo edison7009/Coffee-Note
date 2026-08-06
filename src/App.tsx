@@ -38,6 +38,7 @@ import {
   Lightbulb,
   Archive,
   Settings,
+  ShieldAlert,
   Square,
   Sparkles,
   Star,
@@ -47,6 +48,7 @@ import {
   UserRound,
   UsersRound,
   Wrench,
+  Zap,
   X,
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -389,14 +391,20 @@ function getLinks(markdown: string): Array<{ label: string; url: string }> {
 }
 
 type InternalNoteKind = 'supplement' | 'person' | 'story' | 'file';
-type PlanSection = 'supplements' | 'exercise' | 'diet' | 'sleep' | 'log';
+type PlanSection = 'supplements' | 'exercise' | 'experience' | 'lessons' | 'sleep' | 'log';
 
 const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
   supplements: 'plans/supplements.md',
   exercise: 'plans/exercise.md',
-  diet: 'plans/diet.md',
+  experience: 'plans/experience.md',
+  lessons: 'plans/lessons.md',
   sleep: 'plans/daily-routine.md',
 };
+
+function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale): string {
+  const path = PLAN_SECTION_FILES[section];
+  return locale === 'en' ? path.replace(/\.md$/, '.en.md') : path;
+}
 type ThemeMode = 'system' | 'light' | 'dark';
 type AccentMode = 'blue' | 'green' | 'orange' | 'graphite';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
@@ -511,14 +519,24 @@ function getPlanSections(locale: Locale): Array<{
       accent: '#d7e9e5',
     },
     {
-      id: 'diet',
-      title: locale === 'zh' ? '经验与教训' : 'Lessons learned',
+      id: 'experience',
+      title: locale === 'zh' ? '我的经验' : 'My experience',
       description:
         locale === 'zh'
-          ? '在意什么、避开什么，以及现实边界'
-          : 'What matters to you and the constraints you have',
+          ? '试过什么、结果如何，以及什么真的有效'
+          : 'What you have tried, what worked, and what actually helps',
       icon: <Lightbulb size={17} />,
       accent: '#efe4c9',
+    },
+    {
+      id: 'lessons',
+      title: locale === 'zh' ? '我的教训' : 'My lessons',
+      description:
+        locale === 'zh'
+          ? '避开什么、什么不行，以及现实边界'
+          : 'What to avoid and the constraints you have',
+      icon: <ShieldAlert size={17} />,
+      accent: '#f0ddd2',
     },
     {
       id: 'sleep',
@@ -799,7 +817,7 @@ function App() {
   const fileNoteTitle = useMemo(() => {
     if (!fileNotePath) return '';
     const sectionId = (Object.keys(PLAN_SECTION_FILES) as Array<Exclude<PlanSection, 'log'>>).find(
-      (id) => PLAN_SECTION_FILES[id] === fileNotePath,
+      (id) => getPlanSectionFile(id, locale) === fileNotePath,
     );
     if (sectionId) {
       return getPlanSections(locale).find((section) => section.id === sectionId)?.title || '';
@@ -1308,7 +1326,7 @@ function App() {
       navigate('log');
       return;
     }
-    openFileNote(PLAN_SECTION_FILES[section]);
+    openFileNote(getPlanSectionFile(section, locale));
   };
 
   const openInternalNote = (target: Omit<InternalNoteTarget, 'label'>) => {
@@ -1566,7 +1584,16 @@ function App() {
   };
 
   const handleConfirmMemory = async (messageId: string, suggestion: MemorySuggestion) => {
-    await confirmMemorySuggestion(suggestion);
+    const saved = await confirmMemorySuggestion({ ...suggestion, locale });
+    if (
+      view === 'file'
+      && fileNoteSource === 'myInfo'
+      && saved.sourcePath
+      && fileNotePath === saved.sourcePath
+    ) {
+      const markdown = await readNote(library.myInfoRoot, saved.sourcePath);
+      setNoteMarkdown(markdown);
+    }
     setChatMessages((current) =>
       current.map((message) =>
         message.id === messageId ? { ...message, memoryStatus: 'saved' } : message,
@@ -1759,6 +1786,7 @@ function App() {
         baseUrl: modelConfig.baseUrl,
         model: modelConfig.model,
         provider: modelConfig.provider,
+        economyMode: modelSettings.economyMode,
         message: clean,
         locale,
         knowledgeRoot: library.root,
@@ -2036,23 +2064,24 @@ function App() {
             </>
           )}
 
-          <ChatComposer
-            busy={chatBusy}
-            onSend={handleSend}
-            onAbort={() => abortAgent(activeConversationId)}
-            placeholder={t('askPlaceholder')}
-            sendLabel={t('send')}
-            stopLabel={t('stopGenerating')}
-            inputRef={chatComposerRef}
-            currentPage={currentPageTitle}
-            contextBytes={contextBytes}
-            contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
-            usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
-            modelConfig={modelConfig}
-            currencyMode={currencyMode}
-            locale={locale}
-          />
         </div>
+
+        <ChatComposer
+          busy={chatBusy}
+          onSend={handleSend}
+          onAbort={() => abortAgent(activeConversationId)}
+          placeholder={t('askPlaceholder')}
+          sendLabel={t('send')}
+          stopLabel={t('stopGenerating')}
+          inputRef={chatComposerRef}
+          currentPage={currentPageTitle}
+          contextBytes={contextBytes}
+          contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
+          usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
+          modelConfig={modelConfig}
+          currencyMode={currencyMode}
+          locale={locale}
+        />
       </main>
 
       <PaneResizer
@@ -2108,6 +2137,7 @@ function App() {
         <CaptureGuideDialog
           locale={locale}
           config={modelConfig}
+          economyMode={modelSettings.economyMode}
           knowledgeRoot={library.root || normalizedKnowledgeRoot}
           onClose={() => setCaptureGuideOpen(false)}
           onSaved={finishCapture}
@@ -3869,6 +3899,24 @@ function ConversationView({
 
   return (
     <div className="page conversation-view">
+      {messages.length === 0 && (
+        <div className="chat-empty-state">
+          <div className="chat-empty-heading">
+            <img src="/brand/logo.png" alt="" />
+            <strong className="chat-empty-wordmark">TierNote</strong>
+          </div>
+          <p className="chat-empty-features">
+            {locale === 'zh'
+              ? 'DeepSeek 缓存极致优化 + 高命中率记忆路由 + Library Graph 检索 + 短输出、少调用、自动压缩'
+              : 'DeepSeek cache optimization + high-hit memory routing + Library Graph retrieval + shorter output, fewer calls, automatic compaction'}
+          </p>
+          <p className="chat-empty-value">
+            {locale === 'zh'
+              ? '让每一个 Token，产出至少两倍价值。'
+              : 'Make every token deliver at least twice the value.'}
+          </p>
+        </div>
+      )}
       <div className="message-list">
         {messages.map((message) => {
           if (message.role === 'tool_call') {
@@ -3948,7 +3996,7 @@ function ConversationView({
                         type="button"
                         onClick={() => onConfirmMemory(message.id, message.memorySuggestion!)}
                       >
-                        {locale === 'zh' ? '保存记忆' : 'Save memory'}
+                        {locale === 'zh' ? '保存到我的资料' : 'Save to My information'}
                       </button>
                       <button type="button" onClick={() => onDismissMemory(message.id)}>
                         {locale === 'zh' ? '忽略' : 'Dismiss'}
@@ -4806,6 +4854,27 @@ function SettingsDialog({
                   </div>
                   <p className="settings-hint">{t('currencyAutoHint')}</p>
                 </div>
+
+                <div className="settings-section economy-section">
+                  <div className="economy-heading">
+                    <label>{t('economyMode')}</label>
+                    <span className="economy-badge"><Zap size={13} /> {t('economyModeBadge')}</span>
+                  </div>
+                  <p className="settings-hint">{t('economyModeDesc')}</p>
+                  <button
+                    type="button"
+                    className={`economy-toggle ${draft.economyMode ? 'active' : ''}`}
+                    aria-pressed={draft.economyMode}
+                    onClick={() => {
+                      const next = { ...draft, economyMode: !draft.economyMode };
+                      setDraft(next);
+                      onChange(next);
+                    }}
+                  >
+                    <span className="economy-toggle-track"><span /></span>
+                    {draft.economyMode ? t('economyModeOn') : t('economyModeOff')}
+                  </button>
+                </div>
               </>
             )}
 
@@ -5028,6 +5097,7 @@ function AddMaterialDialog({
 function CaptureGuideDialog({
   locale,
   config,
+  economyMode,
   knowledgeRoot,
   onClose,
   onSaved,
@@ -5035,6 +5105,7 @@ function CaptureGuideDialog({
 }: {
   locale: Locale;
   config: ModelConfig;
+  economyMode: boolean;
   knowledgeRoot: string;
   onClose: () => void;
   onSaved: (path: string) => Promise<void>;
@@ -5067,6 +5138,7 @@ function CaptureGuideDialog({
           model: config.model,
           input: clean,
           locale,
+          economyMode,
         }),
       );
     } catch (requestError) {
