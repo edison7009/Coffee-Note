@@ -229,7 +229,11 @@ pub fn clear_session_from_disk() {
 
 // ── User profile bootstrap (kept from original) ──
 
-fn build_user_profile_context(knowledge_root: &std::path::Path, locale: &str) -> String {
+fn build_user_profile_context(
+    _knowledge_root: &std::path::Path,
+    my_info_root: &std::path::Path,
+    locale: &str,
+) -> String {
     let personal_paths = [
         "profile/about-me.md",
         "plans/current-protocol.md",
@@ -240,7 +244,7 @@ fn build_user_profile_context(knowledge_root: &std::path::Path, locale: &str) ->
 
     let mut sections = Vec::new();
     for relative in &personal_paths {
-        let base_path = knowledge_root.join(relative);
+        let base_path = my_info_root.join(relative);
         let localized = if locale == "en" {
             let stem = base_path
                 .file_stem()
@@ -252,7 +256,7 @@ fn build_user_profile_context(knowledge_root: &std::path::Path, locale: &str) ->
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
-            let parent = base_path.parent().unwrap_or_else(|| knowledge_root);
+            let parent = base_path.parent().unwrap_or_else(|| my_info_root);
             parent.join(format!("{stem}.en.{ext}"))
         } else {
             base_path.clone()
@@ -769,6 +773,7 @@ pub async fn run_agent(
     research_context: Option<String>,
 ) -> Result<(), String> {
     let knowledge_root = std::path::PathBuf::from(&request.knowledge_root);
+    let my_info_root = crate::my_info_root();
 
     let provider = match request.provider.to_lowercase().as_str() {
         "anthropic" => LlmProvider::Anthropic,
@@ -782,7 +787,7 @@ pub async fn run_agent(
     })?;
 
     let tools = agent_tools::get_tool_definitions();
-    let user_profile = build_user_profile_context(&knowledge_root, &request.locale);
+    let user_profile = build_user_profile_context(&knowledge_root, &my_info_root, &request.locale);
     let memory_context = memory::build_memory_context(&request.locale);
     let system_prompt = build_system_prompt(&request.locale, &user_profile, &memory_context);
     let conversation_id = request.conversation_id.clone();
@@ -1161,12 +1166,13 @@ pub async fn run_agent(
                 let name = tc.name.clone();
                 let args = tc.arguments.clone();
                 let kr = knowledge_root.clone();
+                let mi = my_info_root.clone();
                 let loc = request.locale.clone();
                 handles.push(tokio::spawn(async move {
                     // Arguments were validated above; `{}` is only an
                     // unreachable safety net.
                     let parsed: Value = serde_json::from_str(&args).unwrap_or(json!({}));
-                    agent_tools::execute_tool(&name, &parsed, &kr, &loc).await
+                    agent_tools::execute_tool(&name, &parsed, &kr, &mi, &loc).await
                 }));
             }
             let results = futures_util::future::join_all(handles).await;
@@ -1201,8 +1207,14 @@ pub async fn run_agent(
                 // safety net.
                 let parsed: Value = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
                 let result =
-                    agent_tools::execute_tool(&tc.name, &parsed, &knowledge_root, &request.locale)
-                        .await;
+                    agent_tools::execute_tool(
+                        &tc.name,
+                        &parsed,
+                        &knowledge_root,
+                        &my_info_root,
+                        &request.locale,
+                    )
+                    .await;
                 if tc.name == "suggest_memory" && result.success {
                     for suggestion in
                         memory::parse_memory_suggestions(&tc.arguments, &conversation_id)

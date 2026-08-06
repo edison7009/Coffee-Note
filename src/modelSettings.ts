@@ -1,8 +1,13 @@
 import type { ModelConfig, ModelProvider, ModelSettings, ProviderConfig } from './types';
 
-const emptyProviderConfig = (): ProviderConfig => ({
-  baseUrl: '',
-  model: '',
+const DEFAULT_ENDPOINTS: Record<ModelProvider, { baseUrl: string; model: string }> = {
+  openai: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
+  anthropic: { baseUrl: 'https://api.deepseek.com/anthropic', model: 'deepseek-v4-flash' },
+};
+
+const emptyProviderConfig = (provider: ModelProvider): ProviderConfig => ({
+  baseUrl: DEFAULT_ENDPOINTS[provider].baseUrl,
+  model: DEFAULT_ENDPOINTS[provider].model,
   apiKey: '',
 });
 
@@ -10,8 +15,8 @@ export function createEmptyModelSettings(): ModelSettings {
   return {
     activeProvider: 'openai',
     providers: {
-      openai: emptyProviderConfig(),
-      anthropic: emptyProviderConfig(),
+      openai: emptyProviderConfig('openai'),
+      anthropic: emptyProviderConfig('anthropic'),
     },
   };
 }
@@ -21,12 +26,17 @@ export function migrateModelProvider(raw: unknown): ModelProvider {
   return 'openai';
 }
 
-function readProviderConfig(value: unknown): ProviderConfig {
-  if (!value || typeof value !== 'object') return emptyProviderConfig();
+function readProviderConfig(value: unknown, provider: ModelProvider): ProviderConfig {
+  const fallback = DEFAULT_ENDPOINTS[provider];
+  if (!value || typeof value !== 'object') return emptyProviderConfig(provider);
   const config = value as Record<string, unknown>;
   return {
-    baseUrl: typeof config.baseUrl === 'string' ? config.baseUrl : '',
-    model: typeof config.model === 'string' ? config.model : '',
+    baseUrl:
+      typeof config.baseUrl === 'string' && config.baseUrl.trim()
+        ? config.baseUrl
+        : fallback.baseUrl,
+    model:
+      typeof config.model === 'string' && config.model.trim() ? config.model : fallback.model,
     apiKey: typeof config.apiKey === 'string' ? config.apiKey : '',
   };
 }
@@ -42,8 +52,8 @@ export function normalizeModelSettings(value: unknown): ModelSettings {
     return {
       activeProvider,
       providers: {
-        openai: readProviderConfig(providers.openai),
-        anthropic: readProviderConfig(providers.anthropic),
+        openai: readProviderConfig(providers.openai, 'openai'),
+        anthropic: readProviderConfig(providers.anthropic, 'anthropic'),
       },
     };
   }
@@ -52,7 +62,7 @@ export function normalizeModelSettings(value: unknown): ModelSettings {
     activeProvider,
     providers: {
       ...empty.providers,
-      [activeProvider]: readProviderConfig(stored),
+      [activeProvider]: readProviderConfig(stored, activeProvider),
     },
   };
 }

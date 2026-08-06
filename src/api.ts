@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { fallbackLibrary, fallbackMarkdown } from './data';
 import type {
   CaptureDraft,
@@ -31,6 +31,11 @@ export async function openExternalUrl(url: string): Promise<void> {
   }
 
   window.open(parsed.href, '_blank', 'noopener,noreferrer');
+}
+
+export async function revealInFolder(path: string): Promise<void> {
+  if (!isTauri) return;
+  await revealItemInDir(path);
 }
 
 export interface SelfUpdateProgress {
@@ -102,6 +107,90 @@ export async function readNote(root: string, relativePath: string): Promise<stri
     );
   }
   return invoke<string>('read_note', { root, relativePath });
+}
+
+export async function openNote(root: string, relativePath: string): Promise<void> {
+  if (!isTauri) {
+    throw new Error('Opening notes is only available in the desktop app.');
+  }
+  await invoke('open_note', { root, relativePath });
+}
+
+export async function deleteNote(root: string, relativePath: string): Promise<void> {
+  if (!isTauri) {
+    throw new Error('Deleting notes is only available in the desktop app.');
+  }
+  await invoke('delete_note', { root, relativePath });
+}
+
+export async function setNoteTier(
+  root: string,
+  relativePath: string,
+  tier: string,
+): Promise<void> {
+  if (!isTauri) {
+    throw new Error('Setting a priority is only available in the desktop app.');
+  }
+  await invoke('set_note_tier', { root, relativePath, tier });
+}
+
+export interface DirectoryEntry {
+  name: string;
+  relativePath: string;
+  isDir: boolean;
+  isMarkdown: boolean;
+  icon?: string;
+}
+
+export async function listDirectory(
+  root: string,
+  relativePath: string,
+): Promise<DirectoryEntry[]> {
+  if (!isTauri) return [];
+  return invoke<DirectoryEntry[]>('list_directory', { root, relativePath });
+}
+
+export async function createFolder(
+  root: string,
+  parentRelative: string,
+  name: string,
+): Promise<string> {
+  if (!isTauri) throw new Error('File operations are only available in the desktop app.');
+  return invoke<string>('create_folder', { root, parentRelative, name });
+}
+
+export async function createNote(
+  root: string,
+  parentRelative: string,
+  name: string,
+  icon?: string,
+): Promise<string> {
+  if (!isTauri) throw new Error('File operations are only available in the desktop app.');
+  return invoke<string>('create_note', { root, parentRelative, name, icon: icon || null });
+}
+
+export async function renameEntry(
+  root: string,
+  relativePath: string,
+  newName: string,
+): Promise<string> {
+  if (!isTauri) throw new Error('File operations are only available in the desktop app.');
+  return invoke<string>('rename_entry', { root, relativePath, newName });
+}
+
+export async function deleteEntry(root: string, relativePath: string): Promise<void> {
+  if (!isTauri) throw new Error('File operations are only available in the desktop app.');
+  await invoke('delete_entry', { root, relativePath });
+}
+
+export async function pasteEntry(
+  root: string,
+  sourceRelative: string,
+  targetDirRelative: string,
+  action: 'copy' | 'cut',
+): Promise<string> {
+  if (!isTauri) throw new Error('File operations are only available in the desktop app.');
+  return invoke<string>('paste_entry', { root, sourceRelative, targetDirRelative, action });
 }
 
 export async function chooseKnowledgeFolder(): Promise<string | null> {

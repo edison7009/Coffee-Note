@@ -221,6 +221,7 @@ export const fallbackStories: Story[] = [
 
 export const fallbackLibrary: LibrarySnapshot = {
   root: 'TierNote / library',
+  myInfoRoot: 'TierNote / my info',
   connected: true,
   supplements: fallbackSupplements,
   people: fallbackPeople,

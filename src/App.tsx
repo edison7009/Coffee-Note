@@ -25,6 +25,18 @@ import {
   Plus,
   Download,
   ArrowUp,
+  Pencil,
+  FileText,
+  Folder,
+  FolderPlus,
+  Scissors,
+  Copy,
+  ClipboardPaste,
+  FolderSearch,
+  Link2,
+  Target,
+  Lightbulb,
+  Archive,
   Settings,
   Square,
   Sparkles,
@@ -38,6 +50,8 @@ import {
   X,
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { confirm } from '@tauri-apps/plugin-dialog';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import {
   FormEvent,
   PointerEvent as ReactPointerEvent,
@@ -51,6 +65,7 @@ import {
 } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { createPortal } from 'react-dom';
 import packageMetadata from '../package.json';
 import {
   checkForUpdate,
@@ -76,6 +91,17 @@ import {
   createConversation,
   deleteConversation,
   confirmMemorySuggestion,
+  deleteNote,
+  openNote,
+  setNoteTier,
+  listDirectory,
+  createFolder,
+  createNote,
+  renameEntry,
+  deleteEntry,
+  pasteEntry,
+  revealInFolder,
+  type DirectoryEntry,
 } from './api';
 import {
   AGENT_CONTEXT_MAX_BYTES,
@@ -212,15 +238,15 @@ const providerOptions: Record<
 > = {
   openai: {
     label: { zh: 'OpenAI 协议', en: 'OpenAI Protocol' },
-    baseUrlPlaceholder: 'e.g. https://api.openai.com/v1',
-    modelPlaceholder: 'e.g. gpt-5',
-    apiKeyPlaceholder: 'e.g. sk-…',
+    baseUrlPlaceholder: 'https://api.deepseek.com',
+    modelPlaceholder: 'deepseek-v4-flash',
+    apiKeyPlaceholder: 'sk-…',
   },
   anthropic: {
     label: { zh: 'Anthropic 协议', en: 'Anthropic Protocol' },
-    baseUrlPlaceholder: 'e.g. https://api.anthropic.com',
-    modelPlaceholder: 'e.g. claude-sonnet-5',
-    apiKeyPlaceholder: 'e.g. sk-ant-…',
+    baseUrlPlaceholder: 'https://api.deepseek.com/anthropic',
+    modelPlaceholder: 'deepseek-v4-flash',
+    apiKeyPlaceholder: 'sk-ant-…',
   },
 };
 
@@ -233,11 +259,33 @@ const tierMeta: Record<string, { label: Record<Locale, string>; color: string }>
   T3: { label: { zh: '需要选择', en: 'Decide' }, color: '#ead68f' },
   T4: { label: { zh: '等待信息', en: 'Wait' }, color: '#a6d5ca' },
   T5: { label: { zh: '以后再看', en: 'Later' }, color: '#bdd8a3' },
-  pending: { label: { zh: '待整理', en: 'Inbox' }, color: '#c8d3df' },
+  pending: { label: { zh: '仅收录', en: 'Collected' }, color: '#c8d3df' },
 };
 
 const TIER_IDS = ['T1', 'T2', 'T3', 'T4', 'T5'] as const;
 type TierId = (typeof TIER_IDS)[number];
+
+function extractFrontmatterTier(markdown: string): string | undefined {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return undefined;
+  const field = match[1]
+    .split(/\r?\n/)
+    .find((line) => /^tier\s*:/i.test(line.trim()));
+  if (!field) return undefined;
+  const value = field
+    .split(':')
+    .slice(1)
+    .join(':')
+    .trim()
+    .replace(/^["']|["']$/g, '');
+  return value || undefined;
+}
+
+function normalizeTier(tier: string | undefined): string | undefined {
+  if (!tier) return undefined;
+  const upper = tier.toUpperCase();
+  return upper === 'PENDING' ? 'pending' : upper;
+}
 
 function reorderTierItems(
   items: Supplement[],
@@ -352,7 +400,7 @@ const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
 type ThemeMode = 'system' | 'light' | 'dark';
 type AccentMode = 'blue' | 'green' | 'orange' | 'graphite';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'knowledge' | 'appearance';
+type SettingsSectionId = 'model' | 'appearance';
 type ResizeSide = 'left' | 'right';
 
 interface PaneSizes {
@@ -449,7 +497,7 @@ function getPlanSections(locale: Locale): Array<{
         locale === 'zh'
           ? '个人简介、经历与当前状态'
           : 'Your background, experience, and current context',
-      icon: <Pill size={17} />,
+      icon: <UserRound size={17} />,
       accent: '#f1d9d5',
     },
     {
@@ -459,7 +507,7 @@ function getPlanSections(locale: Locale): Array<{
         locale === 'zh'
           ? '正在推进的事，以及想得到的结果'
           : 'What you are working toward and why',
-      icon: <Dumbbell size={17} />,
+      icon: <Target size={17} />,
       accent: '#d7e9e5',
     },
     {
@@ -469,7 +517,7 @@ function getPlanSections(locale: Locale): Array<{
         locale === 'zh'
           ? '在意什么、避开什么，以及现实边界'
           : 'What matters to you and the constraints you have',
-      icon: <Utensils size={17} />,
+      icon: <Lightbulb size={17} />,
       accent: '#efe4c9',
     },
     {
@@ -479,18 +527,8 @@ function getPlanSections(locale: Locale): Array<{
         locale === 'zh'
           ? '简历、项目、经历与值得回看的资料'
           : 'Resumes, projects, experiences, and useful reference',
-      icon: <Moon size={17} />,
+      icon: <Archive size={17} />,
       accent: '#dce3f2',
-    },
-    {
-      id: 'log',
-      title: locale === 'zh' ? '我的日记' : 'My journal',
-      description:
-        locale === 'zh'
-          ? '随手记下重要变化和想法'
-          : 'Keep track of important changes and thoughts',
-      icon: <NotebookPen size={17} />,
-      accent: '#cfeae3',
     },
   ];
 }
@@ -710,6 +748,10 @@ function App() {
     'tiernote:knowledge-root:v2',
     '',
   );
+  const isLegacyDefaultRoot = (root: string) =>
+    root.replace(/\\/g, '/').toLowerCase().endsWith('tiernote/library');
+  const normalizedKnowledgeRoot =
+    knowledgeRoot && !isLegacyDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
   const [modelSettings, setModelSettings] = useState<ModelSettings>(createEmptyModelSettings);
   const modelConfigSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
@@ -745,11 +787,14 @@ function App() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
-  const libraryRootRef = useRef(library.root || knowledgeRoot || '');
+  const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
+  const libraryRootRef = useRef(library.root || normalizedKnowledgeRoot || '');
   const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  libraryRootRef.current = library.root || knowledgeRoot || '';
+  libraryRootRef.current = library.root || normalizedKnowledgeRoot || '';
   const fileNotePathRef = useRef(fileNotePath);
   fileNotePathRef.current = fileNotePath;
+  const fileNoteSourceRef = useRef(fileNoteSource);
+  fileNoteSourceRef.current = fileNoteSource;
 
   const fileNoteTitle = useMemo(() => {
     if (!fileNotePath) return '';
@@ -773,9 +818,15 @@ function App() {
     return undefined;
   }, [view, fileNoteTitle, selectedSupplement, selectedPerson, selectedStory, locale]);
   const [noteMarkdown, setNoteMarkdown] = useState('');
+  const fileNoteTier = useMemo(
+    () => (view === 'file' ? extractFrontmatterTier(noteMarkdown) : undefined),
+    [view, noteMarkdown],
+  );
   const [noteLoading, setNoteLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
+  const [addMaterialOpen, setAddMaterialOpen] = useState(false);
+  const [treeRefresh, setTreeRefresh] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSaveSnapshotRef = useRef<{ id: string; json: string } | null>(null);
   const conversationSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -865,11 +916,11 @@ function App() {
   useEffect(() => {
     let alive = true;
     setLoadingLibrary(true);
-    loadLibrary(knowledgeRoot || undefined, locale)
+    loadLibrary(normalizedKnowledgeRoot || undefined, locale)
       .then((snapshot) => {
         if (!alive) return;
         setLibrary(snapshot);
-        if (!knowledgeRoot && snapshot.root) setKnowledgeRoot(snapshot.root);
+        if (!normalizedKnowledgeRoot && snapshot.root) setKnowledgeRoot(snapshot.root);
       })
       .catch(() => {
         if (alive) setLibrary(fallbackLibrary);
@@ -880,7 +931,7 @@ function App() {
     return () => {
       alive = false;
     };
-  }, [knowledgeRoot, locale]);
+  }, [normalizedKnowledgeRoot, locale]);
 
   useEffect(() => {
     if (!toast) return;
@@ -983,7 +1034,10 @@ function App() {
     if (nextView !== 'supplement') setSelectedSupplement(null);
     if (nextView !== 'person') setSelectedPerson(null);
     if (nextView !== 'story') setSelectedStory(null);
-    if (nextView !== 'file') setFileNotePath(null);
+    if (nextView !== 'file') {
+      setFileNotePath(null);
+      setFileNoteSource('library');
+    }
     if (!['supplement', 'person', 'story', 'file'].includes(nextView)) setNoteMarkdown('');
   };
 
@@ -1021,15 +1075,188 @@ function App() {
     restoreLocation(previous || { view: 'home' });
   };
 
+  const noteRelativePath = useMemo(() => {
+    if (view === 'file') return fileNotePath;
+    if (view === 'supplement') return selectedSupplement?.filePath || null;
+    if (view === 'person') return selectedPerson?.filePath || null;
+    if (view === 'story') return selectedStory?.filePath || null;
+    return null;
+  }, [view, fileNotePath, selectedSupplement, selectedPerson, selectedStory]);
+
+  const currentNoteTarget = useMemo<Omit<InternalNoteTarget, 'label'> | null>(() => {
+    if (view === 'supplement' && selectedSupplement) {
+      return { kind: 'supplement', id: selectedSupplement.id };
+    }
+    if (view === 'person' && selectedPerson) {
+      return { kind: 'person', id: selectedPerson.id };
+    }
+    if (view === 'story' && selectedStory) {
+      return { kind: 'story', id: selectedStory.id };
+    }
+    if (view === 'file' && fileNotePath) {
+      return { kind: 'file', id: fileNotePath };
+    }
+    return null;
+  }, [view, selectedSupplement, selectedPerson, selectedStory, fileNotePath]);
+
+  const handleEditNote = async (relativePath: string) => {
+    if (!isTauri) {
+      setToast({ message: t('desktopOnlyAction'), kind: 'status' });
+      return;
+    }
+    const source = view === 'file' ? fileNoteSourceRef.current : 'library';
+    const root =
+      source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
+    try {
+      await openNote(root, relativePath);
+    } catch (error) {
+      setToast({
+        message: `${t('openNoteFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
+        kind: 'status',
+      });
+    }
+  };
+
+  const handleDeleteNote = async (relativePath: string) => {
+    if (!isTauri) {
+      setToast({ message: t('desktopOnlyAction'), kind: 'status' });
+      return;
+    }
+    const confirmed = await confirm(t('deleteNoteConfirm'), {
+      title: t('deleteNote'),
+      kind: 'warning',
+      okLabel: t('deleteNote'),
+      cancelLabel: t('cancel'),
+    });
+    if (!confirmed) return;
+    const source = view === 'file' ? fileNoteSourceRef.current : 'library';
+    const root =
+      source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
+    const target = currentNoteTarget;
+    try {
+      await deleteNote(root, relativePath);
+      if (target) {
+        setFavorites(
+          favorites.filter(
+            (favorite) => favorite.kind !== target.kind || favorite.id !== target.id,
+          ),
+        );
+      }
+      setToast({ message: t('noteDeleted'), kind: 'status' });
+      goBack();
+      setLibrary(await loadLibrary(root || undefined, locale));
+    } catch (error) {
+      setToast({
+        message: `${t('deleteNoteFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
+        kind: 'status',
+      });
+    }
+  };
+
+  const handleSetTier = async (relativePath: string, tier: string) => {
+    if (!isTauri) {
+      setToast({ message: t('desktopOnlyAction'), kind: 'status' });
+      return;
+    }
+    const source = view === 'file' ? fileNoteSourceRef.current : 'library';
+    const root =
+      source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
+    try {
+      await setNoteTier(root, relativePath, tier);
+      if (view === 'file' && fileNotePath === relativePath) {
+        setNoteMarkdown(await readNote(root, relativePath));
+      } else {
+        if (selectedSupplement?.filePath === relativePath) {
+          setSelectedSupplement({ ...selectedSupplement, tier });
+        } else if (selectedPerson?.filePath === relativePath) {
+          setSelectedPerson({ ...selectedPerson, tier });
+        } else if (selectedStory?.filePath === relativePath) {
+          setSelectedStory({ ...selectedStory, tier });
+        }
+        setLibrary((current) => ({
+          ...current,
+          supplements: current.supplements.map((item) =>
+            item.filePath === relativePath ? { ...item, tier } : item,
+          ),
+          people: current.people.map((item) =>
+            item.filePath === relativePath ? { ...item, tier } : item,
+          ),
+          stories: current.stories.map((item) =>
+            item.filePath === relativePath ? { ...item, tier } : item,
+          ),
+        }));
+      }
+      setToast({ message: t('tierUpdated'), kind: 'status' });
+    } catch (error) {
+      setToast({
+        message: `${t('setTier')}${locale === 'zh' ? '失败：' : ' failed: '}${String(error).replace(/^Error:\s*/i, '')}`,
+        kind: 'status',
+      });
+    }
+  };
+
+  const handleLibraryChanged = () => {
+    const root = libraryRootRef.current || library.root;
+    void loadLibrary(root || undefined, locale)
+      .then((snapshot) => setLibrary(snapshot))
+      .catch(() => {});
+    if (view === 'file' && fileNotePath) {
+      const source = fileNoteSourceRef.current;
+      const noteRoot = source === 'myInfo' ? library.myInfoRoot : root;
+      readNote(noteRoot, fileNotePath)
+        .then((raw) => setNoteMarkdown(raw))
+        .catch(() => {
+          navigate('home');
+          setToast({ message: t('fileGone'), kind: 'status' });
+        });
+    }
+  };
+
+  const handleSwitchRoot = async () => {
+    if (!isTauri) return;
+    const selected = await chooseKnowledgeFolder();
+    if (!selected) return;
+    setKnowledgeRoot(selected);
+    navigate('home');
+    setToast({
+      message: `${t('switchedRoot')}${locale === 'zh' ? '：' : ': '}${selected}`,
+      kind: 'status',
+    });
+  };
+
+  const handleCreateMaterial = async (name: string, icon: string) => {
+    const root = libraryRootRef.current || library.root;
+    try {
+      const created = await createNote(root, '', name, icon);
+      setTreeRefresh((current) => current + 1);
+      setAddMaterialOpen(false);
+      openFileNote(created);
+      setToast({
+        message: `${t('addMaterialCreate')}${locale === 'zh' ? '：' : ': '}${name}`,
+        kind: 'status',
+      });
+    } catch (error) {
+      setToast({
+        message: `${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
+        kind: 'status',
+      });
+    }
+  };
+
   const openFileNote = (filePath: string, remember = true) => {
     if (remember) rememberCurrentLocation({ view: 'file', filePath });
     setView('file');
     setFileNotePath(filePath);
+    const source: 'library' | 'myInfo' = filePath.startsWith('plans/')
+      ? 'myInfo'
+      : 'library';
+    setFileNoteSource(source);
     setSelectedSupplement(null);
     setSelectedPerson(null);
     setSelectedStory(null);
     setNoteLoading(true);
-    readNote(library.root, filePath)
+    const root = source === 'myInfo' ? library.myInfoRoot : library.root;
+    readNote(root, filePath)
       .then((raw) => setNoteMarkdown(raw))
       .catch(() =>
         setNoteMarkdown(
@@ -1052,6 +1279,10 @@ function App() {
     tierMoveQueueRef.current = tierMoveQueueRef.current
       .then(async () => {
         await moveTierItem(root, itemId, targetTier, targetIndex);
+        const moved = library.supplements.find((item) => item.id === itemId);
+        if (moved?.filePath) {
+          await setNoteTier(root, moved.filePath, targetTier);
+        }
         const snapshot = await loadLibrary(root || undefined, locale);
         setLibrary(snapshot);
       })
@@ -1148,7 +1379,10 @@ function App() {
   const finishCapture = async (path: string) => {
     setCaptureGuideOpen(false);
     try {
-      const snapshot = await loadLibrary(library.root || knowledgeRoot || undefined, locale);
+      const snapshot = await loadLibrary(
+        library.root || normalizedKnowledgeRoot || undefined,
+        locale,
+      );
       setLibrary(snapshot);
     } catch {
       // The note is already saved; a later library refresh can recover the updated count.
@@ -1571,18 +1805,6 @@ function App() {
     setActiveConversationId(summary.id);
     setChatMessages([]);
   };
-  const changeKnowledgeRoot = async () => {
-    const selected = await chooseKnowledgeFolder();
-    if (selected) {
-      setKnowledgeRoot(selected);
-      setSettingsOpen(false);
-      setToast({
-        message: locale === 'zh' ? '正在切换本地知识库…' : 'Switching local library…',
-        kind: 'status',
-      });
-    }
-  };
-
   const saveModelConfig = (config: ModelSettings) => {
     setModelSettings(config);
     modelConfigSaveQueueRef.current = modelConfigSaveQueueRef.current
@@ -1630,15 +1852,16 @@ function App() {
         locale={locale}
         library={library}
         view={view}
-        selectedSupplement={selectedSupplement}
-        selectedPerson={selectedPerson}
-        selectedStory={selectedStory}
+        libraryRoot={library.root || normalizedKnowledgeRoot}
+        activeFilePath={view === 'file' ? fileNotePath : null}
         onNavigate={navigate}
         onNewChat={handleNewChat}
         chatBusy={chatBusy}
-        onSupplement={openSupplement}
-        onPerson={openPerson}
-        onStory={openStory}
+        onOpenFile={openFileNote}
+        onLibraryChanged={handleLibraryChanged}
+        onSwitchRoot={handleSwitchRoot}
+        refreshToken={treeRefresh}
+        notify={(message) => setToast({ message, kind: 'status' })}
         t={t}
       />
       <PaneResizer
@@ -1665,7 +1888,6 @@ function App() {
                   locale={locale}
                   messages={chatMessages}
                   busy={chatBusy}
-                  onNewChat={handleNewChat}
                   onInternalNavigate={openInternalNote}
                   onConfirmMemory={handleConfirmMemory}
                   onDismissMemory={handleDismissMemory}
@@ -1704,7 +1926,6 @@ function App() {
               )}
               {view === 'supplement' && selectedSupplement && (
                 <NoteView
-                  eyebrow={locale === 'zh' ? selectedSupplement.category : selectedSupplement.tier}
                   title={locale === 'zh' ? selectedSupplement.nameZh : selectedSupplement.nameEn}
                   tier={selectedSupplement.tier}
                   markdown={noteMarkdown}
@@ -1718,12 +1939,19 @@ function App() {
                     toggleFavorite({ kind: 'supplement', id: selectedSupplement.id })
                   }
                   onBack={goBack}
+                  notePath={noteRelativePath}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={handleDeleteNote}
+                  onSetTier={(nextTier) =>
+                    selectedSupplement.filePath &&
+                    handleSetTier(selectedSupplement.filePath, nextTier)
+                  }
                 />
               )}
               {view === 'person' && selectedPerson && (
                 <NoteView
-                  eyebrow={locale === 'zh' ? '人物案例' : 'Public protocol'}
                   title={selectedPerson.name}
+                  tier={selectedPerson.tier}
                   markdown={noteMarkdown}
                   loading={noteLoading}
                   locale={locale}
@@ -1735,14 +1963,20 @@ function App() {
                     toggleFavorite({ kind: 'person', id: selectedPerson.id })
                   }
                   onBack={goBack}
+                  notePath={noteRelativePath}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={handleDeleteNote}
+                  onSetTier={(nextTier) =>
+                    selectedPerson.filePath && handleSetTier(selectedPerson.filePath, nextTier)
+                  }
                 />
               )}
               {view === 'story' && selectedStory && (
                 <NoteView
-                  eyebrow={t('stories')}
                   title={
                     locale === 'zh' ? selectedStory.title : selectedStory.titleEn || selectedStory.title
                   }
+                  tier={selectedStory.tier}
                   markdown={noteMarkdown}
                   loading={noteLoading}
                   locale={locale}
@@ -1754,6 +1988,12 @@ function App() {
                     toggleFavorite({ kind: 'story', id: selectedStory.id })
                   }
                   onBack={goBack}
+                  notePath={noteRelativePath}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={handleDeleteNote}
+                  onSetTier={(nextTier) =>
+                    selectedStory.filePath && handleSetTier(selectedStory.filePath, nextTier)
+                  }
                 />
               )}
               {view === 'plan' && (
@@ -1762,13 +2002,14 @@ function App() {
                   activeSection={activePlanSection}
                   onSection={openPlanSection}
                   onBack={goBack}
+                  onAdd={() => setAddMaterialOpen(true)}
                   t={t}
                 />
               )}
               {view === 'file' && fileNotePath && (
                 <NoteView
-                  eyebrow={locale === 'zh' ? '本地笔记' : 'Local note'}
                   title={fileNoteTitle}
+                  tier={fileNoteTier}
                   markdown={noteMarkdown}
                   loading={noteLoading}
                   locale={locale}
@@ -1778,6 +2019,10 @@ function App() {
                   favorite={isFavorite({ kind: 'file', id: fileNotePath })}
                   onToggleFavorite={() => toggleFavorite({ kind: 'file', id: fileNotePath })}
                   onBack={goBack}
+                  notePath={noteRelativePath}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={handleDeleteNote}
+                  onSetTier={(nextTier) => handleSetTier(fileNotePath, nextTier)}
                 />
               )}
               {view === 'log' && (
@@ -1846,7 +2091,6 @@ function App() {
         <SettingsDialog
           locale={locale}
           config={modelSettings}
-          knowledgeRoot={library.root || knowledgeRoot}
           onChange={saveModelConfig}
           onLocale={setLocale}
           themeMode={themeMode}
@@ -1855,7 +2099,6 @@ function App() {
           onAccentMode={setAccentMode}
           currencyMode={currencyMode}
           onCurrencyMode={setCurrencyMode}
-          onChooseFolder={changeKnowledgeRoot}
           onClose={() => setSettingsOpen(false)}
           t={t}
         />
@@ -1865,10 +2108,19 @@ function App() {
         <CaptureGuideDialog
           locale={locale}
           config={modelConfig}
-          knowledgeRoot={library.root || knowledgeRoot}
+          knowledgeRoot={library.root || normalizedKnowledgeRoot}
           onClose={() => setCaptureGuideOpen(false)}
           onSaved={finishCapture}
           t={t}
+        />
+      )}
+
+      {addMaterialOpen && (
+        <AddMaterialDialog
+          locale={locale}
+          t={t}
+          onClose={() => setAddMaterialOpen(false)}
+          onCreate={handleCreateMaterial}
         />
       )}
 
@@ -2012,19 +2264,588 @@ function AppTitlebar({ locale, onSettings }: { locale: Locale; onSettings: () =>
   );
 }
 
+// ── Library file tree with context menu ────────────────────────────────────
+
+const NOTE_ICONS: Record<string, ReactNode> = {
+  filetext: <FileText size={15} />,
+  bookopen: <BookOpen size={15} />,
+  notebookpen: <NotebookPen size={15} />,
+  target: <Target size={15} />,
+  lightbulb: <Lightbulb size={15} />,
+  archive: <Archive size={15} />,
+  star: <Star size={15} />,
+  userround: <UserRound size={15} />,
+  messagecircle: <MessageCircleMore size={15} />,
+  users: <UsersRound size={15} />,
+  folder: <FolderOpen size={15} />,
+  pill: <Pill size={15} />,
+  dumbbell: <Dumbbell size={15} />,
+  utensils: <Utensils size={15} />,
+  moon: <Moon size={15} />,
+  globe: <Globe2 size={15} />,
+  activity: <Activity size={15} />,
+  house: <House size={15} />,
+  wrench: <Wrench size={15} />,
+  layers: <Layers3 size={15} />,
+  monitor: <Monitor size={15} />,
+  bot: <Bot size={15} />,
+  sparkles: <Sparkles size={15} />,
+};
+const NOTE_ICON_KEYS = Object.keys(NOTE_ICONS);
+
+interface CtxMenuState {
+  x: number;
+  y: number;
+  kind: 'file' | 'folder';
+  relativePath: string;
+  name: string;
+}
+
+interface CtxMenuActions {
+  onOpen: (menu: CtxMenuState) => void;
+  onCopyPath: (menu: CtxMenuState) => void;
+  onNewFolder: (menu: CtxMenuState) => void;
+  onNewNote: (menu: CtxMenuState) => void;
+  onRename: (menu: CtxMenuState) => void;
+  onDelete: (menu: CtxMenuState) => void;
+  onCut: (menu: CtxMenuState) => void;
+  onCopy: (menu: CtxMenuState) => void;
+  onPaste: (menu: CtxMenuState) => void;
+  onShowInFolder: (menu: CtxMenuState) => void;
+  onCleanup?: (menu: CtxMenuState) => void;
+}
+
+// Module-level clipboard so cut/copy survives menu close/open cycles.
+let fsClipboard: { action: 'copy' | 'cut'; source: string } | null = null;
+
+function joinLibraryPath(root: string, relativePath: string): string {
+  return `${root.replace(/[\\/]+$/, '')}/${relativePath}`;
+}
+
+function parentDirOf(relativePath: string): string {
+  const index = relativePath.lastIndexOf('/');
+  return index > 0 ? relativePath.slice(0, index) : '';
+}
+
+function ContextMenu({
+  menu,
+  onClose,
+  actions,
+  t,
+}: {
+  menu: CtxMenuState;
+  onClose: () => void;
+  actions: CtxMenuActions;
+  t: (key: TranslationKey) => string;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) onClose();
+    };
+    const closeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const closeWheel = () => onClose();
+    document.addEventListener('mousedown', close, true);
+    document.addEventListener('keydown', closeKey, true);
+    document.addEventListener('wheel', closeWheel, { capture: true, passive: true });
+    window.addEventListener('blur', onClose);
+    window.addEventListener('resize', onClose);
+    return () => {
+      document.removeEventListener('mousedown', close, true);
+      document.removeEventListener('keydown', closeKey, true);
+      document.removeEventListener('wheel', closeWheel, { capture: true } as EventListenerOptions);
+      window.removeEventListener('blur', onClose);
+      window.removeEventListener('resize', onClose);
+    };
+  }, [onClose]);
+
+  const isFolder = menu.kind === 'folder';
+  const isRoot = isFolder && menu.relativePath === '';
+  const canPaste = fsClipboard !== null;
+  const style: React.CSSProperties = {
+    left: Math.min(menu.x, window.innerWidth - 220),
+    top: Math.min(menu.y, window.innerHeight - 340),
+  };
+
+  const item = (
+    icon: ReactNode,
+    label: string,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <button
+      type="button"
+      className={`ctx-menu-item${disabled ? ' disabled' : ''}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+
+  return createPortal(
+    <div className="ctx-menu" ref={menuRef} style={style}>
+      {item(
+        isFolder ? <FolderSearch size={13} /> : <FileText size={13} />,
+        t('menuOpen'),
+        () => actions.onOpen(menu),
+      )}
+      {isFolder && (
+        <>
+          <div className="ctx-menu-divider" />
+          {item(<FolderPlus size={13} />, t('menuNewFolder'), () => actions.onNewFolder(menu))}
+          {item(<FileText size={13} />, t('menuNewNote'), () => actions.onNewNote(menu))}
+        </>
+      )}
+      <div className="ctx-menu-divider" />
+      {item(<Link2 size={13} />, t('menuCopyPath'), () => actions.onCopyPath(menu))}
+      <div className="ctx-menu-divider" />
+      {item(<Scissors size={13} />, t('menuCut'), () => actions.onCut(menu))}
+      {item(<Copy size={13} />, t('menuCopy'), () => actions.onCopy(menu))}
+      {item(
+        <ClipboardPaste size={13} />,
+        t('menuPaste'),
+        () => actions.onPaste(menu),
+        !canPaste,
+      )}
+      {!isRoot && (
+        <>
+          <div className="ctx-menu-divider" />
+          {item(<Pencil size={13} />, t('menuRename'), () => actions.onRename(menu))}
+          {item(<Trash2 size={13} />, t('menuDelete'), () => actions.onDelete(menu))}
+        </>
+      )}
+      <div className="ctx-menu-divider" />
+      {item(<FolderSearch size={13} />, t('menuShowInFolder'), () => actions.onShowInFolder(menu))}
+      {isRoot && actions.onCleanup && (
+        <>
+          <div className="ctx-menu-divider" />
+          {item(<Trash2 size={13} />, t('menuCleanup'), () => actions.onCleanup!(menu))}
+        </>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+interface TreeEditState {
+  mode: 'rename' | 'create-folder' | 'create-note';
+  path: string;
+}
+
+// Internal and transitional folders stay hidden from the tree; newly created
+// folders (via the context menu) are always visible.
+const TRANSITIONAL_ROOT_FOLDERS = [
+  'audits',
+  'licenses',
+  'methods',
+  'papers',
+  'products',
+  'profile',
+  'records',
+  'research-log',
+  'sources',
+  'templates',
+  'topics',
+  'inbox',
+];
+const HIDDEN_ROOT_FOLDERS = new Set([
+  'audits',
+  'licenses',
+  'methods',
+  'papers',
+  'products',
+  'profile',
+  'records',
+  'research-log',
+  'sources',
+  'templates',
+  'topics',
+  'inbox',
+  'catalog',
+  'plans',
+]);
+
+function LibraryTree({
+  root,
+  locale,
+  t,
+  activeFilePath,
+  onOpenFile,
+  onLibraryChanged,
+  onSwitchRoot,
+  refreshToken,
+  notify,
+}: {
+  root: string;
+  locale: Locale;
+  t: (key: TranslationKey) => string;
+  activeFilePath: string | null;
+  onOpenFile: (relativePath: string) => void;
+  onLibraryChanged: () => void;
+  onSwitchRoot: () => void;
+  refreshToken: number;
+  notify: (message: string) => void;
+}) {
+  const [entriesByDir, setEntriesByDir] = useState<Record<string, DirectoryEntry[]>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
+  const [edit, setEdit] = useState<TreeEditState | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef(root);
+  rootRef.current = root;
+
+  const refreshDir = useCallback((dirPath: string) => {
+    listDirectory(rootRef.current, dirPath)
+      .then((entries) => {
+        setEntriesByDir((current) => ({ ...current, [dirPath]: entries }));
+      })
+      .catch(() => {});
+  }, []);
+
+  const loadDir = useCallback(
+    (dirPath: string) => {
+      setEntriesByDir((current) => {
+        if (current[dirPath]) return current;
+        listDirectory(rootRef.current, dirPath)
+          .then((entries) => {
+            setEntriesByDir((previous) => ({ ...previous, [dirPath]: entries }));
+          })
+          .catch(() => {});
+        return current;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setEntriesByDir({});
+    setExpanded({});
+    listDirectory(root, '')
+      .then((entries) => setEntriesByDir({ '': entries }))
+      .catch(() => {});
+  }, [root, refreshToken]);
+
+  useEffect(() => {
+    if (edit) editRef.current?.select();
+  }, [edit]);
+
+  const toggleDir = (dirPath: string) => {
+    const next = !expanded[dirPath];
+    setExpanded((current) => ({ ...current, [dirPath]: next }));
+    if (next) loadDir(dirPath);
+  };
+
+  const closeMenu = useCallback(() => setCtxMenu(null), []);
+
+  const openContextMenu = (
+    event: React.MouseEvent,
+    kind: 'file' | 'folder',
+    relativePath: string,
+    name: string,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setCtxMenu({ x: event.clientX, y: event.clientY, kind, relativePath, name });
+  };
+
+  const handleOpen = (menu: CtxMenuState) => {
+    closeMenu();
+    if (menu.kind === 'folder' && menu.relativePath !== '') toggleDir(menu.relativePath);
+    else onOpenFile(menu.relativePath);
+  };
+
+  const handleCopyPath = async (menu: CtxMenuState) => {
+    closeMenu();
+    try {
+      await writeText(joinLibraryPath(rootRef.current, menu.relativePath));
+      notify(t('copiedPath'));
+    } catch {
+      // Clipboard writes are best-effort.
+    }
+  };
+
+  const startCreate = (mode: 'create-folder' | 'create-note', dirPath: string) => {
+    closeMenu();
+    setExpanded((current) => ({ ...current, [dirPath]: true }));
+    loadDir(dirPath);
+    setEdit({ mode, path: dirPath });
+    setEditValue('');
+  };
+
+  const startRename = (menu: CtxMenuState) => {
+    closeMenu();
+    setEdit({ mode: 'rename', path: menu.relativePath });
+    setEditValue(
+      menu.kind === 'file' ? menu.name.replace(/\.md$/i, '') : menu.name,
+    );
+  };
+
+  const handleDelete = async (menu: CtxMenuState) => {
+    closeMenu();
+    const confirmed = await confirm(t('deleteConfirmEntry').replace('{name}', menu.name), {
+      title: t('menuDelete'),
+      kind: 'warning',
+      okLabel: t('menuDelete'),
+      cancelLabel: t('cancel'),
+    });
+    if (!confirmed) return;
+    try {
+      await deleteEntry(rootRef.current, menu.relativePath);
+      refreshDir(parentDirOf(menu.relativePath));
+      onLibraryChanged();
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    }
+  };
+
+  const handleCut = (menu: CtxMenuState) => {
+    fsClipboard = { action: 'cut', source: menu.relativePath };
+    closeMenu();
+  };
+
+  const handleCopy = (menu: CtxMenuState) => {
+    fsClipboard = { action: 'copy', source: menu.relativePath };
+    closeMenu();
+  };
+
+  const handlePaste = async (menu: CtxMenuState) => {
+    closeMenu();
+    if (!fsClipboard) return;
+    const source = fsClipboard.source;
+    const action = fsClipboard.action;
+    const targetDir = menu.kind === 'folder' ? menu.relativePath : parentDirOf(menu.relativePath);
+    try {
+      await pasteEntry(rootRef.current, source, targetDir, action);
+      refreshDir(targetDir);
+      if (action === 'cut') refreshDir(parentDirOf(source));
+      fsClipboard = null;
+      onLibraryChanged();
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    }
+  };
+
+  const handleShowInFolder = async (menu: CtxMenuState) => {
+    closeMenu();
+    try {
+      await revealInFolder(joinLibraryPath(rootRef.current, menu.relativePath));
+    } catch {
+      // Reveal is best-effort.
+    }
+  };
+
+  const handleCleanup = async () => {
+    closeMenu();
+    const confirmed = await confirm(t('cleanupConfirm'), {
+      title: t('menuCleanup'),
+      kind: 'warning',
+      okLabel: t('menuCleanup'),
+      cancelLabel: t('cancel'),
+    });
+    if (!confirmed) return;
+    for (const folder of TRANSITIONAL_ROOT_FOLDERS) {
+      try {
+        await deleteEntry(rootRef.current, folder);
+      } catch {
+        // Folders that are already gone or protected are skipped silently.
+      }
+    }
+    refreshDir('');
+    onLibraryChanged();
+  };
+
+  const commitEdit = async () => {
+    const current = edit;
+    if (!current) return;
+    const value = editValue.trim();
+    setEdit(null);
+    if (!value) return;
+    try {
+      if (current.mode === 'create-folder') {
+        await createFolder(rootRef.current, current.path, value);
+        refreshDir(current.path);
+        onLibraryChanged();
+      } else if (current.mode === 'create-note') {
+        const created = await createNote(rootRef.current, current.path, value);
+        refreshDir(current.path);
+        onLibraryChanged();
+        onOpenFile(created);
+      } else {
+        await renameEntry(rootRef.current, current.path, value);
+        refreshDir(parentDirOf(current.path));
+        onLibraryChanged();
+      }
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    }
+  };
+
+  const renderEditRow = (dirPath: string, depth: number) =>
+    edit && edit.mode !== 'rename' && edit.path === dirPath ? (
+      <div className="tree-edit-row" style={{ paddingLeft: 8 + (depth + 1) * 14 }}>
+        <input
+          ref={editRef}
+          className="tree-rename-input"
+          value={editValue}
+          placeholder={
+            edit.mode === 'create-folder' ? t('newFolderPlaceholder') : t('newNotePlaceholder')
+          }
+          onChange={(event) => setEditValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void commitEdit();
+            if (event.key === 'Escape') setEdit(null);
+          }}
+          onBlur={() => void commitEdit()}
+        />
+      </div>
+    ) : null;
+
+  const renderFile = (entry: DirectoryEntry, depth: number) => {
+    const renaming = edit?.mode === 'rename' && edit.path === entry.relativePath;
+    return (
+      <button
+        type="button"
+        key={entry.relativePath}
+        className={`tree-child ${activeFilePath === entry.relativePath ? 'active' : ''}`}
+        style={{ paddingLeft: 8 + depth * 14 }}
+        onClick={() => onOpenFile(entry.relativePath)}
+        onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
+      >
+        {NOTE_ICONS[entry.icon || ''] || <FileText size={13} />}
+        {renaming ? (
+          <input
+            ref={editRef}
+            className="tree-rename-input"
+            value={editValue}
+            placeholder={t('renamePlaceholder')}
+            onChange={(event) => setEditValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void commitEdit();
+              if (event.key === 'Escape') setEdit(null);
+            }}
+            onBlur={() => void commitEdit()}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ) : (
+          <span>{entry.name.replace(/\.md$/i, '')}</span>
+        )}
+      </button>
+    );
+  };
+
+  const renderFolder = (entry: DirectoryEntry, depth: number) => {
+    const isOpen = Boolean(expanded[entry.relativePath]);
+    const renaming = edit?.mode === 'rename' && edit.path === entry.relativePath;
+    return (
+      <div key={entry.relativePath}>
+        <div className="tree-folder-row" style={{ paddingLeft: 8 + depth * 14 }}>
+          <button
+            type="button"
+            className={`tree-folder ${isOpen ? 'open' : ''}`}
+            onClick={() => toggleDir(entry.relativePath)}
+            onContextMenu={(event) => openContextMenu(event, 'folder', entry.relativePath, entry.name)}
+          >
+            <ChevronRight size={13} className={`tree-chevron ${isOpen ? 'expanded' : ''}`} />
+            <FolderOpen size={15} />
+            {renaming ? (
+              <input
+                ref={editRef}
+                className="tree-rename-input"
+                value={editValue}
+                placeholder={t('renamePlaceholder')}
+                onChange={(event) => setEditValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void commitEdit();
+                  if (event.key === 'Escape') setEdit(null);
+                }}
+                onBlur={() => void commitEdit()}
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <span>{entry.name}</span>
+            )}
+          </button>
+        </div>
+        {isOpen && (
+          <div className="tree-children">
+            {renderEditRow(entry.relativePath, depth)}
+            {(entriesByDir[entry.relativePath] || []).map((child) =>
+              child.isDir ? renderFolder(child, depth + 1) : renderFile(child, depth + 1),
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const ctxActions: CtxMenuActions = {
+    onOpen: handleOpen,
+    onCopyPath: handleCopyPath,
+    onNewFolder: (menu) => startCreate('create-folder', menu.relativePath),
+    onNewNote: (menu) => startCreate('create-note', menu.relativePath),
+    onRename: startRename,
+    onDelete: handleDelete,
+    onCut: handleCut,
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onShowInFolder: handleShowInFolder,
+    onCleanup: handleCleanup,
+  };
+
+  return (
+    <div className="nav-tree-group library-tree">
+      <div
+        className="library-root-row"
+        onContextMenu={(event) => openContextMenu(event, 'folder', '', t('treeRoot'))}
+      >
+        <span className="library-root-label">
+          <FolderOpen size={17} />
+          <span>{t('treeRoot')}</span>
+        </span>
+        <button
+          type="button"
+          className="library-switch-btn"
+          onClick={onSwitchRoot}
+          aria-label={t('menuSwitchRoot')}
+        >
+          <Folder size={15} />
+        </button>
+      </div>
+      <div className="tree-children">
+        {renderEditRow('', 0)}
+        {(entriesByDir[''] || [])
+          .filter((entry) => !entry.isDir || !HIDDEN_ROOT_FOLDERS.has(entry.name))
+          .map((entry) =>
+            entry.isDir ? renderFolder(entry, 0) : renderFile(entry, 0),
+          )}
+      </div>
+      {ctxMenu && (
+        <ContextMenu menu={ctxMenu} onClose={closeMenu} actions={ctxActions} t={t} />
+      )}
+    </div>
+  );
+}
+
 interface SidebarProps {
   locale: Locale;
   library: LibrarySnapshot;
   view: View;
-  selectedSupplement: Supplement | null;
-  selectedPerson: Person | null;
-  selectedStory: Story | null;
+  libraryRoot: string;
+  activeFilePath: string | null;
   onNavigate: (view: View) => void;
   onNewChat: () => void;
   chatBusy: boolean;
-  onSupplement: (supplement: Supplement) => void;
-  onPerson: (person: Person) => void;
-  onStory: (story: Story) => void;
+  onOpenFile: (relativePath: string) => void;
+  onLibraryChanged: () => void;
+  onSwitchRoot: () => void;
+  refreshToken: number;
+  notify: (message: string) => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -2032,21 +2853,18 @@ function Sidebar({
   locale,
   library,
   view,
-  selectedSupplement,
-  selectedPerson,
-  selectedStory,
+  libraryRoot,
+  activeFilePath,
   onNavigate,
   onNewChat,
   chatBusy,
-  onSupplement,
-  onPerson,
-  onStory,
+  onOpenFile,
+  onLibraryChanged,
+  onSwitchRoot,
+  refreshToken,
+  notify,
   t,
 }: SidebarProps) {
-  const mainSupplements = library.supplements;
-  const [strategiesExpanded, setStrategiesExpanded] = useState(true);
-  const [peopleExpanded, setPeopleExpanded] = useState(true);
-  const [storiesExpanded, setStoriesExpanded] = useState(true);
   const [availableVersion, setAvailableVersion] = useState<string | null>(null);
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
@@ -2100,18 +2918,6 @@ function Sidebar({
       stopListening?.();
     }
   };
-
-  useEffect(() => {
-    if (selectedSupplement) setStrategiesExpanded(true);
-  }, [selectedSupplement]);
-
-  useEffect(() => {
-    if (selectedPerson) setPeopleExpanded(true);
-  }, [selectedPerson]);
-
-  useEffect(() => {
-    if (selectedStory) setStoriesExpanded(true);
-  }, [selectedStory]);
 
   return (
     <aside className="sidebar">
@@ -2201,114 +3007,17 @@ function Sidebar({
 
           <div className="nav-divider" />
 
-          <div className="nav-tree-group">
-            <button
-              className={`nav-button nav-tree-toggle ${view === 'supplement' ? 'active' : ''}`}
-              onClick={() => setStrategiesExpanded((expanded) => !expanded)}
-              aria-expanded={strategiesExpanded}
-            >
-              <Library size={17} />
-              <span>{t('supplementLibrary')}</span>
-              <small className="nav-count">{library.supplements.length}</small>
-              <ChevronRight
-                size={14}
-                className={`tree-chevron ${strategiesExpanded ? 'expanded' : ''}`}
-              />
-            </button>
-
-            {strategiesExpanded && (
-              <div className="tree-children">
-                {mainSupplements.map((supplement) => (
-                  <button
-                    key={supplement.id}
-                    className={`tree-child ${
-                      selectedSupplement?.id === supplement.id ? 'active' : ''
-                    }`}
-                    onClick={() => onSupplement(supplement)}
-                  >
-                    <span>{locale === 'zh' ? supplement.nameZh : supplement.nameEn}</span>
-                    <small>{supplement.tier}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="nav-tree-group">
-            <button
-              className={`nav-button nav-tree-toggle ${
-                view === 'people' || selectedPerson ? 'active' : ''
-              }`}
-              onClick={() => {
-                setPeopleExpanded((expanded) => !expanded);
-                onNavigate('people');
-              }}
-              aria-expanded={peopleExpanded}
-            >
-              <UsersRound size={17} />
-              <span>{t('people')}</span>
-              <small className="nav-count">{library.people.length}</small>
-              <ChevronRight
-                size={14}
-                className={`tree-chevron ${peopleExpanded ? 'expanded' : ''}`}
-              />
-            </button>
-
-            {peopleExpanded && (
-              <div className="tree-children">
-                {library.people.map((person, index) => (
-                  <button
-                    key={person.id}
-                    className={`tree-child person-child ${
-                      selectedPerson?.id === person.id ? 'active' : ''
-                    }`}
-                    onClick={() => onPerson(person)}
-                  >
-                    <span>{locale === 'zh' ? person.nameZh || person.name : person.name}</span>
-                    <small>{String(index + 1).padStart(2, '0')}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="nav-tree-group">
-            <button
-              className={`nav-button nav-tree-toggle ${
-                view === 'stories' || selectedStory ? 'active' : ''
-              }`}
-              onClick={() => {
-                setStoriesExpanded((expanded) => !expanded);
-                onNavigate('stories');
-              }}
-              aria-expanded={storiesExpanded}
-            >
-              <BookOpen size={17} />
-              <span>{t('stories')}</span>
-              <small className="nav-count">{library.stories.length}</small>
-              <ChevronRight
-                size={14}
-                className={`tree-chevron ${storiesExpanded ? 'expanded' : ''}`}
-              />
-            </button>
-
-            {storiesExpanded && (
-              <div className="tree-children">
-                {library.stories.map((story, index) => (
-                  <button
-                    key={story.id}
-                    className={`tree-child story-child ${
-                      selectedStory?.id === story.id ? 'active' : ''
-                    }`}
-                    onClick={() => onStory(story)}
-                  >
-                    <span>{locale === 'zh' ? story.title : story.titleEn || story.title}</span>
-                    <small>{String(index + 1).padStart(2, '0')}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <LibraryTree
+            root={libraryRoot}
+            locale={locale}
+            t={t}
+            activeFilePath={activeFilePath}
+            onOpenFile={onOpenFile}
+            onLibraryChanged={onLibraryChanged}
+            onSwitchRoot={onSwitchRoot}
+            refreshToken={refreshToken}
+            notify={notify}
+          />
         </nav>
       </div>
     </aside>
@@ -2934,13 +3643,12 @@ function StoriesView({
 function PageBackButton({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   return (
     <button className="page-back" onClick={onBack} aria-label={locale === 'zh' ? '返回' : 'Back'}>
-      <ChevronRight className="back-chevron" size={17} />
+      <ChevronRight className="back-chevron" size={20} />
     </button>
   );
 }
 
 function NoteView({
-  eyebrow,
   title,
   tier,
   markdown,
@@ -2952,8 +3660,11 @@ function NoteView({
   favorite,
   onToggleFavorite,
   onBack,
+  notePath,
+  onEditNote,
+  onDeleteNote,
+  onSetTier,
 }: {
-  eyebrow: string;
   title: string;
   tier?: string;
   markdown: string;
@@ -2965,7 +3676,13 @@ function NoteView({
   favorite: boolean;
   onToggleFavorite: () => void;
   onBack: () => void;
+  notePath: string | null;
+  onEditNote: (relativePath: string) => void;
+  onDeleteNote: (relativePath: string) => void;
+  onSetTier?: (tier: string) => void;
 }) {
+  const [tierPickerOpen, setTierPickerOpen] = useState(false);
+  const normalizedTier = useMemo(() => normalizeTier(tier), [tier]);
   const renderedMarkdown = useMemo(
     () =>
       linkInternalKeywords(
@@ -2989,30 +3706,103 @@ function NoteView({
   return (
     <article className="page note-view">
       <div className="note-header">
-        <div>
-          <div className="note-eyebrow-row">
-            <PageBackButton locale={locale} onBack={onBack} />
-            <span className="note-eyebrow">{eyebrow}</span>
+        <div className="note-title-row">
+          <PageBackButton locale={locale} onBack={onBack} />
+          <h1>{title}</h1>
+          <div className="tier-picker">
             <button
               type="button"
-              className={`note-favorite ${favorite ? 'active' : ''}`}
-              aria-label={translate(locale, favorite ? 'removeFavorite' : 'addFavorite')}
-              aria-pressed={favorite}
-              onClick={onToggleFavorite}
+              className={`large-tier tier-picker-trigger ${tierPickerOpen ? 'open' : ''}`}
+              style={
+                (normalizedTier && tierMeta[normalizedTier]
+                  ? { '--tier-color': tierMeta[normalizedTier].color }
+                  : { '--tier-color': tierMeta.pending.color }) as React.CSSProperties
+              }
+              onClick={() => onSetTier && setTierPickerOpen((open) => !open)}
+              disabled={!onSetTier}
+              aria-haspopup="menu"
+              aria-expanded={tierPickerOpen}
+              aria-label={translate(locale, 'setTier')}
             >
-              <Star size={18} fill={favorite ? 'currentColor' : 'none'} />
+              {normalizedTier === 'pending' || !normalizedTier
+                ? tierMeta.pending.label[locale]
+                : normalizedTier}
             </button>
+            {tierPickerOpen && onSetTier && (
+              <>
+                <div className="tier-picker-backdrop" onClick={() => setTierPickerOpen(false)} />
+                <div className="tier-picker-menu" role="menu">
+                  <span className="tier-picker-title">{translate(locale, 'setTier')}</span>
+                  {TIER_IDS.map((tierId) => (
+                    <button
+                      key={tierId}
+                      type="button"
+                      role="menuitem"
+                      className={normalizedTier === tierId ? 'active' : ''}
+                      onClick={() => {
+                        setTierPickerOpen(false);
+                        onSetTier(tierId);
+                      }}
+                    >
+                      <span className="tier-swatch" style={{ background: tierMeta[tierId].color }} />
+                      <strong>{tierId}</strong>
+                      <small>{tierMeta[tierId].label[locale]}</small>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={
+                      normalizedTier === 'pending' || !normalizedTier ? 'active' : ''
+                    }
+                    onClick={() => {
+                      setTierPickerOpen(false);
+                      onSetTier('pending');
+                    }}
+                  >
+                    <span
+                      className="tier-swatch"
+                      style={{ background: tierMeta.pending.color }}
+                    />
+                    <strong>{tierMeta.pending.label[locale]}</strong>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          <h1>{title}</h1>
         </div>
-        {tier && (
-          <span
-            className="large-tier"
-            style={{ '--tier-color': tierMeta[tier]?.color || '#bdc9d3' } as React.CSSProperties}
+        <div className="note-actions">
+          <button
+            type="button"
+            className={`note-action ${favorite ? 'active' : ''}`}
+            aria-label={translate(locale, favorite ? 'removeFavorite' : 'addFavorite')}
+            aria-pressed={favorite}
+            onClick={onToggleFavorite}
           >
-            {tier}
-          </span>
-        )}
+            <Star size={14} fill={favorite ? 'currentColor' : 'none'} />
+            <span>{translate(locale, 'favorites')}</span>
+          </button>
+          <button
+            type="button"
+            className="note-action"
+            aria-label={translate(locale, 'editNote')}
+            disabled={!notePath}
+            onClick={() => notePath && onEditNote(notePath)}
+          >
+            <Pencil size={14} />
+            <span>{translate(locale, 'editNote')}</span>
+          </button>
+          <button
+            type="button"
+            className="note-action danger"
+            aria-label={translate(locale, 'deleteNote')}
+            disabled={!notePath}
+            onClick={() => notePath && onDeleteNote(notePath)}
+          >
+            <Trash2 size={14} />
+            <span>{translate(locale, 'deleteNote')}</span>
+          </button>
+        </div>
       </div>
       {loading ? (
         <div className="loading-state compact">
@@ -3034,8 +3824,6 @@ function ConversationView({
   locale,
   messages,
   busy,
-  onBack,
-  onNewChat,
   onInternalNavigate,
   onConfirmMemory,
   onDismissMemory,
@@ -3044,8 +3832,6 @@ function ConversationView({
   locale: Locale;
   messages: ChatMessage[];
   busy: boolean;
-  onBack?: () => void;
-  onNewChat: () => void;
   onInternalNavigate: (target: Omit<InternalNoteTarget, 'label'>) => void;
   onConfirmMemory: (messageId: string, suggestion: MemorySuggestion) => void;
   onDismissMemory: (messageId: string) => void;
@@ -3083,28 +3869,6 @@ function ConversationView({
 
   return (
     <div className="page conversation-view">
-      <div className="conversation-title">
-        {onBack ? (
-          <button onClick={onBack}>
-            <ChevronRight size={15} className="back-chevron" />
-            {locale === 'zh' ? '返回资料' : 'Back to library'}
-          </button>
-        ) : (
-          <span className="conversation-heading">
-            <MessageCircleMore size={16} />
-            {locale === 'zh' ? 'AI 对话' : 'AI conversation'}
-          </span>
-        )}
-        <div className="conversation-title-actions">
-          <button className="conversation-new-chat" onClick={onNewChat} disabled={busy}>
-            <Plus size={15} />
-            <span>{locale === 'zh' ? '新对话' : 'New chat'}</span>
-          </button>
-          <span className="conversation-context-label">
-            {locale === 'zh' ? '基于本地资料' : 'Grounded in local notes'}
-          </span>
-        </div>
-      </div>
       <div className="message-list">
         {messages.map((message) => {
           if (message.role === 'tool_call') {
@@ -3380,12 +4144,14 @@ function PlanView({
   activeSection,
   onSection,
   onBack,
+  onAdd,
   t,
 }: {
   locale: Locale;
   activeSection: PlanSection;
   onSection: (section: PlanSection) => void;
   onBack: () => void;
+  onAdd: () => void;
   t: (key: TranslationKey) => string;
 }) {
   const sections = getPlanSections(locale);
@@ -3393,15 +4159,11 @@ function PlanView({
   return (
     <div className="page plan-view">
       <section className="page-intro">
-        <div className="page-kicker-row">
+        <div className="note-title-row">
           <PageBackButton locale={locale} onBack={onBack} />
-          <div className="hero-kicker">
-            <Sparkles size={15} />
-            PERSONAL PROTOCOL
-          </div>
+          <h1>{t('planTitle')}</h1>
+          <span className="plan-title-hint">{t('planHint')}</span>
         </div>
-        <h1>{t('planTitle')}</h1>
-        <p>{t('planSub')}</p>
       </section>
 
       <div className="plan-section-grid">
@@ -3420,6 +4182,15 @@ function PlanView({
             </span>
           </button>
         ))}
+        <button onClick={onAdd} key="add">
+          <span className="plan-section-icon" style={{ background: '#e6eef5' }}>
+            <FilePlus2 size={17} />
+          </span>
+          <span>
+            <strong>{t('addMaterial')}</strong>
+            <small>{t('addMaterialCreateSub')}</small>
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -3869,7 +4640,6 @@ function RightRail({
 function SettingsDialog({
   locale,
   config,
-  knowledgeRoot,
   themeMode,
   accentMode,
   currencyMode,
@@ -3878,13 +4648,11 @@ function SettingsDialog({
   onThemeMode,
   onAccentMode,
   onCurrencyMode,
-  onChooseFolder,
   onClose,
   t,
 }: {
   locale: Locale;
   config: ModelSettings;
-  knowledgeRoot: string;
   themeMode: ThemeMode;
   accentMode: AccentMode;
   currencyMode: CurrencyMode;
@@ -3893,7 +4661,6 @@ function SettingsDialog({
   onThemeMode: (themeMode: ThemeMode) => void;
   onAccentMode: (accentMode: AccentMode) => void;
   onCurrencyMode: (currencyMode: CurrencyMode) => void;
-  onChooseFolder: () => void;
   onClose: () => void;
   t: (key: TranslationKey) => string;
 }) {
@@ -3931,7 +4698,6 @@ function SettingsDialog({
     icon: ReactNode;
   }> = [
     { id: 'model', label: t('settingsModel'), description: t('settingsModelDesc'), icon: <Bot size={16} /> },
-    { id: 'knowledge', label: t('settingsKnowledge'), description: t('settingsKnowledgeDesc'), icon: <FolderOpen size={16} /> },
     { id: 'appearance', label: t('settingsAppearance'), description: t('settingsAppearanceDesc'), icon: <Monitor size={16} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
@@ -4043,19 +4809,6 @@ function SettingsDialog({
               </>
             )}
 
-            {visibleSection === 'knowledge' && (
-              <div className="settings-section">
-                <label>{t('knowledgeRoot')}</label>
-                <button className="folder-picker" onClick={onChooseFolder}>
-                  <span>
-                    <FolderOpen size={17} />
-                    <strong>{knowledgeRoot || '—'}</strong>
-                  </span>
-                  <span>{t('chooseFolder')}</span>
-                </button>
-              </div>
-            )}
-
             {visibleSection === 'appearance' && (
               <div className="settings-section settings-section-stack">
                 <div>
@@ -4119,6 +4872,154 @@ function SettingsDialog({
             {t('close')}
           </button>
         </footer>
+      </section>
+    </div>
+  );
+}
+
+function AddMaterialDialog({
+  locale,
+  t,
+  onClose,
+  onCreate,
+}: {
+  locale: Locale;
+  t: (key: TranslationKey) => string;
+  onClose: () => void;
+  onCreate: (name: string, icon: string) => void;
+}) {
+  const [name, setName] = useState('');
+  const [icon, setIcon] = useState('filetext');
+  const [busy, setBusy] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPos, setIconPos] = useState<{ left: number; top: number } | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!iconPickerOpen) return;
+    const close = (event: MouseEvent) => {
+      const inside =
+        (pickerRef.current?.contains(event.target as Node) ?? false) ||
+        (popRef.current?.contains(event.target as Node) ?? false);
+      if (!inside) {
+        setIconPickerOpen(false);
+      }
+    };
+    const closeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIconPickerOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', closeKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', closeKey);
+    };
+  }, [iconPickerOpen]);
+
+  const openIconPicker = () => {
+    const rect = pickerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const POPOVER_W = 320;
+    const POPOVER_H = 132;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - POPOVER_W - 8));
+    let top = rect.bottom + 6;
+    if (top + POPOVER_H > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - 6 - POPOVER_H);
+    }
+    setIconPos({ left, top });
+    setIconPickerOpen(true);
+  };
+
+  const submit = () => {
+    const clean = name.trim();
+    if (!clean || busy) return;
+    setBusy(true);
+    onCreate(clean, icon);
+  };
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <section
+        className="settings-dialog add-material-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-material-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <DialogHeader
+          icon={<FilePlus2 size={21} />}
+          title={t('addMaterial')}
+          titleId="add-material-title"
+          onClose={onClose}
+          closeLabel={locale === 'zh' ? '关闭' : 'Close'}
+        />
+        <div className="add-material-body">
+          <div className="add-material-row">
+            <div className="add-material-icon-picker" ref={pickerRef}>
+              <button
+                type="button"
+                className="add-material-icon-trigger"
+                onClick={() => {
+                  if (iconPickerOpen) setIconPickerOpen(false);
+                  else openIconPicker();
+                }}
+                aria-label={t('chooseIcon')}
+                aria-haspopup="grid"
+                aria-expanded={iconPickerOpen}
+              >
+                {NOTE_ICONS[icon]}
+              </button>
+              {iconPickerOpen && iconPos && createPortal(
+                <div
+                  className="add-material-icon-popover"
+                  ref={popRef}
+                  style={{ left: iconPos.left, top: iconPos.top }}
+                >
+                  {NOTE_ICON_KEYS.map((key) => (
+                    <button
+                      type="button"
+                      key={key}
+                      className={icon === key ? 'active' : ''}
+                      onClick={() => {
+                        setIcon(key);
+                        setIconPickerOpen(false);
+                      }}
+                      aria-pressed={icon === key}
+                    >
+                      {NOTE_ICONS[key]}
+                    </button>
+                  ))}
+                </div>,
+                document.body,
+              )}
+            </div>
+            <input
+              autoFocus
+              className="add-material-input"
+              value={name}
+              placeholder={locale === 'zh' ? '输入资料名称…' : 'Name…'}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') submit();
+                if (event.key === 'Escape') onClose();
+              }}
+            />
+          </div>
+          <div className="capture-guide-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={submit}
+              disabled={!name.trim() || busy}
+            >
+              {t('addMaterialCreate')}
+            </button>
+          </div>
+        </div>
       </section>
     </div>
   );

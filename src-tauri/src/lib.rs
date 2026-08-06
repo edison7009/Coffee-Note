@@ -24,39 +24,10 @@ const MAX_CAPTURE_INPUT_BYTES: usize = 180_000;
 const MAX_CAPTURE_DOWNLOAD_BYTES: usize = 600_000;
 const MAX_CAPTURE_SOURCE_BYTES: usize = 110_000;
 const MAX_RESEARCH_CONTEXT_BYTES: usize = 32_000;
-const STARTER_PACK_VERSION: &str = "12";
 const LATEST_RELEASE_API: &str = "https://api.github.com/repos/edison7009/TierNote/releases/latest";
 const WEBSITE_VERSION_API: &str = "https://tiernote.life/version.json?platform=windows";
 const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://tiernote.life/download/windows";
 const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/releases/download/";
-const REMOVED_STARTER_FILES: &[&str] = &[
-    "cases/ray-lui.md",
-    "research-log/2026-07-21-ray-lui-case.md",
-    "sources/ray-lui-sources-2026-07-21.md",
-    "sources/user-candidate-list-2026-07-20.md",
-    "research-log/2026-07-20-docs-frontend-decision.md",
-    "research-log/2026-07-20-knowledge-base-bootstrap.md",
-    "research-log/2026-07-20-reader-first-dossier-format.md",
-];
-const LEGACY_NMN_DOSSIER: &str = r#"---
-id: nmn
-tier: T4
-status: starter
----
-
-# NMN / NR
-
-::: tip 30 秒结论
-NMN 与 NR 常围绕 NAD 代谢讨论。整理时要把“提高某个生物标志物”与“改善长期健康结局”明确分开。
-:::
-
-## 阅读框架
-
-- 区分 NMN、NR 和其他 NAD 前体；
-- 记录研究持续时间与人群；
-- 分开整理安全性、药代和临床结局；
-- 跟踪正在进行和已经完成的人体试验。
-"#;
 include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,6 +49,7 @@ struct Person {
     name: String,
     name_zh: Option<String>,
     summary: String,
+    tier: Option<String>,
     file_path: Option<String>,
     accent: String,
 }
@@ -90,6 +62,7 @@ struct Story {
     title_en: Option<String>,
     summary: String,
     summary_en: Option<String>,
+    tier: Option<String>,
     file_path: Option<String>,
     accent: String,
 }
@@ -98,6 +71,7 @@ struct Story {
 #[serde(rename_all = "camelCase")]
 struct LibrarySnapshot {
     root: String,
+    my_info_root: String,
     connected: bool,
     supplements: Vec<Supplement>,
     people: Vec<Person>,
@@ -264,11 +238,18 @@ impl From<LegacyModelConfig> for ModelSettings {
     }
 }
 
-fn default_knowledge_root() -> PathBuf {
-    dirs::data_local_dir()
+fn tiernote_home() -> PathBuf {
+    dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("TierNote")
-        .join("library")
+        .join(".tiernote")
+}
+
+fn my_info_root() -> PathBuf {
+    tiernote_home().join("我的资料")
+}
+
+fn default_knowledge_root() -> PathBuf {
+    tiernote_home().join("演示笔记")
 }
 
 fn model_config_path() -> PathBuf {
@@ -316,88 +297,77 @@ fn save_model_config(config: ModelSettings) -> Result<(), String> {
     save_model_config_to(&model_config_path(), &config)
 }
 
-fn ensure_starter_library(root: &Path) -> Result<(), String> {
+const DEMO_NOTES: &[(&str, &str)] = &[
+    ("力量训练.md", "dossiers/strength-training.md"),
+    ("有氧运动.md", "dossiers/aerobic-exercise.md"),
+    ("健康饮食.md", "dossiers/healthy-diet.md"),
+    ("肌酸.md", "dossiers/creatine.md"),
+    ("NAD+.md", "dossiers/nmn.md"),
+];
+
+const MY_INFO_PLAN_FILES: &[&str] = &[
+    "plans/supplements.md",
+    "plans/exercise.md",
+    "plans/diet.md",
+    "plans/daily-routine.md",
+];
+
+fn ensure_demo_library(root: &Path) -> Result<(), String> {
+    fs::create_dir_all(root)
+        .map_err(|error| format!("Could not create notes directory: {error}"))?;
     let marker = root.join(".starter-pack-initialized");
-    let installed_version = fs::read_to_string(&marker).unwrap_or_default();
-    if installed_version.trim() == STARTER_PACK_VERSION {
+    if fs::read_to_string(&marker)
+        .map(|value| value.trim().to_string())
+        .unwrap_or_default()
+        == "demo-v1"
+    {
         return Ok(());
     }
-
-    for directory in [
-        "catalog", "dossiers", "cases", "stories", "papers", "sources", "inbox", "profile",
-        "plans", "records",
-    ] {
-        fs::create_dir_all(root.join(directory))
-            .map_err(|error| format!("Could not initialize library directory: {error}"))?;
-    }
-
+    fs::create_dir_all(root.join("catalog"))
+        .map_err(|error| format!("Could not create catalog directory: {error}"))?;
     for (relative_path, content) in STARTER_FILES {
-        let path = root.join(relative_path);
-        let is_catalog = *relative_path == "catalog/strategies.csv";
-        if path.exists() {
-            if is_catalog {
-                let existing = fs::read_to_string(&path)
-                    .map_err(|error| format!("Could not read starter catalog: {error}"))?;
-                let merged = merge_starter_catalog(&existing, content);
-                if merged != existing {
-                    fs::write(&path, merged)
-                        .map_err(|error| format!("Could not merge starter catalog: {error}"))?;
-                }
+        if *relative_path == "catalog/strategies.csv" {
+            let path = root.join(relative_path);
+            if !path.exists() {
+                fs::write(&path, content)
+                    .map_err(|error| format!("Could not write demo catalog: {error}"))?;
             }
+        }
+    }
+    for (file_name, source_key) in DEMO_NOTES {
+        let path = root.join(file_name);
+        if path.exists() {
             continue;
         }
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|error| format!("Could not initialize starter content: {error}"))?;
-        }
-        fs::write(path, content)
-            .map_err(|error| format!("Could not write starter content: {error}"))?;
-    }
-
-    for (relative_path, _) in STARTER_FILES
-        .iter()
-        .filter(|(relative_path, _)| relative_path.ends_with(".md"))
-    {
-        let path = root.join(relative_path);
-        if let Ok(existing) = fs::read_to_string(&path) {
-            let renamed = existing.replace(concat!("Tier", " Note"), "TierNote");
-            if renamed != existing {
-                fs::write(&path, renamed)
-                    .map_err(|error| format!("Could not migrate starter branding: {error}"))?;
-            }
+        if let Some((_, content)) = STARTER_FILES
+            .iter()
+            .find(|(key, _)| *key == *source_key)
+        {
+            fs::write(&path, content)
+                .map_err(|error| format!("Could not write demo note: {error}"))?;
         }
     }
+    fs::write(marker, "demo-v1")
+        .map_err(|error| format!("Could not finish demo library setup: {error}"))
+}
 
-    for relative_path in REMOVED_STARTER_FILES {
-        let path = root.join(relative_path);
-        if path.is_file() {
-            fs::remove_file(path)
-                .map_err(|error| format!("Could not remove retired starter content: {error}"))?;
+fn ensure_my_info(my_info: &Path) -> Result<(), String> {
+    fs::create_dir_all(my_info.join("plans"))
+        .map_err(|error| format!("Could not create my-info directory: {error}"))?;
+    for relative_path in MY_INFO_PLAN_FILES {
+        let path = my_info.join(relative_path);
+        if path.exists() {
+            continue;
+        }
+        if let Some((_, content)) = STARTER_FILES
+            .iter()
+            .find(|(key, _)| *key == *relative_path)
+        {
+            fs::write(&path, content)
+                .map_err(|error| format!("Could not write plan page: {error}"))?;
         }
     }
-
-    let nad_dossier = root.join("dossiers/nmn.md");
-    if let Ok(existing) = fs::read_to_string(&nad_dossier) {
-        let normalized_existing = existing.replace("\r\n", "\n");
-        let legacy_comparison = normalized_existing.replace("tier: T3", "tier: T4");
-        if legacy_comparison.trim() == LEGACY_NMN_DOSSIER.trim() {
-            if let Some((_, updated)) = STARTER_FILES
-                .iter()
-                .find(|(relative_path, _)| *relative_path == "dossiers/nmn.md")
-            {
-                let migrated = if normalized_existing.contains("tier: T3") {
-                    updated.replace("tier: T4", "tier: T3")
-                } else {
-                    (*updated).to_string()
-                };
-                fs::write(&nad_dossier, migrated)
-                    .map_err(|error| format!("Could not migrate NAD+ starter dossier: {error}"))?;
-            }
-        }
-    }
-
-    fs::write(marker, STARTER_PACK_VERSION)
-        .map_err(|error| format!("Could not finish starter library setup: {error}"))
+    Ok(())
 }
 
 fn path_string(path: &Path) -> String {
@@ -504,31 +474,6 @@ fn join_csv_fields(fields: &[String]) -> String {
         .map(|field| encode_csv_field(field))
         .collect::<Vec<_>>()
         .join(",")
-}
-
-fn merge_starter_catalog(existing: &str, starter: &str) -> String {
-    let mut lines = existing.lines().map(str::to_string).collect::<Vec<_>>();
-    if lines.is_empty() {
-        return format!("{}\n", starter.trim_end());
-    }
-
-    let mut known_ids = lines
-        .iter()
-        .skip(1)
-        .filter_map(|line| split_csv_line(line).first().cloned())
-        .collect::<Vec<_>>();
-    for line in starter.lines().skip(1) {
-        let Some(id) = split_csv_line(line).first().cloned() else {
-            continue;
-        };
-        if id.is_empty() || known_ids.iter().any(|known| known == &id) {
-            continue;
-        }
-        known_ids.push(id);
-        lines.push(line.to_string());
-    }
-
-    format!("{}\n", lines.join("\n"))
 }
 
 fn tier_rank(tier: &str) -> usize {
@@ -688,6 +633,51 @@ fn extract_frontmatter_value(markdown: &str, key: &str) -> Option<String> {
     None
 }
 
+fn set_frontmatter_field(markdown: &str, key: &str, value: Option<&str>) -> String {
+    let mut lines: Vec<String> = markdown.lines().map(str::to_string).collect();
+    let has_frontmatter = lines.first().is_some_and(|line| line.trim() == "---");
+    if has_frontmatter {
+        let close = lines
+            .iter()
+            .enumerate()
+            .skip(1)
+            .find(|(_, line)| line.trim() == "---")
+            .map(|(index, _)| index);
+        if let Some(close) = close {
+            let mut replaced = false;
+            let mut index = 1;
+            while index < close {
+                if let Some(colon) = lines[index].find(':') {
+                    if lines[index][..colon].trim().eq_ignore_ascii_case(key) {
+                        if let Some(value) = value {
+                            lines[index] = format!("{key}: {value}");
+                        } else {
+                            lines.remove(index);
+                        }
+                        replaced = true;
+                        break;
+                    }
+                }
+                index += 1;
+            }
+            if !replaced {
+                if let Some(value) = value {
+                    lines.insert(close, format!("{key}: {value}"));
+                }
+            }
+            let mut result = lines.join("\n");
+            if markdown.ends_with('\n') {
+                result.push('\n');
+            }
+            return result;
+        }
+    }
+    match value {
+        Some(value) => format!("---\n{key}: {value}\n---\n{markdown}"),
+        None => markdown.to_string(),
+    }
+}
+
 fn extract_markdown_title(markdown: &str) -> Option<String> {
     markdown.lines().find_map(|line| {
         let trimmed = line.trim();
@@ -774,27 +764,40 @@ fn load_supplements(root: &Path, locale: &str) -> Vec<Supplement> {
             continue;
         }
 
-        let dossier_path =
+        let mut dossier_path =
             localized_note_path(&root.join("dossiers").join(format!("{id}.md")), locale);
-        let dossier_summary = fs::read_to_string(&dossier_path)
-            .map(|content| extract_summary(&content))
+        if !dossier_path.exists() {
+            let flat_path = root.join(format!("{}.md", fields[1].trim()));
+            if flat_path.exists() {
+                dossier_path = flat_path;
+            }
+        }
+        let dossier_content = fs::read_to_string(&dossier_path).ok();
+        let dossier_summary = dossier_content
+            .as_deref()
+            .map(extract_summary)
             .unwrap_or_default();
         let summary = if dossier_summary.is_empty() {
             fields[8].clone()
         } else {
             dossier_summary
         };
+        let frontmatter_tier = dossier_content
+            .as_deref()
+            .and_then(|content| extract_frontmatter_value(content, "tier"));
 
         supplements.push(Supplement {
             id,
             name_zh: fields[1].clone(),
             name_en: fields[2].clone(),
             category: localized_category(&fields[3], locale),
-            tier: if fields[6].is_empty() {
-                "pending".to_string()
-            } else {
-                fields[6].clone()
-            },
+            tier: frontmatter_tier.unwrap_or_else(|| {
+                if fields[6].is_empty() {
+                    "pending".to_string()
+                } else {
+                    fields[6].clone()
+                }
+            }),
             summary,
             file_path: dossier_path
                 .exists()
@@ -858,8 +861,10 @@ fn load_people(root: &Path, locale: &str) -> Vec<Person> {
             if !path.exists() {
                 return None;
             }
-            let summary = fs::read_to_string(&path)
-                .map(|content| extract_summary(&content))
+            let content = fs::read_to_string(&path).ok();
+            let summary = content
+                .as_deref()
+                .map(extract_summary)
                 .unwrap_or_default();
             Some(Person {
                 id: (*id).to_string(),
@@ -870,6 +875,9 @@ fn load_people(root: &Path, locale: &str) -> Vec<Person> {
                 } else {
                     summary
                 },
+                tier: content
+                    .as_deref()
+                    .and_then(|content| extract_frontmatter_value(content, "tier")),
                 file_path: Some(relative_note_path(root, &path)),
                 accent: (*accent).to_string(),
             })
@@ -917,6 +925,7 @@ fn load_stories(root: &Path, locale: &str) -> Vec<Story> {
                 id: extract_frontmatter_value(&markdown, "id").unwrap_or(file_stem),
                 title,
                 title_en: extract_frontmatter_value(&markdown, "title_en"),
+                tier: extract_frontmatter_value(&markdown, "tier"),
                 summary: if summary.is_empty() {
                     "一则来自本地资料库的延寿观察。".to_string()
                 } else {
@@ -964,7 +973,8 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
         .map(PathBuf::from)
         .unwrap_or_else(|| managed_root.clone());
     if root == managed_root {
-        ensure_starter_library(&root)?;
+        ensure_demo_library(&root)?;
+        ensure_my_info(&my_info_root())?;
     }
     let connected = root.is_dir();
     let supplements = if connected {
@@ -990,6 +1000,7 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
 
     Ok(LibrarySnapshot {
         root: path_string(&root),
+        my_info_root: path_string(&my_info_root()),
         connected,
         supplements,
         people,
@@ -1020,6 +1031,346 @@ fn read_note(root: String, relative_path: String) -> Result<String, String> {
         return Err("This note is too large to render safely".to_string());
     }
     fs::read_to_string(path).map_err(|error| format!("Could not read note: {error}"))
+}
+
+#[tauri::command]
+fn open_note(root: String, relative_path: String) -> Result<(), String> {
+    let path = safe_existing_path(Path::new(&root), &relative_path)?;
+    tauri_plugin_opener::open_path(path, None::<&str>)
+        .map_err(|error| format!("Could not open note: {error}"))
+}
+
+#[tauri::command]
+fn delete_note(root: String, relative_path: String) -> Result<(), String> {
+    let path = safe_existing_path(Path::new(&root), &relative_path)?;
+    let metadata = fs::metadata(&path).map_err(|error| format!("Note is unavailable: {error}"))?;
+    if !metadata.is_file() {
+        return Err("Refusing to delete a non-file path".to_string());
+    }
+    let is_markdown = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension == "md" || extension == "markdown")
+        .unwrap_or(false);
+    if !is_markdown {
+        return Err("Refusing to delete a non-Markdown path".to_string());
+    }
+    fs::remove_file(&path).map_err(|error| format!("Could not delete note: {error}"))
+}
+
+fn normalize_tier(tier: &str) -> Result<String, String> {
+    let trimmed = tier.trim();
+    let normalized = if trimmed.eq_ignore_ascii_case("pending") {
+        "pending".to_string()
+    } else {
+        trimmed.to_ascii_uppercase()
+    };
+    if !normalized.is_empty()
+        && normalized != "pending"
+        && !["T1", "T2", "T3", "T4", "T5"].contains(&normalized.as_str())
+    {
+        return Err(format!("Unsupported tier: {tier}"));
+    }
+    Ok(normalized)
+}
+
+#[tauri::command]
+fn set_note_tier(root: String, relative_path: String, tier: String) -> Result<(), String> {
+    let path = safe_existing_path(Path::new(&root), &relative_path)?;
+    if !path.is_file() {
+        return Err("Note is unavailable".to_string());
+    }
+    let normalized = normalize_tier(&tier)?;
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| format!("Could not read note: {error}"))?;
+    let updated = set_frontmatter_field(
+        &contents,
+        "tier",
+        if normalized.is_empty() {
+            None
+        } else {
+            Some(normalized.as_str())
+        },
+    );
+    fs::write(&path, updated).map_err(|error| format!("Could not update note: {error}"))
+}
+
+// ── Library file tree ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DirectoryEntry {
+    name: String,
+    relative_path: String,
+    is_dir: bool,
+    is_markdown: bool,
+    icon: Option<String>,
+}
+
+fn canonical_library_root(root: &Path) -> Result<PathBuf, String> {
+    root.canonicalize()
+        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))
+}
+
+fn resolve_under_root(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let canonical_root = canonical_library_root(root)?;
+    let candidate = if relative_path.trim().is_empty() {
+        canonical_root.clone()
+    } else {
+        canonical_root.join(relative_path)
+    };
+    if !candidate.starts_with(&canonical_root) {
+        return Err("Refusing to access outside the selected knowledge directory".to_string());
+    }
+    Ok(candidate)
+}
+
+fn safe_existing_dir(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let path = resolve_under_root(root, relative_path)?;
+    if !path.is_dir() {
+        return Err(format!("Directory is unavailable: {relative_path}"));
+    }
+    Ok(path)
+}
+
+fn validate_entry_name(name: &str) -> Result<String, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    if trimmed == "." || trimmed == ".." || trimmed.contains(['/', '\\']) {
+        return Err("Name contains invalid characters".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+fn relative_under_root(root: &Path, path: &Path) -> String {
+    let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    path.strip_prefix(&canonical)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+#[tauri::command]
+fn list_directory(root: String, relative_path: String) -> Result<Vec<DirectoryEntry>, String> {
+    let dir = resolve_under_root(Path::new(&root), &relative_path)?;
+    let mut entries = Vec::new();
+    let read = fs::read_dir(&dir).map_err(|error| format!("Could not read directory: {error}"))?;
+    for entry in read.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let is_dir = path.is_dir();
+        let is_markdown = !is_dir && path.extension().is_some_and(|extension| extension == "md");
+        if !is_dir && !is_markdown {
+            continue;
+        }
+        let icon = if is_markdown {
+            fs::read(&path).ok().and_then(|bytes| {
+                let head = String::from_utf8_lossy(&bytes[..bytes.len().min(512)]);
+                let mut in_frontmatter = false;
+                for line in head.lines() {
+                    let trimmed = line.trim();
+                    if !in_frontmatter {
+                        if trimmed == "---" {
+                            in_frontmatter = true;
+                        }
+                        continue;
+                    }
+                    if trimmed == "---" {
+                        break;
+                    }
+                    if let Some(value) = trimmed.strip_prefix("icon:") {
+                        let value = value.trim();
+                        if !value.is_empty() {
+                            return Some(value.to_string());
+                        }
+                    }
+                }
+                None
+            })
+        } else {
+            None
+        };
+        entries.push(DirectoryEntry {
+            name,
+            relative_path: relative_under_root(Path::new(&root), &path),
+            is_dir,
+            is_markdown,
+            icon,
+        });
+    }
+    entries.sort_by(|left, right| {
+        right
+            .is_dir
+            .cmp(&left.is_dir)
+            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
+    });
+    Ok(entries)
+}
+
+#[tauri::command]
+fn create_folder(root: String, parent_relative: String, name: String) -> Result<String, String> {
+    let name = validate_entry_name(&name)?;
+    let parent = safe_existing_dir(Path::new(&root), &parent_relative)?;
+    let target = parent.join(&name);
+    if target.exists() {
+        return Err(format!("{name} already exists"));
+    }
+    fs::create_dir(&target).map_err(|error| format!("Could not create folder: {error}"))?;
+    Ok(relative_under_root(Path::new(&root), &target))
+}
+
+#[tauri::command]
+fn create_note(
+    root: String,
+    parent_relative: String,
+    name: String,
+    icon: Option<String>,
+) -> Result<String, String> {
+    let name = validate_entry_name(&name)?;
+    let file_name = if name.to_lowercase().ends_with(".md") {
+        name
+    } else {
+        format!("{name}.md")
+    };
+    let parent = safe_existing_dir(Path::new(&root), &parent_relative)?;
+    let target = parent.join(&file_name);
+    if target.exists() {
+        return Err(format!("{file_name} already exists"));
+    }
+    let stem = file_name
+        .strip_suffix(".md")
+        .unwrap_or(&file_name)
+        .trim();
+    let contents = match icon.filter(|value| !value.trim().is_empty()) {
+        Some(icon) => format!("---\nicon: {}\n---\n\n# {stem}\n\n", icon.trim()),
+        None => format!("# {stem}\n\n"),
+    };
+    fs::write(&target, contents).map_err(|error| format!("Could not create note: {error}"))?;
+    Ok(relative_under_root(Path::new(&root), &target))
+}
+
+#[tauri::command]
+fn rename_entry(root: String, relative_path: String, new_name: String) -> Result<String, String> {
+    let target = safe_existing_path(Path::new(&root), &relative_path)?;
+    let name = validate_entry_name(&new_name)?;
+    let parent = target
+        .parent()
+        .ok_or_else(|| "Invalid path".to_string())?;
+    let final_name = if target.is_file() && !name.to_lowercase().ends_with(".md") {
+        format!("{name}.md")
+    } else {
+        name
+    };
+    let destination = parent.join(&final_name);
+    if destination.exists() {
+        return Err(format!("{final_name} already exists"));
+    }
+    fs::rename(&target, &destination).map_err(|error| format!("Could not rename: {error}"))?;
+    Ok(relative_under_root(Path::new(&root), &destination))
+}
+
+#[tauri::command]
+fn delete_entry(root: String, relative_path: String) -> Result<(), String> {
+    let canonical_root = canonical_library_root(Path::new(&root))?;
+    let target = safe_existing_path(Path::new(&root), &relative_path)?;
+    if target == canonical_root {
+        return Err("Refusing to delete the knowledge root".to_string());
+    }
+    if target.is_dir() {
+        fs::remove_dir_all(&target)
+            .map_err(|error| format!("Could not delete folder: {error}"))?;
+    } else {
+        let is_markdown = target
+            .extension()
+            .is_some_and(|extension| extension == "md");
+        if !is_markdown {
+            return Err("Only Markdown files can be deleted".to_string());
+        }
+        fs::remove_file(&target).map_err(|error| format!("Could not delete note: {error}"))?;
+    }
+    Ok(())
+}
+
+fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("Could not create folder: {error}"))?;
+    let entries = fs::read_dir(source).map_err(|error| format!("Could not read folder: {error}"))?;
+    for entry in entries.flatten() {
+        let target = destination.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)
+                .map_err(|error| format!("Could not copy file: {error}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn unique_destination(parent: &Path, name: &str) -> PathBuf {
+    let candidate = parent.join(name);
+    if !candidate.exists() {
+        return candidate;
+    }
+    let stem = Path::new(name)
+        .file_stem()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| name.to_string());
+    let extension = Path::new(name)
+        .extension()
+        .map(|value| value.to_string_lossy().to_string());
+    let mut index = 2;
+    loop {
+        let candidate_name = match &extension {
+            Some(extension) => format!("{stem} ({index}).{extension}"),
+            None => format!("{stem} ({index})"),
+        };
+        let candidate = parent.join(&candidate_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+        index += 1;
+    }
+}
+
+#[tauri::command]
+fn paste_entry(
+    root: String,
+    source_relative: String,
+    target_dir_relative: String,
+    action: String,
+) -> Result<String, String> {
+    let source = safe_existing_path(Path::new(&root), &source_relative)?;
+    let target_dir = safe_existing_dir(Path::new(&root), &target_dir_relative)?;
+    let source_name = source
+        .file_name()
+        .ok_or_else(|| "Invalid source path".to_string())?
+        .to_string_lossy()
+        .to_string();
+    if source.is_dir() && target_dir.starts_with(&source) {
+        return Err("Cannot paste a folder into itself".to_string());
+    }
+    let destination = unique_destination(&target_dir, &source_name);
+    match action.to_ascii_lowercase().as_str() {
+        "cut" => {
+            fs::rename(&source, &destination).map_err(|error| format!("Could not move: {error}"))?;
+        }
+        "copy" => {
+            if source.is_dir() {
+                copy_dir_recursive(&source, &destination)?;
+            } else {
+                fs::copy(&source, &destination)
+                    .map_err(|error| format!("Could not copy: {error}"))?;
+            }
+        }
+        _ => return Err("Unsupported paste action".to_string()),
+    }
+    Ok(relative_under_root(Path::new(&root), &destination))
 }
 
 fn slugify(value: &str) -> String {
@@ -1108,35 +1459,6 @@ fn save_capture(request: CaptureRequest) -> Result<String, String> {
 
     fs::write(&path, markdown).map_err(|error| format!("Could not save capture: {error}"))?;
     Ok(path_string(&path))
-}
-
-#[cfg(test)]
-fn collect_markdown_paths(root: &Path, locale: &str) -> Vec<PathBuf> {
-    fn visit(path: &Path, paths: &mut Vec<PathBuf>) {
-        if paths.len() >= 1_200 {
-            return;
-        }
-        let Ok(entries) = fs::read_dir(path) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                visit(&path, paths);
-            } else if path.extension().is_some_and(|extension| extension == "md")
-                && !is_paired_english_companion(&path)
-            {
-                paths.push(path);
-            }
-        }
-    }
-
-    let mut paths = Vec::new();
-    visit(root, &mut paths);
-    paths
-        .into_iter()
-        .map(|path| localized_note_path(&path, locale))
-        .collect()
 }
 
 fn retrieve_context(
@@ -2402,6 +2724,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(agent_loop::create_session_map())
         .invoke_handler(tauri::generate_handler![
             load_model_config,
@@ -2409,6 +2732,15 @@ pub fn run() {
             load_library,
             move_tier_item,
             read_note,
+            open_note,
+            delete_note,
+            set_note_tier,
+            list_directory,
+            create_folder,
+            create_note,
+            rename_entry,
+            delete_entry,
+            paste_entry,
             prepare_capture,
             save_capture,
             chat_completion,
@@ -2431,6 +2763,114 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frontmatter_tier_update_insert_and_remove_round_trip() {
+        let original = "---\nid: strength-training\ntier: T1\nstatus: reviewed\n---\n\n# 力量训练\n";
+        let updated = set_frontmatter_field(original, "tier", Some("T3"));
+        assert!(updated.contains("tier: T3"));
+        assert!(!updated.contains("tier: T1"));
+
+        let removed = set_frontmatter_field(&updated, "tier", None);
+        assert!(!removed.contains("tier:"));
+        assert!(removed.contains("status: reviewed"));
+
+        let inserted = set_frontmatter_field("---\nid: sample\n---\nbody", "tier", Some("T2"));
+        assert!(inserted.contains("tier: T2"));
+        assert!(inserted.starts_with("---\nid: sample\ntier: T2\n---\n"));
+
+        let created = set_frontmatter_field("# Plain note\nbody", "tier", Some("T1"));
+        assert!(created.starts_with("---\ntier: T1\n---\n"));
+
+        let no_change = set_frontmatter_field("# Plain note\nbody", "tier", None);
+        assert_eq!(no_change, "# Plain note\nbody");
+    }
+
+    #[test]
+    fn tier_normalization_accepts_pending_and_tiers() {
+        assert_eq!(normalize_tier("pending").unwrap(), "pending");
+        assert_eq!(normalize_tier("PENDING").unwrap(), "pending");
+        assert_eq!(normalize_tier("t1").unwrap(), "T1");
+        assert_eq!(normalize_tier("T5").unwrap(), "T5");
+        assert_eq!(normalize_tier("").unwrap(), "");
+        assert!(normalize_tier("t6").is_err());
+        assert!(normalize_tier("urgent").is_err());
+    }
+
+    #[test]
+    fn entry_name_validation_blocks_separators_and_dots() {
+        assert!(validate_entry_name("新分类").is_ok());
+        assert!(validate_entry_name(" 力量训练 ").is_ok());
+        assert!(validate_entry_name("a/b").is_err());
+        assert!(validate_entry_name(r"a\b").is_err());
+        assert!(validate_entry_name("..").is_err());
+        assert!(validate_entry_name("").is_err());
+        assert!(validate_entry_name("   ").is_err());
+    }
+
+    #[test]
+    fn unique_destination_appends_number_when_name_exists() {
+        let dir = std::env::temp_dir().join(format!("tiernote-unique-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.md"), "x").unwrap();
+        let first = unique_destination(&dir, "a.md");
+        assert_eq!(first.file_name().unwrap().to_string_lossy(), "a (2).md");
+        fs::write(&first, "x").unwrap();
+        let second = unique_destination(&dir, "a.md");
+        assert_eq!(second.file_name().unwrap().to_string_lossy(), "a (3).md");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn library_file_commands_round_trip_on_a_temp_root() {
+        let root = std::env::temp_dir().join(format!("tiernote-fs-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(root.join("dossiers")).unwrap();
+        fs::write(root.join("dossiers/strength-training.md"), "# 力量训练\n").unwrap();
+        let root_str = root.to_string_lossy().to_string();
+
+        let entries = list_directory(root_str.clone(), "dossiers".to_string()).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].is_markdown);
+        assert!(!entries[0].is_dir);
+
+        let folder = create_folder(root_str.clone(), "".to_string(), "笔记".to_string()).unwrap();
+        assert_eq!(folder, "笔记");
+        let note = create_note(
+            root_str.clone(),
+            "笔记".to_string(),
+            "示例".to_string(),
+            Some("target".to_string()),
+        )
+        .unwrap();
+        assert_eq!(note, "笔记/示例.md");
+        assert!(root.join("笔记/示例.md").is_file());
+
+        let renamed = rename_entry(root_str.clone(), note, "改名".to_string()).unwrap();
+        assert_eq!(renamed, "笔记/改名.md");
+        assert!(!root.join("笔记/示例.md").exists());
+
+        let copied =
+            paste_entry(root_str.clone(), renamed.clone(), "".to_string(), "copy".to_string())
+                .unwrap();
+        assert_eq!(copied, "改名.md");
+        assert!(root.join(copied).is_file());
+
+        let moved =
+            paste_entry(root_str.clone(), renamed, "dossiers".to_string(), "cut".to_string())
+                .unwrap();
+        assert_eq!(moved, "dossiers/改名.md");
+        assert!(!root.join("笔记/改名.md").exists());
+
+        delete_entry(root_str.clone(), "笔记".to_string()).unwrap();
+        assert!(!root.join("笔记").exists());
+        delete_entry(root_str.clone(), "改名.md".to_string()).unwrap();
+        delete_entry(root_str.clone(), "dossiers/改名.md".to_string()).unwrap();
+        assert!(!root.join("dossiers/改名.md").exists());
+        delete_entry(root_str.clone(), "dossiers".to_string()).unwrap();
+        assert!(!root.join("dossiers").exists());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn csv_parser_preserves_quoted_commas() {
@@ -2462,23 +2902,6 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
             .map(|line| split_csv_line(line)[0].clone())
             .collect::<Vec<_>>();
         assert_eq!(reordered_ids, vec!["b", "a", "c"]);
-    }
-
-    #[test]
-    fn starter_catalog_merge_preserves_user_order_and_tiers() {
-        let existing =
-            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\n\
-a,甲,A,分类,reference,reviewed,T5,maintain,changed\n";
-        let starter =
-            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\n\
-a,甲,A,分类,reference,reviewed,T1,maintain,starter\n\
-b,乙,B,分类,reference,reviewed,T2,review,new\n";
-        let merged = merge_starter_catalog(existing, starter);
-        let rows = merged.lines().skip(1).collect::<Vec<_>>();
-        assert_eq!(rows.len(), 2);
-        assert_eq!(split_csv_line(rows[0])[0], "a");
-        assert_eq!(split_csv_line(rows[0])[6], "T5");
-        assert_eq!(split_csv_line(rows[1])[0], "b");
     }
 
     #[test]
@@ -2728,152 +3151,4 @@ b,乙,B,分类,reference,reviewed,T2,review,new\n";
         fs::remove_dir_all(root).expect("capture fixture should be removed");
     }
 
-    #[test]
-    fn starter_library_is_self_contained() {
-        let unique = format!(
-            "tiernote-starter-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock should be after Unix epoch")
-                .as_nanos()
-        );
-        let root = std::env::temp_dir().join(unique);
-
-        ensure_starter_library(&root).expect("starter library should initialize");
-        assert!(root.join("catalog/strategies.csv").is_file());
-        assert!(root.join("dossiers/strength-training.md").is_file());
-        assert!(root.join("dossiers/healthy-diet.md").is_file());
-        assert!(root.join("stories/okinawa-longevity.md").is_file());
-        assert_eq!(
-            fs::read_to_string(root.join(".starter-pack-initialized"))
-                .expect("starter version should be readable"),
-            STARTER_PACK_VERSION
-        );
-        assert!(root.join("profile/about-me.md").is_file());
-        let readme = fs::read_to_string(root.join("README.md")).expect("README should be readable");
-        assert!(!readme.contains(r"C:\Life extension"));
-        let logical_starter_count = STARTER_FILES
-            .iter()
-            .filter(|(relative_path, _)| {
-                relative_path.ends_with(".md") && !relative_path.ends_with(".en.md")
-            })
-            .count();
-        assert_eq!(count_markdown_files(&root), logical_starter_count);
-        for (relative_path, _) in STARTER_FILES.iter().filter(|(relative_path, _)| {
-            relative_path.ends_with(".md") && !relative_path.ends_with(".en.md")
-        }) {
-            let companion = relative_path
-                .strip_suffix(".md")
-                .map(|path| format!("{path}.en.md"))
-                .expect("starter Markdown path should have an extension");
-            assert!(
-                STARTER_FILES
-                    .iter()
-                    .any(|(candidate, _)| *candidate == companion.as_str()),
-                "missing English starter companion for {relative_path}"
-            );
-            assert!(
-                root.join(&companion).is_file(),
-                "English starter companion should be installed: {companion}"
-            );
-        }
-        let stories = load_stories(&root, "zh");
-        assert_eq!(stories.len(), 1);
-        assert_eq!(stories[0].title, "日本冲绳的延寿文化");
-        let supplements = load_supplements(&root, "zh");
-        let nad = supplements
-            .iter()
-            .find(|supplement| supplement.id == "nmn")
-            .expect("NAD+ starter entry should exist");
-        assert_eq!(nad.name_zh, "NAD+");
-        assert!(fs::read_to_string(root.join("dossiers/nmn.md"))
-            .expect("NAD+ dossier should be readable")
-            .contains("# NAD+"));
-        let reprogramming = supplements
-            .iter()
-            .find(|supplement| supplement.id == "partial-reprogramming")
-            .expect("partial reprogramming starter entry should exist");
-        assert_eq!(reprogramming.tier, "T5");
-        assert!(root.join("dossiers/partial-reprogramming.md").is_file());
-        assert!(root.join("papers/existing-evidence-library.md").is_file());
-        assert!(root.join("products/index.md").is_file());
-        let people = load_people(&root, "zh");
-        assert_eq!(people.len(), 6);
-        assert!(people.iter().all(|person| person.id != "ray-lui"));
-        assert!(!root.join("cases/ray-lui.md").exists());
-        let english_supplements = load_supplements(&root, "en");
-        assert!(english_supplements
-            .iter()
-            .find(|supplement| supplement.id == "strength-training")
-            .and_then(|supplement| supplement.file_path.as_deref())
-            .is_some_and(|path| path == "dossiers/strength-training.en.md"));
-        let english_people = load_people(&root, "en");
-        assert!(english_people
-            .iter()
-            .find(|person| person.id == "bryan-johnson")
-            .and_then(|person| person.file_path.as_deref())
-            .is_some_and(|path| path == "cases/bryan-johnson-daily.en.md"));
-        let english_stories = load_stories(&root, "en");
-        assert_eq!(english_stories.len(), 1);
-        assert_eq!(
-            english_stories[0].file_path.as_deref(),
-            Some("stories/okinawa-longevity.en.md")
-        );
-        let english_paths = collect_markdown_paths(&root, "en");
-        assert_eq!(english_paths.len(), logical_starter_count);
-        assert!(english_paths
-            .iter()
-            .any(|path| path.ends_with("dossiers/strength-training.en.md")));
-        for (_, content) in STARTER_FILES {
-            assert!(!content.contains("吕良伟"));
-            assert!(!content.contains("肌钙蛋白 I"));
-            assert!(!content.contains("桑葚汁 200"));
-        }
-
-        fs::write(
-            root.join("index.md"),
-            "# TierNote 知识库\n\n用户保留的其他内容。",
-        )
-        .expect("legacy branded starter file should be writable");
-        fs::write(root.join(".starter-pack-initialized"), "10")
-            .expect("previous starter version should be writable");
-        ensure_starter_library(&root).expect("starter branding should migrate");
-        let migrated_index =
-            fs::read_to_string(root.join("index.md")).expect("migrated index should be readable");
-        assert!(migrated_index.contains("# TierNote 知识库"));
-        assert!(migrated_index.contains("用户保留的其他内容。"));
-
-        fs::write(root.join("cases/ray-lui.md"), "# retired starter case")
-            .expect("retired case fixture should be writable");
-        fs::write(root.join(".starter-pack-initialized"), "8")
-            .expect("legacy starter version should be writable");
-        ensure_starter_library(&root).expect("retired starter content should migrate");
-        assert!(!root.join("cases/ray-lui.md").exists());
-
-        fs::write(
-            root.join("dossiers/nmn.md"),
-            LEGACY_NMN_DOSSIER.replace("tier: T4", "tier: T3"),
-        )
-        .expect("legacy NAD dossier should be writable");
-        fs::write(root.join(".starter-pack-initialized"), "6")
-            .expect("legacy starter version should be writable");
-        ensure_starter_library(&root).expect("legacy NAD dossier should migrate");
-        let migrated_nad = fs::read_to_string(root.join("dossiers/nmn.md"))
-            .expect("migrated NAD dossier should be readable");
-        assert!(migrated_nad.contains("# NAD+"));
-        assert!(migrated_nad.contains("NADH"));
-        assert!(migrated_nad.contains("tier: T3"));
-
-        fs::write(
-            root.join("stories/my-observation.md"),
-            "---\ntitle: 我的观察\n---\n\n# 我的观察\n\n这是一篇用户自行添加的延寿轶事文章。",
-        )
-        .expect("custom story should be writable");
-        let stories = load_stories(&root, "zh");
-        assert_eq!(stories.len(), 2);
-        assert!(stories.iter().any(|story| story.title == "我的观察"));
-
-        fs::remove_dir_all(root).expect("temporary starter library should be removable");
-    }
 }

@@ -26,6 +26,7 @@ export interface Person {
   name: string;
   nameZh?: string;
   summary: string;
+  tier?: string;
   filePath?: string;
   accent: string;
 }
@@ -36,12 +37,14 @@ export interface Story {
   titleEn?: string;
   summary: string;
   summaryEn?: string;
+  tier?: string;
   filePath?: string;
   accent: string;
 }
 
 export interface LibrarySnapshot {
   root: string;
+  myInfoRoot: string;
   connected: boolean;
   supplements: Supplement[];
   people: Person[];

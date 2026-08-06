@@ -204,11 +204,12 @@ pub async fn execute_tool(
     name: &str,
     args: &Value,
     knowledge_root: &Path,
+    my_info_root: &Path,
     locale: &str,
 ) -> ToolResult {
     match name {
         "save_note" => exec_save_note(args, knowledge_root, locale),
-        "update_plan" => exec_update_plan(args, knowledge_root, locale),
+        "update_plan" => exec_update_plan(args, my_info_root, locale),
         "update_note" => exec_update_note(args, knowledge_root, locale),
         "update_tier" => exec_update_tier(args, knowledge_root, locale),
         "search_library" => exec_search_library(args, knowledge_root, locale),
