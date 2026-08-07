@@ -673,8 +673,14 @@ body.resizing-panels * {
 }
 
 .tree-child[draggable='true'],
-.tree-folder-row[draggable='true'] {
-  cursor: grab;
+.tree-folder-row[draggable='true'],
+.tree-folder {
+  cursor: default;
+}
+
+html.tree-drag-active,
+html.tree-drag-active * {
+  cursor: default !important;
 }
 
 .tree-child.is-dragging,
@@ -733,8 +739,8 @@ body.resizing-panels * {
   padding: 5px 11px;
   overflow: hidden;
   color: var(--ink);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 999px;
   box-shadow: 0 5px 16px rgba(24, 31, 30, 0.14);
   font-size: 13px;
@@ -743,6 +749,17 @@ body.resizing-panels * {
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.tree-drag-ghost::before {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  margin-right: 8px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  content: '';
+  opacity: 0.72;
 }
 
 .tree-folder {
@@ -759,7 +776,7 @@ body.resizing-panels * {
   font-size: 14px;
   font-weight: 600;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .tree-folder:hover,

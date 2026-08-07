@@ -2656,6 +2656,7 @@ function LibraryTree({
   const [treeOrder, setTreeOrder] = useState<TreeOrder>({});
   const [dragEntry, setDragEntry] = useState<TreeDragEntry | null>(null);
   const [dropTarget, setDropTarget] = useState<TreeDropTarget | null>(null);
+  const dropTargetRef = useRef<TreeDropTarget | null>(null);
   const dragGhostRef = useRef<HTMLElement | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
@@ -2978,15 +2979,28 @@ function LibraryTree({
     document.body.appendChild(ghost);
     event.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
     dragGhostRef.current = ghost;
+    document.documentElement.classList.add('tree-drag-active');
     setDragEntry({ relativePath: entry.relativePath, isDir: entry.isDir });
+    dropTargetRef.current = null;
     setDropTarget(null);
+  };
+
+  const updateDropTarget = (target: TreeDropTarget | null) => {
+    const current = dropTargetRef.current;
+    if (
+      current?.relativePath === target?.relativePath &&
+      current?.position === target?.position
+    ) return;
+    dropTargetRef.current = target;
+    setDropTarget(target);
   };
 
   const handleTreeDragEnd = () => {
     dragGhostRef.current?.remove();
     dragGhostRef.current = null;
+    document.documentElement.classList.remove('tree-drag-active');
     setDragEntry(null);
-    setDropTarget(null);
+    updateDropTarget(null);
   };
 
   const getTreeDropPosition = (
@@ -3010,7 +3024,7 @@ function LibraryTree({
   ) => {
     if (!dragEntry) return;
     if (dragEntry.relativePath === entry.relativePath) {
-      setDropTarget(null);
+      updateDropTarget(null);
       return;
     }
     event.preventDefault();
@@ -3027,11 +3041,11 @@ function LibraryTree({
       (targetDir === dragEntry.relativePath ||
         targetDir.startsWith(`${dragEntry.relativePath}/`))
     ) {
-      setDropTarget(null);
+      updateDropTarget(null);
       return;
     }
 
-    setDropTarget({ ...entry, position });
+    updateDropTarget({ ...entry, position });
   };
 
   const handleTreeDrop = async (
@@ -3176,6 +3190,8 @@ function LibraryTree({
 
   const renderFolder = (entry: DirectoryEntry, depth: number) => {
     const isOpen = Boolean(expanded[entry.relativePath]);
+    const childEntries = orderedEntries(entry.relativePath, entriesByDir[entry.relativePath] || []);
+    const showChildren = isOpen && (childEntries.length > 0 || edit?.path === entry.relativePath);
     const targetPosition = dropTarget?.relativePath === entry.relativePath
       ? dropTarget.position
       : null;
@@ -3201,10 +3217,10 @@ function LibraryTree({
             <span>{entry.name}</span>
           </button>
         </div>
-        {isOpen && (
+        {showChildren && (
           <div className="tree-children">
             {renderEditRow(entry.relativePath, depth)}
-            {orderedEntries(entry.relativePath, entriesByDir[entry.relativePath] || []).map((child) =>
+            {childEntries.map((child) =>
               child.isDir ? renderFolder(child, depth + 1) : renderFile(child, depth + 1),
             )}
           </div>
