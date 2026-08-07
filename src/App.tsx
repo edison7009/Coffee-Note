@@ -2461,6 +2461,10 @@ type TreeDropTarget = {
   isDir: boolean;
   position: TreeDropPosition;
 };
+type TreeDropHit = {
+  target: TreeDropTarget;
+  element: HTMLElement;
+};
 
 // Module-level clipboard so cut/copy survives menu close/open cycles.
 let fsClipboard: { action: 'copy' | 'cut'; source: string } | null = null;
@@ -2668,6 +2672,7 @@ function LibraryTree({
     ghost: HTMLElement | null;
   } | null>(null);
   const dropTargetRef = useRef<TreeDropTarget | null>(null);
+  const dropLineRef = useRef<HTMLElement | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
     path: string;
@@ -2987,6 +2992,8 @@ function LibraryTree({
 
   const handleTreeDragEnd = () => {
     document.documentElement.classList.remove('tree-drag-active');
+    dropLineRef.current?.remove();
+    dropLineRef.current = null;
     dragEntryRef.current = null;
     setDragEntry(null);
     updateDropTarget(null);
@@ -3099,7 +3106,7 @@ function LibraryTree({
     }
   };
 
-  const findTreeDropTarget = (clientX: number, clientY: number): TreeDropTarget | null => {
+  const findTreeDropTarget = (clientX: number, clientY: number): TreeDropHit | null => {
     const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
     const item = hit?.closest<HTMLElement>('[data-tree-entry]');
     if (item) {
@@ -3107,20 +3114,42 @@ function LibraryTree({
       if (!relativePath) return null;
       const isDir = item.dataset.treeIsDir === 'true';
       return {
-        relativePath,
-        isDir,
-        position: getTreeDropPosition(
-          clientY,
-          item.getBoundingClientRect(),
+        target: {
+          relativePath,
           isDir,
-          false,
-        ),
+          position: getTreeDropPosition(clientY, item.getBoundingClientRect(), isDir, false),
+        },
+        element: item,
       };
     }
-    if (hit?.closest('[data-tree-root]')) {
-      return { relativePath: '', isDir: true, position: 'inside' };
+    const root = hit?.closest<HTMLElement>('[data-tree-root]');
+    if (root) {
+      return {
+        target: { relativePath: '', isDir: true, position: 'inside' },
+        element: root,
+      };
     }
     return null;
+  };
+
+  const updateTreeDropLine = (dropHit: TreeDropHit | null) => {
+    if (!dropHit || dropHit.target.position === 'inside') {
+      if (dropLineRef.current) dropLineRef.current.style.display = 'none';
+      return;
+    }
+    if (!dropLineRef.current) {
+      const line = document.createElement('div');
+      line.className = 'tree-drop-line';
+      document.body.appendChild(line);
+      dropLineRef.current = line;
+    }
+    const rect = dropHit.element.getBoundingClientRect();
+    const top = dropHit.target.position === 'before' ? rect.top : rect.bottom;
+    const line = dropLineRef.current;
+    line.style.display = 'block';
+    line.style.left = `${rect.left + 18}px`;
+    line.style.top = `${Math.round(top) - 1}px`;
+    line.style.width = `${Math.max(rect.width - 36, 0)}px`;
   };
 
   const createTreeDragGhost = (entry: DirectoryEntry): HTMLElement => {
@@ -3173,12 +3202,14 @@ function LibraryTree({
         );
         current.ghost.style.transform = `translate3d(${moveEvent.clientX - offsetX}px, ${moveEvent.clientY - offsetY}px, 0)`;
       }
-      const target = findTreeDropTarget(moveEvent.clientX, moveEvent.clientY);
-      if (!target || target.relativePath === current.entry.relativePath) {
+      const dropHit = findTreeDropTarget(moveEvent.clientX, moveEvent.clientY);
+      if (!dropHit || dropHit.target.relativePath === current.entry.relativePath) {
         current.target = null;
         updateDropTarget(null);
+        updateTreeDropLine(null);
         return;
       }
+      const target = dropHit.target;
       const targetDir = target.position === 'inside'
         ? target.relativePath
         : parentDirOf(target.relativePath);
@@ -3188,10 +3219,12 @@ function LibraryTree({
       ) {
         current.target = null;
         updateDropTarget(null);
+        updateTreeDropLine(null);
         return;
       }
       current.target = target;
       updateDropTarget(target);
+      updateTreeDropLine(dropHit);
     };
 
     const onUp = (upEvent: PointerEvent) => {
@@ -3203,7 +3236,8 @@ function LibraryTree({
       if (!current?.active) return;
       upEvent.preventDefault();
       current.ghost?.remove();
-      const target = findTreeDropTarget(upEvent.clientX, upEvent.clientY) || current.target;
+      const dropHit = findTreeDropTarget(upEvent.clientX, upEvent.clientY);
+      const target = dropHit?.target || current.target;
       if (target) {
         void performTreeDrop(current.entry, target, target.position);
       } else {
