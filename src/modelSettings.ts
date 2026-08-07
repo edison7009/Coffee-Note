@@ -14,7 +14,6 @@ const emptyProviderConfig = (provider: ModelProvider): ProviderConfig => ({
 export function createEmptyModelSettings(): ModelSettings {
   return {
     activeProvider: 'openai',
-    economyMode: true,
     providers: {
       openai: emptyProviderConfig('openai'),
       anthropic: emptyProviderConfig('anthropic'),
@@ -48,12 +47,10 @@ export function normalizeModelSettings(value: unknown): ModelSettings {
 
   const stored = value as Record<string, unknown>;
   const activeProvider = migrateModelProvider(stored.activeProvider ?? stored.provider);
-  const economyMode = typeof stored.economyMode === 'boolean' ? stored.economyMode : true;
   if (stored.providers && typeof stored.providers === 'object') {
     const providers = stored.providers as Record<string, unknown>;
     return {
       activeProvider,
-      economyMode,
       providers: {
         openai: readProviderConfig(providers.openai, 'openai'),
         anthropic: readProviderConfig(providers.anthropic, 'anthropic'),
@@ -63,7 +60,6 @@ export function normalizeModelSettings(value: unknown): ModelSettings {
 
   return {
     activeProvider,
-    economyMode,
     providers: {
       ...empty.providers,
       [activeProvider]: readProviderConfig(stored, activeProvider),

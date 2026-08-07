@@ -67,7 +67,6 @@ export interface ModelConfig extends ProviderConfig {
 export interface ModelSettings {
   activeProvider: ModelProvider;
   providers: Record<ModelProvider, ProviderConfig>;
-  economyMode: boolean;
 }
 
 export interface MemorySuggestion {
@@ -143,7 +142,6 @@ export interface PrepareCaptureRequest {
   model: string;
   input: string;
   locale: Locale;
-  economyMode?: boolean;
 }
 
 export interface CaptureDraft {
@@ -188,7 +186,6 @@ export interface AgentRequest {
   baseUrl: string;
   model: string;
   provider?: string;
-  economyMode?: boolean;
   message: string;
   locale: Locale;
   knowledgeRoot: string;

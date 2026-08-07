@@ -48,7 +48,6 @@ import {
   UserRound,
   UsersRound,
   Wrench,
-  Zap,
   X,
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -407,7 +406,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'savings' | 'appearance';
+type SettingsSectionId = 'model' | 'appearance';
 type ResizeSide = 'left' | 'right';
 
 interface PaneSizes {
@@ -1777,7 +1776,6 @@ function App() {
         baseUrl: modelConfig.baseUrl,
         model: modelConfig.model,
         provider: modelConfig.provider,
-        economyMode: modelSettings.economyMode,
         message: clean,
         locale,
         knowledgeRoot: library.root,
@@ -2126,7 +2124,6 @@ function App() {
         <CaptureGuideDialog
           locale={locale}
           config={modelConfig}
-          economyMode={modelSettings.economyMode}
           knowledgeRoot={library.root || normalizedKnowledgeRoot}
           onClose={() => setCaptureGuideOpen(false)}
           onSaved={finishCapture}
@@ -4730,28 +4727,12 @@ function SettingsDialog({
 
   const activeConfig = draft.providers[draft.activeProvider];
   const activeOption = providerOptions[draft.activeProvider];
-  const savingsRows = locale === 'zh'
-    ? [
-        ['单次回答上限', '2,048 Tokens', '4,096 Tokens'],
-        ['本地笔记上下文', '约 24 KB', '最高约 1 MB'],
-        ['“我的资料”上下文', '约 8 KB', '约 16 KB'],
-        ['工具循环上限', '8 轮', '150 轮保护上限'],
-        ['导入资料输出', '1,200 Tokens', '3,000 Tokens'],
-      ]
-    : [
-        ['Answer limit', '2,048 tokens', '4,096 tokens'],
-        ['Local-note context', 'About 24 KB', 'Up to about 1 MB'],
-        ['My information context', 'About 8 KB', 'About 16 KB'],
-        ['Tool-loop limit', '8 rounds', '150-round guardrail'],
-        ['Import output', '1,200 tokens', '3,000 tokens'],
-      ];
   const settingsSections: Array<{
     id: SettingsSectionId;
     label: string;
     icon: ReactNode;
   }> = [
     { id: 'model', label: t('settingsModel'), icon: <Bot size={16} /> },
-    { id: 'savings', label: t('settingsSavings'), icon: <Zap size={16} /> },
     { id: 'appearance', label: t('settingsAppearance'), icon: <Monitor size={16} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
@@ -4857,58 +4838,6 @@ function SettingsDialog({
                 </div>
 
               </>
-            )}
-
-            {visibleSection === 'savings' && (
-              <div className="settings-section savings-settings">
-                <div className="savings-mode-row">
-                  <div className="savings-mode-copy">
-                    <label>{t('economyMode')}</label>
-                    <p className="settings-hint">{t('economyModeDesc')}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className={`economy-toggle ${draft.economyMode ? 'active' : ''}`}
-                    aria-label={t('economyMode')}
-                    aria-pressed={draft.economyMode}
-                    onClick={() => {
-                      const next = { ...draft, economyMode: !draft.economyMode };
-                      setDraft(next);
-                      onChange(next);
-                    }}
-                  >
-                    <span className="economy-toggle-track"><span /></span>
-                    {draft.economyMode ? t('economyModeOn') : t('economyModeOff')}
-                  </button>
-                </div>
-
-                <div className="savings-comparison">
-                  <h4>{t('savingsComparison')}</h4>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{t('savingsMetric')}</th>
-                        <th>{t('economyModeOn')}</th>
-                        <th>{t('economyModeOff')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {savingsRows.map(([label, economy, full]) => (
-                        <tr key={label}>
-                          <th scope="row">{label}</th>
-                          <td>{economy}</td>
-                          <td>{full}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="savings-recommendations">
-                  <p><Check size={15} /> <strong>{t('savingsDailyRecommendation')}</strong></p>
-                  <p><Sparkles size={15} /> <strong>{t('savingsFullRecommendation')}</strong></p>
-                </div>
-              </div>
             )}
 
             {visibleSection === 'appearance' && (
@@ -5113,7 +5042,6 @@ function AddMaterialDialog({
 function CaptureGuideDialog({
   locale,
   config,
-  economyMode,
   knowledgeRoot,
   onClose,
   onSaved,
@@ -5121,7 +5049,6 @@ function CaptureGuideDialog({
 }: {
   locale: Locale;
   config: ModelConfig;
-  economyMode: boolean;
   knowledgeRoot: string;
   onClose: () => void;
   onSaved: (path: string) => Promise<void>;
@@ -5154,7 +5081,6 @@ function CaptureGuideDialog({
           model: config.model,
           input: clean,
           locale,
-          economyMode,
         }),
       );
     } catch (requestError) {

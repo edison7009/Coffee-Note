@@ -238,10 +238,11 @@ to the product template.
   downloads the published NSIS installer with circular progress and launches
   it; unsupported platforms or failed installs fall back to the product
   website.
-- Note Agent economy mode is now persisted with model settings (default on for
-  new and migrated configs). It caps routine chat/capture output and tool rounds
-  for cheaper DeepSeek-compatible note governance; full mode is available in
-  Settings for deep synthesis.
+- Note Agent uses one completion-first path. Cache reuse, targeted memory and
+  Library Graph retrieval, duplicate-call detection, and context maintenance are
+  always enabled; there is no user-selectable economy/full quality mode. The
+  global emergency ceiling only produces an honest final status instead of
+  stopping with a hard tool-loop error.
 - The temporary product-positioning memo for the Note Agent's cost-saving focus
   lives at `docs/NOTE_AGENT_SAVINGS.md`; keep it in mind when refining product
   copy, pricing, model recommendations, or agent behavior.

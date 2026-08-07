@@ -162,8 +162,6 @@ struct PrepareCaptureRequest {
     model: String,
     input: String,
     locale: String,
-    #[serde(default = "default_economy_mode")]
-    economy_mode: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -193,12 +191,6 @@ struct ProviderModelConfigs {
 struct ModelSettings {
     active_provider: String,
     providers: ProviderModelConfigs,
-    #[serde(default = "default_economy_mode")]
-    economy_mode: bool,
-}
-
-fn default_economy_mode() -> bool {
-    true
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -242,7 +234,6 @@ impl From<LegacyModelConfig> for ModelSettings {
         Self {
             active_provider,
             providers,
-            economy_mode: true,
         }
     }
 }
@@ -1833,7 +1824,7 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         &request.api_key,
         &request.base_url,
         &request.model,
-        if request.economy_mode { 1200 } else { 3000 },
+        3_000,
         messages,
     )
     .await?;
@@ -2702,7 +2693,7 @@ async fn agent_send_message(
         &request.message,
         &request.context_paths,
         &request.locale,
-        if request.economy_mode { 24_000 } else { MAX_CONTEXT_BYTES },
+        MAX_CONTEXT_BYTES,
     );
     let mut full_research = research_context.unwrap_or_default();
     if !local_ctx.is_empty() {
@@ -2958,7 +2949,6 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
         let path = root.join("config.json");
         let config = ModelSettings {
             active_provider: "anthropic".to_string(),
-            economy_mode: true,
             providers: ProviderModelConfigs {
                 openai: ProviderModelConfig {
                     base_url: "https://openai.example.com/v1".to_string(),
@@ -3016,7 +3006,40 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
         assert_eq!(migrated.providers.anthropic.model, "legacy-model");
         assert_eq!(migrated.providers.anthropic.api_key, "legacy-key");
         assert_eq!(migrated.providers.openai, ProviderModelConfig::default());
-        assert!(migrated.economy_mode);
+        fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn removed_economy_mode_is_ignored_and_not_resaved() {
+        let unique = format!(
+            "tiernote-removed-economy-{}-{}",
+            std::process::id(),
+            Local::now().timestamp_nanos_opt().unwrap_or_default()
+        );
+        let root = std::env::temp_dir().join(unique);
+        let path = root.join("config.json");
+        fs::create_dir_all(&root).expect("config fixture directory should exist");
+        fs::write(
+            &path,
+            r#"{
+  "activeProvider": "openai",
+  "economyMode": false,
+  "providers": {
+    "openai": { "baseUrl": "https://example.com", "model": "cheap-model", "apiKey": "key" },
+    "anthropic": { "baseUrl": "", "model": "", "apiKey": "" }
+  }
+}"#,
+        )
+        .expect("old config should be writable");
+
+        let settings = load_model_config_from(&path)
+            .expect("old config should load")
+            .expect("old config should exist");
+        assert_eq!(settings.active_provider, "openai");
+        assert_eq!(settings.providers.openai.model, "cheap-model");
+        save_model_config_to(&path, &settings).expect("new config should save");
+        let saved = fs::read_to_string(&path).expect("new config should be readable");
+        assert!(!saved.contains("economyMode"));
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
 
@@ -3140,7 +3163,7 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
                 .expect("mock request should be readable");
             let request = String::from_utf8_lossy(&request_bytes[..read]);
             assert!(request.starts_with("POST /v1/chat/completions "));
-            assert!(request.contains("\"max_tokens\":1200"));
+            assert!(request.contains("\"max_tokens\":3000"));
             let model_content =
                 r###"{"title":"Creatine trial","content":"## Findings\n\nA structured draft."}"###;
             let payload = json!({
@@ -3163,7 +3186,6 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
             model: "test-model".to_string(),
             input: "A 12-week creatine trial with 42 participants.".to_string(),
             locale: "en".to_string(),
-            economy_mode: true,
         }))
         .expect("capture should be prepared");
         server.join().expect("mock model should finish");
