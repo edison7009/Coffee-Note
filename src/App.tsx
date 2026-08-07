@@ -2656,8 +2656,8 @@ function LibraryTree({
   const [treeOrder, setTreeOrder] = useState<TreeOrder>({});
   const [dragEntry, setDragEntry] = useState<TreeDragEntry | null>(null);
   const [dropTarget, setDropTarget] = useState<TreeDropTarget | null>(null);
+  const dragEntryRef = useRef<TreeDragEntry | null>(null);
   const dropTargetRef = useRef<TreeDropTarget | null>(null);
-  const dragGhostRef = useRef<HTMLElement | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
     path: string;
@@ -2972,15 +2972,14 @@ function LibraryTree({
     event.stopPropagation();
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', entry.relativePath);
-    dragGhostRef.current?.remove();
-    const ghost = document.createElement('div');
-    ghost.className = 'tree-drag-ghost';
-    ghost.textContent = entry.name.replace(/\.md$/i, '');
-    document.body.appendChild(ghost);
-    event.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
-    dragGhostRef.current = ghost;
+    const transparentImage = document.createElement('canvas');
+    transparentImage.width = 1;
+    transparentImage.height = 1;
+    event.dataTransfer.setDragImage(transparentImage, 0, 0);
     document.documentElement.classList.add('tree-drag-active');
-    setDragEntry({ relativePath: entry.relativePath, isDir: entry.isDir });
+    const activeEntry = { relativePath: entry.relativePath, isDir: entry.isDir };
+    dragEntryRef.current = activeEntry;
+    setDragEntry(activeEntry);
     dropTargetRef.current = null;
     setDropTarget(null);
   };
@@ -2996,9 +2995,8 @@ function LibraryTree({
   };
 
   const handleTreeDragEnd = () => {
-    dragGhostRef.current?.remove();
-    dragGhostRef.current = null;
     document.documentElement.classList.remove('tree-drag-active');
+    dragEntryRef.current = null;
     setDragEntry(null);
     updateDropTarget(null);
   };
@@ -3022,14 +3020,15 @@ function LibraryTree({
     entry: Pick<DirectoryEntry, 'relativePath' | 'isDir'>,
     rootTarget = false,
   ) => {
-    if (!dragEntry) return;
-    if (dragEntry.relativePath === entry.relativePath) {
-      updateDropTarget(null);
-      return;
-    }
+    const activeDragEntry = dragEntryRef.current || dragEntry;
+    if (!activeDragEntry) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
+    if (activeDragEntry.relativePath === entry.relativePath) {
+      updateDropTarget(null);
+      return;
+    }
 
     const position = getTreeDropPosition(event, entry, rootTarget);
 
@@ -3037,9 +3036,9 @@ function LibraryTree({
       ? entry.relativePath
       : parentDirOf(entry.relativePath);
     if (
-      dragEntry.isDir &&
-      (targetDir === dragEntry.relativePath ||
-        targetDir.startsWith(`${dragEntry.relativePath}/`))
+      activeDragEntry.isDir &&
+      (targetDir === activeDragEntry.relativePath ||
+        targetDir.startsWith(`${activeDragEntry.relativePath}/`))
     ) {
       updateDropTarget(null);
       return;
@@ -3055,7 +3054,7 @@ function LibraryTree({
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    const source = dragEntry;
+    const source = dragEntryRef.current || dragEntry;
     if (!source || source.relativePath === entry.relativePath) {
       handleTreeDragEnd();
       return;
@@ -3244,7 +3243,19 @@ function LibraryTree({
   };
 
   return (
-    <div className="nav-tree-group library-tree">
+    <div
+      className="nav-tree-group library-tree"
+      onDragOver={(event) => {
+        if (!dragEntryRef.current) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(event) => {
+        if (!dragEntryRef.current) return;
+        event.preventDefault();
+        handleTreeDragEnd();
+      }}
+    >
       <div
         className={`library-root-row ${dropTarget?.relativePath === '' ? 'drop-inside' : ''}`}
         onDragOver={(event) => handleTreeDragOver(event, { relativePath: '', isDir: true }, true)}

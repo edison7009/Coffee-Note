@@ -728,40 +728,6 @@ html.tree-drag-active * {
   background: var(--accent-soft);
 }
 
-.tree-drag-ghost {
-  position: fixed;
-  top: -1000px;
-  left: -1000px;
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  max-width: 240px;
-  padding: 5px 11px;
-  overflow: hidden;
-  color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  box-shadow: 0 5px 16px rgba(24, 31, 30, 0.14);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.tree-drag-ghost::before {
-  width: 11px;
-  height: 11px;
-  flex: 0 0 11px;
-  margin-right: 8px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  content: '';
-  opacity: 0.72;
-}
-
 .tree-folder {
   display: flex;
   align-items: center;
