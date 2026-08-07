@@ -2315,7 +2315,7 @@ body.resizing-panels * {
   color: var(--muted);
   background: transparent;
   border: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
   text-align: left;
