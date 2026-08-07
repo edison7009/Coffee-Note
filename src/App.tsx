@@ -2657,6 +2657,14 @@ function LibraryTree({
   const [dragEntry, setDragEntry] = useState<TreeDragEntry | null>(null);
   const [dropTarget, setDropTarget] = useState<TreeDropTarget | null>(null);
   const dragEntryRef = useRef<TreeDragEntry | null>(null);
+  const pointerDragRef = useRef<{
+    entry: TreeDragEntry;
+    startX: number;
+    startY: number;
+    active: boolean;
+    target: TreeDropTarget | null;
+    ghost: HTMLElement | null;
+  } | null>(null);
   const dropTargetRef = useRef<TreeDropTarget | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
@@ -2965,25 +2973,6 @@ function LibraryTree({
     }
   };
 
-  const handleTreeDragStart = (
-    event: React.DragEvent<HTMLElement>,
-    entry: DirectoryEntry,
-  ) => {
-    event.stopPropagation();
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', entry.relativePath);
-    const transparentImage = document.createElement('canvas');
-    transparentImage.width = 1;
-    transparentImage.height = 1;
-    event.dataTransfer.setDragImage(transparentImage, 0, 0);
-    document.documentElement.classList.add('tree-drag-active');
-    const activeEntry = { relativePath: entry.relativePath, isDir: entry.isDir };
-    dragEntryRef.current = activeEntry;
-    setDragEntry(activeEntry);
-    dropTargetRef.current = null;
-    setDropTarget(null);
-  };
-
   const updateDropTarget = (target: TreeDropTarget | null) => {
     const current = dropTargetRef.current;
     if (
@@ -3002,65 +2991,28 @@ function LibraryTree({
   };
 
   const getTreeDropPosition = (
-    event: React.DragEvent<HTMLElement>,
-    entry: Pick<DirectoryEntry, 'isDir'>,
+    clientY: number,
+    rect: DOMRect,
+    isDir: boolean,
     rootTarget: boolean,
   ): TreeDropPosition => {
     if (rootTarget) return 'inside';
-    const rect = event.currentTarget.getBoundingClientRect();
-    const ratio = (event.clientY - rect.top) / Math.max(rect.height, 1);
-    if (!entry.isDir) return ratio < 0.5 ? 'before' : 'after';
+    const ratio = (clientY - rect.top) / Math.max(rect.height, 1);
+    if (!isDir) return ratio < 0.5 ? 'before' : 'after';
     if (ratio < 0.25) return 'before';
     if (ratio > 0.75) return 'after';
     return 'inside';
   };
 
-  const handleTreeDragOver = (
-    event: React.DragEvent<HTMLElement>,
+  const performTreeDrop = async (
+    source: TreeDragEntry,
     entry: Pick<DirectoryEntry, 'relativePath' | 'isDir'>,
-    rootTarget = false,
+    position: TreeDropPosition,
   ) => {
-    const activeDragEntry = dragEntryRef.current || dragEntry;
-    if (!activeDragEntry) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = 'move';
-    if (activeDragEntry.relativePath === entry.relativePath) {
-      updateDropTarget(null);
-      return;
-    }
-
-    const position = getTreeDropPosition(event, entry, rootTarget);
-
-    const targetDir = position === 'inside'
-      ? entry.relativePath
-      : parentDirOf(entry.relativePath);
-    if (
-      activeDragEntry.isDir &&
-      (targetDir === activeDragEntry.relativePath ||
-        targetDir.startsWith(`${activeDragEntry.relativePath}/`))
-    ) {
-      updateDropTarget(null);
-      return;
-    }
-
-    updateDropTarget({ ...entry, position });
-  };
-
-  const handleTreeDrop = async (
-    event: React.DragEvent<HTMLElement>,
-    entry: Pick<DirectoryEntry, 'relativePath' | 'isDir'>,
-    rootTarget = false,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const source = dragEntryRef.current || dragEntry;
-    if (!source || source.relativePath === entry.relativePath) {
+    if (source.relativePath === entry.relativePath) {
       handleTreeDragEnd();
       return;
     }
-
-    const position = getTreeDropPosition(event, entry, rootTarget);
     const sourceParent = parentDirOf(source.relativePath);
     const targetDir = position === 'inside'
       ? entry.relativePath
@@ -3143,6 +3095,122 @@ function LibraryTree({
     }
   };
 
+  const findTreeDropTarget = (clientX: number, clientY: number): TreeDropTarget | null => {
+    const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const item = hit?.closest<HTMLElement>('[data-tree-entry]');
+    if (item) {
+      const relativePath = item.dataset.treeEntry;
+      if (!relativePath) return null;
+      const isDir = item.dataset.treeIsDir === 'true';
+      return {
+        relativePath,
+        isDir,
+        position: getTreeDropPosition(
+          clientY,
+          item.getBoundingClientRect(),
+          isDir,
+          false,
+        ),
+      };
+    }
+    if (hit?.closest('[data-tree-root]')) {
+      return { relativePath: '', isDir: true, position: 'inside' };
+    }
+    return null;
+  };
+
+  const createTreeDragGhost = (entry: DirectoryEntry): HTMLElement => {
+    const ghost = document.createElement('div');
+    ghost.className = 'tree-drag-ghost';
+    ghost.textContent = entry.name.replace(/\.md$/i, '');
+    document.body.appendChild(ghost);
+    return ghost;
+  };
+
+  const beginTreePointerDrag = (
+    event: React.PointerEvent<HTMLElement>,
+    entry: DirectoryEntry,
+  ) => {
+    if (event.button !== 0) return;
+    const drag = {
+      entry: { relativePath: entry.relativePath, isDir: entry.isDir },
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      target: null as TreeDropTarget | null,
+      ghost: null as HTMLElement | null,
+    };
+    pointerDragRef.current = drag;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const current = pointerDragRef.current;
+      if (!current) return;
+      if (!current.active && Math.hypot(moveEvent.clientX - current.startX, moveEvent.clientY - current.startY) < 5) {
+        return;
+      }
+      if (!current.active) {
+        current.active = true;
+        dragEntryRef.current = current.entry;
+        setDragEntry(current.entry);
+        document.documentElement.classList.add('tree-drag-active');
+        current.ghost = createTreeDragGhost(entry);
+      }
+      moveEvent.preventDefault();
+      if (current.ghost) {
+        current.ghost.style.transform = `translate3d(${moveEvent.clientX + 12}px, ${moveEvent.clientY + 12}px, 0)`;
+      }
+      const target = findTreeDropTarget(moveEvent.clientX, moveEvent.clientY);
+      if (!target || target.relativePath === current.entry.relativePath) {
+        current.target = null;
+        updateDropTarget(null);
+        return;
+      }
+      const targetDir = target.position === 'inside'
+        ? target.relativePath
+        : parentDirOf(target.relativePath);
+      if (
+        current.entry.isDir &&
+        (targetDir === current.entry.relativePath || targetDir.startsWith(`${current.entry.relativePath}/`))
+      ) {
+        current.target = null;
+        updateDropTarget(null);
+        return;
+      }
+      current.target = target;
+      updateDropTarget(target);
+    };
+
+    const onUp = (upEvent: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      const current = pointerDragRef.current;
+      pointerDragRef.current = null;
+      if (!current?.active) return;
+      upEvent.preventDefault();
+      current.ghost?.remove();
+      const target = findTreeDropTarget(upEvent.clientX, upEvent.clientY) || current.target;
+      if (target) {
+        void performTreeDrop(current.entry, target, target.position);
+      } else {
+        handleTreeDragEnd();
+      }
+    };
+
+    const onCancel = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      pointerDragRef.current?.ghost?.remove();
+      pointerDragRef.current = null;
+      handleTreeDragEnd();
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+  };
+
   const renderEditRow = (dirPath: string, depth: number) =>
     edit && edit.path === dirPath ? (
       <div className="tree-edit-row" style={{ paddingLeft: 8 + (depth + 1) * 14 }}>
@@ -3173,11 +3241,9 @@ function LibraryTree({
         key={entry.relativePath}
         className={`tree-child ${activeFilePath === entry.relativePath ? 'active' : ''} ${dragEntry?.relativePath === entry.relativePath ? 'is-dragging' : ''} ${targetPosition ? `drop-${targetPosition}` : ''}`}
         style={{ paddingLeft: 8 + depth * 14 }}
-        draggable
-        onDragStart={(event) => handleTreeDragStart(event, entry)}
-        onDragEnd={handleTreeDragEnd}
-        onDragOver={(event) => handleTreeDragOver(event, entry)}
-        onDrop={(event) => void handleTreeDrop(event, entry)}
+        data-tree-entry={entry.relativePath}
+        data-tree-is-dir="false"
+        onPointerDown={(event) => beginTreePointerDrag(event, entry)}
         onClick={() => onOpenFile(entry.relativePath)}
         onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
       >
@@ -3199,11 +3265,9 @@ function LibraryTree({
         <div
           className={`tree-folder-row ${dragEntry?.relativePath === entry.relativePath ? 'is-dragging' : ''} ${targetPosition ? `drop-${targetPosition}` : ''}`}
           style={{ paddingLeft: 8 + depth * 14 }}
-          draggable
-          onDragStart={(event) => handleTreeDragStart(event, entry)}
-          onDragEnd={handleTreeDragEnd}
-          onDragOver={(event) => handleTreeDragOver(event, entry)}
-          onDrop={(event) => void handleTreeDrop(event, entry)}
+          data-tree-entry={entry.relativePath}
+          data-tree-is-dir="true"
+          onPointerDown={(event) => beginTreePointerDrag(event, entry)}
         >
           <button
             type="button"
@@ -3245,21 +3309,10 @@ function LibraryTree({
   return (
     <div
       className="nav-tree-group library-tree"
-      onDragOver={(event) => {
-        if (!dragEntryRef.current) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-      }}
-      onDrop={(event) => {
-        if (!dragEntryRef.current) return;
-        event.preventDefault();
-        handleTreeDragEnd();
-      }}
     >
       <div
         className={`library-root-row ${dropTarget?.relativePath === '' ? 'drop-inside' : ''}`}
-        onDragOver={(event) => handleTreeDragOver(event, { relativePath: '', isDir: true }, true)}
-        onDrop={(event) => void handleTreeDrop(event, { relativePath: '', isDir: true }, true)}
+        data-tree-root
         onContextMenu={(event) => openContextMenu(event, 'folder', '', t('treeRoot'))}
       >
         <span className="library-root-label">

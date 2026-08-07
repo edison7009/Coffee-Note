@@ -672,8 +672,8 @@ body.resizing-panels * {
   min-width: 0;
 }
 
-.tree-child[draggable='true'],
-.tree-folder-row[draggable='true'],
+.tree-child,
+.tree-folder-row,
 .tree-folder {
   cursor: default;
 }
@@ -726,6 +726,41 @@ html.tree-drag-active * {
 .tree-folder-row.drop-inside,
 .library-root-row.drop-inside {
   background: var(--accent-soft);
+}
+
+.tree-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 240px;
+  padding: 5px 11px;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 5px 16px rgba(24, 31, 30, 0.14);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate3d(-1000px, -1000px, 0);
+}
+
+.tree-drag-ghost::before {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  margin-right: 8px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  content: '';
+  opacity: 0.72;
 }
 
 .tree-folder {
