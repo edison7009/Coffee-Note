@@ -2453,6 +2453,15 @@ interface CtxMenuActions {
   onCleanup?: (menu: CtxMenuState) => void;
 }
 
+type TreeOrder = Record<string, string[]>;
+type TreeDragEntry = Pick<DirectoryEntry, 'relativePath' | 'isDir'>;
+type TreeDropPosition = 'before' | 'inside' | 'after';
+type TreeDropTarget = {
+  relativePath: string;
+  isDir: boolean;
+  position: TreeDropPosition;
+};
+
 // Module-level clipboard so cut/copy survives menu close/open cycles.
 let fsClipboard: { action: 'copy' | 'cut'; source: string } | null = null;
 
@@ -2463,6 +2472,15 @@ function joinLibraryPath(root: string, relativePath: string): string {
 function parentDirOf(relativePath: string): string {
   const index = relativePath.lastIndexOf('/');
   return index > 0 ? relativePath.slice(0, index) : '';
+}
+
+function treeOrderStorageKey(root: string): string {
+  return `tiernote:library-tree-order:v1:${root.replace(/\\/g, '/').toLocaleLowerCase()}`;
+}
+
+function replacePathPrefix(path: string, previous: string, next: string): string {
+  if (path === previous) return next;
+  return path.startsWith(`${previous}/`) ? `${next}${path.slice(previous.length)}` : path;
 }
 
 function ContextMenu({
@@ -2635,6 +2653,9 @@ function LibraryTree({
   const [edit, setEdit] = useState<TreeEditState | null>(null);
   const [editValue, setEditValue] = useState('');
   const [quickNoteCreating, setQuickNoteCreating] = useState(false);
+  const [treeOrder, setTreeOrder] = useState<TreeOrder>({});
+  const [dragEntry, setDragEntry] = useState<TreeDragEntry | null>(null);
+  const [dropTarget, setDropTarget] = useState<TreeDropTarget | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
     path: string;
@@ -2644,6 +2665,32 @@ function LibraryTree({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef(root);
   rootRef.current = root;
+
+  const updateTreeOrder = useCallback((updater: (current: TreeOrder) => TreeOrder) => {
+    setTreeOrder((current) => {
+      const next = updater(current);
+      try {
+        window.localStorage.setItem(treeOrderStorageKey(rootRef.current), JSON.stringify(next));
+      } catch {
+        // Ordering remains available for this session if local storage is unavailable.
+      }
+      return next;
+    });
+  }, []);
+
+  const orderedEntries = useCallback((dirPath: string, entries: DirectoryEntry[]) => {
+    const saved = treeOrder[dirPath] || [];
+    if (saved.length === 0) return entries;
+    const positions = new Map(saved.map((path, index) => [path, index]));
+    return [...entries].sort((left, right) => {
+      const leftIndex = positions.get(left.relativePath);
+      const rightIndex = positions.get(right.relativePath);
+      if (leftIndex !== undefined && rightIndex !== undefined) return leftIndex - rightIndex;
+      if (leftIndex !== undefined) return -1;
+      if (rightIndex !== undefined) return 1;
+      return 0;
+    });
+  }, [treeOrder]);
 
   const refreshDir = useCallback((dirPath: string) => {
     listDirectory(rootRef.current, dirPath)
@@ -2667,6 +2714,23 @@ function LibraryTree({
     },
     [],
   );
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(treeOrderStorageKey(root));
+      const parsed: unknown = saved ? JSON.parse(saved) : {};
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setTreeOrder({});
+        return;
+      }
+      const valid = Object.entries(parsed).every(
+        ([, paths]) => Array.isArray(paths) && paths.every((path) => typeof path === 'string'),
+      );
+      setTreeOrder(valid ? parsed as TreeOrder : {});
+    } catch {
+      setTreeOrder({});
+    }
+  }, [root]);
 
   useEffect(() => {
     setEntriesByDir({});
@@ -2771,7 +2835,16 @@ function LibraryTree({
     if (!target || !value) return;
     setRenameTarget(null);
     try {
-      await renameEntry(rootRef.current, target.path, value);
+      const renamed = await renameEntry(rootRef.current, target.path, value);
+      updateTreeOrder((current) => {
+        const next: TreeOrder = {};
+        for (const [dirPath, paths] of Object.entries(current)) {
+          next[replacePathPrefix(dirPath, target.path, renamed)] = paths.map((path) =>
+            replacePathPrefix(path, target.path, renamed),
+          );
+        }
+        return next;
+      });
       refreshDir(parentDirOf(target.path));
       onLibraryChanged();
     } catch (error) {
@@ -2790,6 +2863,21 @@ function LibraryTree({
     if (!confirmed) return;
     try {
       await deleteEntry(rootRef.current, menu.relativePath);
+      updateTreeOrder((current) => {
+        const next: TreeOrder = {};
+        for (const [dirPath, paths] of Object.entries(current)) {
+          if (
+            dirPath === menu.relativePath ||
+            dirPath.startsWith(`${menu.relativePath}/`)
+          ) continue;
+          next[dirPath] = paths.filter(
+            (path) =>
+              path !== menu.relativePath &&
+              !path.startsWith(`${menu.relativePath}/`),
+          );
+        }
+        return next;
+      });
       refreshDir(parentDirOf(menu.relativePath));
       onLibraryChanged();
     } catch (error) {
@@ -2875,6 +2963,163 @@ function LibraryTree({
     }
   };
 
+  const handleTreeDragStart = (
+    event: React.DragEvent<HTMLElement>,
+    entry: DirectoryEntry,
+  ) => {
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', entry.relativePath);
+    setDragEntry({ relativePath: entry.relativePath, isDir: entry.isDir });
+    setDropTarget(null);
+  };
+
+  const handleTreeDragEnd = () => {
+    setDragEntry(null);
+    setDropTarget(null);
+  };
+
+  const getTreeDropPosition = (
+    event: React.DragEvent<HTMLElement>,
+    entry: Pick<DirectoryEntry, 'isDir'>,
+    rootTarget: boolean,
+  ): TreeDropPosition => {
+    if (rootTarget) return 'inside';
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = (event.clientY - rect.top) / Math.max(rect.height, 1);
+    if (!entry.isDir) return ratio < 0.5 ? 'before' : 'after';
+    if (ratio < 0.25) return 'before';
+    if (ratio > 0.75) return 'after';
+    return 'inside';
+  };
+
+  const handleTreeDragOver = (
+    event: React.DragEvent<HTMLElement>,
+    entry: Pick<DirectoryEntry, 'relativePath' | 'isDir'>,
+    rootTarget = false,
+  ) => {
+    if (!dragEntry) return;
+    if (dragEntry.relativePath === entry.relativePath) {
+      setDropTarget(null);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+
+    const position = getTreeDropPosition(event, entry, rootTarget);
+
+    const targetDir = position === 'inside'
+      ? entry.relativePath
+      : parentDirOf(entry.relativePath);
+    if (
+      dragEntry.isDir &&
+      (targetDir === dragEntry.relativePath ||
+        targetDir.startsWith(`${dragEntry.relativePath}/`))
+    ) {
+      setDropTarget(null);
+      return;
+    }
+
+    setDropTarget({ ...entry, position });
+  };
+
+  const handleTreeDrop = async (
+    event: React.DragEvent<HTMLElement>,
+    entry: Pick<DirectoryEntry, 'relativePath' | 'isDir'>,
+    rootTarget = false,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const source = dragEntry;
+    if (!source || source.relativePath === entry.relativePath) {
+      handleTreeDragEnd();
+      return;
+    }
+
+    const position = getTreeDropPosition(event, entry, rootTarget);
+    const sourceParent = parentDirOf(source.relativePath);
+    const targetDir = position === 'inside'
+      ? entry.relativePath
+      : parentDirOf(entry.relativePath);
+    if (
+      source.isDir &&
+      (targetDir === source.relativePath || targetDir.startsWith(`${source.relativePath}/`))
+    ) {
+      handleTreeDragEnd();
+      return;
+    }
+
+    const targetEntries = orderedEntries(targetDir, entriesByDir[targetDir] || []);
+    try {
+      const movedPath = sourceParent === targetDir
+        ? source.relativePath
+        : await pasteEntry(rootRef.current, source.relativePath, targetDir, 'cut');
+      const anchorPath = entry.relativePath;
+      const orderedTargetPaths = targetEntries
+        .map((item) => item.relativePath === source.relativePath ? movedPath : item.relativePath)
+        .filter((path) => path !== movedPath);
+      let insertAt = orderedTargetPaths.length;
+      if (position !== 'inside') {
+        const anchorIndex = orderedTargetPaths.indexOf(anchorPath);
+        if (anchorIndex >= 0) insertAt = anchorIndex + (position === 'after' ? 1 : 0);
+      }
+      orderedTargetPaths.splice(insertAt, 0, movedPath);
+
+      updateTreeOrder((current) => {
+        const migrated: TreeOrder = {};
+        for (const [dirPath, paths] of Object.entries(current)) {
+          const nextDir = source.isDir
+            ? replacePathPrefix(dirPath, source.relativePath, movedPath)
+            : dirPath;
+          migrated[nextDir] = paths
+            .map((path) => source.isDir
+              ? replacePathPrefix(path, source.relativePath, movedPath)
+              : path === source.relativePath ? movedPath : path)
+            .filter((path) => path !== source.relativePath && path !== movedPath);
+        }
+        migrated[targetDir] = orderedTargetPaths;
+        return migrated;
+      });
+
+      if (sourceParent !== targetDir) {
+        setExpanded((current) => {
+          const next = { ...current, [targetDir]: true };
+          for (const path of Object.keys(next)) {
+            if (path === source.relativePath || path.startsWith(`${source.relativePath}/`)) {
+              delete next[path];
+            }
+          }
+          return next;
+        });
+        setEntriesByDir((current) => {
+          const next = { ...current };
+          for (const path of Object.keys(next)) {
+            if (path === source.relativePath || path.startsWith(`${source.relativePath}/`)) {
+              delete next[path];
+            }
+          }
+          return next;
+        });
+        refreshDir(sourceParent);
+        refreshDir(targetDir);
+        const activeEntryMoved = Boolean(
+          activeFilePath &&
+          (activeFilePath === source.relativePath ||
+            activeFilePath.startsWith(`${source.relativePath}/`)),
+        );
+        if (activeEntryMoved && activeFilePath) {
+          onOpenFile(replacePathPrefix(activeFilePath, source.relativePath, movedPath));
+        }
+        if (!activeEntryMoved) onLibraryChanged();
+      }
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    } finally {
+      handleTreeDragEnd();
+    }
+  };
+
   const renderEditRow = (dirPath: string, depth: number) =>
     edit && edit.path === dirPath ? (
       <div className="tree-edit-row" style={{ paddingLeft: 8 + (depth + 1) * 14 }}>
@@ -2896,12 +3141,20 @@ function LibraryTree({
     ) : null;
 
   const renderFile = (entry: DirectoryEntry, depth: number) => {
+    const targetPosition = dropTarget?.relativePath === entry.relativePath
+      ? dropTarget.position
+      : null;
     return (
       <button
         type="button"
         key={entry.relativePath}
-        className={`tree-child ${activeFilePath === entry.relativePath ? 'active' : ''}`}
+        className={`tree-child ${activeFilePath === entry.relativePath ? 'active' : ''} ${dragEntry?.relativePath === entry.relativePath ? 'is-dragging' : ''} ${targetPosition ? `drop-${targetPosition}` : ''}`}
         style={{ paddingLeft: 8 + depth * 14 }}
+        draggable
+        onDragStart={(event) => handleTreeDragStart(event, entry)}
+        onDragEnd={handleTreeDragEnd}
+        onDragOver={(event) => handleTreeDragOver(event, entry)}
+        onDrop={(event) => void handleTreeDrop(event, entry)}
         onClick={() => onOpenFile(entry.relativePath)}
         onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
       >
@@ -2913,9 +3166,20 @@ function LibraryTree({
 
   const renderFolder = (entry: DirectoryEntry, depth: number) => {
     const isOpen = Boolean(expanded[entry.relativePath]);
+    const targetPosition = dropTarget?.relativePath === entry.relativePath
+      ? dropTarget.position
+      : null;
     return (
       <div key={entry.relativePath}>
-        <div className="tree-folder-row" style={{ paddingLeft: 8 + depth * 14 }}>
+        <div
+          className={`tree-folder-row ${dragEntry?.relativePath === entry.relativePath ? 'is-dragging' : ''} ${targetPosition ? `drop-${targetPosition}` : ''}`}
+          style={{ paddingLeft: 8 + depth * 14 }}
+          draggable
+          onDragStart={(event) => handleTreeDragStart(event, entry)}
+          onDragEnd={handleTreeDragEnd}
+          onDragOver={(event) => handleTreeDragOver(event, entry)}
+          onDrop={(event) => void handleTreeDrop(event, entry)}
+        >
           <button
             type="button"
             className={`tree-folder ${isOpen ? 'open' : ''}`}
@@ -2930,7 +3194,7 @@ function LibraryTree({
         {isOpen && (
           <div className="tree-children">
             {renderEditRow(entry.relativePath, depth)}
-            {(entriesByDir[entry.relativePath] || []).map((child) =>
+            {orderedEntries(entry.relativePath, entriesByDir[entry.relativePath] || []).map((child) =>
               child.isDir ? renderFolder(child, depth + 1) : renderFile(child, depth + 1),
             )}
           </div>
@@ -2956,7 +3220,9 @@ function LibraryTree({
   return (
     <div className="nav-tree-group library-tree">
       <div
-        className="library-root-row"
+        className={`library-root-row ${dropTarget?.relativePath === '' ? 'drop-inside' : ''}`}
+        onDragOver={(event) => handleTreeDragOver(event, { relativePath: '', isDir: true }, true)}
+        onDrop={(event) => void handleTreeDrop(event, { relativePath: '', isDir: true }, true)}
         onContextMenu={(event) => openContextMenu(event, 'folder', '', t('treeRoot'))}
       >
         <span className="library-root-label">
@@ -2985,8 +3251,12 @@ function LibraryTree({
       </div>
       <div className="tree-children">
         {renderEditRow('', 0)}
-        {(entriesByDir[''] || [])
-          .filter((entry) => !entry.isDir || !HIDDEN_ROOT_FOLDERS.has(entry.name))
+        {orderedEntries(
+          '',
+          (entriesByDir[''] || []).filter(
+            (entry) => !entry.isDir || !HIDDEN_ROOT_FOLDERS.has(entry.name),
+          ),
+        )
           .map((entry) =>
             entry.isDir ? renderFolder(entry, 0) : renderFile(entry, 0),
           )}

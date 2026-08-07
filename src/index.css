@@ -595,6 +595,7 @@ body.resizing-panels * {
 }
 
 .library-root-row {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -665,9 +666,35 @@ body.resizing-panels * {
 }
 
 .tree-folder-row {
+  position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
+}
+
+.tree-child[draggable='true'],
+.tree-folder-row[draggable='true'] {
+  cursor: grab;
+}
+
+.tree-child.is-dragging,
+.tree-folder-row.is-dragging {
+  opacity: 0.42;
+}
+
+.tree-child.drop-before,
+.tree-folder-row.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.tree-child.drop-after,
+.tree-folder-row.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tree-folder-row.drop-inside,
+.library-root-row.drop-inside {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .tree-folder {
