@@ -263,6 +263,14 @@ const tierMeta: Record<string, { label: Record<Locale, string>; color: string }>
   pending: { label: { zh: '仅收录', en: 'Collected' }, color: '#bcc9d6' },
 };
 
+const COMPOSER_REASONING_LEVELS = [
+  { value: 'low', label: { zh: '轻度', en: 'Low' } },
+  { value: 'medium', label: { zh: '中', en: 'Medium' } },
+  { value: 'high', label: { zh: '高', en: 'High' } },
+  { value: 'xhigh', label: { zh: '超高', en: 'XHigh' } },
+  { value: 'max', label: { zh: '极致', en: 'Max' } },
+] as const;
+
 const TIER_IDS = ['T1', 'T2', 'T3', 'T4', 'T5'] as const;
 type TierId = (typeof TIER_IDS)[number];
 
@@ -2357,8 +2365,8 @@ function UpdateButton({ locale }: { locale: Locale }) {
       onClick={() => void handleUpdate()}
       aria-label={
         locale === 'zh'
-          ? `更新至 Gambit ${availableVersion}`
-          : `Update Gambit to ${availableVersion}`
+          ? `更新至 Lucky Note ${availableVersion}`
+          : `Update Lucky Note to ${availableVersion}`
       }
       disabled={installingUpdate}
     >
@@ -3970,7 +3978,7 @@ function ConversationView({
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
             <img src="/brand/logo-new.png" alt="" />
-            <strong className="chat-empty-wordmark">Gambit</strong>
+            <strong className="chat-empty-wordmark">Lucky Note</strong>
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
@@ -4338,6 +4346,14 @@ function ChatComposer({
   locale: Locale;
 }) {
   const [value, setValue] = useState('');
+  const configuredModel = modelConfig.model.trim() || providerOptions[modelConfig.provider].modelPlaceholder;
+  const [previewModel, setPreviewModel] = useState(configuredModel);
+  const [previewReasoningPosition, setPreviewReasoningPosition] = useState(2);
+  const [reasoningDragging, setReasoningDragging] = useState(false);
+  const [reasoningDragPhase, setReasoningDragPhase] = useState<'idle' | 'slow' | 'catchup' | 'tracking'>('idle');
+  const reasoningMotionTimersRef = useRef<number[]>([]);
+  const [openComposerMenu, setOpenComposerMenu] = useState<'model' | 'reasoning' | null>(null);
+  const composerControlsRef = useRef<HTMLDivElement>(null);
   const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitRate = cacheTokens > 0
     ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`
@@ -4352,6 +4368,76 @@ function ChatComposer({
       ? '—'
     : `${currencySymbol}${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
   const numberFormat = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
+  const previewModelOptions = useMemo(() => {
+    const examples = modelConfig.provider === 'anthropic'
+      ? ['claude-opus-5', 'claude-opus-5-1M']
+      : ['deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner'];
+    return Array.from(new Set([configuredModel, ...examples]));
+  }, [configuredModel, modelConfig.provider]);
+  const reasoningPosition = Math.min(
+    COMPOSER_REASONING_LEVELS.length - 1,
+    Math.max(0, previewReasoningPosition),
+  );
+  const selectedReasoningIndex = Math.round(reasoningPosition);
+  const selectedReasoning = COMPOSER_REASONING_LEVELS[selectedReasoningIndex]
+    ?? COMPOSER_REASONING_LEVELS[2];
+  const selectedReasoningLabel = selectedReasoning.label[locale];
+  const reasoningAtMax = reasoningPosition >= COMPOSER_REASONING_LEVELS.length - 1 - 0.001;
+  const snapReasoningPosition = (position: number) => {
+    const nextIndex = Math.min(
+      COMPOSER_REASONING_LEVELS.length - 1,
+      Math.max(0, Math.round(position)),
+    );
+    setPreviewReasoningPosition(nextIndex);
+  };
+  const clearReasoningMotionTimers = () => {
+    reasoningMotionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    reasoningMotionTimersRef.current = [];
+  };
+  const startReasoningDragMotion = () => {
+    clearReasoningMotionTimers();
+    setReasoningDragPhase('slow');
+    const catchupTimer = window.setTimeout(() => {
+      setReasoningDragPhase('catchup');
+      const trackingTimer = window.setTimeout(() => {
+        setReasoningDragPhase('tracking');
+      }, 45);
+      reasoningMotionTimersRef.current.push(trackingTimer);
+    }, 45);
+    reasoningMotionTimersRef.current.push(catchupTimer);
+  };
+  const stopReasoningDragMotion = () => {
+    clearReasoningMotionTimers();
+    setReasoningDragPhase('idle');
+  };
+
+  useEffect(() => {
+    setPreviewModel(configuredModel);
+  }, [configuredModel, modelConfig.provider]);
+
+  useEffect(() => () => {
+    reasoningMotionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  useEffect(() => {
+    if (!openComposerMenu) return;
+
+    const closeOnOutsidePress = (event: globalThis.PointerEvent) => {
+      if (!composerControlsRef.current?.contains(event.target as Node)) {
+        setOpenComposerMenu(null);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenComposerMenu(null);
+    };
+
+    window.addEventListener('pointerdown', closeOnOutsidePress);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsidePress);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openComposerMenu]);
 
   // Must match the `.composer textarea` CSS max-height (6 lines at 1.45).
   const autosize = useCallback(() => {
@@ -4408,13 +4494,137 @@ function ChatComposer({
         />
         <div className="composer-tools">
           {currentPage && <span className="composer-page-chip">{currentPage}</span>}
-          <span
-            className="composer-model-id"
-            aria-label={locale === 'zh' ? `当前模型：${modelConfig.model}` : `Current model: ${modelConfig.model}`}
-          >
-            {modelConfig.model}
-          </span>
+          <div className="composer-preview-controls" ref={composerControlsRef}>
+            <div className="composer-preview-control">
+              <button
+                type="button"
+                className="composer-preview-trigger composer-model-id"
+                aria-expanded={openComposerMenu === 'model'}
+                aria-haspopup="listbox"
+                onClick={() => setOpenComposerMenu((current) => current === 'model' ? null : 'model')}
+              >
+                {previewModel}
+              </button>
+              {openComposerMenu === 'model' && (
+                <div
+                  className="composer-preview-popover composer-model-popover"
+                  role="listbox"
+                  aria-label={locale === 'zh' ? '模型预览' : 'Model preview'}
+                >
+                  {previewModelOptions.map((model) => (
+                    <button
+                      type="button"
+                      className={previewModel === model ? 'selected' : ''}
+                      role="option"
+                      aria-selected={previewModel === model}
+                      onClick={() => {
+                        setPreviewModel(model);
+                        setOpenComposerMenu(null);
+                      }}
+                      key={model}
+                    >
+                      <span>{model}</span>
+                      {previewModel === model && <Check size={15} strokeWidth={2.2} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="composer-preview-control">
+              <button
+                type="button"
+                className={`composer-preview-trigger composer-reasoning-level${reasoningAtMax ? ' is-max' : ''}`}
+                aria-expanded={openComposerMenu === 'reasoning'}
+                aria-haspopup="dialog"
+                onClick={() => setOpenComposerMenu((current) => current === 'reasoning' ? null : 'reasoning')}
+              >
+                {selectedReasoningLabel}
+              </button>
+              {openComposerMenu === 'reasoning' && (
+                <div
+                  className="composer-preview-popover composer-reasoning-popover"
+                  role="dialog"
+                  aria-label={locale === 'zh' ? '推理强度预览' : 'Reasoning effort preview'}
+                >
+                  <div className="composer-reasoning-header">
+                    <span>{locale === 'zh' ? '推理强度' : 'Reasoning effort'}</span>
+                    <strong className={reasoningAtMax ? 'is-max' : ''}>
+                      {selectedReasoningLabel}
+                    </strong>
+                  </div>
+                  <div
+                    className={`composer-reasoning-slider${reasoningDragging ? ` is-dragging is-${reasoningDragPhase}` : ''}${reasoningAtMax ? ' is-max' : ''}`}
+                  >
+                    <div className="composer-reasoning-track" aria-hidden="true">
+                      <span
+                        className="composer-reasoning-fill"
+                        style={{
+                          width: `calc(8px + ${reasoningPosition * 25}% - ${reasoningPosition * 4}px)`,
+                        }}
+                      />
+                      <div className="composer-reasoning-points">
+                        {COMPOSER_REASONING_LEVELS.map((level, index) => (
+                          <span
+                            className={`${index === COMPOSER_REASONING_LEVELS.length - 1 ? 'last ' : ''}${index === selectedReasoningIndex ? 'selected' : ''}`}
+                            style={{ left: `${index * 25}%` }}
+                            key={level.value}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <span
+                      className="composer-reasoning-thumb"
+                      aria-hidden="true"
+                      style={{
+                        left: `calc(8px + ${reasoningPosition * 25}% - ${reasoningPosition * 4}px)`,
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max={COMPOSER_REASONING_LEVELS.length - 1}
+                      step="any"
+                      value={reasoningPosition}
+                      aria-label={locale === 'zh' ? '推理强度' : 'Reasoning effort'}
+                      aria-valuetext={selectedReasoningLabel}
+                      onChange={(event) => {
+                        setPreviewReasoningPosition(Number(event.currentTarget.value));
+                      }}
+                      onPointerDown={(event) => {
+                        setReasoningDragging(true);
+                        startReasoningDragMotion();
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                      }}
+                      onPointerUp={(event) => {
+                        setReasoningDragging(false);
+                        stopReasoningDragMotion();
+                        snapReasoningPosition(Number(event.currentTarget.value));
+                        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                          event.currentTarget.releasePointerCapture(event.pointerId);
+                        }
+                      }}
+                      onPointerCancel={(event) => {
+                        setReasoningDragging(false);
+                        stopReasoningDragMotion();
+                        snapReasoningPosition(Number(event.currentTarget.value));
+                      }}
+                      onKeyUp={(event) => {
+                        snapReasoningPosition(Number(event.currentTarget.value));
+                      }}
+                      onBlur={(event) => {
+                        setReasoningDragging(false);
+                        stopReasoningDragMotion();
+                        snapReasoningPosition(Number(event.currentTarget.value));
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           <button
+            className="composer-send-button"
             type={busy ? 'button' : 'submit'}
             onClick={busy ? onAbort : undefined}
             disabled={busy ? !onAbort : !value.trim()}
