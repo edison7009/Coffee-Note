@@ -2656,6 +2656,7 @@ function LibraryTree({
   const [treeOrder, setTreeOrder] = useState<TreeOrder>({});
   const [dragEntry, setDragEntry] = useState<TreeDragEntry | null>(null);
   const [dropTarget, setDropTarget] = useState<TreeDropTarget | null>(null);
+  const dragGhostRef = useRef<HTMLElement | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
     path: string;
@@ -2970,11 +2971,20 @@ function LibraryTree({
     event.stopPropagation();
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', entry.relativePath);
+    dragGhostRef.current?.remove();
+    const ghost = document.createElement('div');
+    ghost.className = 'tree-drag-ghost';
+    ghost.textContent = entry.name.replace(/\.md$/i, '');
+    document.body.appendChild(ghost);
+    event.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
+    dragGhostRef.current = ghost;
     setDragEntry({ relativePath: entry.relativePath, isDir: entry.isDir });
     setDropTarget(null);
   };
 
   const handleTreeDragEnd = () => {
+    dragGhostRef.current?.remove();
+    dragGhostRef.current = null;
     setDragEntry(null);
     setDropTarget(null);
   };
