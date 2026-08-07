@@ -25,6 +25,14 @@ Project rules:
 - Preserve the restrained neutral black/gray visual language, large readable
   type, and low-chrome desktop UI. Avoid hover tooltips, unnecessary borders,
   redundant labels, and web-like decoration inside the desktop app.
+- No native `title` attributes anywhere in the desktop app — we are not a
+  website. Hover tooltips are a web pattern; show information inline or behind
+  an explicit click and keep `aria-label` for accessibility. One explicit
+  rule: non-interactive readouts (like the AI composer model ID) are plain
+  text — no cursor change, no hover effects, no tooltip.
+- Enforce the desktop minimum type floor from `DESIGN.md`: no readable UI text
+  below 13px, no metadata below 12px, 15px left navigation, 14px directory/file
+  tree. Never ship smaller text to fix a layout; enlarge the component instead.
 - Do not commit generated dependencies or build output (`node_modules/`,
   `dist/`, `src-tauri/target/`).
 - `website/` is deployed publicly from this repository with GitHub Pages.

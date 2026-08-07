@@ -2360,7 +2360,6 @@ function UpdateButton({ locale }: { locale: Locale }) {
           ? `更新至 Gambit ${availableVersion}`
           : `Update Gambit to ${availableVersion}`
       }
-      title={locale === 'zh' ? `更新至 Gambit ${availableVersion}` : `Update Gambit to ${availableVersion}`}
       disabled={installingUpdate}
     >
       {installingUpdate ? (
@@ -2564,7 +2563,7 @@ function ContextMenu({
 }
 
 interface TreeEditState {
-  mode: 'rename' | 'create-folder' | 'create-note';
+  mode: 'create-folder' | 'create-note';
   path: string;
 }
 
@@ -2628,6 +2627,12 @@ function LibraryTree({
   const [edit, setEdit] = useState<TreeEditState | null>(null);
   const [editValue, setEditValue] = useState('');
   const editRef = useRef<HTMLInputElement>(null);
+  const [renameTarget, setRenameTarget] = useState<{
+    path: string;
+    name: string;
+  } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef(root);
   rootRef.current = root;
 
@@ -2665,6 +2670,13 @@ function LibraryTree({
   useEffect(() => {
     if (edit) editRef.current?.select();
   }, [edit]);
+
+  useEffect(() => {
+    if (renameTarget) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [renameTarget]);
 
   const toggleDir = (dirPath: string) => {
     const next = !expanded[dirPath];
@@ -2711,10 +2723,24 @@ function LibraryTree({
 
   const startRename = (menu: CtxMenuState) => {
     closeMenu();
-    setEdit({ mode: 'rename', path: menu.relativePath });
-    setEditValue(
-      menu.kind === 'file' ? menu.name.replace(/\.md$/i, '') : menu.name,
-    );
+    setRenameTarget({ path: menu.relativePath, name: menu.name });
+    setRenameValue(menu.kind === 'file' ? menu.name.replace(/\.md$/i, '') : menu.name);
+  };
+
+  const cancelRename = useCallback(() => setRenameTarget(null), []);
+
+  const commitRename = async () => {
+    const target = renameTarget;
+    const value = renameValue.trim();
+    if (!target || !value) return;
+    setRenameTarget(null);
+    try {
+      await renameEntry(rootRef.current, target.path, value);
+      refreshDir(parentDirOf(target.path));
+      onLibraryChanged();
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    }
   };
 
   const handleDelete = async (menu: CtxMenuState) => {
@@ -2802,15 +2828,11 @@ function LibraryTree({
         await createFolder(rootRef.current, current.path, value);
         refreshDir(current.path);
         onLibraryChanged();
-      } else if (current.mode === 'create-note') {
+      } else {
         const created = await createNote(rootRef.current, current.path, value);
         refreshDir(current.path);
         onLibraryChanged();
         onOpenFile(created);
-      } else {
-        await renameEntry(rootRef.current, current.path, value);
-        refreshDir(parentDirOf(current.path));
-        onLibraryChanged();
       }
     } catch (error) {
       notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
@@ -2818,7 +2840,7 @@ function LibraryTree({
   };
 
   const renderEditRow = (dirPath: string, depth: number) =>
-    edit && edit.mode !== 'rename' && edit.path === dirPath ? (
+    edit && edit.path === dirPath ? (
       <div className="tree-edit-row" style={{ paddingLeft: 8 + (depth + 1) * 14 }}>
         <input
           ref={editRef}
@@ -2838,7 +2860,6 @@ function LibraryTree({
     ) : null;
 
   const renderFile = (entry: DirectoryEntry, depth: number) => {
-    const renaming = edit?.mode === 'rename' && edit.path === entry.relativePath;
     return (
       <button
         type="button"
@@ -2849,30 +2870,13 @@ function LibraryTree({
         onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
       >
         {NOTE_ICONS[entry.icon || ''] || <FileText size={13} />}
-        {renaming ? (
-          <input
-            ref={editRef}
-            className="tree-rename-input"
-            value={editValue}
-            placeholder={t('renamePlaceholder')}
-            onChange={(event) => setEditValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void commitEdit();
-              if (event.key === 'Escape') setEdit(null);
-            }}
-            onBlur={() => void commitEdit()}
-            onClick={(event) => event.stopPropagation()}
-          />
-        ) : (
-          <span>{entry.name.replace(/\.md$/i, '')}</span>
-        )}
+        <span>{entry.name.replace(/\.md$/i, '')}</span>
       </button>
     );
   };
 
   const renderFolder = (entry: DirectoryEntry, depth: number) => {
     const isOpen = Boolean(expanded[entry.relativePath]);
-    const renaming = edit?.mode === 'rename' && edit.path === entry.relativePath;
     return (
       <div key={entry.relativePath}>
         <div className="tree-folder-row" style={{ paddingLeft: 8 + depth * 14 }}>
@@ -2884,23 +2888,7 @@ function LibraryTree({
           >
             <ChevronRight size={13} className={`tree-chevron ${isOpen ? 'expanded' : ''}`} />
             <FolderOpen size={15} />
-            {renaming ? (
-              <input
-                ref={editRef}
-                className="tree-rename-input"
-                value={editValue}
-                placeholder={t('renamePlaceholder')}
-                onChange={(event) => setEditValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void commitEdit();
-                  if (event.key === 'Escape') setEdit(null);
-                }}
-                onBlur={() => void commitEdit()}
-                onClick={(event) => event.stopPropagation()}
-              />
-            ) : (
-              <span>{entry.name}</span>
-            )}
+            <span>{entry.name}</span>
           </button>
         </div>
         {isOpen && (
@@ -2959,6 +2947,53 @@ function LibraryTree({
       {ctxMenu && (
         <ContextMenu menu={ctxMenu} onClose={closeMenu} actions={ctxActions} t={t} />
       )}
+      {renameTarget &&
+        createPortal(
+          <div className="modal-backdrop" onMouseDown={cancelRename}>
+            <section
+              className="settings-dialog add-material-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="rename-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <DialogHeader
+                icon={<Pencil size={21} />}
+                title={t('menuRename')}
+                titleId="rename-title"
+                onClose={cancelRename}
+                closeLabel={t('cancel')}
+              />
+              <div className="add-material-body">
+                <input
+                  ref={renameInputRef}
+                  className="add-material-input"
+                  value={renameValue}
+                  placeholder={t('renamePlaceholder')}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void commitRename();
+                    if (event.key === 'Escape') cancelRename();
+                  }}
+                />
+                <div className="capture-guide-actions">
+                  <button type="button" className="secondary-button" onClick={cancelRename}>
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => void commitRename()}
+                    disabled={!renameValue.trim()}
+                  >
+                    确定
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -3728,6 +3763,20 @@ function NoteView({
     [currentTarget.id, currentTarget.kind, internalTargets, markdown],
   );
   const displayPath = noteFullPath?.replace(/\\/g, '/') || '';
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<number | null>(null);
+
+  const handleCopyPath = async () => {
+    if (!displayPath) return;
+    try {
+      await writeText(displayPath);
+      setCopied(true);
+      if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard can be unavailable outside Tauri; leave the button unchanged.
+    }
+  };
   const components = useMemo(
     () => ({
       a: (
@@ -3809,6 +3858,15 @@ function NoteView({
         </div>
         <div className="note-meta-row">
           <div className="note-path">{displayPath}</div>
+          <button
+            type="button"
+            className={`note-action copy-path ${copied ? 'copied' : ''}`}
+            disabled={!notePath}
+            onClick={() => void handleCopyPath()}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copied ? '已复制' : '复制'}</span>
+          </button>
           <div className="note-actions">
             <button
               type="button"
@@ -4352,7 +4410,6 @@ function ChatComposer({
           {currentPage && <span className="composer-page-chip">{currentPage}</span>}
           <span
             className="composer-model-id"
-            title={modelConfig.model}
             aria-label={locale === 'zh' ? `当前模型：${modelConfig.model}` : `Current model: ${modelConfig.model}`}
           >
             {modelConfig.model}

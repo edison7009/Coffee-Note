@@ -19,6 +19,20 @@ or temporary deployment credentials.
 
 ## Desktop redesign direction (2026-08-07)
 
+- **Typography floor (2026-08-07):** Desktop UI text must never render below
+  **13px** for readable/interactive text and **12px** for technical metadata
+  (counts, shortcuts, timestamps, badges). Left navigation uses **15px**,
+  matching the EchoBird sister app's sidebar (`E:\EchoBird`); the user
+  directory/library tree uses **14px**; the right contextual rail uses 14px
+  list titles, 13px messages/meta, and 12.5px section labels; body text is
+  16px. `DESIGN.md` is the source of truth for these rules.
+- **No `title` attributes / hover tooltips (2026-08-07):** The desktop app
+  must never render native `title` attributes — we are not a website — and must
+  not use hover-revealed tips as the primary way to surface information.
+  Tooltips are a web pattern (`website/` may use them); inside the desktop app,
+  information belongs inline or behind an explicit click, with `aria-label`
+  kept for accessibility. Non-interactive readouts (e.g. the AI composer model
+  ID) are plain text: no cursor change, no hover effects, no tooltip.
 - The desktop app is moving to a calm, Codex-informed note-workspace style. This
   supersedes older instructions below that require a colorful dashboard shell or
   a blue-green gradient title bar.

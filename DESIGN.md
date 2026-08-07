@@ -10,6 +10,12 @@
 
 - **Direction:** Calm native workspace, informed by Codex rather than copied from it.
 - **Decoration:** Minimal. Hierarchy comes from type, whitespace, alignment, and state, not colorful cards or ornamental chrome.
+- **Hover tooltips:** Prohibited inside the desktop app — including native
+  `title` attributes, which must never appear in the app DOM (we are not a
+  website). Information belongs inline or behind an explicit click; `aria-label`
+  stays for assistive technology. This rule does not apply to the public
+  `website/`. Non-interactive readouts (like the AI composer model ID) are
+  plain text: no cursor change, no hover highlight, no tooltip.
 - **Mood:** Serious, quiet, capable, and spacious. TierNote should feel like a professional work surface, not a personalized dashboard template.
 - **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
 - **References:** `references/pasture/` for a permissively licensed Tauri + React Codex client; `references/palot/` for sidebar and conversation-system organization only.
@@ -30,7 +36,13 @@
 - **UI and body target:** Source Sans 3 with Noto Sans SC for Chinese coverage. Self-host before switching production CSS.
 - **Current migration fallback:** Segoe UI Variable, Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif.
 - **Data:** Use tabular numerals for token, cost, date, and count values.
-- **Scale:** 12px metadata, 14px controls, 16px body, 20px section title, 28-32px page title.
+- **Scale:** 16px body, 20px section title, 28-32px page title; 15px left
+  navigation (matches the EchoBird sister app); 14px directory/file tree and
+  controls; 13px minimum for all readable/interactive UI text; 12px metadata
+  floor for counts, shortcuts, timestamps, and tiny badges only.
+- **Minimum size rule:** No readable desktop UI text below **13px** and nothing
+  below **12px** anywhere. If a component cannot fit its label at 13px, enlarge
+  the component; never shrink the type to fit.
 - **Weight:** Use 400 for body, 550-600 for controls and navigation, and 650-700 only for page titles.
 - **Letter spacing:** 0. Avoid uppercase tracking except tiny technical metadata.
 
@@ -76,3 +88,4 @@
 | 2026-08-07 | Adopt Codex/iOS surface colors | A soft environmental sidebar, white work surface, warm grouped controls, and dark-gray type remove the cold electronic-screen feeling while keeping icons and emphasis monochrome. |
 | 2026-08-07 | Make the homepage the color exception | Three low-saturation entry cards and muted T1-T5 colors give the core screen identity while the repeated-use shell and note-reading surfaces stay quiet. |
 | 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |
+| 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
