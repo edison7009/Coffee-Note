@@ -739,7 +739,7 @@ html.tree-drag-active * {
   padding: 5px 11px;
   overflow: hidden;
   color: var(--ink);
-  background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 96%, var(--accent) 4%);
   border: 1px solid var(--line);
   border-radius: 999px;
   box-shadow: 0 5px 16px rgba(24, 31, 30, 0.14);
