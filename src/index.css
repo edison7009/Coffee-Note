@@ -201,7 +201,6 @@ a:focus-visible {
   width: 5px;
   height: 144px;
   background: var(--pane-handle);
-  box-shadow: 0 0 0 2px var(--pane-handle-ring);
 }
 
 .panel-resizing-left .pane-resizer-right span,
@@ -706,23 +705,22 @@ html.tree-drag-active * {
   right: 0;
   left: 0;
   z-index: 2;
-  height: 4px;
-  margin: 0 12px;
+  height: 2px;
+  margin: 0 6px;
   background: var(--pane-handle);
   border-radius: 999px;
-  box-shadow: 0 0 0 2px var(--pane-handle-ring);
   content: '';
   pointer-events: none;
 }
 
 .tree-child.drop-before::after,
 .tree-folder-row.drop-before::after {
-  top: -2px;
+  top: -1px;
 }
 
 .tree-child.drop-after::after,
 .tree-folder-row.drop-after::after {
-  bottom: -2px;
+  bottom: -1px;
 }
 
 .tree-folder-row.drop-inside,
@@ -5107,7 +5105,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --accent-border: rgba(58, 59, 61, 0.18);
   --accent-contrast: #ffffff;
   --pane-handle: #007aff;
-  --pane-handle-ring: rgba(0, 122, 255, 0.12);
   --ink: #2c2c2e;
   --muted: #77777b;
   --line: rgba(60, 60, 67, 0.12);
@@ -5145,7 +5142,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --accent-border: rgba(197, 201, 199, 0.22);
   --accent-contrast: #1c1c1e;
   --pane-handle: #0a84ff;
-  --pane-handle-ring: rgba(10, 132, 255, 0.18);
 }
 
 button:focus-visible,
