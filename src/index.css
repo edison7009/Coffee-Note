@@ -625,6 +625,13 @@ body.resizing-panels * {
   color: var(--muted);
 }
 
+.library-root-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
 .library-switch-btn {
   display: grid;
   width: 24px;
@@ -641,6 +648,11 @@ body.resizing-panels * {
 
 .library-switch-btn:hover {
   color: var(--accent);
+}
+
+.library-switch-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .library-tree .tree-child {

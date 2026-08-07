@@ -2634,6 +2634,7 @@ function LibraryTree({
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [edit, setEdit] = useState<TreeEditState | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [quickNoteCreating, setQuickNoteCreating] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
     path: string;
@@ -2727,6 +2728,33 @@ function LibraryTree({
     loadDir(dirPath);
     setEdit({ mode, path: dirPath });
     setEditValue('');
+  };
+
+  const createQuickNote = async () => {
+    if (quickNoteCreating) return;
+    setQuickNoteCreating(true);
+    try {
+      const rootEntries = entriesByDir[''] ?? await listDirectory(rootRef.current, '');
+      const baseName = locale === 'zh' ? '未命名笔记' : 'Untitled note';
+      const existingNames = new Set(
+        rootEntries.map((entry) => entry.name.toLocaleLowerCase()),
+      );
+      let name = baseName;
+      let suffix = 2;
+      while (existingNames.has(`${name}.md`.toLocaleLowerCase())) {
+        name = `${baseName} ${suffix}`;
+        suffix += 1;
+      }
+
+      const created = await createNote(rootRef.current, '', name);
+      refreshDir('');
+      onLibraryChanged();
+      onOpenFile(created);
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    } finally {
+      setQuickNoteCreating(false);
+    }
   };
 
   const startRename = (menu: CtxMenuState) => {
@@ -2935,14 +2963,25 @@ function LibraryTree({
           <FolderOpen size={17} />
           <span>{t('treeRoot')}</span>
         </span>
-        <button
-          type="button"
-          className="library-switch-btn"
-          onClick={onSwitchRoot}
-          aria-label={t('menuSwitchRoot')}
-        >
-          <Folder size={17} />
-        </button>
+        <div className="library-root-actions">
+          <button
+            type="button"
+            className="library-switch-btn"
+            onClick={() => void createQuickNote()}
+            aria-label={locale === 'zh' ? '添加 Markdown 文件' : 'Add Markdown file'}
+            disabled={quickNoteCreating}
+          >
+            <FilePlus2 size={17} />
+          </button>
+          <button
+            type="button"
+            className="library-switch-btn"
+            onClick={onSwitchRoot}
+            aria-label={t('menuSwitchRoot')}
+          >
+            <Folder size={17} />
+          </button>
+        </div>
       </div>
       <div className="tree-children">
         {renderEditRow('', 0)}
