@@ -234,7 +234,6 @@ body.resizing-panels * {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  overflow: hidden;
   padding: 0;
   background: none;
   border: 0;
@@ -243,8 +242,8 @@ body.resizing-panels * {
 }
 
 .brand img {
-  width: 39px;
-  height: 39px;
+  width: 26px;
+  height: 26px;
   object-fit: cover;
 }
 
@@ -271,13 +270,14 @@ body.resizing-panels * {
 }
 
 .brand strong {
-  overflow: hidden;
+  overflow: visible;
   color: var(--accent);
   font-family: 'Lora', ui-serif, Georgia, 'Times New Roman', serif;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   font-style: italic;
   letter-spacing: 0.02em;
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4777,8 +4777,8 @@ textarea,
 }
 
 .brand img {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   box-shadow: none;
   object-fit: contain;
   border-radius: 0;

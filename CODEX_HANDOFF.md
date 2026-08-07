@@ -45,15 +45,21 @@ or temporary deployment credentials.
   yellow, teal, and green, limited to the tier strip and softly tinted label cells.
 - The display brand uses the transparent rounded-corner feather mark plus the
   closed `TierNote` name in the left rail; the same mark remains in the chat empty
-  state and all Tauri bundle icon sizes. Keep internal paths, storage keys, window
-  title, and bundle identifiers as `TierNote`. Tauri icons use the transparent
-  rounded-corner source in `src-tauri/icons/logo.png` so Windows, macOS, and Linux
-  do not fall back to a hard square.
-- The canonical logo artwork is the latest transparent rounded-corner source supplied
-  by the user. The copied UI source at `public/brand/logo-new.png` and the Tauri source
-  at `src-tauri/icons/logo.png` must remain byte-identical. In the left rail the
-  wordmark uses the same Lora italic face as the AI-chat identity at a larger 22px;
-  the AI-chat empty-state logo and wordmark share a compact 42px height basis.
+  state. Keep internal paths, storage keys, window title, and bundle identifiers
+  as `TierNote`. The in-app mark source is `src-tauri/icons/logo.png`, which must
+  remain byte-identical to the copied UI source at `public/brand/logo-new.png`.
+- OS app icons are generated with `tauri icon` from full-bleed square sources in
+  `src-tauri/icons/sources/`: `logo-windows.png` (Windows: `icon.ico`, the
+  `Square*Logo.png` set, and `StoreLogo.png`; Android: the `icons/android/`
+  set) and `logo-square.png` (macOS: `icon.icns`; Linux: `icon.png`, `32x32.png`,
+  `64x64.png`, `128x128.png`, and `128x128@2x.png`; iOS: the `icons/ios/` set).
+  The sources are full-bleed so the mark is not shrunken by transparent padding;
+  macOS and iOS auto-apply their rounded masks, and Linux keeps square corners.
+  Regenerate per platform with `npx tauri icon <source> -o <temp-dir>` and copy
+  the platform files into `src-tauri/icons/`.
+- In the left rail the wordmark uses the same Lora italic face as the AI-chat
+  identity at a larger 22px; the AI-chat empty-state logo and wordmark share a
+  compact 42px height basis.
 - `DESIGN.md` is the desktop design source of truth. The public `website/` remains
   a separate product surface with its existing expressive brand direction.
 - Local UI references are archived in ignored directories: `references/pasture/`
