@@ -2672,7 +2672,6 @@ function LibraryTree({
     ghost: HTMLElement | null;
   } | null>(null);
   const dropTargetRef = useRef<TreeDropTarget | null>(null);
-  const dropLineRef = useRef<HTMLElement | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [renameTarget, setRenameTarget] = useState<{
     path: string;
@@ -2992,8 +2991,6 @@ function LibraryTree({
 
   const handleTreeDragEnd = () => {
     document.documentElement.classList.remove('tree-drag-active');
-    dropLineRef.current?.remove();
-    dropLineRef.current = null;
     dragEntryRef.current = null;
     setDragEntry(null);
     updateDropTarget(null);
@@ -3132,26 +3129,6 @@ function LibraryTree({
     return null;
   };
 
-  const updateTreeDropLine = (dropHit: TreeDropHit | null) => {
-    if (!dropHit || dropHit.target.position === 'inside') {
-      if (dropLineRef.current) dropLineRef.current.style.display = 'none';
-      return;
-    }
-    if (!dropLineRef.current) {
-      const line = document.createElement('div');
-      line.className = 'tree-drop-line';
-      document.body.appendChild(line);
-      dropLineRef.current = line;
-    }
-    const rect = dropHit.element.getBoundingClientRect();
-    const top = dropHit.target.position === 'before' ? rect.top : rect.bottom;
-    const line = dropLineRef.current;
-    line.style.display = 'block';
-    line.style.left = `${rect.left + 18}px`;
-    line.style.top = `${Math.round(top) - 1}px`;
-    line.style.width = `${Math.max(rect.width - 36, 0)}px`;
-  };
-
   const createTreeDragGhost = (entry: DirectoryEntry): HTMLElement => {
     const ghost = document.createElement('div');
     ghost.className = 'tree-drag-ghost';
@@ -3206,7 +3183,6 @@ function LibraryTree({
       if (!dropHit || dropHit.target.relativePath === current.entry.relativePath) {
         current.target = null;
         updateDropTarget(null);
-        updateTreeDropLine(null);
         return;
       }
       const target = dropHit.target;
@@ -3219,12 +3195,10 @@ function LibraryTree({
       ) {
         current.target = null;
         updateDropTarget(null);
-        updateTreeDropLine(null);
         return;
       }
       current.target = target;
       updateDropTarget(target);
-      updateTreeDropLine(dropHit);
     };
 
     const onUp = (upEvent: PointerEvent) => {

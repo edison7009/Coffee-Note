@@ -687,16 +687,6 @@ html.tree-drag-active * {
   opacity: 0.42;
 }
 
-.tree-drop-line {
-  position: fixed;
-  z-index: 9999;
-  display: none;
-  height: 2px;
-  background: var(--pane-handle);
-  border-radius: 999px;
-  pointer-events: none;
-}
-
 .tree-folder-row.drop-inside,
 .library-root-row.drop-inside {
   background: var(--accent-soft);
