@@ -2941,7 +2941,7 @@ function LibraryTree({
           onClick={onSwitchRoot}
           aria-label={t('menuSwitchRoot')}
         >
-          <Folder size={15} />
+          <Folder size={17} />
         </button>
       </div>
       <div className="tree-children">
