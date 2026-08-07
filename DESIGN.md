@@ -1,0 +1,78 @@
+# TierNote Desktop Design System
+
+## Product Context
+
+- **What this is:** A local-first, general-purpose note workspace where an editable T1-T5 list makes priorities visible and an AI note agent helps organize local material.
+- **Who it is for:** People who want one calm place to collect, rank, read, and refine notes without giving up local ownership.
+- **Project type:** Cross-platform desktop productivity application. The public `website/` is a separate branded product surface and does not inherit these desktop rules.
+
+## Aesthetic Direction
+
+- **Direction:** Calm native workspace, informed by Codex rather than copied from it.
+- **Decoration:** Minimal. Hierarchy comes from type, whitespace, alignment, and state, not colorful cards or ornamental chrome.
+- **Mood:** Serious, quiet, capable, and spacious. TierNote should feel like a professional work surface, not a personalized dashboard template.
+- **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
+- **References:** `references/pasture/` for a permissively licensed Tauri + React Codex client; `references/palot/` for sidebar and conversation-system organization only.
+
+## Product Structure
+
+- Keep the homepage tier list as the core first screen.
+- Use one outer shell for the top bar and persistent left navigation rail.
+- Let the left rail span the full window height so its brand and navigation occupy the former empty top-left title-bar area. On macOS, reserve clearance for native traffic-light controls.
+- Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
+- Treat AI chat as one workspace mode, not the visual identity of the whole product.
+- Keep the composer in a stable bottom row when chat is active.
+- Remove redundant dashboard cards, helper copy, metrics decoration, and duplicated labels as each screen is migrated.
+- Prefer one clear action per region. Secondary actions use familiar icons from Lucide.
+
+## Typography
+
+- **UI and body target:** Source Sans 3 with Noto Sans SC for Chinese coverage. Self-host before switching production CSS.
+- **Current migration fallback:** Segoe UI Variable, Segoe UI, Noto Sans SC, Microsoft YaHei, sans-serif.
+- **Data:** Use tabular numerals for token, cost, date, and count values.
+- **Scale:** 12px metadata, 14px controls, 16px body, 20px section title, 28-32px page title.
+- **Weight:** Use 400 for body, 550-600 for controls and navigation, and 650-700 only for page titles.
+- **Letter spacing:** 0. Avoid uppercase tracking except tiny technical metadata.
+
+## Color
+
+- **Approach:** Codex/iOS surface hierarchy. Shell controls, icons, and text stay monochrome; a barely tinted environmental surface separates navigation from the white work area without becoming a brand color. The homepage alone may use restrained category color to make its core prioritization model memorable.
+- **Light:** ink `#2c2c2e`, muted `#77777b`, canvas `#ffffff`, sidebar `#f0f5f0`, grouped surface `#f7f7f5`, line `rgba(60, 60, 67, 0.12)`.
+- **Interaction:** graphite `#3a3b3d`; hover `#252628`; soft state `rgba(58, 59, 61, 0.07)`.
+- **Dark:** canvas `#1c1c1e`, sidebar `#242426`, ink and interaction `#f2f2f7` / `#d1d1d6`.
+- **Semantic color:** Reserve red, amber, and green for errors, warnings, and success only. Do not use semantic colors as branding or decoration.
+- **Tier color:** T1-T5 use muted rose, amber, yellow, teal, and green. Color stays in the homepage tier strip and softly tinted label cells; it does not enter navigation, reading, or settings surfaces.
+
+## Spacing And Shape
+
+- **Base unit:** 4px.
+- **Density:** Comfortable and work-focused: 8px between related controls, 16px within regions, 24-32px between major regions.
+- **Radius:** 4px for compact controls, 7px for inputs and list selections, 8px maximum for cards and dialogs. Pills are reserved for statuses.
+- **Borders:** Use only for pane boundaries, inputs, dialogs, and meaningful grouping. Avoid cards inside cards.
+- **Shadows:** Dialogs and floating menus only. Main page regions stay flat.
+
+## Motion
+
+- **Approach:** Minimal and functional.
+- **Timing:** 90ms for hover/focus changes, 150-200ms for panels and dialogs.
+- **Behavior:** No decorative movement, scale-on-hover, or animated gradients. Respect reduced-motion settings.
+
+## Migration Order
+
+1. Establish the monochrome interaction system and neutralize the title bar.
+2. Rebuild the app shell and left navigation around a Codex-like quiet hierarchy.
+3. Simplify the homepage so the tier list dominates and dashboard cards disappear.
+4. Unify note reading and AI chat inside the same center-workspace grammar.
+5. Rework the right rail as contextual information that can collapse when it is not useful.
+
+## Decisions Log
+
+| Date | Decision | Rationale |
+| --- | --- | --- |
+| 2026-08-07 | Adopt a Codex-informed desktop direction | The current multi-color dashboard treatment makes the product feel smaller and less focused than the local-first tiered-note model deserves. |
+| 2026-08-07 | Remove accent-color customization | One fixed visual system reduces noise and prevents user themes from fragmenting the product identity. |
+| 2026-08-07 | Join the top bar to the left rail and the center to the right rail | This reproduces the spatial grammar the user values in Codex: one quiet navigation shell around one coherent work surface. |
+| 2026-08-07 | Make the desktop product monochrome | Neutral black and gray give the repeated-use workspace broader appeal; color is reserved for semantic feedback rather than branding. |
+| 2026-08-07 | Adopt Codex/iOS surface colors | A soft environmental sidebar, white work surface, warm grouped controls, and dark-gray type remove the cold electronic-screen feeling while keeping icons and emphasis monochrome. |
+| 2026-08-07 | Make the homepage the color exception | Three low-saturation entry cards and muted T1-T5 colors give the core screen identity while the repeated-use shell and note-reading surfaces stay quiet. |
+| 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |

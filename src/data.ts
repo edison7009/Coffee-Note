@@ -163,7 +163,7 @@ export const fallbackPeople: Person[] = [
     nameZh: '布莱恩·约翰逊',
     summary: '高强度检测、补剂与医疗干预公开方案。',
     filePath: 'cases/bryan-johnson-daily.md',
-    accent: '#dce8fb',
+    accent: '#e3e3e5',
   },
   {
     id: 'peter-attia',
@@ -171,7 +171,7 @@ export const fallbackPeople: Person[] = [
     nameZh: '彼得·阿提亚',
     summary: '以运动、代谢健康和风险管理为核心的延寿医学方案。',
     filePath: 'cases/peter-attia-protocol.md',
-    accent: '#e1eee8',
+    accent: '#e3e3e5',
   },
   {
     id: 'andrew-huberman',
@@ -179,7 +179,7 @@ export const fallbackPeople: Person[] = [
     nameZh: '安德鲁·休伯曼',
     summary: '零成本工具优先，并按目标拆分补剂与生活方式。',
     filePath: 'cases/andrew-huberman-protocol.md',
-    accent: '#eee8da',
+    accent: '#e3e3e5',
   },
   {
     id: 'chuando-tan',
@@ -187,7 +187,7 @@ export const fallbackPeople: Person[] = [
     nameZh: '陈传多',
     summary: '长期力量训练、简单饮食与体态管理案例。',
     filePath: 'cases/chuando-tan.md',
-    accent: '#eadff1',
+    accent: '#e3e3e5',
   },
   {
     id: 'edson-brandao',
@@ -195,7 +195,7 @@ export const fallbackPeople: Person[] = [
     nameZh: '埃德森·布兰当',
     summary: '运动、少加工饮食、皮肤管理与公开商业关系核查。',
     filePath: 'cases/edson-brandao.md',
-    accent: '#e4e9f3',
+    accent: '#e3e3e5',
   },
   {
     id: 'leslie-kenny',
@@ -203,7 +203,7 @@ export const fallbackPeople: Person[] = [
     nameZh: '莱士里·肯尼',
     summary: '亚精胺、发酵食物与碎片化活动的公开实践。',
     filePath: 'cases/leslie-kenny.md',
-    accent: '#dcebec',
+    accent: '#e3e3e5',
   },
 ];
 
@@ -215,7 +215,7 @@ export const fallbackStories: Story[] = [
     summary: '从传统饮食、日常活动、社会联结与长期百岁老人研究理解冲绳案例。',
     summaryEn: 'A field note on traditional diet, daily movement, social ties, and long-running centenarian research.',
     filePath: 'stories/okinawa-longevity.md',
-    accent: '#dcefe8',
+    accent: '#e3e3e5',
   },
 ];
 

@@ -256,12 +256,12 @@ const isMacOSPlatform =
   typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
 const tierMeta: Record<string, { label: Record<Locale, string>; color: string }> = {
-  T1: { label: { zh: '现在处理', en: 'Now' }, color: '#efa6a4' },
-  T2: { label: { zh: '接下来', en: 'Next' }, color: '#f1c18f' },
-  T3: { label: { zh: '需要选择', en: 'Decide' }, color: '#ead68f' },
-  T4: { label: { zh: '等待信息', en: 'Wait' }, color: '#a6d5ca' },
-  T5: { label: { zh: '以后再看', en: 'Later' }, color: '#bdd8a3' },
-  pending: { label: { zh: '仅收录', en: 'Collected' }, color: '#c8d3df' },
+  T1: { label: { zh: '现在处理', en: 'Now' }, color: '#e99a9c' },
+  T2: { label: { zh: '接下来', en: 'Next' }, color: '#eab77d' },
+  T3: { label: { zh: '需要选择', en: 'Decide' }, color: '#dfc86f' },
+  T4: { label: { zh: '等待信息', en: 'Wait' }, color: '#86c7ba' },
+  T5: { label: { zh: '以后再看', en: 'Later' }, color: '#a8cb8f' },
+  pending: { label: { zh: '仅收录', en: 'Collected' }, color: '#bcc9d6' },
 };
 
 const TIER_IDS = ['T1', 'T2', 'T3', 'T4', 'T5'] as const;
@@ -406,7 +406,6 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
   return locale === 'en' ? path.replace(/\.md$/, '.en.md') : path;
 }
 type ThemeMode = 'system' | 'light' | 'dark';
-type AccentMode = 'blue' | 'green' | 'orange' | 'graphite';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
 type SettingsSectionId = 'model' | 'appearance';
 type ResizeSide = 'left' | 'right';
@@ -506,7 +505,7 @@ function getPlanSections(locale: Locale): Array<{
           ? '个人简介、经历与当前状态'
           : 'Your background, experience, and current context',
       icon: <UserRound size={17} />,
-      accent: '#f1d9d5',
+      accent: '#e5e5e7',
     },
     {
       id: 'exercise',
@@ -516,7 +515,7 @@ function getPlanSections(locale: Locale): Array<{
           ? '正在推进的事，以及想得到的结果'
           : 'What you are working toward and why',
       icon: <Target size={17} />,
-      accent: '#d7e9e5',
+      accent: '#e5e5e7',
     },
     {
       id: 'experience',
@@ -526,7 +525,7 @@ function getPlanSections(locale: Locale): Array<{
           ? '试过什么、结果如何，以及什么真的有效'
           : 'What you have tried, what worked, and what actually helps',
       icon: <Lightbulb size={17} />,
-      accent: '#efe4c9',
+      accent: '#e5e5e7',
     },
     {
       id: 'lessons',
@@ -536,7 +535,7 @@ function getPlanSections(locale: Locale): Array<{
           ? '避开什么、什么不行，以及现实边界'
           : 'What to avoid and the constraints you have',
       icon: <ShieldAlert size={17} />,
-      accent: '#f0ddd2',
+      accent: '#e5e5e7',
     },
     {
       id: 'sleep',
@@ -546,7 +545,7 @@ function getPlanSections(locale: Locale): Array<{
           ? '简历、项目、经历与值得回看的资料'
           : 'Resumes, projects, experiences, and useful reference',
       icon: <Archive size={17} />,
-      accent: '#dce3f2',
+      accent: '#e5e5e7',
     },
   ];
 }
@@ -746,10 +745,6 @@ function App() {
     'tiernote:theme',
     'system',
   );
-  const [accentMode, setAccentMode] = useStoredState<AccentMode>(
-    'tiernote:accent',
-    'blue',
-  );
   const [currencyMode, setCurrencyMode] = useStoredState<CurrencyMode>(
     'tiernote:currency',
     'auto',
@@ -900,10 +895,6 @@ function App() {
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
   }, [locale]);
-
-  useEffect(() => {
-    document.documentElement.dataset.accent = accentMode;
-  }, [accentMode]);
 
   const resizePane = (side: ResizeSide, requestedSize: number) => {
     const viewportWidth = window.innerWidth;
@@ -1867,7 +1858,7 @@ function App() {
 
   return (
     <div
-      className={`app-shell ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''}`}
+      className={`app-shell ${isMacOSPlatform ? 'platform-macos-shell' : 'platform-custom-shell'} ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''}`}
       style={
         {
           '--sidebar-width': `${paneSizes.left}px`,
@@ -2124,8 +2115,6 @@ function App() {
           onLocale={setLocale}
           themeMode={themeMode}
           onThemeMode={setThemeMode}
-          accentMode={accentMode}
-          onAccentMode={setAccentMode}
           currencyMode={currencyMode}
           onCurrencyMode={setCurrencyMode}
           onClose={() => setSettingsOpen(false)}
@@ -2255,6 +2244,7 @@ function AppTitlebar({ locale, onSettings }: { locale: Locale; onSettings: () =>
       <div className="titlebar-drag-area" data-tauri-drag-region />
 
       <div className="window-controls">
+        <UpdateButton locale={locale} />
         <button
           type="button"
           className="titlebar-settings"
@@ -2291,6 +2281,108 @@ function AppTitlebar({ locale, onSettings }: { locale: Locale; onSettings: () =>
         )}
       </div>
     </header>
+  );
+}
+
+function UpdateButton({ locale }: { locale: Locale }) {
+  const [availableVersion, setAvailableVersion] = useState<string | null>(null);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updatePhase, setUpdatePhase] = useState<
+    'checking' | 'downloading' | 'launching' | 'error' | null
+  >(null);
+
+  useEffect(() => {
+    let alive = true;
+    if (isTauri) {
+      checkForUpdate()
+        .then((version) => {
+          if (alive) setAvailableVersion(version);
+        })
+        .catch(() => {
+          // Update checks stay silent so an offline launch is never interrupted.
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!availableVersion) return null;
+
+  const handleUpdate = async () => {
+    if (installingUpdate) return;
+    const isWindows = navigator.userAgent.toLowerCase().includes('windows');
+    if (!isTauri || !isWindows) {
+      await openExternalUrl(PRODUCT_WEBSITE);
+      return;
+    }
+
+    setInstallingUpdate(true);
+    setUpdateProgress(0);
+    setUpdatePhase('checking');
+    let stopListening: (() => void) | undefined;
+    try {
+      stopListening = await onSelfUpdateProgress((progress) => {
+        setUpdatePhase(progress.status);
+        setUpdateProgress(progress.percent);
+      });
+      await downloadAndInstallUpdate();
+    } catch {
+      setUpdatePhase('error');
+      try {
+        await openExternalUrl(PRODUCT_WEBSITE);
+      } finally {
+        setInstallingUpdate(false);
+        setUpdateProgress(0);
+      }
+    } finally {
+      stopListening?.();
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={`titlebar-update ${installingUpdate ? 'installing' : ''}`}
+      onClick={() => void handleUpdate()}
+      aria-label={
+        locale === 'zh'
+          ? `更新至 Lucky Note ${availableVersion}`
+          : `Update Lucky Note to ${availableVersion}`
+      }
+      title={locale === 'zh' ? `更新至 Lucky Note ${availableVersion}` : `Update Lucky Note to ${availableVersion}`}
+      disabled={installingUpdate}
+    >
+      {installingUpdate ? (
+        <svg
+          className={`update-ring ${updatePhase === 'checking' ? 'spin' : ''}`}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <circle className="update-ring-track" cx="12" cy="12" r="9" />
+          <circle
+            className="update-ring-progress"
+            cx="12"
+            cy="12"
+            r="9"
+            transform="rotate(-90 12 12)"
+            strokeDasharray={
+              updatePhase === 'checking'
+                ? `${2 * Math.PI * 9 * 0.25} ${2 * Math.PI * 9}`
+                : 2 * Math.PI * 9
+            }
+            strokeDashoffset={
+              updatePhase === 'checking'
+                ? 0
+                : 2 * Math.PI * 9 * (1 - updateProgress / 100)
+            }
+          />
+        </svg>
+      ) : (
+        <Download size={15} strokeWidth={2} />
+      )}
+    </button>
   );
 }
 
@@ -2895,112 +2987,14 @@ function Sidebar({
   notify,
   t,
 }: SidebarProps) {
-  const [availableVersion, setAvailableVersion] = useState<string | null>(null);
-  const [installingUpdate, setInstallingUpdate] = useState(false);
-  const [updateProgress, setUpdateProgress] = useState(0);
-  const [updatePhase, setUpdatePhase] = useState<
-    'checking' | 'downloading' | 'launching' | 'error' | null
-  >(null);
-
-  useEffect(() => {
-    let alive = true;
-    if (isTauri) {
-      checkForUpdate()
-        .then((version) => {
-          if (alive) setAvailableVersion(version);
-        })
-        .catch(() => {
-          // Update checks stay silent so an offline launch is never interrupted.
-        });
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const handleUpdate = async () => {
-    if (installingUpdate) return;
-    const isWindows = navigator.userAgent.toLowerCase().includes('windows');
-    if (!isTauri || !isWindows) {
-      await openExternalUrl(PRODUCT_WEBSITE);
-      return;
-    }
-
-    setInstallingUpdate(true);
-    setUpdateProgress(0);
-    setUpdatePhase('checking');
-    let stopListening: (() => void) | undefined;
-    try {
-      stopListening = await onSelfUpdateProgress((progress) => {
-        setUpdatePhase(progress.status);
-        setUpdateProgress(progress.percent);
-      });
-      await downloadAndInstallUpdate();
-    } catch {
-      setUpdatePhase('error');
-      try {
-        await openExternalUrl(PRODUCT_WEBSITE);
-      } finally {
-        setInstallingUpdate(false);
-        setUpdateProgress(0);
-      }
-    } finally {
-      stopListening?.();
-    }
-  };
-
   return (
     <aside className="sidebar">
       <div className="sidebar-scroll">
         <div className="brand">
           <button className="brand-main" onClick={() => onNavigate('home')}>
-            <img src="/brand/logo.png" alt="" />
-            <span>
-              <strong>{t('appName')}</strong>
-              <small>{t('appTagline')}</small>
-            </span>
+            <img src="/brand/logo-new.png" alt="" />
+            <strong>{t('appName')}</strong>
           </button>
-          {availableVersion && (
-            <button
-              className={`brand-update ${installingUpdate ? 'installing' : ''}`}
-              onClick={() => void handleUpdate()}
-              aria-label={
-                locale === 'zh'
-                  ? `更新至 TierNote ${availableVersion}`
-                  : `Update TierNote to ${availableVersion}`
-              }
-              disabled={installingUpdate}
-            >
-              {installingUpdate ? (
-                <svg
-                  className={`update-ring ${updatePhase === 'checking' ? 'spin' : ''}`}
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle className="update-ring-track" cx="12" cy="12" r="9" />
-                  <circle
-                    className="update-ring-progress"
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    transform="rotate(-90 12 12)"
-                    strokeDasharray={
-                      updatePhase === 'checking'
-                        ? `${2 * Math.PI * 9 * 0.25} ${2 * Math.PI * 9}`
-                        : 2 * Math.PI * 9
-                    }
-                    strokeDashoffset={
-                      updatePhase === 'checking'
-                        ? 0
-                        : 2 * Math.PI * 9 * (1 - updateProgress / 100)
-                    }
-                  />
-                </svg>
-              ) : (
-                <Download size={15} strokeWidth={2} />
-              )}
-            </button>
-          )}
         </div>
 
         <nav className="primary-nav" aria-label="Primary">
@@ -3902,18 +3896,13 @@ function ConversationView({
       {messages.length === 0 && (
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
-            <img src="/brand/logo.png" alt="" />
-            <strong className="chat-empty-wordmark">TierNote</strong>
+            <img src="/brand/logo-new.png" alt="" />
+            <strong className="chat-empty-wordmark">Lucky Note</strong>
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
               ? 'DeepSeek 缓存极致优化 + 高命中率记忆路由 + Library Graph 检索 + 短输出、少调用、自动压缩'
               : 'DeepSeek cache optimization + high-hit memory routing + Library Graph retrieval + shorter output, fewer calls, automatic compaction'}
-          </p>
-          <p className="chat-empty-value">
-            {locale === 'zh'
-              ? '让每一个 Token，产出至少两倍价值。'
-              : 'Make every token deliver at least twice the value.'}
           </p>
         </div>
       )}
@@ -4231,7 +4220,7 @@ function PlanView({
           </button>
         ))}
         <button onClick={onAdd} key="add">
-          <span className="plan-section-icon" style={{ background: '#e6eef5' }}>
+          <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
             <FilePlus2 size={17} />
           </span>
           <span>
@@ -4346,6 +4335,13 @@ function ChatComposer({
         />
         <div className="composer-tools">
           {currentPage && <span className="composer-page-chip">{currentPage}</span>}
+          <span
+            className="composer-model-id"
+            title={modelConfig.model}
+            aria-label={locale === 'zh' ? `当前模型：${modelConfig.model}` : `Current model: ${modelConfig.model}`}
+          >
+            {modelConfig.model}
+          </span>
           <button
             type={busy ? 'button' : 'submit'}
             onClick={busy ? onAbort : undefined}
@@ -4399,7 +4395,6 @@ function DialogHeader({
       <div className="dialog-titlebar-main">
         <span className="dialog-titlebar-icon">{icon}</span>
         <div className="dialog-titlebar-copy">
-          <span className="dialog-titlebar-eyebrow">TIERNOTE</span>
           <h2 id={titleId}>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
         </div>
@@ -4689,12 +4684,10 @@ function SettingsDialog({
   locale,
   config,
   themeMode,
-  accentMode,
   currencyMode,
   onChange,
   onLocale,
   onThemeMode,
-  onAccentMode,
   onCurrencyMode,
   onClose,
   t,
@@ -4702,12 +4695,10 @@ function SettingsDialog({
   locale: Locale;
   config: ModelSettings;
   themeMode: ThemeMode;
-  accentMode: AccentMode;
   currencyMode: CurrencyMode;
   onChange: (config: ModelSettings) => void;
   onLocale: (locale: Locale) => void;
   onThemeMode: (themeMode: ThemeMode) => void;
-  onAccentMode: (accentMode: AccentMode) => void;
   onCurrencyMode: (currencyMode: CurrencyMode) => void;
   onClose: () => void;
   t: (key: TranslationKey) => string;
@@ -4892,23 +4883,6 @@ function SettingsDialog({
                     <button className={themeMode === 'dark' ? 'active' : ''} onClick={() => onThemeMode('dark')}>
                       <Moon size={15} />{t('themeDark')}
                     </button>
-                  </div>
-                </div>
-                <div>
-                  <label>{t('accentColor')}</label>
-                  <div className="accent-switch">
-                    {(['blue', 'green', 'orange', 'graphite'] as AccentMode[]).map((accent) => (
-                      <button
-                        className={accentMode === accent ? 'active' : ''}
-                        data-accent-option={accent}
-                        aria-pressed={accentMode === accent}
-                        onClick={() => onAccentMode(accent)}
-                        key={accent}
-                      >
-                        <span className="accent-swatch" aria-hidden="true" />
-                        {t(`accent${accent[0].toUpperCase()}${accent.slice(1)}` as TranslationKey)}
-                      </button>
-                    ))}
                   </div>
                 </div>
                 <div>
@@ -5191,7 +5165,6 @@ function CaptureGuideDialog({
           icon={<Bot size={21} />}
           title={t('captureTitle')}
           titleId="capture-title"
-          subtitle={t('captureSub')}
           onClose={onClose}
           closeLabel={locale === 'zh' ? '关闭' : 'Close'}
           tone="blue"
@@ -5211,11 +5184,7 @@ function CaptureGuideDialog({
                 />
               </label>
               <div className="capture-prompt-example">
-                <Sparkles size={17} />
-                <div>
-                  <strong>{t('captureExampleTitle')}</strong>
-                  <p>{t('captureExample')}</p>
-                </div>
+                <p className="capture-prompt-copy">{t('capturePrompt')}</p>
               </div>
             </>
           ) : (
@@ -5276,7 +5245,6 @@ function CaptureGuideDialog({
                     : t('capturePrepare')}
             </button>
           </div>
-          <p className="capture-guide-note">{t('captureNote')}</p>
         </div>
       </section>
     </div>

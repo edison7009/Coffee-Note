@@ -8,6 +8,8 @@ general-purpose note model. The homepage tier list remains the core experience.
 
 Before making product or design changes, read `CODEX_HANDOFF.md`. It is the
 portable project memory for continuing development on another machine.
+Also read `DESIGN.md` before changing the desktop UI; it is the desktop design
+source of truth and does not apply to the separate public website.
 
 Project rules:
 
@@ -20,9 +22,9 @@ Project rules:
 - Keep user data local by default. Persist the AI provider configuration,
   including API keys, as plaintext JSON only in the current user's app-data
   directory; never write it into the repository or knowledge library.
-- Preserve the restrained teal/green visual language, large readable type, and
-  low-chrome desktop UI. Avoid hover tooltips, unnecessary borders, redundant
-  labels, and web-like decoration inside the desktop app.
+- Preserve the restrained neutral black/gray visual language, large readable
+  type, and low-chrome desktop UI. Avoid hover tooltips, unnecessary borders,
+  redundant labels, and web-like decoration inside the desktop app.
 - Do not commit generated dependencies or build output (`node_modules/`,
   `dist/`, `src-tauri/target/`).
 - `website/` is deployed publicly from this repository with GitHub Pages.

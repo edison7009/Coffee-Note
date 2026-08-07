@@ -1,6 +1,6 @@
 # TierNote — portable Codex project memory
 
-Updated: 2026-08-05
+Updated: 2026-08-07
 
 This file preserves the decisions and working context needed to continue the
 project on another machine. It contains no API keys, private user parameters,
@@ -16,6 +16,50 @@ or temporary deployment credentials.
   makes prioritization and decisions immediately legible.
 - Longevity-specific starter content and product copy below are inherited context
   awaiting replacement; they are not the TierNote product direction.
+
+## Desktop redesign direction (2026-08-07)
+
+- The desktop app is moving to a calm, Codex-informed note-workspace style. This
+  supersedes older instructions below that require a colorful dashboard shell or
+  a blue-green gradient title bar.
+- TierNote now uses a monochrome black, graphite, and gray shell with no selectable
+  brand color. The homepage is the deliberate exception: its three entry cards and
+  T1-T5 map use restrained category colors. Appearance settings keep system/light/dark
+  modes and language, but no longer expose accent choices.
+- Light mode follows the Codex/iOS surface hierarchy: the navigation shell and title
+  drag bar share a very soft environmental gray-green (`#f0f5f0`), while the inner
+  work surface remains white and grouped controls use warm gray-white. This tint is
+  a surface boundary, never an icon, text, or brand accent.
+- The custom title bar is a flat neutral surface. The center workspace should feel
+  large and quiet; hierarchy comes from typography, whitespace, and selection
+  states rather than decorative cards, gradients, shadows, or multiple accents.
+- The shell topology is the defining Codex reference: the top bar and left rail are
+  one continuous outer surface, while the center workspace and right contextual rail
+  form one continuous inner panel. The inner panel begins below the top bar with a
+  visible top-left radius and border; the right rail must not read as a second sidebar.
+- The left rail spans the full window height. On Windows/Linux its logo and navigation
+  use the former empty top-left title-bar area; macOS keeps extra top clearance for
+  native traffic-light controls. The web title bar starts above the inner work panel,
+  not above the left rail.
+- The homepage tier list remains the product core. T1-T5 use muted rose, amber,
+  yellow, teal, and green, limited to the tier strip and softly tinted label cells.
+- The display brand uses the transparent rounded-corner feather mark plus the
+  closed `TierNote` name in the left rail; the same mark remains in the chat empty
+  state and all Tauri bundle icon sizes. Keep internal paths, storage keys, window
+  title, and bundle identifiers as `TierNote`. Tauri icons use the transparent
+  rounded-corner source in `src-tauri/icons/logo.png` so Windows, macOS, and Linux
+  do not fall back to a hard square.
+- The canonical logo artwork is the latest transparent rounded-corner source supplied
+  by the user. The copied UI source at `public/brand/logo-new.png` and the Tauri source
+  at `src-tauri/icons/logo.png` must remain byte-identical. In the left rail the
+  wordmark uses the same Lora italic face as the AI-chat identity at a larger 22px;
+  the AI-chat empty-state logo and wordmark share a compact 42px height basis.
+- `DESIGN.md` is the desktop design source of truth. The public `website/` remains
+  a separate product surface with its existing expressive brand direction.
+- Local UI references are archived in ignored directories: `references/pasture/`
+  (Apache-2.0, Tauri + React, closest implementation reference) and
+  `references/palot/` (MIT, useful for sidebar and conversation organization).
+  Do not copy OpenAI trademarks or code extracted from the closed-source Codex app.
 
 ## Legacy source-product context
 
@@ -198,6 +242,9 @@ to the product template.
   new and migrated configs). It caps routine chat/capture output and tool rounds
   for cheaper DeepSeek-compatible note governance; full mode is available in
   Settings for deep synthesis.
+- The temporary product-positioning memo for the Note Agent's cost-saving focus
+  lives at `docs/NOTE_AGENT_SAVINGS.md`; keep it in mind when refining product
+  copy, pricing, model recommendations, or agent behavior.
 - Memory routing keeps two user-visible sources of truth separate: confirmed
   facts are written into the managed `我的资料/plans/*.md` pages, while the
   user-selected knowledge directory remains the research/source library. The
