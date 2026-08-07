@@ -407,7 +407,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'appearance';
+type SettingsSectionId = 'model' | 'savings' | 'appearance';
 type ResizeSide = 'left' | 'right';
 
 interface PaneSizes {
@@ -3901,8 +3901,8 @@ function ConversationView({
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
-              ? 'DeepSeek 缓存极致优化 + 高命中率记忆路由 + Library Graph 检索 + 短输出、少调用、自动压缩'
-              : 'DeepSeek cache optimization + high-hit memory routing + Library Graph retrieval + shorter output, fewer calls, automatic compaction'}
+              ? 'DeepSeek 缓存优化 · 双向记忆路由 · Library Graph · 自动压缩'
+              : 'DeepSeek cache optimization · bidirectional memory routing · Library Graph · automatic compaction'}
           </p>
         </div>
       )}
@@ -4730,14 +4730,29 @@ function SettingsDialog({
 
   const activeConfig = draft.providers[draft.activeProvider];
   const activeOption = providerOptions[draft.activeProvider];
+  const savingsRows = locale === 'zh'
+    ? [
+        ['单次回答上限', '2,048 Tokens', '4,096 Tokens'],
+        ['本地笔记上下文', '约 24 KB', '最高约 1 MB'],
+        ['“我的资料”上下文', '约 8 KB', '约 16 KB'],
+        ['工具循环上限', '8 轮', '150 轮保护上限'],
+        ['导入资料输出', '1,200 Tokens', '3,000 Tokens'],
+      ]
+    : [
+        ['Answer limit', '2,048 tokens', '4,096 tokens'],
+        ['Local-note context', 'About 24 KB', 'Up to about 1 MB'],
+        ['My information context', 'About 8 KB', 'About 16 KB'],
+        ['Tool-loop limit', '8 rounds', '150-round guardrail'],
+        ['Import output', '1,200 tokens', '3,000 tokens'],
+      ];
   const settingsSections: Array<{
     id: SettingsSectionId;
     label: string;
-    description: string;
     icon: ReactNode;
   }> = [
-    { id: 'model', label: t('settingsModel'), description: t('settingsModelDesc'), icon: <Bot size={16} /> },
-    { id: 'appearance', label: t('settingsAppearance'), description: t('settingsAppearanceDesc'), icon: <Monitor size={16} /> },
+    { id: 'model', label: t('settingsModel'), icon: <Bot size={16} /> },
+    { id: 'savings', label: t('settingsSavings'), icon: <Zap size={16} /> },
+    { id: 'appearance', label: t('settingsAppearance'), icon: <Monitor size={16} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
     ?? settingsSections[0];
@@ -4775,12 +4790,7 @@ function SettingsDialog({
             ))}
           </nav>
 
-          <div className="settings-panel">
-            <header className="settings-panel-heading">
-              <h3>{currentSection.label}</h3>
-              <p>{currentSection.description}</p>
-            </header>
-
+          <div className={`settings-panel settings-panel-${visibleSection}`}>
             {visibleSection === 'model' && (
               <>
                 <div className="settings-section">
@@ -4846,15 +4856,20 @@ function SettingsDialog({
                   <p className="settings-hint">{t('currencyAutoHint')}</p>
                 </div>
 
-                <div className="settings-section economy-section">
-                  <div className="economy-heading">
+              </>
+            )}
+
+            {visibleSection === 'savings' && (
+              <div className="settings-section savings-settings">
+                <div className="savings-mode-row">
+                  <div className="savings-mode-copy">
                     <label>{t('economyMode')}</label>
-                    <span className="economy-badge"><Zap size={13} /> {t('economyModeBadge')}</span>
+                    <p className="settings-hint">{t('economyModeDesc')}</p>
                   </div>
-                  <p className="settings-hint">{t('economyModeDesc')}</p>
                   <button
                     type="button"
                     className={`economy-toggle ${draft.economyMode ? 'active' : ''}`}
+                    aria-label={t('economyMode')}
                     aria-pressed={draft.economyMode}
                     onClick={() => {
                       const next = { ...draft, economyMode: !draft.economyMode };
@@ -4866,7 +4881,34 @@ function SettingsDialog({
                     {draft.economyMode ? t('economyModeOn') : t('economyModeOff')}
                   </button>
                 </div>
-              </>
+
+                <div className="savings-comparison">
+                  <h4>{t('savingsComparison')}</h4>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{t('savingsMetric')}</th>
+                        <th>{t('economyModeOn')}</th>
+                        <th>{t('economyModeOff')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {savingsRows.map(([label, economy, full]) => (
+                        <tr key={label}>
+                          <th scope="row">{label}</th>
+                          <td>{economy}</td>
+                          <td>{full}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="savings-recommendations">
+                  <p><Check size={15} /> <strong>{t('savingsDailyRecommendation')}</strong></p>
+                  <p><Sparkles size={15} /> <strong>{t('savingsFullRecommendation')}</strong></p>
+                </div>
+              </div>
             )}
 
             {visibleSection === 'appearance' && (
