@@ -2661,6 +2661,8 @@ function LibraryTree({
     entry: TreeDragEntry;
     startX: number;
     startY: number;
+    offsetX: number;
+    offsetY: number;
     active: boolean;
     target: TreeDropTarget | null;
     ghost: HTMLElement | null;
@@ -3136,6 +3138,8 @@ function LibraryTree({
       entry: { relativePath: entry.relativePath, isDir: entry.isDir },
       startX: event.clientX,
       startY: event.clientY,
+      offsetX: event.clientX - event.currentTarget.getBoundingClientRect().left,
+      offsetY: event.clientY - event.currentTarget.getBoundingClientRect().top,
       active: false,
       target: null as TreeDropTarget | null,
       ghost: null as HTMLElement | null,
@@ -3157,7 +3161,15 @@ function LibraryTree({
       }
       moveEvent.preventDefault();
       if (current.ghost) {
-        current.ghost.style.transform = `translate3d(${moveEvent.clientX + 14}px, ${moveEvent.clientY - 15}px, 0)`;
+        const offsetX = Math.min(
+          Math.max(current.offsetX, 8),
+          Math.max(current.ghost.offsetWidth - 8, 8),
+        );
+        const offsetY = Math.min(
+          Math.max(current.offsetY, 8),
+          Math.max(current.ghost.offsetHeight - 8, 8),
+        );
+        current.ghost.style.transform = `translate3d(${moveEvent.clientX - offsetX}px, ${moveEvent.clientY - offsetY}px, 0)`;
       }
       const target = findTreeDropTarget(moveEvent.clientX, moveEvent.clientY);
       if (!target || target.relativePath === current.entry.relativePath) {
