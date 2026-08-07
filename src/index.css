@@ -173,18 +173,42 @@ a:focus-visible {
 }
 
 .pane-resizer span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
-  width: 1px;
-  height: 100%;
-  margin: 0 auto;
+  width: 4px;
+  height: 108px;
+  margin: 0;
+  border-radius: 999px;
   background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 90ms ease-out, width 90ms ease-out, height 90ms ease-out,
+    background-color 90ms ease-out, box-shadow 90ms ease-out;
 }
 
 .pane-resizer:hover span,
 .panel-resizing-left .pane-resizer-left span,
 .panel-resizing-right .pane-resizer-right span {
-  width: 2px;
-  background: linear-gradient(to bottom, transparent, #3aaea0 12%, #3a82a4 88%, transparent);
+  opacity: 1;
+  background: color-mix(in srgb, var(--pane-handle) 58%, transparent);
+}
+
+.panel-resizing-left .pane-resizer-left span,
+.panel-resizing-right .pane-resizer-right span {
+  width: 5px;
+  height: 144px;
+  background: var(--pane-handle);
+  box-shadow: 0 0 0 2px var(--pane-handle-ring);
+}
+
+.panel-resizing-left .pane-resizer-right span,
+.panel-resizing-right .pane-resizer-left span {
+  opacity: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 body.resizing-panels,
@@ -764,7 +788,7 @@ body.resizing-panels * {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
   scrollbar-color: color-mix(in srgb, var(--accent) 42%, transparent) transparent;
   scrollbar-width: thin;
 }
@@ -1391,6 +1415,35 @@ body.resizing-panels * {
   margin-left: auto;
 }
 
+.note-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.note-path {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  color: #6f8480;
+  font-size: 12.5px;
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.note-path::-webkit-scrollbar {
+  display: none;
+}
+
 .plan-title-hint {
   max-width: 360px;
   color: var(--muted);
@@ -1404,6 +1457,7 @@ body.resizing-panels * {
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+  flex: 0 0 auto;
 }
 
 .note-action {
@@ -2130,7 +2184,7 @@ body.resizing-panels * {
   display: grid;
   gap: 4px;
   margin-top: auto;
-  padding: 6px max(28px, calc((100% - 880px) / 2)) 6px;
+  padding: 6px max(37px, calc((100% - 880px) / 2)) 6px;
   background: var(--canvas);
   pointer-events: none;
 }
@@ -4643,6 +4697,8 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --accent-soft: rgba(58, 59, 61, 0.07);
   --accent-border: rgba(58, 59, 61, 0.18);
   --accent-contrast: #ffffff;
+  --pane-handle: #007aff;
+  --pane-handle-ring: rgba(0, 122, 255, 0.12);
   --ink: #2c2c2e;
   --muted: #77777b;
   --line: rgba(60, 60, 67, 0.12);
@@ -4663,8 +4719,10 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 :root[data-theme='dark'] {
-  --ink: #f2f2f7;
-  --muted: #a1a1a6;
+  --ink: #d8dcda;
+  --body-ink: #c1c7c4;
+  --strong-ink: #d2d6d4;
+  --muted: #929995;
   --line: rgba(235, 235, 245, 0.14);
   --paper: #1c1c1e;
   --canvas: #1c1c1e;
@@ -4672,11 +4730,13 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --secondary-surface: #2c2c2e;
   --tertiary-surface: #3a3a3c;
   --shadow: 0 20px 54px rgba(0, 0, 0, 0.42);
-  --accent: #d1d1d6;
-  --accent-hover: #f2f2f7;
-  --accent-soft: rgba(209, 209, 214, 0.1);
-  --accent-border: rgba(209, 209, 214, 0.24);
+  --accent: #c5c9c7;
+  --accent-hover: #dde1df;
+  --accent-soft: rgba(197, 201, 199, 0.1);
+  --accent-border: rgba(197, 201, 199, 0.22);
   --accent-contrast: #1c1c1e;
+  --pane-handle: #0a84ff;
+  --pane-handle-ring: rgba(10, 132, 255, 0.18);
 }
 
 button:focus-visible,
@@ -4742,13 +4802,6 @@ textarea,
 [data-theme='dark'] .window-controls .window-close:hover {
   color: #ffffff;
   background: #e5484d;
-}
-
-.pane-resizer:hover span,
-.panel-resizing-left .pane-resizer-left span,
-.panel-resizing-right .pane-resizer-right span {
-  width: 2px;
-  background: var(--accent);
 }
 
 .sidebar,

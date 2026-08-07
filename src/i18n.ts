@@ -2,7 +2,7 @@ import type { Locale } from './types';
 
 const messages = {
   zh: {
-    appName: 'Lucky Note',
+    appName: 'Gambit',
     home: '首页',
     aiChat: 'AI对话',
     myPlan: '我的资料',
@@ -148,7 +148,7 @@ const messages = {
     comingSoon: '这里会逐步沉淀你的长期个人信息。',
   },
   en: {
-    appName: 'Lucky Note',
+    appName: 'Gambit',
     home: 'Home',
     aiChat: 'AI Chat',
     myPlan: 'My information',

@@ -1090,6 +1090,14 @@ function App() {
     if (view === 'story') return selectedStory?.filePath || null;
     return null;
   }, [view, fileNotePath, selectedSupplement, selectedPerson, selectedStory]);
+  const noteFullPath = useMemo(() => {
+    if (!noteRelativePath) return null;
+    const root =
+      view === 'file' && fileNoteSource === 'myInfo'
+        ? library.myInfoRoot
+        : library.root || normalizedKnowledgeRoot || '';
+    return root ? joinLibraryPath(root, noteRelativePath) : noteRelativePath;
+  }, [library.myInfoRoot, library.root, normalizedKnowledgeRoot, noteRelativePath, fileNoteSource, view]);
 
   const currentNoteTarget = useMemo<Omit<InternalNoteTarget, 'label'> | null>(() => {
     if (view === 'supplement' && selectedSupplement) {
@@ -1957,6 +1965,7 @@ function App() {
                   }
                   onBack={goBack}
                   notePath={noteRelativePath}
+                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
@@ -1981,6 +1990,7 @@ function App() {
                   }
                   onBack={goBack}
                   notePath={noteRelativePath}
+                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
@@ -2006,6 +2016,7 @@ function App() {
                   }
                   onBack={goBack}
                   notePath={noteRelativePath}
+                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
@@ -2037,6 +2048,7 @@ function App() {
                   onToggleFavorite={() => toggleFavorite({ kind: 'file', id: fileNotePath })}
                   onBack={goBack}
                   notePath={noteRelativePath}
+                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) => handleSetTier(fileNotePath, nextTier)}
@@ -2345,10 +2357,10 @@ function UpdateButton({ locale }: { locale: Locale }) {
       onClick={() => void handleUpdate()}
       aria-label={
         locale === 'zh'
-          ? `更新至 Lucky Note ${availableVersion}`
-          : `Update Lucky Note to ${availableVersion}`
+          ? `更新至 Gambit ${availableVersion}`
+          : `Update Gambit to ${availableVersion}`
       }
-      title={locale === 'zh' ? `更新至 Lucky Note ${availableVersion}` : `Update Lucky Note to ${availableVersion}`}
+      title={locale === 'zh' ? `更新至 Gambit ${availableVersion}` : `Update Gambit to ${availableVersion}`}
       disabled={installingUpdate}
     >
       {installingUpdate ? (
@@ -3682,6 +3694,7 @@ function NoteView({
   onToggleFavorite,
   onBack,
   notePath,
+  noteFullPath,
   onEditNote,
   onDeleteNote,
   onSetTier,
@@ -3698,6 +3711,7 @@ function NoteView({
   onToggleFavorite: () => void;
   onBack: () => void;
   notePath: string | null;
+  noteFullPath: string | null;
   onEditNote: (relativePath: string) => void;
   onDeleteNote: (relativePath: string) => void;
   onSetTier?: (tier: string) => void;
@@ -3713,6 +3727,7 @@ function NoteView({
       ),
     [currentTarget.id, currentTarget.kind, internalTargets, markdown],
   );
+  const displayPath = noteFullPath?.replace(/\\/g, '/') || '';
   const components = useMemo(
     () => ({
       a: (
@@ -3792,37 +3807,40 @@ function NoteView({
             )}
           </div>
         </div>
-        <div className="note-actions">
-          <button
-            type="button"
-            className={`note-action ${favorite ? 'active' : ''}`}
-            aria-label={translate(locale, favorite ? 'removeFavorite' : 'addFavorite')}
-            aria-pressed={favorite}
-            onClick={onToggleFavorite}
-          >
-            <Star size={14} fill={favorite ? 'currentColor' : 'none'} />
-            <span>{translate(locale, 'favorites')}</span>
-          </button>
-          <button
-            type="button"
-            className="note-action"
-            aria-label={translate(locale, 'editNote')}
-            disabled={!notePath}
-            onClick={() => notePath && onEditNote(notePath)}
-          >
-            <Pencil size={14} />
-            <span>{translate(locale, 'editNote')}</span>
-          </button>
-          <button
-            type="button"
-            className="note-action danger"
-            aria-label={translate(locale, 'deleteNote')}
-            disabled={!notePath}
-            onClick={() => notePath && onDeleteNote(notePath)}
-          >
-            <Trash2 size={14} />
-            <span>{translate(locale, 'deleteNote')}</span>
-          </button>
+        <div className="note-meta-row">
+          <div className="note-path">{displayPath}</div>
+          <div className="note-actions">
+            <button
+              type="button"
+              className={`note-action ${favorite ? 'active' : ''}`}
+              aria-label={translate(locale, favorite ? 'removeFavorite' : 'addFavorite')}
+              aria-pressed={favorite}
+              onClick={onToggleFavorite}
+            >
+              <Star size={14} fill={favorite ? 'currentColor' : 'none'} />
+              <span>{translate(locale, 'favorites')}</span>
+            </button>
+            <button
+              type="button"
+              className="note-action"
+              aria-label={translate(locale, 'editNote')}
+              disabled={!notePath}
+              onClick={() => notePath && onEditNote(notePath)}
+            >
+              <Pencil size={14} />
+              <span>{translate(locale, 'editNote')}</span>
+            </button>
+            <button
+              type="button"
+              className="note-action danger"
+              aria-label={translate(locale, 'deleteNote')}
+              disabled={!notePath}
+              onClick={() => notePath && onDeleteNote(notePath)}
+            >
+              <Trash2 size={14} />
+              <span>{translate(locale, 'deleteNote')}</span>
+            </button>
+          </div>
         </div>
       </div>
       {loading ? (
@@ -3894,11 +3912,11 @@ function ConversationView({
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
             <img src="/brand/logo-new.png" alt="" />
-            <strong className="chat-empty-wordmark">Lucky Note</strong>
+            <strong className="chat-empty-wordmark">Gambit</strong>
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
-              ? 'DeepSeek 缓存优化 · 双向记忆路由 · Library Graph · 自动压缩'
+              ? 'DeepSeek 高效缓存引擎 · 双向记忆路由 · Library Graph · 自动压缩'
               : 'DeepSeek cache optimization · bidirectional memory routing · Library Graph · automatic compaction'}
           </p>
         </div>
