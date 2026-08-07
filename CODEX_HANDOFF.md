@@ -76,6 +76,11 @@ or temporary deployment credentials.
   compact 42px height basis.
 - `DESIGN.md` is the desktop design source of truth. The public `website/` remains
   a separate product surface with its existing expressive brand direction.
+- **Cursor rule (2026-08-08):** the desktop app uses only the system default
+  arrow cursor everywhere. No `pointer`/hand, `grab`/`grabbing`, `help`,
+  `wait`, or `col-resize` cursors — including buttons, navigation, drag
+  handles, and pane resizers. Hover feedback comes from background/color
+  changes, never from the cursor; text inputs keep the native I-beam.
 - Local UI references are archived in ignored directories: `references/pasture/`
   (Apache-2.0, Tauri + React, closest implementation reference) and
   `references/palot/` (MIT, useful for sidebar and conversation organization).

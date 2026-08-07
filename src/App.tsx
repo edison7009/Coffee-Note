@@ -2637,7 +2637,6 @@ function LibraryTree({
   activeFilePath,
   onOpenFile,
   onLibraryChanged,
-  onSwitchRoot,
   refreshToken,
   notify,
 }: {
@@ -2647,7 +2646,6 @@ function LibraryTree({
   activeFilePath: string | null;
   onOpenFile: (relativePath: string) => void;
   onLibraryChanged: () => void;
-  onSwitchRoot: () => void;
   refreshToken: number;
   notify: (message: string) => void;
 }) {
@@ -3351,14 +3349,6 @@ function LibraryTree({
           >
             <FilePlus2 size={17} />
           </button>
-          <button
-            type="button"
-            className="library-switch-btn"
-            onClick={onSwitchRoot}
-            aria-label={t('menuSwitchRoot')}
-          >
-            <Folder size={17} />
-          </button>
         </div>
       </div>
       <div className="tree-children">
@@ -3471,12 +3461,22 @@ function Sidebar({
         </div>
 
         <nav className="primary-nav" aria-label="Primary">
-          <SidebarButton
-            icon={<House size={17} />}
-            label={t('home')}
-            active={view === 'home'}
-            onClick={() => onNavigate('home')}
-          />
+          <div className={`nav-home-row ${view === 'home' ? 'active' : ''}`}>
+            <SidebarButton
+              icon={<House size={17} />}
+              label={t('home')}
+              active={view === 'home'}
+              onClick={() => onNavigate('home')}
+            />
+            <button
+              type="button"
+              className="nav-switch-root"
+              onClick={onSwitchRoot}
+              aria-label={t('menuSwitchRoot')}
+            >
+              <Folder size={17} />
+            </button>
+          </div>
           <div className={`nav-chat-row ${view === 'ai' ? 'active' : ''}`}>
             <SidebarButton
               icon={<MessageCircleMore size={17} />}
@@ -3511,7 +3511,6 @@ function Sidebar({
             activeFilePath={activeFilePath}
             onOpenFile={onOpenFile}
             onLibraryChanged={onLibraryChanged}
-            onSwitchRoot={onSwitchRoot}
             refreshToken={refreshToken}
             notify={notify}
           />
@@ -3548,6 +3547,12 @@ function getHomeGreetingKey(hour: number): TranslationKey {
   if (hour >= 12 && hour < 18) return 'greetingAfternoon';
   return 'greetingEvening';
 }
+
+const greetingIconByKey: Record<string, typeof Sun> = {
+  greetingMorning: Sun,
+  greetingAfternoon: Sun,
+  greetingEvening: Moon,
+};
 
 function HomeView({
   locale,
@@ -3825,12 +3830,13 @@ function HomeView({
   const placeholderStyle = draggedSize
     ? { width: `${draggedSize.width}px`, height: `${draggedSize.height}px` }
     : undefined;
+  const GreetingIcon = greetingIconByKey[greetingKey] ?? Layers3;
 
   return (
     <div className="home-view page">
       <section className="hero">
         <div className="hero-kicker">
-          <Layers3 size={15} />
+          <GreetingIcon size={15} />
           WELCOME
         </div>
         <h1>{t(greetingKey)}</h1>

@@ -16,6 +16,11 @@
   stays for assistive technology. This rule does not apply to the public
   `website/`. Non-interactive readouts (like the AI composer model ID) are
   plain text: no cursor change, no hover highlight, no tooltip.
+- **Cursor:** The desktop app uses only the system default arrow cursor
+  everywhere. No `cursor: pointer` (hand), grab, help, wait, or resize cursors —
+  including buttons, navigation, drag handles, and pane resizers. Hover states
+  are communicated by background/color, never by the cursor. Text fields keep
+  the browser-native I-beam.
 - **Mood:** Serious, quiet, capable, and spacious. TierNote should feel like a professional work surface, not a personalized dashboard template.
 - **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
 - **References:** `references/pasture/` for a permissively licensed Tauri + React Codex client; `references/palot/` for sidebar and conversation-system organization only.
@@ -89,3 +94,4 @@
 | 2026-08-07 | Make the homepage the color exception | Three low-saturation entry cards and muted T1-T5 colors give the core screen identity while the repeated-use shell and note-reading surfaces stay quiet. |
 | 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |
 | 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
+| 2026-08-08 | Use only the default arrow cursor everywhere | A hand cursor is a web pattern; the desktop shell keeps a single native cursor so no element implies clickability beyond its hover state. |
