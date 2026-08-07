@@ -706,21 +706,23 @@ html.tree-drag-active * {
   right: 0;
   left: 0;
   z-index: 2;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 0;
+  height: 4px;
+  margin: 0 12px;
+  background: var(--pane-handle);
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--pane-handle-ring);
   content: '';
   pointer-events: none;
 }
 
 .tree-child.drop-before::after,
 .tree-folder-row.drop-before::after {
-  top: -1px;
+  top: -2px;
 }
 
 .tree-child.drop-after::after,
 .tree-folder-row.drop-after::after {
-  bottom: -1px;
+  bottom: -2px;
 }
 
 .tree-folder-row.drop-inside,

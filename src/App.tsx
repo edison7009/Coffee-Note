@@ -2999,10 +2999,12 @@ function LibraryTree({
     rootTarget: boolean,
   ): TreeDropPosition => {
     if (rootTarget) return 'inside';
-    const ratio = (clientY - rect.top) / Math.max(rect.height, 1);
-    if (!isDir) return ratio < 0.5 ? 'before' : 'after';
-    if (ratio < 0.25) return 'before';
-    if (ratio > 0.75) return 'after';
+    const top = Math.round(rect.top);
+    const height = Math.max(Math.round(rect.height), 1);
+    const y = Math.round(clientY);
+    if (!isDir) return y < top + Math.floor(height / 2) ? 'before' : 'after';
+    if (y < top + Math.floor(height / 4)) return 'before';
+    if (y >= top + Math.ceil(height * 3 / 4)) return 'after';
     return 'inside';
   };
 
