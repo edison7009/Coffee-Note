@@ -2198,7 +2198,6 @@ body.resizing-panels * {
 
 .composer-wrap {
   --reasoning-purple: #8E6BD9;
-  --reasoning-purple-rgb: 142 107 217;
   --reasoning-point-color: color-mix(in srgb, var(--muted) 62%, transparent);
   --reasoning-thumb: #ffffff;
   --reasoning-track-fill: rgba(44, 44, 46, 0.15);
@@ -2578,9 +2577,6 @@ body.resizing-panels * {
 }
 
 [data-theme='dark'] .composer-wrap {
-  --reasoning-purple: #8E6BD9;
-  --reasoning-purple-rgb: 142 107 217;
-  --reasoning-thumb: #ffffff;
   --reasoning-track-fill: rgba(216, 220, 218, 0.17);
   --reasoning-track-empty: rgba(216, 220, 218, 0.07);
 }

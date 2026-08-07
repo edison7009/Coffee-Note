@@ -2365,8 +2365,8 @@ function UpdateButton({ locale }: { locale: Locale }) {
       onClick={() => void handleUpdate()}
       aria-label={
         locale === 'zh'
-          ? `更新至 Lucky Note ${availableVersion}`
-          : `Update Lucky Note to ${availableVersion}`
+          ? `更新至 TierNote ${availableVersion}`
+          : `Update TierNote to ${availableVersion}`
       }
       disabled={installingUpdate}
     >
@@ -3978,7 +3978,7 @@ function ConversationView({
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
             <img src="/brand/logo-new.png" alt="" />
-            <strong className="chat-empty-wordmark">Lucky Note</strong>
+            <strong className="chat-empty-wordmark">TierNote</strong>
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
