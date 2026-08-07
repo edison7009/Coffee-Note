@@ -3157,7 +3157,7 @@ function LibraryTree({
       }
       moveEvent.preventDefault();
       if (current.ghost) {
-        current.ghost.style.transform = `translate3d(${moveEvent.clientX + 12}px, ${moveEvent.clientY + 12}px, 0)`;
+        current.ghost.style.transform = `translate3d(${moveEvent.clientX + 14}px, ${moveEvent.clientY - 15}px, 0)`;
       }
       const target = findTreeDropTarget(moveEvent.clientX, moveEvent.clientY);
       if (!target || target.relativePath === current.entry.relativePath) {
