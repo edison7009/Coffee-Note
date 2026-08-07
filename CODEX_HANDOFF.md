@@ -51,14 +51,13 @@ or temporary deployment credentials.
   one continuous outer surface, while the center workspace and right contextual rail
   form one continuous inner panel. The inner panel begins below the top bar with a
   visible top-left radius and border; the right rail must not read as a second sidebar.
-- The left rail spans the full window height. On Windows/Linux its logo and navigation
-  use the former empty top-left title-bar area; macOS keeps extra top clearance for
-  native traffic-light controls. The web title bar starts above the inner work panel,
-  not above the left rail.
+- The shared title bar spans the full window width. The left rail starts below
+  it with Home as the first row; macOS reserves extra title-bar clearance for
+  native traffic-light controls.
 - The homepage tier list remains the product core. T1-T5 use muted rose, amber,
   yellow, teal, and green, limited to the tier strip and softly tinted label cells.
 - The display brand uses the transparent rounded-corner feather mark plus the
-  closed `TierNote` name in the left rail; the same mark remains in the chat empty
+  closed `TierNote` name in the title bar; the same mark remains in the chat empty
   state. Keep internal paths, storage keys, window title, and bundle identifiers
   as `TierNote`. The in-app mark source is `src-tauri/icons/logo.png`, which must
   remain byte-identical to the copied UI source at `public/brand/logo-new.png`.
@@ -71,9 +70,9 @@ or temporary deployment credentials.
   macOS and iOS auto-apply their rounded masks, and Linux keeps square corners.
   Regenerate per platform with `npx tauri icon <source> -o <temp-dir>` and copy
   the platform files into `src-tauri/icons/`.
-- In the left rail the wordmark uses the same Lora italic face as the AI-chat
-  identity at a larger 22px; the AI-chat empty-state logo and wordmark share a
-  compact 42px height basis.
+- The title-bar wordmark reuses the AI-chat identity's bundled `Lora`
+  bold-italic face at 16px. The AI-chat empty-state logo and wordmark keep their
+  separate 42px identity treatment.
 - `DESIGN.md` is the desktop design source of truth. The public `website/` remains
   a separate product surface with its existing expressive brand direction.
 - **Cursor rule (2026-08-08):** the desktop app uses only the system default
@@ -163,10 +162,15 @@ to the product template.
 - Avoid a visible sidebar scrollbar, but keep mouse-wheel scrolling.
 - The left, center, and right panes are resizable. While dragging, only the
   divider being manipulated is highlighted; the opposite divider stays idle.
-- Top title/drag bar uses a restrained blue–green gradient. Its left side shows
-  the bilingual statement **延寿，是人类在 AI 时代最有价值的投资。** /
-  **Longevity is humanity’s most valuable investment in the age of AI.**; it
-  should not repeat the logo, product name, or main-page slogan.
+- The top title/drag bar spans the full window width. Its left side shows a
+  16 x 16 product icon, the closed `TierNote` wordmark in the bundled `Lora`
+  bold-italic face, functional back/forward navigation, and File/Edit/Help menus.
+  File owns the library-switch action; Edit may remain a restrained placeholder
+  until editing commands are wired; Help links to product help and feedback.
+- The left rail starts directly below the title bar with Home as its first row.
+  Do not repeat the logo/wordmark there or place a separate folder action beside
+  Home. Keep the Home content lifted so its top area aligns visually with the
+  right-rail header divider.
 - Windows/Linux use custom window controls; macOS uses native traffic-light
   controls on the left.
 - The desktop app is single-instance. Launching it again must restore and focus

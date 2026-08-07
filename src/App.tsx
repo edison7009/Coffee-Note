@@ -133,6 +133,12 @@ import {
   getActiveModelConfig,
   normalizeModelSettings,
 } from './modelSettings';
+import {
+  createNavigationHistory,
+  recordNavigation,
+  stepBack,
+  stepForward,
+} from './navigationHistory';
 
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://tiernote.life/';
@@ -737,7 +743,8 @@ function locationsMatch(left: NavigationLocation, right: NavigationLocation): bo
     left.view === right.view &&
     left.supplementId === right.supplementId &&
     left.personId === right.personId &&
-    left.storyId === right.storyId
+    left.storyId === right.storyId &&
+    left.filePath === right.filePath
   );
 }
 
@@ -861,7 +868,8 @@ function App() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [resizingPane, setResizingPane] = useState<ResizeSide | null>(null);
   const chatComposerRef = useRef<HTMLTextAreaElement>(null);
-  const navigationHistoryRef = useRef<NavigationLocation[]>([]);
+  const navigationHistoryRef = useRef(createNavigationHistory<NavigationLocation>());
+  const [, setNavigationHistoryVersion] = useState(0);
 
   useEffect(() => {
     let seeded = false;
@@ -920,13 +928,20 @@ function App() {
     supplementId: selectedSupplement?.id,
     personId: selectedPerson?.id,
     storyId: selectedStory?.id,
+    filePath: fileNotePath || undefined,
   });
 
   const rememberCurrentLocation = (nextLocation: NavigationLocation) => {
     const currentLocation = getCurrentLocation();
-    if (!locationsMatch(currentLocation, nextLocation)) {
-      navigationHistoryRef.current.push(currentLocation);
-    }
+    const nextHistory = recordNavigation(
+      navigationHistoryRef.current,
+      currentLocation,
+      nextLocation,
+      locationsMatch,
+    );
+    if (nextHistory === navigationHistoryRef.current) return;
+    navigationHistoryRef.current = nextHistory;
+    setNavigationHistoryVersion((version) => version + 1);
   };
 
   useEffect(() => {
@@ -1087,8 +1102,22 @@ function App() {
   };
 
   const goBack = () => {
-    const previous = navigationHistoryRef.current.pop();
-    restoreLocation(previous || { view: 'home' });
+    const result = stepBack(navigationHistoryRef.current, getCurrentLocation());
+    if (!result.target) {
+      restoreLocation({ view: 'home' });
+      return;
+    }
+    navigationHistoryRef.current = result.history;
+    setNavigationHistoryVersion((version) => version + 1);
+    restoreLocation(result.target);
+  };
+
+  const goForward = () => {
+    const result = stepForward(navigationHistoryRef.current, getCurrentLocation());
+    if (!result.target) return;
+    navigationHistoryRef.current = result.history;
+    setNavigationHistoryVersion((version) => version + 1);
+    restoreLocation(result.target);
   };
 
   const noteRelativePath = useMemo(() => {
@@ -1880,7 +1909,17 @@ function App() {
         } as React.CSSProperties
       }
     >
-      <AppTitlebar locale={locale} onSettings={() => setSettingsOpen(true)} />
+      <AppTitlebar
+        locale={locale}
+        canGoBack={navigationHistoryRef.current.back.length > 0}
+        canGoForward={navigationHistoryRef.current.forward.length > 0}
+        onBack={goBack}
+        onForward={goForward}
+        onSwitchRoot={handleSwitchRoot}
+        onHelp={() => void openExternalUrl(PRODUCT_WEBSITE)}
+        onFeedback={() => void openExternalUrl(FEEDBACK_URL)}
+        onSettings={() => setSettingsOpen(true)}
+      />
       <Sidebar
         locale={locale}
         library={library}
@@ -1892,7 +1931,6 @@ function App() {
         chatBusy={chatBusy}
         onOpenFile={openFileNote}
         onLibraryChanged={handleLibraryChanged}
-        onSwitchRoot={handleSwitchRoot}
         refreshToken={treeRefresh}
         notify={(message) => setToast({ message, kind: 'status' })}
         t={t}
@@ -2239,7 +2277,57 @@ function PaneResizer({
   );
 }
 
-function AppTitlebar({ locale, onSettings }: { locale: Locale; onSettings: () => void }) {
+type TitlebarMenu = 'file' | 'edit' | 'help';
+
+function AppTitlebar({
+  locale,
+  canGoBack,
+  canGoForward,
+  onBack,
+  onForward,
+  onSwitchRoot,
+  onHelp,
+  onFeedback,
+  onSettings,
+}: {
+  locale: Locale;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onBack: () => void;
+  onForward: () => void;
+  onSwitchRoot: () => void;
+  onHelp: () => void;
+  onFeedback: () => void;
+  onSettings: () => void;
+}) {
+  const [openMenu, setOpenMenu] = useState<TitlebarMenu | null>(null);
+  const menuBarRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const closeOnPointerDown = (event: globalThis.PointerEvent) => {
+      if (!menuBarRef.current?.contains(event.target as Node)) setOpenMenu(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenMenu(null);
+    };
+    window.addEventListener('pointerdown', closeOnPointerDown);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOnPointerDown);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openMenu]);
+
+  const toggleMenu = (menu: TitlebarMenu) => {
+    setOpenMenu((current) => (current === menu ? null : menu));
+  };
+
+  const runMenuAction = (action: () => void) => {
+    setOpenMenu(null);
+    action();
+  };
+
   const runWindowCommand = async (command: 'minimize' | 'maximize' | 'close') => {
     if (!isTauri) return;
 
@@ -2258,6 +2346,106 @@ function AppTitlebar({ locale, onSettings }: { locale: Locale; onSettings: () =>
       className={`app-titlebar ${isMacOSPlatform ? 'platform-macos' : 'platform-custom-controls'}`}
       data-tauri-drag-region
     >
+      <div className="titlebar-leading">
+        <div className="titlebar-brand" data-tauri-drag-region>
+          <img src="/brand/logo-new.png" alt="" />
+          <strong>TierNote</strong>
+        </div>
+
+        <div className="titlebar-history" aria-label={locale === 'zh' ? '页面历史' : 'Page history'}>
+          <button
+            type="button"
+            aria-label={locale === 'zh' ? '返回上一页' : 'Go back'}
+            disabled={!canGoBack}
+            onClick={onBack}
+          >
+            <ChevronLeft size={16} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            aria-label={locale === 'zh' ? '前往下一页' : 'Go forward'}
+            disabled={!canGoForward}
+            onClick={onForward}
+          >
+            <ChevronRight size={16} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        <nav
+          ref={menuBarRef}
+          className="titlebar-menu-bar"
+          aria-label={locale === 'zh' ? '应用菜单' : 'Application menu'}
+        >
+          <div className="titlebar-menu-group">
+            <button
+              type="button"
+              className={openMenu === 'file' ? 'active' : ''}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'file'}
+              onClick={() => toggleMenu('file')}
+            >
+              {locale === 'zh' ? '文件' : 'File'}
+            </button>
+            {openMenu === 'file' && (
+              <div className="titlebar-menu-popover" role="menu">
+                <button type="button" role="menuitem" onClick={() => runMenuAction(onSwitchRoot)}>
+                  <FolderOpen size={15} />
+                  <span>{locale === 'zh' ? '切换资料库...' : 'Switch library...'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="titlebar-menu-group">
+            <button
+              type="button"
+              className={openMenu === 'edit' ? 'active' : ''}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'edit'}
+              onClick={() => toggleMenu('edit')}
+            >
+              {locale === 'zh' ? '编辑' : 'Edit'}
+            </button>
+            {openMenu === 'edit' && (
+              <div className="titlebar-menu-popover" role="menu">
+                <button type="button" role="menuitem" disabled>
+                  <span>{locale === 'zh' ? '撤销' : 'Undo'}</span>
+                  <kbd>{isMacOSPlatform ? '⌘Z' : 'Ctrl+Z'}</kbd>
+                </button>
+                <button type="button" role="menuitem" disabled>
+                  <span>{locale === 'zh' ? '重做' : 'Redo'}</span>
+                  <kbd>{isMacOSPlatform ? '⇧⌘Z' : 'Ctrl+Y'}</kbd>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="titlebar-menu-group">
+            <button
+              type="button"
+              className={openMenu === 'help' ? 'active' : ''}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'help'}
+              onClick={() => toggleMenu('help')}
+            >
+              {locale === 'zh' ? '帮助' : 'Help'}
+            </button>
+            {openMenu === 'help' && (
+              <div className="titlebar-menu-popover" role="menu">
+                <button type="button" role="menuitem" onClick={() => runMenuAction(onHelp)}>
+                  <BookOpen size={15} />
+                  <span>{locale === 'zh' ? 'TierNote 帮助' : 'TierNote help'}</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => runMenuAction(onFeedback)}>
+                  <Github size={15} />
+                  <span>{locale === 'zh' ? '反馈问题' : 'Send feedback'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </nav>
+      </div>
+
       <div className="titlebar-drag-area" data-tauri-drag-region />
 
       <div className="window-controls">
@@ -3428,7 +3616,6 @@ interface SidebarProps {
   chatBusy: boolean;
   onOpenFile: (relativePath: string) => void;
   onLibraryChanged: () => void;
-  onSwitchRoot: () => void;
   refreshToken: number;
   notify: (message: string) => void;
   t: (key: TranslationKey) => string;
@@ -3445,7 +3632,6 @@ function Sidebar({
   chatBusy,
   onOpenFile,
   onLibraryChanged,
-  onSwitchRoot,
   refreshToken,
   notify,
   t,
@@ -3453,30 +3639,13 @@ function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-scroll">
-        <div className="brand">
-          <button className="brand-main" onClick={() => onNavigate('home')}>
-            <img src="/brand/logo-new.png" alt="" />
-            <strong>{t('appName')}</strong>
-          </button>
-        </div>
-
         <nav className="primary-nav" aria-label="Primary">
-          <div className={`nav-home-row ${view === 'home' ? 'active' : ''}`}>
-            <SidebarButton
-              icon={<House size={17} />}
-              label={t('home')}
-              active={view === 'home'}
-              onClick={() => onNavigate('home')}
-            />
-            <button
-              type="button"
-              className="nav-switch-root"
-              onClick={onSwitchRoot}
-              aria-label={t('menuSwitchRoot')}
-            >
-              <Folder size={17} />
-            </button>
-          </div>
+          <SidebarButton
+            icon={<House size={17} />}
+            label={t('home')}
+            active={view === 'home'}
+            onClick={() => onNavigate('home')}
+          />
           <div className={`nav-chat-row ${view === 'ai' ? 'active' : ''}`}>
             <SidebarButton
               icon={<MessageCircleMore size={17} />}

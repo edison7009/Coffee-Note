@@ -29,7 +29,8 @@
 
 - Keep the homepage tier list as the core first screen.
 - Use one outer shell for the top bar and persistent left navigation rail.
-- Let the left rail span the full window height so its brand and navigation occupy the former empty top-left title-bar area. On macOS, reserve clearance for native traffic-light controls.
+- Let the shared title bar span the full window width. Place the 16 x 16 product icon and the closed `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
+- Start the left rail below the title bar with Home as its first row. Do not repeat the product icon, wordmark, or a separate folder action in that row; library switching belongs in the File menu.
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
 - Treat AI chat as one workspace mode, not the visual identity of the whole product.
 - Keep the composer in a stable bottom row when chat is active.
@@ -50,6 +51,7 @@
   the component; never shrink the type to fit.
 - **Weight:** Use 400 for body, 550-600 for controls and navigation, and 650-700 only for page titles.
 - **Letter spacing:** 0. Avoid uppercase tracking except tiny technical metadata.
+- **Brand exception:** The compact title-bar `TierNote` wordmark reuses the bundled `Lora` bold-italic face from the AI-chat identity at 16px.
 
 ## Color
 
@@ -95,3 +97,4 @@
 | 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |
 | 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
 | 2026-08-08 | Use only the default arrow cursor everywhere | A hand cursor is a web pattern; the desktop shell keeps a single native cursor so no element implies clickability beyond its hover state. |
+| 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `TierNote` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
