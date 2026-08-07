@@ -3873,7 +3873,11 @@ function NoteView({
             onClick={() => void handleCopyPath()}
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
-            <span>{copied ? '已复制' : '复制'}</span>
+            <span>
+              {copied
+                ? (locale === 'zh' ? '已复制' : 'Copied')
+                : (locale === 'zh' ? '复制' : 'Copy')}
+            </span>
           </button>
           <div className="note-actions">
             <button
