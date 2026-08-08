@@ -105,6 +105,7 @@ import {
   deleteEntry,
   pasteEntry,
   revealInFolder,
+  chatCompletion,
   type DirectoryEntry,
 } from './api';
 import {
@@ -386,6 +387,71 @@ function normalizeMarkdown(markdown: string): string {
       /^> \*\*(?:30 秒结论|30-second (?:summary|conclusion))\*\*\r?\n>\s*\r?\n/gim,
       '',
     );
+}
+
+function hashText(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function sanitizeSummaryText(value: string): string {
+  return value
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\[(.*?)\]\((?:https?:\/\/[^)]+)\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function shortenSummaryText(value: string, maxChars = 280): string {
+  const normalized = sanitizeSummaryText(value);
+  if (normalized.length <= maxChars) return normalized;
+  const clipped = normalized.slice(0, maxChars);
+  const sentence = clipped.match(/^.*?[。！？.!?](?:\s|$)/u)?.[0]?.trim();
+  if (sentence && sentence.length >= Math.min(maxChars, 120)) {
+    return sentence;
+  }
+  return clipped.trim();
+}
+
+function extractLocalNoteSummary(markdown: string): string {
+  const normalized = normalizeMarkdown(markdown).replace(/\r/g, '');
+  const blocks = normalized.split(/\n\s*\n/);
+  for (const block of blocks) {
+    const trimmed = block.trim();
+    if (!trimmed) continue;
+    if (/^#{1,6}\s+/.test(trimmed)) continue;
+    if (/^```/.test(trimmed)) continue;
+    const cleaned = sanitizeSummaryText(
+      trimmed
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/^>\s?/gm, '')
+        .replace(/^\s*\|\s*/gm, '')
+        .replace(/^\s*\d+\.\s+/gm, '')
+        .replace(/^\s*[-*+]\s+/gm, ''),
+    );
+    if (cleaned.length >= 20) {
+      return shortenSummaryText(cleaned);
+    }
+  }
+  const fallback = sanitizeSummaryText(normalized);
+  return fallback.length >= 20 ? shortenSummaryText(fallback) : '';
+}
+
+type NoteSummarySource = 'local' | 'ai';
+type NoteSummaryStatus = 'loading' | 'ready';
+
+interface NoteSummaryRecord {
+  text: string;
+  source: NoteSummarySource;
+  status: NoteSummaryStatus;
 }
 
 const REASONING_DETAILS_PATTERN =
@@ -859,6 +925,9 @@ function App() {
     [view, noteMarkdown],
   );
   const [noteLoading, setNoteLoading] = useState(false);
+  const noteSummaryCacheRef = useRef<Record<string, NoteSummaryRecord>>({});
+  const noteSummaryRequestIdRef = useRef(0);
+  const [noteSummaryVersion, setNoteSummaryVersion] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
@@ -1152,6 +1221,169 @@ function App() {
     if (view === 'story') return selectedStory?.filePath || null;
     return null;
   }, [view, fileNotePath, selectedSupplement, selectedPerson, selectedStory]);
+  const noteRoot = useMemo(() => {
+    if (view === 'file') {
+      return fileNoteSource === 'myInfo' ? library.myInfoRoot : library.root;
+    }
+    if (view === 'supplement' || view === 'person' || view === 'story') {
+      return library.root;
+    }
+    return '';
+  }, [view, fileNoteSource, library.myInfoRoot, library.root]);
+  const noteSummaryKey = useMemo(() => {
+    if (!['file', 'supplement', 'person', 'story'].includes(view)) return null;
+    const identity = noteRelativePath || currentPageTitle || view;
+    const body = noteMarkdown.trim();
+    if (!identity || !body) return null;
+    const modelSignature =
+      isTauri && modelConfig.apiKey.trim() && modelConfig.baseUrl.trim() && modelConfig.model.trim()
+        ? `${modelConfig.provider}:${modelConfig.baseUrl.trim()}:${modelConfig.model.trim()}`
+        : 'local';
+    return [
+      locale,
+      noteRoot || 'root',
+      identity,
+      hashText(body),
+      modelSignature,
+    ].join('::');
+  }, [
+    currentPageTitle,
+    locale,
+    modelConfig.apiKey,
+    modelConfig.baseUrl,
+    modelConfig.model,
+    modelConfig.provider,
+    noteMarkdown,
+    noteRelativePath,
+    noteRoot,
+    view,
+  ]);
+  const noteSummaryPreview = useMemo(
+    () => extractLocalNoteSummary(noteMarkdown),
+    [noteMarkdown],
+  );
+  const noteSummary = useMemo<NoteSummaryRecord | null>(
+    () =>
+      noteSummaryKey
+        ? noteSummaryCacheRef.current[noteSummaryKey] || (
+            noteSummaryPreview
+              ? {
+                  text: noteSummaryPreview,
+                  source: 'local',
+                  status:
+                    isTauri &&
+                    !!noteRelativePath &&
+                    !!modelConfig.apiKey.trim() &&
+                    !!modelConfig.baseUrl.trim() &&
+                    !!modelConfig.model.trim()
+                      ? 'loading'
+                      : 'ready',
+                }
+              : null
+          )
+        : null,
+    [
+      noteRelativePath,
+      noteSummaryKey,
+      noteSummaryPreview,
+      noteSummaryVersion,
+      modelConfig.apiKey,
+      modelConfig.baseUrl,
+      modelConfig.model,
+    ],
+  );
+  useEffect(() => {
+    if (!noteSummaryKey || noteLoading) return;
+    if (!noteMarkdown.trim()) return;
+    if (noteMarkdown.includes('无法打开') || noteMarkdown.includes('Cannot open')) return;
+
+    const localSummary = noteSummaryPreview;
+    if (!localSummary) return;
+
+    const cached = noteSummaryCacheRef.current[noteSummaryKey];
+    const canUseModel =
+      isTauri &&
+      !!noteRelativePath &&
+      !!modelConfig.apiKey.trim() &&
+      !!modelConfig.baseUrl.trim() &&
+      !!modelConfig.model.trim();
+
+    if (!canUseModel) {
+      if (
+        !cached ||
+        cached.text !== localSummary ||
+        cached.source !== 'local' ||
+        cached.status !== 'ready'
+      ) {
+        noteSummaryCacheRef.current[noteSummaryKey] = {
+          text: localSummary,
+          source: 'local',
+          status: 'ready',
+        };
+        setNoteSummaryVersion((version) => version + 1);
+      }
+      return;
+    }
+
+    if (cached?.status === 'ready' && cached.source === 'ai') return;
+    if (cached?.status === 'loading' && cached.source === 'ai') return;
+
+    noteSummaryCacheRef.current[noteSummaryKey] = {
+      text: localSummary,
+      source: 'local',
+      status: 'loading',
+    };
+    setNoteSummaryVersion((version) => version + 1);
+
+    const requestId = ++noteSummaryRequestIdRef.current;
+    const question =
+      locale === 'zh'
+        ? `请基于当前打开的笔记写一段可复用的摘要。只输出一段简体中文，不要 Markdown、项目符号、标题或路径引用。重点说明这篇笔记在说什么、它和本地知识库里相关内容的关系，以及最重要的结论或用途。`
+        : `Based on the currently open note, write a reusable summary. Output one plain English paragraph only, with no Markdown, bullets, title, or path citations. Focus on what the note is about, how it relates to nearby local knowledge, and the most important conclusion or use.`;
+
+    void (async () => {
+      try {
+        const response = await chatCompletion({
+          apiKey: modelConfig.apiKey,
+          baseUrl: modelConfig.baseUrl,
+          model: modelConfig.model,
+          question,
+          locale,
+          knowledgeRoot: noteRoot || library.root,
+          contextPaths: noteRelativePath ? [noteRelativePath] : [],
+          history: [],
+        });
+        if (noteSummaryRequestIdRef.current !== requestId) return;
+        const aiSummary = shortenSummaryText(response);
+        noteSummaryCacheRef.current[noteSummaryKey] = {
+          text: aiSummary || localSummary,
+          source: aiSummary ? 'ai' : 'local',
+          status: 'ready',
+        };
+        setNoteSummaryVersion((version) => version + 1);
+      } catch {
+        if (noteSummaryRequestIdRef.current !== requestId) return;
+        noteSummaryCacheRef.current[noteSummaryKey] = {
+          text: localSummary,
+          source: 'local',
+          status: 'ready',
+        };
+        setNoteSummaryVersion((version) => version + 1);
+      }
+    })();
+  }, [
+    library.root,
+    locale,
+    modelConfig.apiKey,
+    modelConfig.baseUrl,
+    modelConfig.model,
+    noteLoading,
+    noteMarkdown,
+    noteRelativePath,
+    noteRoot,
+    noteSummaryKey,
+    noteSummaryPreview,
+  ]);
   const currentNoteTarget = useMemo<Omit<InternalNoteTarget, 'label'> | null>(() => {
     if (view === 'supplement' && selectedSupplement) {
       return { kind: 'supplement', id: selectedSupplement.id };
@@ -1858,6 +2090,7 @@ function App() {
           selectedStory?.filePath,
           view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
         ].filter(Boolean) as string[],
+        noteSummary: noteSummary?.text,
         enabledMyInfoSections: enabledMyInfoSections(myInfoRetrieval),
         currentPage: currentPageTitle,
         history: priorMessages
@@ -2042,6 +2275,7 @@ function App() {
                     toggleFavorite({ kind: 'supplement', id: selectedSupplement.id })
                   }
                   onBack={goBack}
+                  summary={noteSummary}
                   notePath={noteRelativePath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
@@ -2066,6 +2300,7 @@ function App() {
                     toggleFavorite({ kind: 'person', id: selectedPerson.id })
                   }
                   onBack={goBack}
+                  summary={noteSummary}
                   notePath={noteRelativePath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
@@ -2091,6 +2326,7 @@ function App() {
                     toggleFavorite({ kind: 'story', id: selectedStory.id })
                   }
                   onBack={goBack}
+                  summary={noteSummary}
                   notePath={noteRelativePath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
@@ -2123,6 +2359,7 @@ function App() {
                   favorite={isFavorite({ kind: 'file', id: fileNotePath })}
                   onToggleFavorite={() => toggleFavorite({ kind: 'file', id: fileNotePath })}
                   onBack={goBack}
+                  summary={noteSummary}
                   notePath={noteRelativePath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
@@ -4367,6 +4604,7 @@ function NoteView({
   tier,
   markdown,
   loading,
+  summary,
   locale,
   currentTarget,
   internalTargets,
@@ -4383,6 +4621,7 @@ function NoteView({
   tier?: string;
   markdown: string;
   loading: boolean;
+  summary: NoteSummaryRecord | null;
   locale: Locale;
   currentTarget: Omit<InternalNoteTarget, 'label'>;
   internalTargets: InternalNoteTarget[];
@@ -4575,6 +4814,21 @@ function NoteView({
             </button>
           </div>
         </div>
+        {!loading && summary?.text && (
+          <section className={`note-summary${summary.source === 'ai' ? ' is-ai' : ''}`}>
+            <div className="note-summary-head">
+              <strong>{translate(locale, 'noteSummary')}</strong>
+              <small>
+                {summary.status === 'loading'
+                  ? translate(locale, 'noteSummaryLoading')
+                  : summary.source === 'ai'
+                    ? translate(locale, 'noteSummaryAi')
+                    : translate(locale, 'noteSummaryLocal')}
+              </small>
+            </div>
+            <p>{summary.text}</p>
+          </section>
+        )}
       </div>
       {loading ? (
         <div className="loading-state compact">

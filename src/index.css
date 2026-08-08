@@ -1564,6 +1564,45 @@ html.tree-drag-active * {
   border-top: 1px solid var(--line);
 }
 
+.note-summary {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 13px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--secondary-surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--line));
+  border-radius: 10px;
+}
+
+.note-summary.is-ai {
+  background: color-mix(in srgb, var(--accent) 7%, var(--secondary-surface));
+}
+
+.note-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.note-summary-head strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.note-summary-head small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.note-summary p {
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 84%, var(--paper));
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .note-action {
   color: var(--muted);
   font-size: 13px;
