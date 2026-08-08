@@ -28,6 +28,7 @@ import {
   ArrowUp,
   Pencil,
   Presentation,
+  Video,
   FileText,
   Folder,
   FolderPlus,
@@ -4499,7 +4500,7 @@ function NoteView({
           </div>
         </div>
         <div className="note-meta-row">
-          <div className="note-actions">
+          <div className="note-actions note-actions-primary">
             <button
               type="button"
               className={`note-action copy-full ${copied ? 'copied' : ''}`}
@@ -4513,14 +4514,35 @@ function NoteView({
                   : translate(locale, 'copyFullText')}
               </span>
             </button>
-            <button type="button" className="note-action" disabled aria-label={translate(locale, 'mobileLongImage')}>
+            <button
+              type="button"
+              className="note-action note-action-future"
+              disabled
+              aria-label={translate(locale, 'mobileLongImage')}
+            >
               <Smartphone size={14} />
               <span>{translate(locale, 'mobileLongImage')}</span>
             </button>
-            <button type="button" className="note-action" disabled aria-label={translate(locale, 'generatePpt')}>
+            <button
+              type="button"
+              className="note-action note-action-future"
+              disabled
+              aria-label={translate(locale, 'generatePpt')}
+            >
               <Presentation size={14} />
               <span>{translate(locale, 'generatePpt')}</span>
             </button>
+            <button
+              type="button"
+              className="note-action note-action-future"
+              disabled
+              aria-label={translate(locale, 'generateVideo')}
+            >
+              <Video size={14} />
+              <span>{translate(locale, 'generateVideo')}</span>
+            </button>
+          </div>
+          <div className="note-actions note-actions-secondary">
             <button
               type="button"
               className={`note-action ${favorite ? 'active' : ''}`}

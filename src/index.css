@@ -1532,9 +1532,7 @@ html.tree-drag-active * {
 .note-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
 }
 
 .note-title-row {
@@ -1557,10 +1555,13 @@ html.tree-drag-active * {
 .note-meta-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
 }
 
 .note-action {
@@ -1580,18 +1581,22 @@ html.tree-drag-active * {
 .note-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
   flex: 0 0 auto;
+}
+
+.note-actions-secondary {
+  margin-left: auto;
 }
 
 .note-action {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 24px;
-  padding: 0 8px;
+  min-height: 30px;
+  padding: 0 10px;
   background: transparent;
   border: 0;
   border-radius: 8px;
@@ -1615,6 +1620,10 @@ html.tree-drag-active * {
 .note-action:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.note-action-future:disabled {
+  opacity: 0.36;
 }
 
 .note-action.copy-full {
