@@ -51,6 +51,30 @@ pub fn search_library(root: &Path, query: &str, locale: &str, limit: usize) -> V
     search_index(&index, query, limit)
 }
 
+pub fn search_library_excluding(
+    root: &Path,
+    query: &str,
+    locale: &str,
+    limit: usize,
+    excluded_prefixes: &[String],
+) -> Vec<SearchHit> {
+    let Some(index) = load_index(root, locale) else {
+        return Vec::new();
+    };
+    let allowed = index
+        .notes
+        .iter()
+        .enumerate()
+        .filter_map(|(index, note)| {
+            (!excluded_prefixes
+                .iter()
+                .any(|prefix| path_has_prefix(&note.path, prefix)))
+            .then_some(index)
+        })
+        .collect::<HashSet<_>>();
+    search_index_filtered(&index, query, limit, Some(&allowed))
+}
+
 pub fn retrieve_context(
     root: &Path,
     question: &str,
@@ -58,9 +82,82 @@ pub fn retrieve_context(
     locale: &str,
     max_bytes: usize,
 ) -> String {
+    retrieve_context_filtered(root, question, selected_paths, locale, max_bytes, None)
+}
+
+pub fn retrieve_context_filtered(
+    root: &Path,
+    question: &str,
+    selected_paths: &[String],
+    locale: &str,
+    max_bytes: usize,
+    allowed_paths: Option<&[String]>,
+) -> String {
+    retrieve_context_scoped(
+        root,
+        question,
+        selected_paths,
+        locale,
+        max_bytes,
+        allowed_paths,
+        &[],
+    )
+}
+
+pub fn retrieve_context_excluding(
+    root: &Path,
+    question: &str,
+    selected_paths: &[String],
+    locale: &str,
+    max_bytes: usize,
+    excluded_prefixes: &[String],
+) -> String {
+    retrieve_context_scoped(
+        root,
+        question,
+        selected_paths,
+        locale,
+        max_bytes,
+        None,
+        excluded_prefixes,
+    )
+}
+
+fn retrieve_context_scoped(
+    root: &Path,
+    question: &str,
+    selected_paths: &[String],
+    locale: &str,
+    max_bytes: usize,
+    allowed_paths: Option<&[String]>,
+    excluded_prefixes: &[String],
+) -> String {
     let Some(index) = load_index(root, locale) else {
         return String::new();
     };
+
+    let explicitly_allowed = allowed_paths.map(|paths| {
+        paths
+            .iter()
+            .filter_map(|path| resolve_note_index(&index, path))
+            .collect::<HashSet<_>>()
+    });
+    let allowed_indices = (allowed_paths.is_some() || !excluded_prefixes.is_empty()).then(|| {
+        index
+            .notes
+            .iter()
+            .enumerate()
+            .filter_map(|(note_index, note)| {
+                let allowed = explicitly_allowed
+                    .as_ref()
+                    .map_or(true, |indices| indices.contains(&note_index));
+                let excluded = excluded_prefixes
+                    .iter()
+                    .any(|prefix| path_has_prefix(&note.path, prefix));
+                (allowed && !excluded).then_some(note_index)
+            })
+            .collect::<HashSet<_>>()
+    });
 
     let mut included = HashSet::new();
     let mut sections = Vec::new();
@@ -80,6 +177,12 @@ pub fn retrieve_context(
         let Some(note_index) = resolve_note_index(&index, &requested) else {
             continue;
         };
+        if allowed_indices
+            .as_ref()
+            .is_some_and(|allowed| !allowed.contains(&note_index))
+        {
+            continue;
+        }
         if !included.insert(note_index) {
             continue;
         }
@@ -91,7 +194,7 @@ pub fn retrieve_context(
         ));
     }
 
-    for hit in search_index(&index, question, 7) {
+    for hit in search_index_filtered(&index, question, 7, allowed_indices.as_ref()) {
         let Some(note_index) = resolve_note_index(&index, &hit.path) else {
             continue;
         };
@@ -166,9 +269,13 @@ fn collect_logical_markdown_paths(root: &Path, locale: &str) -> Vec<PathBuf> {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
                 visit(&path, paths);
-            } else if path.extension().is_some_and(|extension| extension == "md")
+            } else if file_type.is_file()
+                && path.extension().is_some_and(|extension| extension == "md")
                 && !is_paired_english_companion(&path)
             {
                 paths.push(path);
@@ -283,6 +390,21 @@ fn build_index(root: &Path, paths: Vec<PathBuf>) -> KnowledgeIndex {
 }
 
 fn search_index(index: &KnowledgeIndex, query: &str, limit: usize) -> Vec<SearchHit> {
+    search_index_filtered(index, query, limit, None)
+}
+
+fn path_has_prefix(path: &str, prefix: &str) -> bool {
+    let path = path.replace('\\', "/");
+    let prefix = prefix.replace('\\', "/").trim_matches('/').to_string();
+    prefix.is_empty() || path == prefix || path.starts_with(&format!("{prefix}/"))
+}
+
+fn search_index_filtered(
+    index: &KnowledgeIndex,
+    query: &str,
+    limit: usize,
+    allowed_indices: Option<&HashSet<usize>>,
+) -> Vec<SearchHit> {
     let terms = query_terms(query);
     if terms.is_empty() || limit == 0 {
         return Vec::new();
@@ -290,6 +412,9 @@ fn search_index(index: &KnowledgeIndex, query: &str, limit: usize) -> Vec<Search
 
     let mut base_scores = Vec::new();
     for (note_index, note) in index.notes.iter().enumerate() {
+        if allowed_indices.is_some_and(|allowed| !allowed.contains(&note_index)) {
+            continue;
+        }
         let score = score_note(note, query, &terms);
         if score > 0 {
             base_scores.push((score, note_index));
@@ -310,6 +435,9 @@ fn search_index(index: &KnowledgeIndex, query: &str, limit: usize) -> Vec<Search
             .filter_map(|path| index.by_path.get(path).copied());
         let neighbors = outgoing.chain(index.incoming[*seed_index].iter().copied());
         for neighbor in neighbors {
+            if allowed_indices.is_some_and(|allowed| !allowed.contains(&neighbor)) {
+                continue;
+            }
             let entry = combined.entry(neighbor).or_insert((0, true));
             entry.0 = entry.0.saturating_add(graph_score);
             entry.1 = true;
@@ -607,6 +735,115 @@ mod tests {
         assert!(context.contains("自身免疫相关证据摘要"));
         assert!(context.len() < 10_000);
 
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn filtered_context_excludes_disabled_personal_notes() {
+        let root = fixture_root();
+        fs::create_dir_all(root.join("plans")).expect("plans directory should be created");
+        fs::write(
+            root.join("plans/supplements.md"),
+            "# 我的简历\n\n唯一简历暗号是北极星。",
+        )
+        .expect("resume fixture should be written");
+        fs::write(
+            root.join("plans/exercise.md"),
+            "# 我的目标\n\n唯一目标暗号是远航。",
+        )
+        .expect("goal fixture should be written");
+
+        let context = retrieve_context_filtered(
+            &root,
+            "北极星远航",
+            &[],
+            "zh",
+            20_000,
+            Some(&["plans/exercise.md".to_string()]),
+        );
+
+        assert!(!context.contains("北极星"));
+        assert!(context.contains("远航"));
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn explicit_empty_allowlist_returns_no_context() {
+        let root = fixture_root();
+        fs::write(
+            root.join("dossiers/private.md"),
+            "# Private\n\nThe only passphrase is moonstone.",
+        )
+        .expect("fixture should be written");
+
+        let context = retrieve_context_filtered(
+            &root,
+            "moonstone",
+            &["dossiers/private.md".to_string()],
+            "en",
+            20_000,
+            Some(&[]),
+        );
+
+        assert!(context.is_empty());
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn filtered_context_blocks_selected_paths_and_graph_neighbors() {
+        let root = fixture_root();
+        fs::write(
+            root.join("dossiers/allowed.md"),
+            "# Allowed\n\nVisible comet details. [Private](private.md)",
+        )
+        .expect("allowed fixture should be written");
+        fs::write(
+            root.join("dossiers/private.md"),
+            "# Private\n\nHidden nebula details.",
+        )
+        .expect("private fixture should be written");
+
+        let context = retrieve_context_filtered(
+            &root,
+            "comet nebula",
+            &["dossiers/private.md".to_string()],
+            "en",
+            20_000,
+            Some(&["dossiers/allowed.md".to_string()]),
+        );
+
+        assert!(context.contains("Visible comet"));
+        assert!(!context.contains("Hidden nebula"));
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn excluded_prefix_blocks_direct_search_selected_paths_and_graph_neighbors() {
+        let root = fixture_root();
+        fs::create_dir_all(root.join("managed/plans"))
+            .expect("managed fixture directory should be created");
+        fs::write(
+            root.join("dossiers/public.md"),
+            "# Public\n\nVisible atlas details. [Secret](../managed/plans/private.md)",
+        )
+        .expect("public fixture should be written");
+        fs::write(
+            root.join("managed/plans/private.md"),
+            "# Private\n\nHidden aurora details.",
+        )
+        .expect("private fixture should be written");
+
+        let context = retrieve_context_excluding(
+            &root,
+            "atlas aurora",
+            &["managed/plans/private.md".to_string()],
+            "en",
+            20_000,
+            &["managed".to_string()],
+        );
+
+        assert!(context.contains("Visible atlas"));
+        assert!(!context.contains("Hidden aurora"));
         fs::remove_dir_all(root).expect("fixture should be removed");
     }
 

@@ -190,6 +190,7 @@ export interface AgentRequest {
   locale: Locale;
   knowledgeRoot: string;
   contextPaths: string[];
+  enabledMyInfoSections: string[];
   /** Title of the library note the user is viewing when sending, if any. */
   currentPage?: string;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;

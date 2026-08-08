@@ -144,7 +144,7 @@ const messages = {
     aiPlanCardSub: '融合笔记、知识库与个人资料，让智囊团更懂你，也更会思考',
     planTitle: '我的资料',
     planSub: '把只属于你的背景、目标、偏好和记录放在一起。',
-    planHint: 'AI 自动检索的我的资料，也可把提示词、技能等，添加至此',
+    planHint: 'AI只检索开关开启的内容，内容也可以是提示词、技能等。',
     comingSoon: '这里会逐步沉淀你的长期个人信息。',
   },
   en: {
@@ -290,7 +290,7 @@ const messages = {
     aiPlanCardSub: 'Bring notes, knowledge, and personal context together for answers that understand you and think with you',
     planTitle: 'My information',
     planSub: 'Keep your background, goals, preferences, and records together.',
-    planHint: 'AI retrieves this automatically. You can also add prompts, skills, and more here.',
+    planHint: 'AI only retrieves enabled content, which can also include prompts, skills, and more.',
     comingSoon: 'This space will gradually become your long-term personal context.',
   },
 } as const;

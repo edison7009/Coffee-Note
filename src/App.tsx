@@ -140,6 +140,13 @@ import {
   stepForward,
 } from './navigationHistory';
 import { defaultPaneSizes, normalizePaneSizes, type PaneSizes } from './paneSizes';
+import {
+  enabledMyInfoSections,
+  MY_INFO_RETRIEVAL_KEY,
+  parseMyInfoRetrieval,
+  type MyInfoRetrievalState,
+  type MyInfoSectionId,
+} from './myInfoRetrieval';
 
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://tiernote.life/';
@@ -497,7 +504,7 @@ function entryHasContent(entry: HealthDayEntry | undefined): boolean {
 }
 
 function getPlanSections(locale: Locale): Array<{
-  id: PlanSection;
+  id: MyInfoSectionId;
   title: string;
   description: string;
   icon: ReactNode;
@@ -809,6 +816,9 @@ function App() {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
+  const [myInfoRetrieval, setMyInfoRetrieval] = useState<MyInfoRetrievalState>(() =>
+    parseMyInfoRetrieval(window.localStorage.getItem(MY_INFO_RETRIEVAL_KEY)),
+  );
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
   const libraryRootRef = useRef(library.root || normalizedKnowledgeRoot || '');
@@ -1376,6 +1386,18 @@ function App() {
     openFileNote(getPlanSectionFile(section, locale));
   };
 
+  const toggleMyInfoRetrieval = (section: MyInfoSectionId) => {
+    setMyInfoRetrieval((current) => {
+      const next = { ...current, [section]: !current[section] };
+      try {
+        window.localStorage.setItem(MY_INFO_RETRIEVAL_KEY, JSON.stringify(next));
+      } catch {
+        // Storage failures must not prevent changing the current session.
+      }
+      return next;
+    });
+  };
+
   const openInternalNote = (target: Omit<InternalNoteTarget, 'label'>) => {
     if (target.kind === 'supplement') {
       const supplement = library.supplements.find((item) => item.id === target.id);
@@ -1840,8 +1862,9 @@ function App() {
           selectedSupplement?.filePath,
           selectedPerson?.filePath,
           selectedStory?.filePath,
-          view === 'file' ? fileNotePath : undefined,
+          view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
         ].filter(Boolean) as string[],
+        enabledMyInfoSections: enabledMyInfoSections(myInfoRetrieval),
         currentPage: currentPageTitle,
         history: priorMessages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -1943,6 +1966,7 @@ function App() {
         chatBusy={chatBusy}
         onOpenFile={openFileNote}
         onLibraryChanged={handleLibraryChanged}
+        onSwitchRoot={handleSwitchRoot}
         refreshToken={treeRefresh}
         notify={(message) => setToast({ message, kind: 'status' })}
         t={t}
@@ -2087,8 +2111,9 @@ function App() {
               {view === 'plan' && (
                 <PlanView
                   locale={locale}
-                  activeSection={activePlanSection}
+                  retrievalState={myInfoRetrieval}
                   onSection={openPlanSection}
+                  onToggleRetrieval={toggleMyInfoRetrieval}
                   onBack={goBack}
                   onAdd={() => setAddMaterialOpen(true)}
                   t={t}
@@ -3632,6 +3657,7 @@ interface SidebarProps {
   chatBusy: boolean;
   onOpenFile: (relativePath: string) => void;
   onLibraryChanged: () => void;
+  onSwitchRoot: () => void;
   refreshToken: number;
   notify: (message: string) => void;
   t: (key: TranslationKey) => string;
@@ -3648,6 +3674,7 @@ function Sidebar({
   chatBusy,
   onOpenFile,
   onLibraryChanged,
+  onSwitchRoot,
   refreshToken,
   notify,
   t,
@@ -3656,12 +3683,22 @@ function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-scroll">
         <nav className="primary-nav" aria-label="Primary">
-          <SidebarButton
-            icon={<House size={17} />}
-            label={t('home')}
-            active={view === 'home'}
-            onClick={() => onNavigate('home')}
-          />
+          <div className={`nav-home-row ${view === 'home' ? 'active' : ''}`}>
+            <SidebarButton
+              icon={<House size={17} />}
+              label={t('home')}
+              active={view === 'home'}
+              onClick={() => onNavigate('home')}
+            />
+            <button
+              type="button"
+              className="nav-switch-root"
+              onClick={onSwitchRoot}
+              aria-label={t('menuSwitchRoot')}
+            >
+              <Folder size={17} />
+            </button>
+          </div>
           <div className={`nav-chat-row ${view === 'ai' ? 'active' : ''}`}>
             <SidebarButton
               icon={<MessageCircleMore size={17} />}
@@ -4875,15 +4912,17 @@ function HealthLogPanel({ locale }: { locale: Locale }) {
 
 function PlanView({
   locale,
-  activeSection,
+  retrievalState,
   onSection,
+  onToggleRetrieval,
   onBack,
   onAdd,
   t,
 }: {
   locale: Locale;
-  activeSection: PlanSection;
+  retrievalState: MyInfoRetrievalState;
   onSection: (section: PlanSection) => void;
+  onToggleRetrieval: (section: MyInfoSectionId) => void;
   onBack: () => void;
   onAdd: () => void;
   t: (key: TranslationKey) => string;
@@ -4902,21 +4941,40 @@ function PlanView({
 
       <div className="plan-section-grid">
         {sections.map((section) => (
-          <button
-            className={section.id === activeSection ? 'active' : ''}
-            onClick={() => onSection(section.id)}
+          <div
+            className="plan-section-card"
             key={section.id}
           >
-            <span className="plan-section-icon" style={{ background: section.accent }}>
-              {section.icon}
-            </span>
-            <span>
-              <strong>{section.title}</strong>
-              <small>{section.description}</small>
-            </span>
-          </button>
+            <button
+              type="button"
+              className="plan-section-open"
+              onClick={() => onSection(section.id)}
+            >
+              <span className="plan-section-icon" style={{ background: section.accent }}>
+                {section.icon}
+              </span>
+              <span className="plan-section-copy">
+                <strong>{section.title}</strong>
+                <small>{section.description}</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="plan-retrieval-switch"
+              role="switch"
+              aria-checked={retrievalState[section.id]}
+              aria-label={
+                locale === 'zh'
+                  ? `AI 检索：${section.title}`
+                  : `AI retrieval for ${section.title}`
+              }
+              onClick={() => onToggleRetrieval(section.id)}
+            >
+              <span />
+            </button>
+          </div>
         ))}
-        <button onClick={onAdd} key="add">
+        <button className="plan-section-card plan-section-add" onClick={onAdd} key="add">
           <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
             <FilePlus2 size={17} />
           </span>

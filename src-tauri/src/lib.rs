@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::Emitter;
 use tauri::Manager;
@@ -318,62 +319,92 @@ const MY_INFO_PLAN_FILES: &[&str] = &[
     "plans/daily-routine.en.md",
 ];
 
-fn ensure_demo_library(root: &Path) -> Result<(), String> {
+const STARTER_MARKER: &str = ".starter-pack-initialized";
+static STARTER_INIT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn starter_content(relative_path: &str) -> Result<&'static str, String> {
+    STARTER_FILES
+        .iter()
+        .find(|(key, _)| *key == relative_path)
+        .map(|(_, content)| *content)
+        .ok_or_else(|| format!("Starter source is missing: {relative_path}"))
+}
+
+fn directory_contains_file(root: &Path) -> Result<bool, String> {
+    let entries = fs::read_dir(root)
+        .map_err(|error| format!("Could not inspect {}: {error}", root.display()))?;
+    for entry in entries {
+        let entry =
+            entry.map_err(|error| format!("Could not inspect {}: {error}", root.display()))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Could not inspect {}: {error}", entry.path().display()))?;
+        if file_type.is_file() || file_type.is_symlink() {
+            return Ok(true);
+        }
+        if file_type.is_dir() && directory_contains_file(&entry.path())? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn initialize_starter_once(
+    root: &Path,
+    marker_value: &str,
+    seed: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    let _guard = STARTER_INIT_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| "Starter initialization lock is unavailable".to_string())?;
     fs::create_dir_all(root)
-        .map_err(|error| format!("Could not create notes directory: {error}"))?;
-    let marker = root.join(".starter-pack-initialized");
-    if fs::read_to_string(&marker)
-        .map(|value| value.trim().to_string())
-        .unwrap_or_default()
-        == "demo-v1"
-    {
+        .map_err(|error| format!("Could not create starter directory: {error}"))?;
+    let marker = root.join(STARTER_MARKER);
+    if marker.exists() {
         return Ok(());
     }
-    fs::create_dir_all(root.join("catalog"))
-        .map_err(|error| format!("Could not create catalog directory: {error}"))?;
-    for (relative_path, content) in STARTER_FILES {
-        if *relative_path == "catalog/strategies.csv" {
-            let path = root.join(relative_path);
-            if !path.exists() {
+
+    // A pre-marker directory may already belong to an upgraded user. Adopt it
+    // as-is so missing or deleted starter files are never silently restored.
+    if !directory_contains_file(root)? {
+        seed()?;
+    }
+    fs::write(marker, marker_value)
+        .map_err(|error| format!("Could not finish starter setup: {error}"))
+}
+
+fn ensure_demo_library(root: &Path) -> Result<(), String> {
+    initialize_starter_once(root, "demo", || {
+        fs::create_dir_all(root.join("catalog"))
+            .map_err(|error| format!("Could not create catalog directory: {error}"))?;
+        for (relative_path, content) in STARTER_FILES {
+            if *relative_path == "catalog/strategies.csv" {
+                let path = root.join(relative_path);
                 fs::write(&path, content)
                     .map_err(|error| format!("Could not write demo catalog: {error}"))?;
             }
         }
-    }
-    for (file_name, source_key) in DEMO_NOTES {
-        let path = root.join(file_name);
-        if path.exists() {
-            continue;
-        }
-        if let Some((_, content)) = STARTER_FILES
-            .iter()
-            .find(|(key, _)| *key == *source_key)
-        {
-            fs::write(&path, content)
+        for (file_name, source_key) in DEMO_NOTES {
+            let path = root.join(file_name);
+            fs::write(&path, starter_content(source_key)?)
                 .map_err(|error| format!("Could not write demo note: {error}"))?;
         }
-    }
-    fs::write(marker, "demo-v1")
-        .map_err(|error| format!("Could not finish demo library setup: {error}"))
+        Ok(())
+    })
 }
 
 fn ensure_my_info(my_info: &Path) -> Result<(), String> {
-    fs::create_dir_all(my_info.join("plans"))
-        .map_err(|error| format!("Could not create my-info directory: {error}"))?;
-    for relative_path in MY_INFO_PLAN_FILES {
-        let path = my_info.join(relative_path);
-        if path.exists() {
-            continue;
-        }
-        if let Some((_, content)) = STARTER_FILES
-            .iter()
-            .find(|(key, _)| *key == *relative_path)
-        {
-            fs::write(&path, content)
+    initialize_starter_once(my_info, "my-info", || {
+        fs::create_dir_all(my_info.join("plans"))
+            .map_err(|error| format!("Could not create my-info directory: {error}"))?;
+        for relative_path in MY_INFO_PLAN_FILES {
+            let path = my_info.join(relative_path);
+            fs::write(&path, starter_content(relative_path)?)
                 .map_err(|error| format!("Could not write plan page: {error}"))?;
         }
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn path_string(path: &Path) -> String {
@@ -868,10 +899,7 @@ fn load_people(root: &Path, locale: &str) -> Vec<Person> {
                 return None;
             }
             let content = fs::read_to_string(&path).ok();
-            let summary = content
-                .as_deref()
-                .map(extract_summary)
-                .unwrap_or_default();
+            let summary = content.as_deref().map(extract_summary).unwrap_or_default();
             Some(Person {
                 id: (*id).to_string(),
                 name: (*name).to_string(),
@@ -1088,8 +1116,8 @@ fn set_note_tier(root: String, relative_path: String, tier: String) -> Result<()
         return Err("Note is unavailable".to_string());
     }
     let normalized = normalize_tier(&tier)?;
-    let contents = fs::read_to_string(&path)
-        .map_err(|error| format!("Could not read note: {error}"))?;
+    let contents =
+        fs::read_to_string(&path).map_err(|error| format!("Could not read note: {error}"))?;
     let updated = set_frontmatter_field(
         &contents,
         "tier",
@@ -1249,10 +1277,7 @@ fn create_note(
     if target.exists() {
         return Err(format!("{file_name} already exists"));
     }
-    let stem = file_name
-        .strip_suffix(".md")
-        .unwrap_or(&file_name)
-        .trim();
+    let stem = file_name.strip_suffix(".md").unwrap_or(&file_name).trim();
     let contents = match icon.filter(|value| !value.trim().is_empty()) {
         Some(icon) => format!("---\nicon: {}\n---\n\n# {stem}\n\n", icon.trim()),
         None => format!("# {stem}\n\n"),
@@ -1265,9 +1290,7 @@ fn create_note(
 fn rename_entry(root: String, relative_path: String, new_name: String) -> Result<String, String> {
     let target = safe_existing_path(Path::new(&root), &relative_path)?;
     let name = validate_entry_name(&new_name)?;
-    let parent = target
-        .parent()
-        .ok_or_else(|| "Invalid path".to_string())?;
+    let parent = target.parent().ok_or_else(|| "Invalid path".to_string())?;
     let final_name = if target.is_file() && !name.to_lowercase().ends_with(".md") {
         format!("{name}.md")
     } else {
@@ -1289,8 +1312,7 @@ fn delete_entry(root: String, relative_path: String) -> Result<(), String> {
         return Err("Refusing to delete the knowledge root".to_string());
     }
     if target.is_dir() {
-        fs::remove_dir_all(&target)
-            .map_err(|error| format!("Could not delete folder: {error}"))?;
+        fs::remove_dir_all(&target).map_err(|error| format!("Could not delete folder: {error}"))?;
     } else {
         let is_markdown = target
             .extension()
@@ -1304,9 +1326,9 @@ fn delete_entry(root: String, relative_path: String) -> Result<(), String> {
 }
 
 fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
-    fs::create_dir_all(destination)
-        .map_err(|error| format!("Could not create folder: {error}"))?;
-    let entries = fs::read_dir(source).map_err(|error| format!("Could not read folder: {error}"))?;
+    fs::create_dir_all(destination).map_err(|error| format!("Could not create folder: {error}"))?;
+    let entries =
+        fs::read_dir(source).map_err(|error| format!("Could not read folder: {error}"))?;
     for entry in entries.flatten() {
         let target = destination.join(entry.file_name());
         if entry.path().is_dir() {
@@ -1365,7 +1387,8 @@ fn paste_entry(
     let destination = unique_destination(&target_dir, &source_name);
     match action.to_ascii_lowercase().as_str() {
         "cut" => {
-            fs::rename(&source, &destination).map_err(|error| format!("Could not move: {error}"))?;
+            fs::rename(&source, &destination)
+                .map_err(|error| format!("Could not move: {error}"))?;
         }
         "copy" => {
             if source.is_dir() {
@@ -1485,6 +1508,62 @@ fn retrieve_context_with_budget(
     max_bytes: usize,
 ) -> String {
     knowledge_map::retrieve_context(root, question, selected_paths, locale, max_bytes)
+}
+
+enum ManagedRootOverlap {
+    None,
+    EntireKnowledgeRoot,
+    NestedPrefix(String),
+}
+
+fn managed_root_overlap(knowledge_root: &Path, managed_root: &Path) -> ManagedRootOverlap {
+    let Ok(knowledge_root) = knowledge_root.canonicalize() else {
+        return ManagedRootOverlap::None;
+    };
+    let Ok(managed_root) = managed_root.canonicalize() else {
+        return ManagedRootOverlap::None;
+    };
+
+    if knowledge_root.starts_with(&managed_root) {
+        return ManagedRootOverlap::EntireKnowledgeRoot;
+    }
+    let Ok(relative) = managed_root.strip_prefix(&knowledge_root) else {
+        return ManagedRootOverlap::None;
+    };
+    let prefix = relative.to_string_lossy().replace('\\', "/");
+    if prefix.is_empty() {
+        ManagedRootOverlap::EntireKnowledgeRoot
+    } else {
+        ManagedRootOverlap::NestedPrefix(prefix)
+    }
+}
+
+fn retrieve_agent_library_context(
+    knowledge_root: &Path,
+    managed_my_info_root: &Path,
+    question: &str,
+    selected_paths: &[String],
+    locale: &str,
+    max_bytes: usize,
+) -> String {
+    match managed_root_overlap(knowledge_root, managed_my_info_root) {
+        ManagedRootOverlap::None => retrieve_context_with_budget(
+            knowledge_root,
+            question,
+            selected_paths,
+            locale,
+            max_bytes,
+        ),
+        ManagedRootOverlap::EntireKnowledgeRoot => String::new(),
+        ManagedRootOverlap::NestedPrefix(prefix) => knowledge_map::retrieve_context_excluding(
+            knowledge_root,
+            question,
+            selected_paths,
+            locale,
+            max_bytes,
+            &[prefix],
+        ),
+    }
 }
 
 fn chat_endpoint(base_url: &str) -> String {
@@ -2688,8 +2767,9 @@ async fn agent_send_message(
         None
     };
     let knowledge_root = PathBuf::from(&request.knowledge_root);
-    let local_ctx = retrieve_context_with_budget(
+    let local_ctx = retrieve_agent_library_context(
         &knowledge_root,
+        &my_info_root(),
         &request.message,
         &request.context_paths,
         &request.locale,
@@ -2790,9 +2870,139 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    fn temp_fixture(prefix: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("tiernote-{prefix}-{}", uuid::Uuid::new_v4()))
+    }
+
+    #[test]
+    fn demo_library_is_seeded_once_and_never_repaired() {
+        let root = temp_fixture("demo-once");
+        ensure_demo_library(&root).expect("demo library should initialize");
+        let preserved = root.join(DEMO_NOTES[0].0);
+        let deleted = root.join(DEMO_NOTES[1].0);
+        fs::write(&preserved, "user edited demo content").expect("demo note should be editable");
+        fs::remove_file(&deleted).expect("demo note should be removable");
+
+        ensure_demo_library(&root).expect("later startup should succeed");
+
+        assert_eq!(
+            fs::read_to_string(preserved).expect("edited note should remain"),
+            "user edited demo content"
+        );
+        assert!(!deleted.exists(), "deleted demo note must not be recreated");
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn existing_demo_content_without_marker_is_adopted_without_backfill() {
+        let root = temp_fixture("demo-adopt");
+        fs::create_dir_all(&root).expect("fixture directory should exist");
+        fs::write(root.join("user-note.md"), "user content").expect("user note should be writable");
+
+        ensure_demo_library(&root).expect("existing library should be adopted");
+
+        assert!(root.join(".starter-pack-initialized").is_file());
+        assert!(!root.join(DEMO_NOTES[0].0).exists());
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn my_info_bilingual_pages_are_seeded_once_and_never_repaired() {
+        let root = temp_fixture("my-info-once");
+        ensure_my_info(&root).expect("My Info should initialize");
+        for relative_path in MY_INFO_PLAN_FILES {
+            assert!(
+                root.join(relative_path).is_file(),
+                "missing {relative_path}"
+            );
+        }
+        let preserved = root.join(MY_INFO_PLAN_FILES[0]);
+        let deleted = root.join(MY_INFO_PLAN_FILES[1]);
+        fs::write(&preserved, "user edited personal content")
+            .expect("personal note should be editable");
+        fs::remove_file(&deleted).expect("personal note should be removable");
+
+        ensure_my_info(&root).expect("later startup should succeed");
+
+        assert_eq!(
+            fs::read_to_string(preserved).expect("edited note should remain"),
+            "user edited personal content"
+        );
+        assert!(
+            !deleted.exists(),
+            "deleted My Info page must not be recreated"
+        );
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn existing_my_info_content_without_marker_is_adopted_without_backfill() {
+        let root = temp_fixture("my-info-adopt");
+        fs::create_dir_all(root.join("plans")).expect("fixture directory should exist");
+        fs::write(
+            root.join(MY_INFO_PLAN_FILES[0]),
+            "existing personal content",
+        )
+        .expect("personal note should be writable");
+
+        ensure_my_info(&root).expect("existing My Info should be adopted");
+
+        assert!(root.join(".starter-pack-initialized").is_file());
+        assert!(!root.join(MY_INFO_PLAN_FILES[1]).exists());
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn agent_library_context_excludes_managed_my_info_at_any_overlap_depth() {
+        let root = temp_fixture("agent-overlap");
+        let my_info = root.join("managed-my-info");
+        fs::create_dir_all(root.join("public")).expect("public fixture should exist");
+        fs::create_dir_all(my_info.join("plans")).expect("My Info fixture should exist");
+        fs::write(root.join("public/note.md"), "# Public\n\nVisible atlas.")
+            .expect("public fixture should be writable");
+        fs::write(
+            my_info.join("plans/private.md"),
+            "# Private\n\nHidden aurora.",
+        )
+        .expect("private fixture should be writable");
+
+        let parent_context = retrieve_agent_library_context(
+            &root,
+            &my_info,
+            "atlas aurora",
+            &["managed-my-info/plans/private.md".to_string()],
+            "en",
+            20_000,
+        );
+        assert!(parent_context.contains("Visible atlas"));
+        assert!(!parent_context.contains("Hidden aurora"));
+
+        let exact_context = retrieve_agent_library_context(
+            &my_info,
+            &my_info,
+            "aurora",
+            &["plans/private.md".to_string()],
+            "en",
+            20_000,
+        );
+        assert!(exact_context.is_empty());
+
+        let child_context = retrieve_agent_library_context(
+            &my_info.join("plans"),
+            &my_info,
+            "aurora",
+            &["private.md".to_string()],
+            "en",
+            20_000,
+        );
+        assert!(child_context.is_empty());
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
     #[test]
     fn frontmatter_tier_update_insert_and_remove_round_trip() {
-        let original = "---\nid: strength-training\ntier: T1\nstatus: reviewed\n---\n\n# 力量训练\n";
+        let original =
+            "---\nid: strength-training\ntier: T1\nstatus: reviewed\n---\n\n# 力量训练\n";
         let updated = set_frontmatter_field(original, "tier", Some("T3"));
         assert!(updated.contains("tier: T3"));
         assert!(!updated.contains("tier: T1"));
@@ -2875,15 +3085,23 @@ mod tests {
         assert_eq!(renamed, "笔记/改名.md");
         assert!(!root.join("笔记/示例.md").exists());
 
-        let copied =
-            paste_entry(root_str.clone(), renamed.clone(), "".to_string(), "copy".to_string())
-                .unwrap();
+        let copied = paste_entry(
+            root_str.clone(),
+            renamed.clone(),
+            "".to_string(),
+            "copy".to_string(),
+        )
+        .unwrap();
         assert_eq!(copied, "改名.md");
         assert!(root.join(copied).is_file());
 
-        let moved =
-            paste_entry(root_str.clone(), renamed, "dossiers".to_string(), "cut".to_string())
-                .unwrap();
+        let moved = paste_entry(
+            root_str.clone(),
+            renamed,
+            "dossiers".to_string(),
+            "cut".to_string(),
+        )
+        .unwrap();
         assert_eq!(moved, "dossiers/改名.md");
         assert!(!root.join("笔记/改名.md").exists());
 
@@ -3211,5 +3429,4 @@ c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
         assert!(saved_content.contains("A structured draft."));
         fs::remove_dir_all(root).expect("capture fixture should be removed");
     }
-
 }

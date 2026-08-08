@@ -210,14 +210,19 @@ pub async fn execute_tool(
     knowledge_root: &Path,
     my_info_root: &Path,
     locale: &str,
+    excluded_prefixes: &[String],
 ) -> ToolResult {
     match name {
         "save_note" => exec_save_note(args, knowledge_root, locale),
         "update_plan" => exec_update_plan(args, my_info_root, locale),
         "update_note" => exec_update_note(args, knowledge_root, locale),
         "update_tier" => exec_update_tier(args, knowledge_root, locale),
-        "search_library" => exec_search_library(args, knowledge_root, locale),
-        "read_note" => exec_read_note(args, knowledge_root),
+        "search_library" => {
+            exec_search_library_scoped(args, knowledge_root, locale, excluded_prefixes)
+        }
+        "read_note" => {
+            exec_read_note_scoped(args, knowledge_root, excluded_prefixes, Some(my_info_root))
+        }
         "suggest_memory" => ToolResult {
             success: true,
             output: "Memory suggestion sent for user confirmation.".into(),
@@ -504,7 +509,10 @@ fn exec_update_plan(args: &Value, root: &Path, locale: &str) -> ToolResult {
         Err(error) => {
             return ToolResult {
                 success: false,
-                output: format!("Cannot read {} before updating it: {error}", file_path.display()),
+                output: format!(
+                    "Cannot read {} before updating it: {error}",
+                    file_path.display()
+                ),
             }
         }
     };
@@ -734,7 +742,17 @@ fn exec_update_tier(args: &Value, root: &Path, _locale: &str) -> ToolResult {
 
 // ── search_library ──
 
+#[cfg(test)]
 fn exec_search_library(args: &Value, root: &Path, locale: &str) -> ToolResult {
+    exec_search_library_scoped(args, root, locale, &[])
+}
+
+fn exec_search_library_scoped(
+    args: &Value,
+    root: &Path,
+    locale: &str,
+    excluded_prefixes: &[String],
+) -> ToolResult {
     if !args.is_object() {
         return ToolResult {
             success: false,
@@ -755,7 +773,11 @@ fn exec_search_library(args: &Value, root: &Path, locale: &str) -> ToolResult {
         }
     };
 
-    let results = knowledge_map::search_library(root, query, locale, 10);
+    let results = if excluded_prefixes.is_empty() {
+        knowledge_map::search_library(root, query, locale, 10)
+    } else {
+        knowledge_map::search_library_excluding(root, query, locale, 10, excluded_prefixes)
+    };
 
     if results.is_empty() {
         return ToolResult {
@@ -780,7 +802,17 @@ fn exec_search_library(args: &Value, root: &Path, locale: &str) -> ToolResult {
 
 // ── read_note ──
 
+#[cfg(test)]
 fn exec_read_note(args: &Value, root: &Path) -> ToolResult {
+    exec_read_note_scoped(args, root, &[], None)
+}
+
+fn exec_read_note_scoped(
+    args: &Value,
+    root: &Path,
+    excluded_prefixes: &[String],
+    protected_root: Option<&Path>,
+) -> ToolResult {
     if !args.is_object() {
         return ToolResult {
             success: false,
@@ -801,7 +833,28 @@ fn exec_read_note(args: &Value, root: &Path) -> ToolResult {
         }
     };
 
-    let full_path = match safe_read_path(root, path, ".md") {
+    let normalized_path = match validate_relative_path(path, ".md") {
+        Ok(parts) => parts.join("/"),
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
+
+    if excluded_prefixes
+        .iter()
+        .any(|prefix| path_has_prefix(&normalized_path, prefix))
+    {
+        return ToolResult {
+            success: false,
+            output: "This note is excluded from AI retrieval by the My Info switch state."
+                .to_string(),
+        };
+    }
+
+    let full_path = match safe_read_path(root, &normalized_path, ".md") {
         Ok(path) => path,
         Err(error) => {
             return ToolResult {
@@ -810,6 +863,16 @@ fn exec_read_note(args: &Value, root: &Path) -> ToolResult {
             }
         }
     };
+    if protected_root
+        .and_then(|path| path.canonicalize().ok())
+        .is_some_and(|path| full_path.starts_with(path))
+    {
+        return ToolResult {
+            success: false,
+            output: "This note is excluded from AI retrieval by the My Info switch state."
+                .to_string(),
+        };
+    }
     match fs::read_to_string(&full_path) {
         Ok(content) => {
             let truncated = if content.len() > 50_000 {
@@ -829,6 +892,12 @@ fn exec_read_note(args: &Value, root: &Path) -> ToolResult {
             output: format!("Cannot read {path}: {e}"),
         },
     }
+}
+
+fn path_has_prefix(path: &str, prefix: &str) -> bool {
+    let path = path.replace('\\', "/");
+    let prefix = prefix.replace('\\', "/").trim_matches('/').to_string();
+    prefix.is_empty() || path == prefix || path.starts_with(&format!("{prefix}/"))
 }
 
 // ── Helpers ──
@@ -913,6 +982,43 @@ mod tests {
     }
 
     #[test]
+    fn scoped_search_and_read_cannot_retrieve_excluded_notes() {
+        let dir = std::env::temp_dir().join(format!(
+            "tiernote-tool-scope-{}-{}",
+            std::process::id(),
+            chrono::Local::now()
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+        ));
+        fs::create_dir_all(dir.join("public")).expect("public fixture should exist");
+        fs::create_dir_all(dir.join("managed/plans")).expect("managed fixture should exist");
+        fs::write(dir.join("public/note.md"), "# Public\n\nVisible atlas.")
+            .expect("public fixture should be writable");
+        fs::write(
+            dir.join("managed/plans/private.md"),
+            "# Private\n\nHidden aurora.",
+        )
+        .expect("private fixture should be writable");
+        let excluded = vec!["managed".to_string()];
+
+        let search =
+            exec_search_library_scoped(&json!({"query": "atlas aurora"}), &dir, "en", &excluded);
+        assert!(search.success);
+        assert!(search.output.contains("Visible atlas"));
+        assert!(!search.output.contains("Hidden aurora"));
+
+        let read = exec_read_note_scoped(
+            &json!({"path": "./managed/plans/private.md"}),
+            &dir,
+            &excluded,
+            Some(&dir.join("managed")),
+        );
+        assert!(!read.success);
+        assert!(read.output.contains("excluded from AI retrieval"));
+        fs::remove_dir_all(dir).expect("fixture should be removed");
+    }
+
+    #[test]
     fn update_plan_writes_module_page() {
         let dir = std::env::temp_dir().join(format!("ol-update-plan-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -929,7 +1035,8 @@ mod tests {
 
     #[test]
     fn update_plan_writes_english_companion_for_english_requests() {
-        let dir = std::env::temp_dir().join(format!("ol-update-plan-en-test-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("ol-update-plan-en-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let result = exec_update_plan(
             &json!({"module": "experience", "content": "# My Experience\n\nA result"}),
@@ -944,10 +1051,8 @@ mod tests {
 
     #[test]
     fn update_plan_preserves_confirmed_memory_block() {
-        let dir = std::env::temp_dir().join(format!(
-            "ol-update-plan-memory-test-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("ol-update-plan-memory-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
         fs::write(
@@ -969,7 +1074,10 @@ mod tests {
 
     #[test]
     fn update_plan_discards_model_supplied_memory_section() {
-        let dir = std::env::temp_dir().join(format!("ol-update-plan-memory-guard-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "ol-update-plan-memory-guard-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
         fs::write(
@@ -1040,7 +1148,8 @@ mod tests {
 
     #[test]
     fn read_note_rejects_absolute_paths() {
-        let dir = std::env::temp_dir().join(format!("ol-read-note-path-test-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("ol-read-note-path-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let result = exec_read_note(&json!({"path": "C:/Windows/win.ini"}), &dir);

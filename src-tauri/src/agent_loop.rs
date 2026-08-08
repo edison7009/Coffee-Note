@@ -125,6 +125,8 @@ pub struct AgentRequest {
     pub knowledge_root: String,
     #[serde(default)]
     pub context_paths: Vec<String>,
+    #[serde(default)]
+    pub enabled_my_info_sections: Option<Vec<String>>,
     /// Title of the library note the user is viewing when sending, if any.
     #[serde(default)]
     pub current_page: Option<String>,
@@ -229,21 +231,73 @@ pub fn clear_session_from_disk() {
 
 // ── User profile bootstrap (kept from original) ──
 
+fn my_info_section_path(section: &str, locale: &str) -> Option<String> {
+    let path = match section {
+        "supplements" => "plans/supplements.md",
+        "exercise" => "plans/exercise.md",
+        "experience" => "plans/experience.md",
+        "lessons" => "plans/lessons.md",
+        "sleep" => "plans/daily-routine.md",
+        _ => return None,
+    };
+    if locale == "en" {
+        Some(path.replace(".md", ".en.md"))
+    } else {
+        Some(path.to_string())
+    }
+}
+
+fn my_info_exclusion_prefixes(
+    knowledge_root: &std::path::Path,
+    my_info_root: &std::path::Path,
+) -> Vec<String> {
+    let Ok(knowledge_root) = knowledge_root.canonicalize() else {
+        return Vec::new();
+    };
+    let Ok(my_info_root) = my_info_root.canonicalize() else {
+        return Vec::new();
+    };
+    if knowledge_root.starts_with(&my_info_root) {
+        return vec![String::new()];
+    }
+    my_info_root
+        .strip_prefix(&knowledge_root)
+        .ok()
+        .map(|path| vec![path.to_string_lossy().replace('\\', "/")])
+        .unwrap_or_default()
+}
+
 fn build_user_profile_context(
     my_info_root: &std::path::Path,
     locale: &str,
     question: &str,
+    enabled_paths: Option<&[String]>,
 ) -> String {
     let budget: usize = 16_000;
-    let always_on = memory::build_always_on_context(my_info_root, locale, 2_000);
+    let always_on = match enabled_paths {
+        Some(paths) => {
+            memory::build_always_on_context_filtered(my_info_root, locale, 2_000, Some(paths))
+        }
+        None => memory::build_always_on_context(my_info_root, locale, 2_000),
+    };
     let context_budget = budget.saturating_sub(always_on.len());
-    let context = crate::knowledge_map::retrieve_context(
-        my_info_root,
-        question,
-        &[],
-        locale,
-        context_budget,
-    );
+    let context = match enabled_paths {
+        Some(paths) => crate::knowledge_map::retrieve_context_filtered(
+            my_info_root,
+            question,
+            &[],
+            locale,
+            context_budget,
+            Some(paths),
+        ),
+        None => crate::knowledge_map::retrieve_context(
+            my_info_root,
+            question,
+            &[],
+            locale,
+            context_budget,
+        ),
+    };
     if context.trim().is_empty() && always_on.trim().is_empty() {
         return String::new();
     }
@@ -262,7 +316,11 @@ fn append_transient_context(messages: &mut [Message], context: &str) {
     if context.is_empty() {
         return;
     }
-    let Some(message) = messages.iter_mut().rev().find(|message| message.role == "user") else {
+    let Some(message) = messages
+        .iter_mut()
+        .rev()
+        .find(|message| message.role == "user")
+    else {
         return;
     };
     match &mut message.content {
@@ -275,9 +333,7 @@ fn append_transient_context(messages: &mut [Message], context: &str) {
 
 // ── System prompt ──
 
-fn build_system_prompt(
-    locale: &str,
-) -> String {
+fn build_system_prompt(locale: &str) -> String {
     let language_rule = if locale == "en" {
         "Reply in English."
     } else {
@@ -778,6 +834,13 @@ pub async fn run_agent(
 ) -> Result<(), String> {
     let knowledge_root = std::path::PathBuf::from(&request.knowledge_root);
     let my_info_root = crate::my_info_root();
+    let excluded_prefixes = my_info_exclusion_prefixes(&knowledge_root, &my_info_root);
+    let enabled_my_info_paths = request.enabled_my_info_sections.as_ref().map(|sections| {
+        sections
+            .iter()
+            .filter_map(|section| my_info_section_path(section, &request.locale))
+            .collect::<Vec<_>>()
+    });
 
     let provider = match request.provider.to_lowercase().as_str() {
         "anthropic" => LlmProvider::Anthropic,
@@ -798,6 +861,7 @@ pub async fn run_agent(
         &my_info_root,
         &request.locale,
         &request.message,
+        enabled_my_info_paths.as_deref(),
     );
     if let Some(ref page_title) = request.current_page {
         let page_hint = if request.locale == "en" {
@@ -887,8 +951,8 @@ pub async fn run_agent(
             window
         };
 
-        let finalization_prompt = finalizing
-            .then(|| emergency_finalization_prompt(&system_prompt, &request.locale));
+        let finalization_prompt =
+            finalizing.then(|| emergency_finalization_prompt(&system_prompt, &request.locale));
         let round_system_prompt = finalization_prompt.as_deref().unwrap_or(&system_prompt);
         let round_tools = if finalizing {
             &[][..]
@@ -1217,11 +1281,12 @@ pub async fn run_agent(
                 let kr = knowledge_root.clone();
                 let mi = my_info_root.clone();
                 let loc = request.locale.clone();
+                let exclusions = excluded_prefixes.clone();
                 handles.push(tokio::spawn(async move {
                     // Arguments were validated above; `{}` is only an
                     // unreachable safety net.
                     let parsed: Value = serde_json::from_str(&args).unwrap_or(json!({}));
-                    agent_tools::execute_tool(&name, &parsed, &kr, &mi, &loc).await
+                    agent_tools::execute_tool(&name, &parsed, &kr, &mi, &loc, &exclusions).await
                 }));
             }
             let results = futures_util::future::join_all(handles).await;
@@ -1231,13 +1296,11 @@ pub async fn run_agent(
                     output: format!("Tool task panicked: {e}"),
                 });
                 if tc.name == "suggest_memory" && result.success {
-                    for suggestion in
-                        memory::parse_memory_suggestions(
-                            &tc.arguments,
-                            &conversation_id,
-                            &request.locale,
-                        )
-                    {
+                    for suggestion in memory::parse_memory_suggestions(
+                        &tc.arguments,
+                        &conversation_id,
+                        &request.locale,
+                    ) {
                         emit_memory_suggestion(&app, &conversation_id, suggestion);
                     }
                 }
@@ -1259,23 +1322,21 @@ pub async fn run_agent(
                 // Arguments were validated above; `{}` is only an unreachable
                 // safety net.
                 let parsed: Value = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
-                let result =
-                    agent_tools::execute_tool(
-                        &tc.name,
-                        &parsed,
-                        &knowledge_root,
-                        &my_info_root,
-                        &request.locale,
-                    )
-                    .await;
+                let result = agent_tools::execute_tool(
+                    &tc.name,
+                    &parsed,
+                    &knowledge_root,
+                    &my_info_root,
+                    &request.locale,
+                    &excluded_prefixes,
+                )
+                .await;
                 if tc.name == "suggest_memory" && result.success {
-                    for suggestion in
-                        memory::parse_memory_suggestions(
-                            &tc.arguments,
-                            &conversation_id,
-                            &request.locale,
-                        )
-                    {
+                    for suggestion in memory::parse_memory_suggestions(
+                        &tc.arguments,
+                        &conversation_id,
+                        &request.locale,
+                    ) {
                         emit_memory_suggestion(&app, &conversation_id, suggestion);
                     }
                 }
@@ -1349,6 +1410,57 @@ mod tests {
         assert!(output_limit_reached("length"));
         assert!(output_limit_reached("max_tokens"));
         assert!(!output_limit_reached("stop"));
+    }
+
+    #[test]
+    fn my_info_section_ids_resolve_to_localized_paths() {
+        assert_eq!(
+            my_info_section_path("supplements", "zh").as_deref(),
+            Some("plans/supplements.md")
+        );
+        assert_eq!(
+            my_info_section_path("sleep", "en").as_deref(),
+            Some("plans/daily-routine.en.md")
+        );
+        assert_eq!(my_info_section_path("unknown", "zh"), None);
+    }
+
+    #[test]
+    fn my_info_exclusion_prefixes_cover_equal_nested_and_unrelated_roots() {
+        let root =
+            std::env::temp_dir().join(format!("tiernote-agent-root-{}", uuid::Uuid::new_v4()));
+        let managed = root.join("managed");
+        std::fs::create_dir_all(managed.join("plans")).expect("fixture should exist");
+        assert_eq!(my_info_exclusion_prefixes(&root, &managed), vec!["managed"]);
+        assert_eq!(my_info_exclusion_prefixes(&managed, &managed), vec![""]);
+        assert_eq!(
+            my_info_exclusion_prefixes(&managed.join("plans"), &managed),
+            vec![""]
+        );
+        assert!(my_info_exclusion_prefixes(&root, &root.join("elsewhere")).is_empty());
+        std::fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn omitted_and_explicit_empty_my_info_filters_remain_distinct() {
+        let base = serde_json::json!({
+            "conversationId": "conversation",
+            "apiKey": "key",
+            "baseUrl": "https://example.com/v1",
+            "model": "model",
+            "message": "question",
+            "locale": "en",
+            "knowledgeRoot": "notes"
+        });
+        let omitted: AgentRequest =
+            serde_json::from_value(base.clone()).expect("legacy request should deserialize");
+        assert!(omitted.enabled_my_info_sections.is_none());
+
+        let mut explicit = base;
+        explicit["enabledMyInfoSections"] = serde_json::json!([]);
+        let explicit: AgentRequest =
+            serde_json::from_value(explicit).expect("filtered request should deserialize");
+        assert_eq!(explicit.enabled_my_info_sections, Some(Vec::new()));
     }
 
     #[test]

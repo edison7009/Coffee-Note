@@ -90,10 +90,14 @@ fn replace_file(temp: &Path, path: &Path) -> Result<(), String> {
         }
     };
     if metadata.is_none() {
-        return fs::rename(temp, path).map_err(|error| format!("Cannot save {}: {error}", path.display()));
+        return fs::rename(temp, path)
+            .map_err(|error| format!("Cannot save {}: {error}", path.display()));
     }
     if !metadata.is_some_and(|metadata| metadata.is_file()) {
-        return Err(format!("Refusing to replace non-file path {}", path.display()));
+        return Err(format!(
+            "Refusing to replace non-file path {}",
+            path.display()
+        ));
     }
     let extension = path
         .extension()
@@ -149,8 +153,7 @@ fn write_json_atomic_to(path: &Path, store: &MemoryStore) -> Result<(), String> 
     let parent = path
         .parent()
         .ok_or_else(|| "Memory index has no parent directory".to_string())?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("Cannot create memory dir: {error}"))?;
+    fs::create_dir_all(parent).map_err(|error| format!("Cannot create memory dir: {error}"))?;
     let temp = path.with_extension("json.tmp");
     let index = MemoryIndexStore {
         version: 2,
@@ -289,8 +292,20 @@ fn read_visible_memories(root: &Path, locale: &str) -> Vec<(String, String, Stri
 /// question does not repeat their exact wording. The larger personal context
 /// remains question-aware and is built by the Library Graph router.
 pub fn build_always_on_context(root: &Path, locale: &str, max_bytes: usize) -> String {
+    build_always_on_context_filtered(root, locale, max_bytes, None)
+}
+
+pub fn build_always_on_context_filtered(
+    root: &Path,
+    locale: &str,
+    max_bytes: usize,
+    allowed_paths: Option<&[String]>,
+) -> String {
     let mut output = String::new();
     for (kind, content, _, path) in read_visible_memories(root, locale) {
+        if allowed_paths.is_some_and(|allowed| !allowed.iter().any(|item| item == &path)) {
+            continue;
+        }
         if !matches!(kind.as_str(), "preference" | "constraint" | "correction") {
             continue;
         }
@@ -349,8 +364,7 @@ fn append_to_my_info(root: &Path, item: &MemoryItem, locale: &str) -> Result<Str
     }
     markdown.push_str(&format!("\n- [{}] {} {marker}\n", item.kind, item.content));
     let temp = path.with_extension("md.tmp");
-    fs::write(&temp, markdown)
-        .map_err(|error| format!("Cannot write personal memory: {error}"))?;
+    fs::write(&temp, markdown).map_err(|error| format!("Cannot write personal memory: {error}"))?;
     replace_file(&temp, &path)?;
     Ok(relative.to_string())
 }
@@ -363,9 +377,12 @@ fn confirm_at(
     validate_memory(&suggestion.kind, &suggestion.content)?;
     let mut store = load_store_from(index_path);
     let normalized = normalize_content(&suggestion.content);
-    if let Some((_, _, visible_id, visible_path)) = read_visible_memories(my_info_root, &suggestion.locale)
-        .into_iter()
-        .find(|(kind, content, _, _)| kind == &suggestion.kind && content.eq_ignore_ascii_case(&normalized))
+    if let Some((_, _, visible_id, visible_path)) =
+        read_visible_memories(my_info_root, &suggestion.locale)
+            .into_iter()
+            .find(|(kind, content, _, _)| {
+                kind == &suggestion.kind && content.eq_ignore_ascii_case(&normalized)
+            })
     {
         if let Some(position) = store.items.iter().position(|item| item.id == visible_id) {
             let mut item = store.items[position].clone();
@@ -400,7 +417,8 @@ fn confirm_at(
     if let Some(existing) = store.items.iter().find(|item| {
         item.status != "superseded"
             && item.kind == suggestion.kind
-            && (item.source_path.is_empty() || item.source_path == target_path(&suggestion.kind, &suggestion.locale))
+            && (item.source_path.is_empty()
+                || item.source_path == target_path(&suggestion.kind, &suggestion.locale))
             && item.content.trim().eq_ignore_ascii_case(&normalized)
     }) {
         return Ok(existing.clone());
@@ -597,6 +615,37 @@ mod tests {
         .expect("plan should be readable");
         let context = build_always_on_context(&root, "zh", 2_000);
         assert!(context.contains("请始终使用简洁回答"));
+        std::fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn filtered_always_on_context_excludes_disabled_sources() {
+        let root = std::env::temp_dir().join(format!(
+            "tiernote-memory-filter-test-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        std::fs::create_dir_all(root.join("plans")).expect("plans directory should exist");
+        std::fs::write(
+            root.join("plans/supplements.md"),
+            "# 我的简历\n\n- [preference] 简历偏好 <!-- tiernote-memory:resume -->\n",
+        )
+        .expect("resume fixture should be written");
+        std::fs::write(
+            root.join("plans/lessons.md"),
+            "# 我的教训\n\n- [constraint] 教训边界 <!-- tiernote-memory:lesson -->\n",
+        )
+        .expect("lesson fixture should be written");
+
+        let context = build_always_on_context_filtered(
+            &root,
+            "zh",
+            2_000,
+            Some(&["plans/lessons.md".to_string()]),
+        );
+
+        assert!(!context.contains("简历偏好"));
+        assert!(context.contains("教训边界"));
         std::fs::remove_dir_all(root).expect("test root should be removed");
     }
 }

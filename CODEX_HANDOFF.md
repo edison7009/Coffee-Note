@@ -169,12 +169,14 @@ to the product template.
 - The top title/drag bar spans the full window width. Its left side shows a
   16 x 16 product icon, the closed `TierNote` wordmark in the bundled `Lora`
   bold-italic face, functional back/forward navigation, and File/Edit/Help menus.
-  File owns the library-switch action; Edit may remain a restrained placeholder
-  until editing commands are wired; Help links to product help and feedback.
+  File keeps the library-switch action; the right edge of the Home navigation
+  row also exposes the same action as a discoverable global folder icon, matching
+  the placement of future global actions such as search. Edit may remain a
+  restrained placeholder until editing commands are wired; Help links to product
+  help and feedback.
 - The left rail starts directly below the title bar with Home as its first row.
-  Do not repeat the logo/wordmark there or place a separate folder action beside
-  Home. Keep the Home content lifted so its top area aligns visually with the
-  right-rail header divider.
+  Do not repeat the logo/wordmark there. Keep the Home content lifted so its top
+  area aligns visually with the right-rail header divider.
 - Windows/Linux use custom window controls; macOS uses native traffic-light
   controls on the left.
 - The desktop app is single-instance. Launching it again must restore and focus
@@ -285,6 +287,14 @@ to the product template.
   app-data `memory.json` is only a rebuildable source index; personal context is
   retrieved from Markdown with a small question-aware byte budget and is placed
   in the user message so the system prompt stays cache-stable.
+- The My Info page exposes AI-retrieval switches for its five content notes.
+  All five default on and persist locally under
+  `tiernote:my-info-retrieval:v1`; Add Material remains an action rather than a
+  retrievable section. Every agent request sends the enabled stable IDs, and
+  Rust applies the resulting localized-path allowlist to both question-aware
+  Library Graph context and always-on memory injection. My Info cards are direct
+  navigation entries with no selected-card state; their light neutral surface is
+  `#f1f1f1`, while the switch is the only blue state on the page.
 - A future night mode is desirable but not yet a release blocker.
 
 ## Website
@@ -412,6 +422,23 @@ output, fewer calls, automatic compaction). The empty state is a
 semi-transparent watermark that disappears as soon as a conversation starts,
 with the closing value line **让每一个 Token，产出至少两倍价值。** (English:
 Make every token deliver at least twice the value.)
+
+## Starter data ownership (2026-08-08)
+
+The managed Demo library and My Info pages are starter data only. TierNote
+creates their bilingual seed content once, and then treats every file as user
+data. A permanent `.starter-pack-initialized` marker prevents later launches,
+upgrades, or starter-content revisions from overwriting or recreating edited or
+deleted files. When upgrading a pre-marker installation, any existing file means
+the directory is adopted as-is; TierNote writes the marker without backfilling
+missing seed files. Current Chinese directory names and My Info section IDs are
+transitional implementation details, not permanent product contracts.
+
+My Info retrieval switches are enforced in both request-scoped retrieval and AI
+tool calls. If the selected knowledge library is the My Info directory or one
+of its ancestors/descendants, the managed My Info subtree is excluded from the
+general library route and only the enabled personal-section allowlist may expose
+its contents.
 
 ## Reference archive and next-work plan (2026-08-07)
 

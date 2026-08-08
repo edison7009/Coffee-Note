@@ -1991,7 +1991,7 @@ html.tree-drag-active * {
   margin-top: 29px;
 }
 
-.plan-section-grid button {
+.plan-section-grid > .plan-section-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -2006,13 +2006,8 @@ html.tree-drag-active * {
   cursor: default;
 }
 
-.plan-section-grid button.active {
-  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
-  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-  box-shadow: inset 3px 0 var(--accent);
-}
-
-.plan-section-grid button > span:last-child {
+.plan-section-grid .plan-section-copy,
+.plan-section-grid > .plan-section-add > span:last-child {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -4152,7 +4147,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 [data-theme='dark'] .action-card,
 [data-theme='dark'] .story-add-card,
-[data-theme='dark'] .plan-section-grid button,
+[data-theme='dark'] .plan-section-grid > .plan-section-card,
 [data-theme='dark'] .composer,
 [data-theme='dark'] .favorite-list button,
 [data-theme='dark'] .plan-shortcut-list button,
@@ -4345,11 +4340,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 [data-theme='dark'] .health-field-icon {
   background: #2c302e;
-}
-
-[data-theme='dark'] .plan-section-grid button.active {
-  background: #29332f;
-  border-color: #526a63;
 }
 
 [data-theme='dark'] .plan-focus,
@@ -5134,6 +5124,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --accent-border: rgba(58, 59, 61, 0.18);
   --accent-contrast: #ffffff;
   --pane-handle: #007aff;
+  --switch-on: #007aff;
   --ink: #2c2c2e;
   --muted: #77777b;
   --line: rgba(60, 60, 67, 0.12);
@@ -5171,6 +5162,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --accent-border: rgba(197, 201, 199, 0.22);
   --accent-contrast: #1c1c1e;
   --pane-handle: #0a84ff;
+  --switch-on: #0a84ff;
 }
 
 button:focus-visible,
@@ -5849,25 +5841,23 @@ textarea,
   margin-top: 24px;
 }
 
-.plan-section-grid button,
-[data-theme='dark'] .plan-section-grid button {
+.plan-section-grid > .plan-section-card {
   min-height: 70px;
   color: var(--ink);
-  background: var(--secondary-surface);
+  background: #f1f1f1;
   border: 1px solid transparent;
   border-radius: 9px;
 }
 
-.plan-section-grid button:hover,
-[data-theme='dark'] .plan-section-grid button:hover {
-  background: var(--tertiary-surface);
+.plan-section-grid > .plan-section-card:hover {
+  background: #f1f1f1;
 }
 
-.plan-section-grid button.active,
-[data-theme='dark'] .plan-section-grid button.active {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
+[data-theme='dark'] .plan-section-grid > .plan-section-card,
+[data-theme='dark'] .plan-section-grid > .plan-section-card:hover {
+  color: var(--ink);
+  background: var(--secondary-surface);
+  border-color: transparent;
   box-shadow: none;
 }
 
@@ -5890,6 +5880,65 @@ textarea,
 [data-theme='dark'] .plan-section-grid small {
   color: var(--muted);
   font-size: 13px;
+}
+
+.plan-section-grid > .plan-section-card:not(.plan-section-add) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.plan-section-open {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 70px;
+  padding: 12px 0 12px 13px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.plan-retrieval-switch {
+  position: relative;
+  align-self: center;
+  width: 32px;
+  height: 20px;
+  margin-right: 16px;
+  padding: 0;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+  border: 0;
+  border-radius: 10px;
+}
+
+.plan-retrieval-switch > span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 120ms ease-out;
+}
+
+.plan-retrieval-switch[aria-checked='true'] {
+  background: var(--switch-on);
+}
+
+.plan-retrieval-switch[aria-checked='true'] > span {
+  transform: translateX(12px);
+}
+
+.plan-retrieval-switch:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--switch-on) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .plan-focus,
