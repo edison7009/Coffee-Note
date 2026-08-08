@@ -139,6 +139,7 @@ import {
   stepBack,
   stepForward,
 } from './navigationHistory';
+import { defaultPaneSizes, normalizePaneSizes, type PaneSizes } from './paneSizes';
 
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://tiernote.life/';
@@ -422,13 +423,6 @@ type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
 type SettingsSectionId = 'model' | 'appearance';
 type ResizeSide = 'left' | 'right';
-
-interface PaneSizes {
-  left: number;
-  right: number;
-}
-
-const defaultPaneSizes: PaneSizes = { left: 248, right: 326 };
 
 interface InternalNoteTarget {
   kind: InternalNoteKind;
@@ -767,6 +761,8 @@ function App() {
     'tiernote:pane-sizes',
     defaultPaneSizes,
   );
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const normalizedPaneSizes = normalizePaneSizes(paneSizes, viewportWidth);
   const [favorites, setFavorites] = useStoredState<FavoriteReference[]>(
     'tiernote:favorites',
     [],
@@ -911,16 +907,32 @@ function App() {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
   }, [locale]);
 
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (
+      paneSizes.left === normalizedPaneSizes.left &&
+      paneSizes.right === normalizedPaneSizes.right
+    ) {
+      return;
+    }
+    setPaneSizes(normalizedPaneSizes);
+  }, [normalizedPaneSizes.left, normalizedPaneSizes.right, paneSizes.left, paneSizes.right]);
+
   const resizePane = (side: ResizeSide, requestedSize: number) => {
     const viewportWidth = window.innerWidth;
-    const visibleRightWidth = viewportWidth <= 1120 ? 0 : paneSizes.right;
+    const visibleRightWidth = viewportWidth <= 1120 ? 0 : normalizedPaneSizes.right;
     const maximum =
       side === 'left'
         ? Math.max(210, Math.min(380, viewportWidth - visibleRightWidth - 560))
-        : Math.max(270, Math.min(460, viewportWidth - paneSizes.left - 560));
+        : Math.max(270, viewportWidth - normalizedPaneSizes.left - 560);
     const minimum = side === 'left' ? 210 : 270;
     const nextSize = Math.round(Math.min(maximum, Math.max(minimum, requestedSize)));
-    setPaneSizes({ ...paneSizes, [side]: nextSize });
+    setPaneSizes({ ...normalizedPaneSizes, [side]: nextSize });
   };
 
   const getCurrentLocation = (): NavigationLocation => ({
@@ -1904,8 +1916,8 @@ function App() {
       className={`app-shell ${isMacOSPlatform ? 'platform-macos-shell' : 'platform-custom-shell'} ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''}`}
       style={
         {
-          '--sidebar-width': `${paneSizes.left}px`,
-          '--right-rail-width': `${paneSizes.right}px`,
+          '--sidebar-width': `${normalizedPaneSizes.left}px`,
+          '--right-rail-width': `${normalizedPaneSizes.right}px`,
         } as React.CSSProperties
       }
     >
@@ -1937,10 +1949,12 @@ function App() {
       />
       <PaneResizer
         side="left"
-        size={paneSizes.left}
+        size={normalizedPaneSizes.left}
         locale={locale}
         onResize={(size) => resizePane('left', size)}
-        onReset={() => setPaneSizes({ ...paneSizes, left: defaultPaneSizes.left })}
+        onReset={() =>
+          setPaneSizes({ ...normalizedPaneSizes, left: defaultPaneSizes.left })
+        }
         onResizing={setResizingPane}
       />
 
@@ -2133,10 +2147,12 @@ function App() {
 
       <PaneResizer
         side="right"
-        size={paneSizes.right}
+        size={normalizedPaneSizes.right}
         locale={locale}
         onResize={(size) => resizePane('right', size)}
-        onReset={() => setPaneSizes({ ...paneSizes, right: defaultPaneSizes.right })}
+        onReset={() =>
+          setPaneSizes({ ...normalizedPaneSizes, right: defaultPaneSizes.right })
+        }
         onResizing={setResizingPane}
       />
 

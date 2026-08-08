@@ -55,7 +55,10 @@ or temporary deployment credentials.
   it with Home as the first row; macOS reserves extra title-bar clearance for
   native traffic-light controls.
 - The homepage tier list remains the product core. T1-T5 use muted rose, amber,
-  yellow, teal, and green, limited to the tier strip and softly tinted label cells.
+  yellow, teal, and green, limited to the tier strip, softly tinted label cells,
+  the compact note priority button, and the menu's small tier swatches. The button
+  keeps its matching tinted background unchanged on hover/open; menu hover and
+  selection use one neutral background with no colored border or glow.
 - The display brand uses the transparent rounded-corner feather mark plus the
   closed `TierNote` name in the title bar; the same mark remains in the chat empty
   state. Keep internal paths, storage keys, window title, and bundle identifiers
@@ -75,11 +78,10 @@ or temporary deployment credentials.
   separate 42px identity treatment.
 - `DESIGN.md` is the desktop design source of truth. The public `website/` remains
   a separate product surface with its existing expressive brand direction.
-- **Cursor rule (2026-08-08):** the desktop app uses only the system default
-  arrow cursor everywhere. No `pointer`/hand, `grab`/`grabbing`, `help`,
-  `wait`, or `col-resize` cursors — including buttons, navigation, drag
-  handles, and pane resizers. Hover feedback comes from background/color
-  changes, never from the cursor; text inputs keep the native I-beam.
+- **Cursor rule (2026-08-08):** the desktop app uses the system default arrow
+  for ordinary controls and content drag-and-drop; text inputs keep the native
+  I-beam. The two pane resizers are the sole resize-cursor exception: use
+  `col-resize` on divider hover and throughout an active pane resize.
 - Local UI references are archived in ignored directories: `references/pasture/`
   (Apache-2.0, Tauri + React, closest implementation reference) and
   `references/palot/` (MIT, useful for sidebar and conversation organization).
@@ -162,6 +164,8 @@ to the product template.
 - Avoid a visible sidebar scrollbar, but keep mouse-wheel scrolling.
 - The left, center, and right panes are resizable. While dragging, only the
   divider being manipulated is highlighted; the opposite divider stays idle.
+- The left pane keeps its 210-380px product range. The right rail has no fixed
+  maximum; it may expand until the center workspace reaches its 560px minimum.
 - The top title/drag bar spans the full window width. Its left side shows a
   16 x 16 product icon, the closed `TierNote` wordmark in the bundled `Lora`
   bold-italic face, functional back/forward navigation, and File/Edit/Help menus.

@@ -1,7 +1,5 @@
-/* Cursor rule (2026-08-08): the desktop UI uses only the system default arrow
-   cursor everywhere. No pointer (hand), grab, grabbing, help, wait, or resize
-   cursors anywhere — including buttons, navigation, drag handles, and pane
-   resizers. Text inputs keep the browser-native I-beam. */
+/* Cursor rule (2026-08-08): the desktop UI uses the system default arrow except
+   for text inputs (I-beam) and pane resizers (horizontal resize cursor). */
 
 @font-face {
   font-family: 'Lora';
@@ -162,7 +160,7 @@ a:focus-visible {
   z-index: 12;
   width: 8px;
   padding: 0;
-  cursor: default;
+  cursor: col-resize;
   touch-action: none;
   user-select: none;
 }
@@ -215,7 +213,7 @@ a:focus-visible {
 
 body.resizing-panels,
 body.resizing-panels * {
-  cursor: default !important;
+  cursor: col-resize !important;
   user-select: none !important;
 }
 
@@ -1563,6 +1561,13 @@ html.tree-drag-active * {
   min-width: 0;
 }
 
+.note-path,
+.note-action {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+}
+
 .note-path {
   display: inline-flex;
   align-items: center;
@@ -1573,9 +1578,6 @@ html.tree-drag-active * {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  color: #6f8480;
-  font-size: 13px;
-  font-weight: 550;
   line-height: 1;
   white-space: nowrap;
   user-select: text;
@@ -1610,9 +1612,6 @@ html.tree-drag-active * {
   background: transparent;
   border: 0;
   border-radius: 8px;
-  color: #6f8480;
-  font-size: 13px;
-  font-weight: 550;
   cursor: default;
 }
 
@@ -1678,7 +1677,7 @@ html.tree-drag-active * {
 
 .large-tier.tier-picker-trigger:hover,
 .large-tier.tier-picker-trigger.open {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tier-color) 30%, transparent);
+  box-shadow: none;
 }
 
 .large-tier.tier-picker-trigger:disabled {
@@ -1698,7 +1697,7 @@ html.tree-drag-active * {
   z-index: 49;
   display: grid;
   gap: 2px;
-  width: 206px;
+  width: 176px;
   padding: 6px;
   background: var(--paper);
   border: 1px solid var(--line);
@@ -1724,7 +1723,7 @@ html.tree-drag-active * {
   white-space: nowrap;
   color: var(--ink);
   background: transparent;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   font-size: 14px;
   text-align: left;
@@ -1734,6 +1733,8 @@ html.tree-drag-active * {
 .tier-picker-menu button:hover,
 .tier-picker-menu button.active {
   background: var(--accent-soft);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .tier-picker-menu button strong {
@@ -4390,8 +4391,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
+[data-theme='dark'] .note-path,
 [data-theme='dark'] .note-action {
-  color: #9aa6a2;
+  color: var(--muted);
 }
 
 [data-theme='dark'] .note-action:hover:not(:disabled) {
@@ -6177,12 +6179,6 @@ textarea,
   border: 1px solid var(--line);
   border-left: 1px solid var(--line);
   border-radius: 10px;
-}
-
-.note-header .large-tier,
-[data-theme='dark'] .note-header .large-tier {
-  background: var(--secondary-surface);
-  border-color: var(--line);
 }
 
 .composer-send-button,

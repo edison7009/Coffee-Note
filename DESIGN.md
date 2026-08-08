@@ -16,11 +16,10 @@
   stays for assistive technology. This rule does not apply to the public
   `website/`. Non-interactive readouts (like the AI composer model ID) are
   plain text: no cursor change, no hover highlight, no tooltip.
-- **Cursor:** The desktop app uses only the system default arrow cursor
-  everywhere. No `cursor: pointer` (hand), grab, help, wait, or resize cursors —
-  including buttons, navigation, drag handles, and pane resizers. Hover states
-  are communicated by background/color, never by the cursor. Text fields keep
-  the browser-native I-beam.
+- **Cursor:** The desktop app uses the system default arrow cursor for ordinary
+  controls and drag-and-drop content. Text fields keep the browser-native I-beam.
+  The two pane resizers are the only resize-cursor exception: use `col-resize`
+  both while hovering over a divider and throughout an active pane resize.
 - **Mood:** Serious, quiet, capable, and spacious. TierNote should feel like a professional work surface, not a personalized dashboard template.
 - **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
 - **References:** `references/pasture/` for a permissively licensed Tauri + React Codex client; `references/palot/` for sidebar and conversation-system organization only.
@@ -32,6 +31,7 @@
 - Let the shared title bar span the full window width. Place the 16 x 16 product icon and the closed `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
 - Start the left rail below the title bar with Home as its first row. Do not repeat the product icon, wordmark, or a separate folder action in that row; library switching belongs in the File menu.
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
+- Keep the left navigation pane within its 210-380px range. The right contextual rail has no product-level maximum; its only upper bound is the remaining window width after preserving the main workspace's 560px minimum.
 - Treat AI chat as one workspace mode, not the visual identity of the whole product.
 - Keep the composer in a stable bottom row when chat is active.
 - Remove redundant dashboard cards, helper copy, metrics decoration, and duplicated labels as each screen is migrated.
@@ -60,7 +60,7 @@
 - **Interaction:** graphite `#3a3b3d`; hover `#252628`; soft state `rgba(58, 59, 61, 0.07)`.
 - **Dark:** canvas `#1c1c1e`, sidebar `#242426`, ink and interaction `#f2f2f7` / `#d1d1d6`.
 - **Semantic color:** Reserve red, amber, and green for errors, warnings, and success only. Do not use semantic colors as branding or decoration.
-- **Tier color:** T1-T5 use muted rose, amber, yellow, teal, and green. Color stays in the homepage tier strip and softly tinted label cells; it does not enter navigation, reading, or settings surfaces.
+- **Tier color:** T1-T5 use muted rose, amber, yellow, teal, and green. Color stays in the homepage tier strip, softly tinted label cells, the compact note priority button, and the menu's small tier swatches; it does not enter navigation, article content, or settings surfaces. The priority button keeps its tier-tinted background unchanged on hover/open. Menu hover and selection use one neutral background with no colored border or glow.
 
 ## Spacing And Shape
 
@@ -96,5 +96,5 @@
 | 2026-08-07 | Make the homepage the color exception | Three low-saturation entry cards and muted T1-T5 colors give the core screen identity while the repeated-use shell and note-reading surfaces stay quiet. |
 | 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |
 | 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
-| 2026-08-08 | Use only the default arrow cursor everywhere | A hand cursor is a web pattern; the desktop shell keeps a single native cursor so no element implies clickability beyond its hover state. |
+| 2026-08-08 | Use the default arrow except for pane resizing | A hand cursor is a web pattern; ordinary controls and content keep the default arrow, while the dividers between the three panes use native directional feedback during resize. |
 | 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `TierNote` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
