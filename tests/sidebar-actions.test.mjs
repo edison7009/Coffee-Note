@@ -15,6 +15,20 @@ test('home navigation row exposes the shared library switch action', () => {
   assert.doesNotMatch(appSource, /className="rail-global-action"/);
 });
 
+test('title bar uses the aligned wordmark without a duplicate logo', () => {
+  const titlebarBrand = appSource.match(
+    /<div className="titlebar-brand"[^>]*>([\s\S]*?)<\/div>/s,
+  )?.[1];
+  assert.ok(titlebarBrand, 'titlebar brand markup should exist');
+  assert.match(titlebarBrand, /<strong>TierNote<\/strong>/);
+  assert.doesNotMatch(titlebarBrand, /<img\b/);
+  assert.match(appSource, /className="chat-empty-heading"[\s\S]*?\/brand\/logo-new\.png/s);
+});
+
+test('title bar wordmark shares the navigation icon inset', () => {
+  assert.match(css, /\.titlebar-leading\s*\{[^}]*padding-left:\s*23px;/s);
+});
+
 test('home row action uses the existing compact neutral icon treatment', () => {
   assert.match(
     css,

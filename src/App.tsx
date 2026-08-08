@@ -2389,7 +2389,6 @@ function AppTitlebar({
     >
       <div className="titlebar-leading">
         <div className="titlebar-brand" data-tauri-drag-region>
-          <img src="/brand/logo-new.png" alt="" />
           <strong>TierNote</strong>
         </div>
 
