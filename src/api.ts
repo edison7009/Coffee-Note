@@ -89,6 +89,30 @@ export async function loadLibrary(root: string | undefined, locale: 'zh' | 'en')
   return invoke<LibrarySnapshot>('load_library', { root: root || null, locale });
 }
 
+export interface GraphDiagnostics {
+  noteCount: number;
+  edgeCount: number;
+  brokenLinks: string[];
+  orphanNotes: string[];
+  registryFresh: boolean;
+}
+
+export async function inspectLibraryGraph(
+  root: string,
+  locale: 'zh' | 'en',
+): Promise<GraphDiagnostics> {
+  if (!isTauri) {
+    return {
+      noteCount: 0,
+      edgeCount: 0,
+      brokenLinks: [],
+      orphanNotes: [],
+      registryFresh: false,
+    };
+  }
+  return invoke<GraphDiagnostics>('inspect_library_graph', { root, locale });
+}
+
 export async function moveTierItem(
   root: string,
   itemId: string,

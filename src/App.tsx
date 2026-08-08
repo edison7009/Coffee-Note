@@ -19,6 +19,7 @@ import {
   MessageCircleMore,
   Minus,
   Monitor,
+  Smartphone,
   Moon,
   NotebookPen,
   Pill,
@@ -26,6 +27,7 @@ import {
   Download,
   ArrowUp,
   Pencil,
+  Presentation,
   FileText,
   Folder,
   FolderPlus,
@@ -1149,15 +1151,6 @@ function App() {
     if (view === 'story') return selectedStory?.filePath || null;
     return null;
   }, [view, fileNotePath, selectedSupplement, selectedPerson, selectedStory]);
-  const noteFullPath = useMemo(() => {
-    if (!noteRelativePath) return null;
-    const root =
-      view === 'file' && fileNoteSource === 'myInfo'
-        ? library.myInfoRoot
-        : library.root || normalizedKnowledgeRoot || '';
-    return root ? joinLibraryPath(root, noteRelativePath) : noteRelativePath;
-  }, [library.myInfoRoot, library.root, normalizedKnowledgeRoot, noteRelativePath, fileNoteSource, view]);
-
   const currentNoteTarget = useMemo<Omit<InternalNoteTarget, 'label'> | null>(() => {
     if (view === 'supplement' && selectedSupplement) {
       return { kind: 'supplement', id: selectedSupplement.id };
@@ -2049,7 +2042,6 @@ function App() {
                   }
                   onBack={goBack}
                   notePath={noteRelativePath}
-                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
@@ -2074,7 +2066,6 @@ function App() {
                   }
                   onBack={goBack}
                   notePath={noteRelativePath}
-                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
@@ -2100,7 +2091,6 @@ function App() {
                   }
                   onBack={goBack}
                   notePath={noteRelativePath}
-                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
@@ -2133,7 +2123,6 @@ function App() {
                   onToggleFavorite={() => toggleFavorite({ kind: 'file', id: fileNotePath })}
                   onBack={goBack}
                   notePath={noteRelativePath}
-                  noteFullPath={noteFullPath}
                   onEditNote={handleEditNote}
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) => handleSetTier(fileNotePath, nextTier)}
@@ -4385,7 +4374,6 @@ function NoteView({
   onToggleFavorite,
   onBack,
   notePath,
-  noteFullPath,
   onEditNote,
   onDeleteNote,
   onSetTier,
@@ -4402,7 +4390,6 @@ function NoteView({
   onToggleFavorite: () => void;
   onBack: () => void;
   notePath: string | null;
-  noteFullPath: string | null;
   onEditNote: (relativePath: string) => void;
   onDeleteNote: (relativePath: string) => void;
   onSetTier?: (tier: string) => void;
@@ -4418,14 +4405,13 @@ function NoteView({
       ),
     [currentTarget.id, currentTarget.kind, internalTargets, markdown],
   );
-  const displayPath = noteFullPath?.replace(/\\/g, '/') || '';
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
 
-  const handleCopyPath = async () => {
-    if (!displayPath) return;
+  const handleCopyFullText = async () => {
+    if (!markdown.trim()) return;
     try {
-      await writeText(displayPath);
+      await writeText(`${title}\n\n${markdown}`.trim());
       setCopied(true);
       if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
       copyTimerRef.current = window.setTimeout(() => setCopied(false), 1800);
@@ -4513,21 +4499,28 @@ function NoteView({
           </div>
         </div>
         <div className="note-meta-row">
-          <div className="note-path">{displayPath}</div>
-          <button
-            type="button"
-            className={`note-action copy-path ${copied ? 'copied' : ''}`}
-            disabled={!notePath}
-            onClick={() => void handleCopyPath()}
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-            <span>
-              {copied
-                ? (locale === 'zh' ? '已复制' : 'Copied')
-                : (locale === 'zh' ? '复制' : 'Copy')}
-            </span>
-          </button>
           <div className="note-actions">
+            <button
+              type="button"
+              className={`note-action copy-full ${copied ? 'copied' : ''}`}
+              disabled={loading || !markdown.trim()}
+              onClick={() => void handleCopyFullText()}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              <span>
+                {copied
+                  ? translate(locale, 'copiedFullText')
+                  : translate(locale, 'copyFullText')}
+              </span>
+            </button>
+            <button type="button" className="note-action" disabled aria-label={translate(locale, 'mobileLongImage')}>
+              <Smartphone size={14} />
+              <span>{translate(locale, 'mobileLongImage')}</span>
+            </button>
+            <button type="button" className="note-action" disabled aria-label={translate(locale, 'generatePpt')}>
+              <Presentation size={14} />
+              <span>{translate(locale, 'generatePpt')}</span>
+            </button>
             <button
               type="button"
               className={`note-action ${favorite ? 'active' : ''}`}

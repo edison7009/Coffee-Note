@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -9,6 +10,9 @@ use std::time::UNIX_EPOCH;
 const MAX_LIBRARY_FILES: usize = 1_200;
 const MAX_SNIPPET_BYTES: usize = 4_800;
 const MAX_PERSONAL_NOTE_BYTES: usize = 7_000;
+const GRAPH_REGISTRY_VERSION: u32 = 1;
+const GRAPH_REGISTRY_DIR: &str = "library-graph";
+const GRAPH_HOP_WEIGHTS: [usize; 3] = [100, 35, 12];
 
 #[derive(Debug, Clone)]
 pub struct SearchHit {
@@ -23,6 +27,7 @@ pub struct SearchHit {
 struct KnowledgeNote {
     path: String,
     title: String,
+    content_hash: u64,
     headings: String,
     content: String,
     searchable_content: String,
@@ -42,7 +47,99 @@ struct CachedIndex {
     index: Arc<KnowledgeIndex>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedGraph {
+    version: u32,
+    root: String,
+    locale: String,
+    fingerprint: u64,
+    notes: Vec<PersistedNote>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedNote {
+    path: String,
+    title: String,
+    content_hash: u64,
+    links: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphDiagnostics {
+    pub note_count: usize,
+    pub edge_count: usize,
+    pub broken_links: Vec<String>,
+    pub orphan_notes: Vec<String>,
+    pub registry_fresh: bool,
+}
+
 static INDEX_CACHE: OnceLock<Mutex<HashMap<String, CachedIndex>>> = OnceLock::new();
+
+fn stable_hash(value: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn graph_registry_path(root: &Path, locale: &str) -> PathBuf {
+    let root_key = stable_hash(&root.to_string_lossy());
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("TierNote")
+        .join(GRAPH_REGISTRY_DIR)
+        .join(format!("{root_key:016x}-{locale}.json"))
+}
+
+fn persist_graph_registry(root: &Path, locale: &str, fingerprint: u64, index: &KnowledgeIndex) {
+    let registry = PersistedGraph {
+        version: GRAPH_REGISTRY_VERSION,
+        root: root.to_string_lossy().to_string(),
+        locale: locale.to_string(),
+        fingerprint,
+        notes: index
+            .notes
+            .iter()
+            .map(|note| PersistedNote {
+                path: note.path.clone(),
+                title: note.title.clone(),
+                content_hash: note.content_hash,
+                links: note.links.clone(),
+            })
+            .collect(),
+    };
+    let path = graph_registry_path(root, locale);
+    let Some(parent) = path.parent() else { return };
+    if fs::create_dir_all(parent).is_err() {
+        return;
+    }
+    let Ok(json) = serde_json::to_vec_pretty(&registry) else {
+        return;
+    };
+    let temp = path.with_extension("json.tmp");
+    if fs::write(&temp, json).is_err() {
+        return;
+    }
+    if path.exists() && fs::remove_file(&path).is_err() {
+        let _ = fs::remove_file(&temp);
+        return;
+    }
+    if fs::rename(&temp, &path).is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+}
+
+fn persisted_registry_is_fresh(root: &Path, locale: &str, fingerprint: u64) -> bool {
+    let path = graph_registry_path(root, locale);
+    let Ok(json) = fs::read_to_string(path) else {
+        return false;
+    };
+    serde_json::from_str::<PersistedGraph>(&json).is_ok_and(|registry| {
+        registry.version == GRAPH_REGISTRY_VERSION
+            && registry.root == root.to_string_lossy()
+            && registry.locale == locale
+            && registry.fingerprint == fingerprint
+    })
+}
 
 pub fn search_library(root: &Path, query: &str, locale: &str, limit: usize) -> Vec<SearchHit> {
     let Some(index) = load_index(root, locale) else {
@@ -247,6 +344,7 @@ fn load_index(root: &Path, locale: &str) -> Option<Arc<KnowledgeIndex>> {
     }
 
     let index = Arc::new(build_index(&canonical_root, paths));
+    persist_graph_registry(&canonical_root, locale, fingerprint, &index);
     if let Ok(mut cache_guard) = cache.lock() {
         cache_guard.insert(
             cache_key,
@@ -358,6 +456,7 @@ fn build_index(root: &Path, paths: Vec<PathBuf>) -> KnowledgeIndex {
         notes.push(KnowledgeNote {
             path: relative,
             title,
+            content_hash: stable_hash(&content),
             headings: headings.to_lowercase(),
             searchable_content: content.to_lowercase(),
             content,
@@ -393,6 +492,53 @@ fn search_index(index: &KnowledgeIndex, query: &str, limit: usize) -> Vec<Search
     search_index_filtered(index, query, limit, None)
 }
 
+fn graph_neighbors(index: &KnowledgeIndex, note_index: usize) -> Vec<usize> {
+    let mut neighbors = HashSet::new();
+    for path in &index.notes[note_index].links {
+        if let Some(target) = index.by_path.get(path).copied() {
+            neighbors.insert(target);
+        }
+    }
+    neighbors.extend(index.incoming[note_index].iter().copied());
+    neighbors.into_iter().collect()
+}
+
+fn graph_scores(
+    index: &KnowledgeIndex,
+    seed_index: usize,
+    seed_score: usize,
+    allowed_indices: Option<&HashSet<usize>>,
+    combined: &mut HashMap<usize, (usize, bool)>,
+) {
+    let mut frontier = vec![seed_index];
+    let mut visited = HashSet::from([seed_index]);
+
+    for depth in 1..=2 {
+        let mut next = Vec::new();
+        for current in frontier {
+            for neighbor in graph_neighbors(index, current) {
+                if !visited.insert(neighbor) {
+                    continue;
+                }
+                if allowed_indices.is_some_and(|allowed| !allowed.contains(&neighbor)) {
+                    continue;
+                }
+                let weighted = seed_score
+                    .saturating_mul(GRAPH_HOP_WEIGHTS[depth])
+                    .saturating_div(GRAPH_HOP_WEIGHTS[0]);
+                let entry = combined.entry(neighbor).or_insert((0, true));
+                entry.0 = entry.0.saturating_add(weighted.max(1));
+                entry.1 = true;
+                next.push(neighbor);
+            }
+        }
+        frontier = next;
+        if frontier.is_empty() {
+            break;
+        }
+    }
+}
+
 fn path_has_prefix(path: &str, prefix: &str) -> bool {
     let path = path.replace('\\', "/");
     let prefix = prefix.replace('\\', "/").trim_matches('/').to_string();
@@ -424,24 +570,20 @@ fn search_index_filtered(
 
     let mut combined: HashMap<usize, (usize, bool)> = HashMap::new();
     for (score, note_index) in &base_scores {
-        combined.insert(*note_index, (*score, false));
+        combined.insert(
+            *note_index,
+            (score.saturating_mul(GRAPH_HOP_WEIGHTS[0]), false),
+        );
     }
 
     for (seed_score, seed_index) in base_scores.iter().take(4) {
-        let graph_score = (*seed_score / 6).max(1);
-        let outgoing = index.notes[*seed_index]
-            .links
-            .iter()
-            .filter_map(|path| index.by_path.get(path).copied());
-        let neighbors = outgoing.chain(index.incoming[*seed_index].iter().copied());
-        for neighbor in neighbors {
-            if allowed_indices.is_some_and(|allowed| !allowed.contains(&neighbor)) {
-                continue;
-            }
-            let entry = combined.entry(neighbor).or_insert((0, true));
-            entry.0 = entry.0.saturating_add(graph_score);
-            entry.1 = true;
-        }
+        graph_scores(
+            index,
+            *seed_index,
+            *seed_score,
+            allowed_indices,
+            &mut combined,
+        );
     }
 
     let mut ranked = combined
@@ -464,6 +606,55 @@ fn search_index_filtered(
             }
         })
         .collect()
+}
+
+/// Rebuild (when needed) and report deterministic graph integrity issues without
+/// reading note bodies into the result. The registry itself stays in AppData so
+/// the user's Markdown library remains untouched.
+pub fn graph_diagnostics(root: &Path, locale: &str) -> GraphDiagnostics {
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let Some(index) = load_index(&canonical_root, locale) else {
+        return GraphDiagnostics {
+            note_count: 0,
+            edge_count: 0,
+            broken_links: Vec::new(),
+            orphan_notes: Vec::new(),
+            registry_fresh: false,
+        };
+    };
+
+    let mut broken_links = index
+        .notes
+        .iter()
+        .flat_map(|note| {
+            note.links.iter().filter_map(|target| {
+                (!index.by_path.contains_key(target))
+                    .then(|| format!("{} -> {}", note.path, target))
+            })
+        })
+        .collect::<Vec<_>>();
+    broken_links.sort();
+
+    let mut orphan_notes = index
+        .notes
+        .iter()
+        .enumerate()
+        .filter_map(|(note_index, note)| {
+            (note.links.is_empty() && index.incoming[note_index].is_empty())
+                .then(|| note.path.clone())
+        })
+        .collect::<Vec<_>>();
+    orphan_notes.sort();
+
+    let paths = collect_logical_markdown_paths(&canonical_root, locale);
+    let fingerprint = library_fingerprint(&paths);
+    GraphDiagnostics {
+        note_count: index.notes.len(),
+        edge_count: index.notes.iter().map(|note| note.links.len()).sum(),
+        broken_links,
+        orphan_notes,
+        registry_fresh: persisted_registry_is_fresh(&canonical_root, locale, fingerprint),
+    }
 }
 
 fn score_note(note: &KnowledgeNote, query: &str, terms: &[String]) -> usize {
@@ -717,6 +908,72 @@ mod tests {
         assert!(hits
             .iter()
             .any(|hit| hit.path == "sources/creatine-trials.md" && hit.via_graph));
+
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn expands_graph_neighbors_to_two_hops_with_lower_weight() {
+        let root = fixture_root();
+        fs::write(
+            root.join("dossiers/seed.md"),
+            "# Aurora\n\nThe aurora protocol. [First](first.md)",
+        )
+        .expect("seed fixture should be written");
+        fs::write(
+            root.join("dossiers/first.md"),
+            "# First relation\n\nA directly linked note. [Second](second.md)",
+        )
+        .expect("first-hop fixture should be written");
+        fs::write(
+            root.join("dossiers/second.md"),
+            "# Second relation\n\nA note reached through two links.",
+        )
+        .expect("second-hop fixture should be written");
+
+        let hits = search_library(&root, "aurora", "en", 5);
+        let first = hits
+            .iter()
+            .position(|hit| hit.path == "dossiers/first.md")
+            .expect("first-hop note should be retrieved");
+        let second = hits
+            .iter()
+            .position(|hit| hit.path == "dossiers/second.md")
+            .expect("second-hop note should be retrieved");
+        assert!(first < second, "closer graph neighbors should rank first");
+        assert!(hits[first].via_graph && hits[second].via_graph);
+
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn reports_broken_links_and_orphan_notes() {
+        let root = fixture_root();
+        fs::write(
+            root.join("dossiers/source.md"),
+            "# Source\n\n[Known](../sources/known.md) [Missing](../sources/missing.md)",
+        )
+        .expect("source fixture should be written");
+        fs::write(
+            root.join("sources/known.md"),
+            "# Known\n\nReferenced by source.",
+        )
+        .expect("known fixture should be written");
+        fs::write(
+            root.join("dossiers/orphan.md"),
+            "# Orphan\n\nStandalone note.",
+        )
+        .expect("orphan fixture should be written");
+
+        let diagnostics = graph_diagnostics(&root, "en");
+        assert_eq!(diagnostics.note_count, 3);
+        assert_eq!(diagnostics.edge_count, 2);
+        assert_eq!(
+            diagnostics.broken_links,
+            vec!["dossiers/source.md -> sources/missing.md"]
+        );
+        assert_eq!(diagnostics.orphan_notes, vec!["dossiers/orphan.md"]);
+        assert!(diagnostics.registry_fresh);
 
         fs::remove_dir_all(root).expect("fixture should be removed");
     }

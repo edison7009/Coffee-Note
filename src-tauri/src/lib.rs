@@ -1044,6 +1044,18 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
     })
 }
 
+#[tauri::command]
+fn inspect_library_graph(
+    root: String,
+    locale: Option<String>,
+) -> Result<knowledge_map::GraphDiagnostics, String> {
+    let root = canonical_library_root(Path::new(&root))?;
+    let locale = locale
+        .filter(|value| value == "en")
+        .unwrap_or_else(|| "zh".to_string());
+    Ok(knowledge_map::graph_diagnostics(&root, &locale))
+}
+
 fn safe_existing_path(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
     let canonical_root = root
         .canonicalize()
@@ -2836,6 +2848,7 @@ pub fn run() {
             load_model_config,
             save_model_config,
             load_library,
+            inspect_library_graph,
             move_tier_item,
             read_note,
             open_note,

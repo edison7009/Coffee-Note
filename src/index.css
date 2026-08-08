@@ -1557,34 +1557,16 @@ html.tree-drag-active * {
 .note-meta-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
 }
 
-.note-path,
 .note-action {
   color: var(--muted);
   font-size: 13px;
   font-weight: 550;
-}
-
-.note-path {
-  display: inline-flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 24px;
-  padding: 0 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  line-height: 1;
-  white-space: nowrap;
-  user-select: text;
-}
-
-.note-path::-webkit-scrollbar {
-  display: none;
 }
 
 .plan-title-hint {
@@ -1599,6 +1581,7 @@ html.tree-drag-active * {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 4px;
   flex: 0 0 auto;
 }
@@ -1634,12 +1617,12 @@ html.tree-drag-active * {
   cursor: default;
 }
 
-.note-action.copy-path {
-  min-width: 64px;
+.note-action.copy-full {
+  min-width: 88px;
   justify-content: center;
 }
 
-.note-action.copy-path.copied {
+.note-action.copy-full.copied {
   color: #2e8f6d;
 }
 
@@ -4381,7 +4364,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
-[data-theme='dark'] .note-path,
 [data-theme='dark'] .note-action {
   color: var(--muted);
 }
