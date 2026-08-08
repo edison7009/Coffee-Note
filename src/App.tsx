@@ -21,6 +21,7 @@ import {
   Monitor,
   Smartphone,
   Moon,
+  ChevronDown,
   NotebookPen,
   Pill,
   Plus,
@@ -52,11 +53,13 @@ import {
   UsersRound,
   Wrench,
   X,
+  Redo2,
+  Undo2,
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { confirm } from '@tauri-apps/plugin-dialog';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import {
+import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager';
+import React, {
   FormEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -70,6 +73,24 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createPortal } from 'react-dom';
+import { EditorView } from 'codemirror';
+import { EditorSelection, EditorState } from '@codemirror/state';
+import {
+  dropCursor,
+  highlightActiveLine,
+  keymap,
+  lineNumbers,
+} from '@codemirror/view';
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  redo as cmRedo,
+  undo as cmUndo,
+} from '@codemirror/commands';
+import { indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import { markdown as markdownLanguage } from '@codemirror/lang-markdown';
 import packageMetadata from '../package.json';
 import {
   checkForUpdate,
@@ -84,6 +105,7 @@ import {
   prepareCapture,
   persistModelConfig,
   readNote,
+  writeNote,
   saveCapture,
   sendAgentMessage,
   listenAgentEvents,
@@ -96,7 +118,6 @@ import {
   deleteConversation,
   confirmMemorySuggestion,
   deleteNote,
-  openNote,
   setNoteTier,
   listDirectory,
   createFolder,
@@ -452,6 +473,13 @@ interface NoteSummaryRecord {
   text: string;
   source: NoteSummarySource;
   status: NoteSummaryStatus;
+}
+
+interface RailEditorTarget {
+  root: string;
+  relativePath: string;
+  title: string;
+  markdown: string;
 }
 
 const REASONING_DETAILS_PATTERN =
@@ -928,6 +956,11 @@ function App() {
   const noteSummaryCacheRef = useRef<Record<string, NoteSummaryRecord>>({});
   const noteSummaryRequestIdRef = useRef(0);
   const [noteSummaryVersion, setNoteSummaryVersion] = useState(0);
+  const [railEditorTarget, setRailEditorTarget] = useState<RailEditorTarget | null>(null);
+  const railEditorDraftRef = useRef('');
+  const [activeTextSurface, setActiveTextSurface] = useState<TextCommandSurface>('none');
+  const editorTextCommandsRef = useRef<TextCommandController | null>(null);
+  const readerTextCommandsRef = useRef<TextCommandController | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
@@ -971,6 +1004,28 @@ function App() {
 
   const t = (key: TranslationKey) => translate(locale, key);
   const modelConfig = getActiveModelConfig(modelSettings);
+  const activeTextController = useCallback(() => {
+    if (activeTextSurface === 'editor') {
+      return editorTextCommandsRef.current || readerTextCommandsRef.current;
+    }
+    if (activeTextSurface === 'reader') return readerTextCommandsRef.current;
+    return readerTextCommandsRef.current;
+  }, [activeTextSurface]);
+  const isTextCommandEnabled = useCallback(
+    (command: TextCommand) => {
+      const controller = activeTextController();
+      return Boolean(controller?.canRun(command));
+    },
+    [activeTextController],
+  );
+  const runTextCommand = useCallback(
+    (command: TextCommand) => {
+      const controller = activeTextController();
+      if (!controller?.canRun(command)) return;
+      void controller.run(command);
+    },
+    [activeTextController],
+  );
   useEffect(() => {
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
     const applyTheme = () => {
@@ -1400,22 +1455,112 @@ function App() {
     return null;
   }, [view, selectedSupplement, selectedPerson, selectedStory, fileNotePath]);
 
-  const handleEditNote = async (relativePath: string) => {
+  useEffect(() => {
+    if (!railEditorTarget) return;
+    if (!noteRelativePath || railEditorTarget.relativePath !== noteRelativePath) {
+      setRailEditorTarget(null);
+    }
+  }, [noteRelativePath, railEditorTarget]);
+
+  useEffect(() => {
+    if (railEditorTarget) {
+      setActiveTextSurface('editor');
+      return;
+    }
+    if (noteRelativePath && ['supplement', 'person', 'story', 'file'].includes(view)) {
+      setActiveTextSurface('reader');
+      return;
+    }
+    setActiveTextSurface('none');
+  }, [noteRelativePath, railEditorTarget, view]);
+
+  useEffect(() => {
+    if (railEditorTarget) {
+      railEditorDraftRef.current = railEditorTarget.markdown;
+    } else {
+      railEditorDraftRef.current = '';
+    }
+  }, [railEditorTarget]);
+
+  const persistNoteContent = async (
+    root: string,
+    relativePath: string,
+    content: string,
+    options: { quiet?: boolean } = {},
+  ) => {
     if (!isTauri) {
       setToast({ message: t('desktopOnlyAction'), kind: 'status' });
       return;
     }
+    try {
+      await writeNote(root, relativePath, content);
+      setNoteMarkdown(content);
+      setTreeRefresh((current) => current + 1);
+      setLibrary(await loadLibrary(root || undefined, locale));
+      if (!options.quiet) {
+        setToast({ message: t('noteSaved'), kind: 'status' });
+      }
+    } catch (error) {
+      setToast({
+        message: `${t('noteSaveFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
+        kind: 'status',
+      });
+      throw error;
+    }
+  };
+
+  const handleBeginRailEdit = (target: {
+    relativePath: string;
+    title: string;
+    markdown: string;
+  }) => {
     const source = view === 'file' ? fileNoteSourceRef.current : 'library';
     const root =
       source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
-    try {
-      await openNote(root, relativePath);
-    } catch (error) {
-      setToast({
-        message: `${t('openNoteFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
-        kind: 'status',
-      });
+    setRailEditorTarget({ root, ...target });
+  };
+
+  const handlePreviewRailEdit = (content: string) => {
+    if (!railEditorTarget) return;
+    railEditorDraftRef.current = content;
+    if (railEditorTarget.relativePath === noteRelativePath) {
+      setNoteMarkdown(content);
     }
+  };
+
+  const handleAutosaveRailEdit = async (content: string) => {
+    if (!railEditorTarget) return;
+    await persistNoteContent(
+      railEditorTarget.root,
+      railEditorTarget.relativePath,
+      content,
+      { quiet: true },
+    );
+    setRailEditorTarget((current) =>
+      current && current.relativePath === railEditorTarget.relativePath
+        ? { ...current, markdown: content }
+        : current,
+    );
+    railEditorDraftRef.current = content;
+    setNoteSummaryVersion((current) => current + 1);
+  };
+
+  const handleToggleRailEdit = async (target: {
+    relativePath: string;
+    title: string;
+    markdown: string;
+  }) => {
+    if (railEditorTarget?.relativePath === target.relativePath) {
+      const latest = railEditorDraftRef.current;
+      if (latest !== railEditorTarget.markdown) {
+        await persistNoteContent(railEditorTarget.root, railEditorTarget.relativePath, latest, {
+          quiet: true,
+        });
+      }
+      setRailEditorTarget(null);
+      return;
+    }
+    handleBeginRailEdit(target);
   };
 
   const handleDeleteNote = async (relativePath: string) => {
@@ -2175,12 +2320,15 @@ function App() {
         locale={locale}
         canGoBack={navigationHistoryRef.current.back.length > 0}
         canGoForward={navigationHistoryRef.current.forward.length > 0}
+        activeTextSurface={activeTextSurface}
         onBack={goBack}
         onForward={goForward}
         onSwitchRoot={handleSwitchRoot}
         onHelp={() => void openExternalUrl(PRODUCT_WEBSITE)}
         onFeedback={() => void openExternalUrl(FEEDBACK_URL)}
         onSettings={() => setSettingsOpen(true)}
+        onTextCommand={runTextCommand}
+        isTextCommandEnabled={isTextCommandEnabled}
       />
       <Sidebar
         locale={locale}
@@ -2277,12 +2425,24 @@ function App() {
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
-                  onEditNote={handleEditNote}
+                  isEditing={railEditorTarget?.relativePath === noteRelativePath}
+                  onToggleEdit={() =>
+                    noteRelativePath &&
+                    handleToggleRailEdit({
+                      relativePath: noteRelativePath,
+                      title: locale === 'zh' ? selectedSupplement.nameZh : selectedSupplement.nameEn,
+                      markdown: noteMarkdown,
+                    })
+                  }
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
                     selectedSupplement.filePath &&
                     handleSetTier(selectedSupplement.filePath, nextTier)
                   }
+                  onActivateReaderCommands={() => setActiveTextSurface('reader')}
+                  onRegisterReaderCommands={(controller) => {
+                    readerTextCommandsRef.current = controller;
+                  }}
                 />
               )}
               {view === 'person' && selectedPerson && (
@@ -2302,11 +2462,23 @@ function App() {
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
-                  onEditNote={handleEditNote}
+                  isEditing={railEditorTarget?.relativePath === noteRelativePath}
+                  onToggleEdit={() =>
+                    noteRelativePath &&
+                    handleToggleRailEdit({
+                      relativePath: noteRelativePath,
+                      title: selectedPerson.name,
+                      markdown: noteMarkdown,
+                    })
+                  }
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
                     selectedPerson.filePath && handleSetTier(selectedPerson.filePath, nextTier)
                   }
+                  onActivateReaderCommands={() => setActiveTextSurface('reader')}
+                  onRegisterReaderCommands={(controller) => {
+                    readerTextCommandsRef.current = controller;
+                  }}
                 />
               )}
               {view === 'story' && selectedStory && (
@@ -2328,11 +2500,26 @@ function App() {
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
-                  onEditNote={handleEditNote}
+                  isEditing={railEditorTarget?.relativePath === noteRelativePath}
+                  onToggleEdit={() =>
+                    noteRelativePath &&
+                    handleToggleRailEdit({
+                      relativePath: noteRelativePath,
+                      title:
+                        locale === 'zh'
+                          ? selectedStory.title
+                          : selectedStory.titleEn || selectedStory.title,
+                      markdown: noteMarkdown,
+                    })
+                  }
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) =>
                     selectedStory.filePath && handleSetTier(selectedStory.filePath, nextTier)
                   }
+                  onActivateReaderCommands={() => setActiveTextSurface('reader')}
+                  onRegisterReaderCommands={(controller) => {
+                    readerTextCommandsRef.current = controller;
+                  }}
                 />
               )}
               {view === 'plan' && (
@@ -2361,9 +2548,21 @@ function App() {
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
-                  onEditNote={handleEditNote}
+                  isEditing={railEditorTarget?.relativePath === noteRelativePath}
+                  onToggleEdit={() =>
+                    noteRelativePath &&
+                    handleToggleRailEdit({
+                      relativePath: noteRelativePath,
+                      title: fileNoteTitle,
+                      markdown: noteMarkdown,
+                    })
+                  }
                   onDeleteNote={handleDeleteNote}
                   onSetTier={(nextTier) => handleSetTier(fileNotePath, nextTier)}
+                  onActivateReaderCommands={() => setActiveTextSurface('reader')}
+                  onRegisterReaderCommands={(controller) => {
+                    readerTextCommandsRef.current = controller;
+                  }}
                 />
               )}
               {view === 'log' && (
@@ -2412,11 +2611,18 @@ function App() {
         locale={locale}
         view={view}
         aiActive={view === 'ai'}
+        editingNote={railEditorTarget}
         conversations={conversationSummaries}
         activeConversationId={activeConversationId}
         chatBusy={chatBusy}
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={handleDeleteConversation}
+        onPreviewEditingNote={handlePreviewRailEdit}
+        onAutosaveEditingNote={handleAutosaveRailEdit}
+        onActivateEditorCommands={() => setActiveTextSurface('editor')}
+        onRegisterEditorCommands={(controller) => {
+          editorTextCommandsRef.current = controller;
+        }}
         supplement={selectedSupplement}
         person={selectedPerson}
         story={selectedStory}
@@ -2546,27 +2752,174 @@ function PaneResizer({
 }
 
 type TitlebarMenu = 'file' | 'edit' | 'help';
+type TextCommand = 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'delete' | 'selectAll';
+type TextCommandSurface = 'none' | 'editor' | 'reader';
+
+interface TextCommandController {
+  canRun: (command: TextCommand) => boolean;
+  run: (command: TextCommand) => void | Promise<void>;
+}
+
+const EDITOR_TEXT_COMMANDS: TextCommand[] = [
+  'undo',
+  'redo',
+  'cut',
+  'copy',
+  'paste',
+  'delete',
+  'selectAll',
+];
+
+const READER_TEXT_COMMANDS: TextCommand[] = ['copy', 'selectAll'];
+
+const TEXT_COMMAND_DIVIDERS = new Set<TextCommand>(['cut', 'selectAll']);
+
+function textCommandLabel(locale: Locale, command: TextCommand): string {
+  const labels: Record<TextCommand, TranslationKey> = {
+    undo: 'menuUndo',
+    redo: 'menuRedo',
+    cut: 'menuCut',
+    copy: 'menuCopy',
+    paste: 'menuPaste',
+    delete: 'menuDelete',
+    selectAll: 'menuSelectAll',
+  };
+  return translate(locale, labels[command]);
+}
+
+function textCommandShortcut(command: TextCommand): string {
+  const mod = isMacOSPlatform ? '⌘' : 'Ctrl+';
+  const shiftMod = isMacOSPlatform ? '⇧⌘' : 'Ctrl+';
+  const shortcuts: Partial<Record<TextCommand, string>> = {
+    undo: `${mod}Z`,
+    redo: isMacOSPlatform ? `${shiftMod}Z` : `${shiftMod}Y`,
+    cut: `${mod}X`,
+    copy: `${mod}C`,
+    paste: `${mod}V`,
+    selectAll: `${mod}A`,
+  };
+  return shortcuts[command] || '';
+}
+
+function textCommandIcon(command: TextCommand): ReactNode {
+  const icons: Record<TextCommand, ReactNode> = {
+    undo: <Undo2 size={13} />,
+    redo: <Redo2 size={13} />,
+    cut: <Scissors size={13} />,
+    copy: <Copy size={13} />,
+    paste: <ClipboardPaste size={13} />,
+    delete: <Trash2 size={13} />,
+    selectAll: <Square size={13} />,
+  };
+  return icons[command];
+}
+
+async function readClipboardText(): Promise<string> {
+  if (isTauri) return readText();
+  return navigator.clipboard?.readText ? navigator.clipboard.readText() : '';
+}
+
+async function writeClipboardText(text: string): Promise<void> {
+  if (isTauri) {
+    await writeText(text);
+    return;
+  }
+  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+}
+
+function selectionIsInside(element: HTMLElement): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return false;
+  const range = selection.getRangeAt(0);
+  return element.contains(range.commonAncestorContainer);
+}
+
+function selectElementText(element: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function selectedTextInEditor(view: EditorView): string {
+  return view.state.selection.ranges
+    .filter((range) => !range.empty)
+    .map((range) => view.state.sliceDoc(range.from, range.to))
+    .join('\n');
+}
+
+async function runEditorTextCommand(view: EditorView, command: TextCommand): Promise<void> {
+  view.focus();
+  if (command === 'undo') {
+    cmUndo(view);
+    return;
+  }
+  if (command === 'redo') {
+    cmRedo(view);
+    return;
+  }
+  if (command === 'copy' || command === 'cut') {
+    const selectedText = selectedTextInEditor(view);
+    if (selectedText) await writeClipboardText(selectedText);
+    if (command === 'copy' || !selectedText) return;
+  }
+  if (command === 'paste') {
+    const text = await readClipboardText();
+    if (!text) return;
+    const transaction = view.state.changeByRange((range) => ({
+      changes: { from: range.from, to: range.to, insert: text },
+      range: EditorSelection.cursor(range.from + text.length),
+    }));
+    view.dispatch(transaction);
+    return;
+  }
+  if (command === 'delete' || command === 'cut') {
+    const transaction = view.state.changeByRange((range) => {
+      const to = range.empty ? Math.min(range.from + 1, view.state.doc.length) : range.to;
+      return {
+        changes: { from: range.from, to },
+        range: EditorSelection.cursor(range.from),
+      };
+    });
+    view.dispatch(transaction);
+    return;
+  }
+  if (command === 'selectAll') {
+    view.dispatch({
+      selection: EditorSelection.single(0, view.state.doc.length),
+      scrollIntoView: true,
+    });
+  }
+}
 
 function AppTitlebar({
   locale,
   canGoBack,
   canGoForward,
+  activeTextSurface,
   onBack,
   onForward,
   onSwitchRoot,
   onHelp,
   onFeedback,
   onSettings,
+  onTextCommand,
+  isTextCommandEnabled,
 }: {
   locale: Locale;
   canGoBack: boolean;
   canGoForward: boolean;
+  activeTextSurface: TextCommandSurface;
   onBack: () => void;
   onForward: () => void;
   onSwitchRoot: () => void;
   onHelp: () => void;
   onFeedback: () => void;
   onSettings: () => void;
+  onTextCommand: (command: TextCommand) => void;
+  isTextCommandEnabled: (command: TextCommand) => boolean;
 }) {
   const [openMenu, setOpenMenu] = useState<TitlebarMenu | null>(null);
   const menuBarRef = useRef<HTMLElement>(null);
@@ -2675,14 +3028,25 @@ function AppTitlebar({
             </button>
             {openMenu === 'edit' && (
               <div className="titlebar-menu-popover" role="menu">
-                <button type="button" role="menuitem" disabled>
-                  <span>{locale === 'zh' ? '撤销' : 'Undo'}</span>
-                  <kbd>{isMacOSPlatform ? '⌘Z' : 'Ctrl+Z'}</kbd>
-                </button>
-                <button type="button" role="menuitem" disabled>
-                  <span>{locale === 'zh' ? '重做' : 'Redo'}</span>
-                  <kbd>{isMacOSPlatform ? '⇧⌘Z' : 'Ctrl+Y'}</kbd>
-                </button>
+                {EDITOR_TEXT_COMMANDS.map((command) => (
+                  <React.Fragment key={command}>
+                    {TEXT_COMMAND_DIVIDERS.has(command) && (
+                      <div className="titlebar-menu-divider" />
+                    )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={
+                        !isTextCommandEnabled(command) ||
+                        (activeTextSurface === 'reader' && !READER_TEXT_COMMANDS.includes(command))
+                      }
+                      onClick={() => runMenuAction(() => onTextCommand(command))}
+                    >
+                      <span>{textCommandLabel(locale, command)}</span>
+                      {textCommandShortcut(command) && <kbd>{textCommandShortcut(command)}</kbd>}
+                    </button>
+                  </React.Fragment>
+                ))}
               </div>
             )}
           </div>
@@ -3042,6 +3406,78 @@ function ContextMenu({
           {item(<Trash2 size={13} />, t('menuCleanup'), () => actions.onCleanup!(menu))}
         </>
       )}
+    </div>,
+    document.body,
+  );
+}
+
+function TextCommandMenu({
+  x,
+  y,
+  locale,
+  commands,
+  controller,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  locale: Locale;
+  commands: TextCommand[];
+  controller: TextCommandController;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) onClose();
+    };
+    const closeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const closeWheel = () => onClose();
+    document.addEventListener('mousedown', close, true);
+    document.addEventListener('keydown', closeKey, true);
+    document.addEventListener('wheel', closeWheel, { capture: true, passive: true });
+    window.addEventListener('blur', onClose);
+    window.addEventListener('resize', onClose);
+    return () => {
+      document.removeEventListener('mousedown', close, true);
+      document.removeEventListener('keydown', closeKey, true);
+      document.removeEventListener('wheel', closeWheel, { capture: true } as EventListenerOptions);
+      window.removeEventListener('blur', onClose);
+      window.removeEventListener('resize', onClose);
+    };
+  }, [onClose]);
+
+  const style: React.CSSProperties = {
+    left: Math.min(x, window.innerWidth - 224),
+    top: Math.min(y, window.innerHeight - 330),
+  };
+
+  return createPortal(
+    <div className="ctx-menu text-command-menu" ref={menuRef} style={style}>
+      {commands.map((command) => (
+        <React.Fragment key={command}>
+          {TEXT_COMMAND_DIVIDERS.has(command) && commands.length > 2 && (
+            <div className="ctx-menu-divider" />
+          )}
+          <button
+            type="button"
+            className={`ctx-menu-item${controller.canRun(command) ? '' : ' disabled'}`}
+            disabled={!controller.canRun(command)}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              onClose();
+              void controller.run(command);
+            }}
+          >
+            {textCommandIcon(command)}
+            <span>{textCommandLabel(locale, command)}</span>
+            {textCommandShortcut(command) && <kbd>{textCommandShortcut(command)}</kbd>}
+          </button>
+        </React.Fragment>
+      ))}
     </div>,
     document.body,
   );
@@ -4285,7 +4721,7 @@ function HomeView({
       <section className="hero">
         <div className="hero-kicker">
           <GreetingIcon size={15} />
-          WELCOME
+          Your AI Second Brain for Knowledge & Ideas
         </div>
         <h1>{t(greetingKey)}</h1>
       </section>
@@ -4599,6 +5035,128 @@ function PageBackButton({ locale, onBack }: { locale: Locale; onBack: () => void
   );
 }
 
+function MarkdownEditor({
+  value,
+  onChange,
+  locale,
+  onActivateCommands,
+  onRegisterCommands,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  locale: Locale;
+  onActivateCommands?: () => void;
+  onRegisterCommands?: (controller: TextCommandController | null) => void;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onActivateCommandsRef = useRef(onActivateCommands);
+  const onRegisterCommandsRef = useRef(onRegisterCommands);
+  const [textMenu, setTextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onActivateCommandsRef.current = onActivateCommands;
+  }, [onActivateCommands]);
+
+  useEffect(() => {
+    onRegisterCommandsRef.current = onRegisterCommands;
+  }, [onRegisterCommands]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const view = new EditorView({
+      doc: value,
+      extensions: [
+        lineNumbers(),
+        dropCursor(),
+        EditorState.allowMultipleSelections.of(true),
+        history(),
+        indentOnInput(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        bracketMatching(),
+        closeBrackets(),
+        highlightActiveLine(),
+        keymap.of([
+          ...closeBracketsKeymap,
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
+        markdownLanguage(),
+        EditorView.lineWrapping,
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onChangeRef.current(update.state.doc.toString());
+          }
+        }),
+      ],
+      parent: host,
+    });
+    viewRef.current = view;
+    onRegisterCommandsRef.current?.({
+      canRun: () => true,
+      run: (command) => runEditorTextCommand(view, command),
+    });
+    view.focus();
+    onActivateCommandsRef.current?.();
+    return () => {
+      onRegisterCommandsRef.current?.(null);
+      view.destroy();
+      viewRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current === value) return;
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: value },
+    });
+  }, [value]);
+
+  const openTextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const view = viewRef.current;
+    if (!view) return;
+    event.preventDefault();
+    onActivateCommandsRef.current?.();
+    view.focus();
+    setTextMenu({ x: event.clientX, y: event.clientY });
+  };
+
+  return (
+    <>
+      <div
+        ref={hostRef}
+        className="markdown-editor"
+        aria-label={translate(locale, 'markdownEditor')}
+        onContextMenu={openTextMenu}
+        onFocus={() => onActivateCommandsRef.current?.()}
+        onPointerDown={() => onActivateCommandsRef.current?.()}
+      />
+      {textMenu && viewRef.current && (
+        <TextCommandMenu
+          x={textMenu.x}
+          y={textMenu.y}
+          locale={locale}
+          commands={EDITOR_TEXT_COMMANDS}
+          controller={{
+            canRun: () => true,
+            run: (command) => runEditorTextCommand(viewRef.current!, command),
+          }}
+          onClose={() => setTextMenu(null)}
+        />
+      )}
+    </>
+  );
+}
+
 function NoteView({
   title,
   tier,
@@ -4613,9 +5171,12 @@ function NoteView({
   onToggleFavorite,
   onBack,
   notePath,
-  onEditNote,
+  isEditing,
+  onToggleEdit,
   onDeleteNote,
   onSetTier,
+  onActivateReaderCommands,
+  onRegisterReaderCommands,
 }: {
   title: string;
   tier?: string;
@@ -4630,9 +5191,12 @@ function NoteView({
   onToggleFavorite: () => void;
   onBack: () => void;
   notePath: string | null;
-  onEditNote: (relativePath: string) => void;
+  isEditing: boolean;
+  onToggleEdit: () => void;
   onDeleteNote: (relativePath: string) => void;
   onSetTier?: (tier: string) => void;
+  onActivateReaderCommands?: () => void;
+  onRegisterReaderCommands?: (controller: TextCommandController | null) => void;
 }) {
   const [tierPickerOpen, setTierPickerOpen] = useState(false);
   const normalizedTier = useMemo(() => normalizeTier(tier), [tier]);
@@ -4647,11 +5211,18 @@ function NoteView({
   );
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
+  const markdownBodyRef = useRef<HTMLDivElement>(null);
+  const [textMenu, setTextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [noteSummaryExpanded, setNoteSummaryExpanded] = useState(false);
+
+  useEffect(() => {
+    setNoteSummaryExpanded(false);
+  }, [notePath, summary?.text]);
 
   const handleCopyFullText = async () => {
     if (!markdown.trim()) return;
     try {
-      await writeText(`${title}\n\n${markdown}`.trim());
+      await writeClipboardText(`${title}\n\n${markdown}`.trim());
       setCopied(true);
       if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
       copyTimerRef.current = window.setTimeout(() => setCopied(false), 1800);
@@ -4659,6 +5230,41 @@ function NoteView({
       // Clipboard can be unavailable outside Tauri; leave the button unchanged.
     }
   };
+
+  const readerController = useMemo<TextCommandController>(
+    () => ({
+      canRun: (command) => READER_TEXT_COMMANDS.includes(command) && Boolean(markdown.trim()),
+      run: async (command) => {
+        const body = markdownBodyRef.current;
+        if (!body) return;
+        if (command === 'selectAll') {
+          selectElementText(body);
+          return;
+        }
+        if (command === 'copy') {
+          const selection = window.getSelection();
+          const selectedText =
+            selection && selectionIsInside(body) ? selection.toString().trim() : '';
+          if (!selectedText) return;
+          await writeClipboardText(selectedText);
+        }
+      },
+    }),
+    [markdown, title],
+  );
+
+  useEffect(() => {
+    onRegisterReaderCommands?.(readerController);
+    return () => onRegisterReaderCommands?.(null);
+  }, [onRegisterReaderCommands, readerController]);
+
+  const openReaderTextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!markdown.trim()) return;
+    event.preventDefault();
+    onActivateReaderCommands?.();
+    setTextMenu({ x: event.clientX, y: event.clientY });
+  };
+
   const components = useMemo(
     () => ({
       a: (
@@ -4788,19 +5394,9 @@ function NoteView({
               aria-label={translate(locale, favorite ? 'removeFavorite' : 'addFavorite')}
               aria-pressed={favorite}
               onClick={onToggleFavorite}
-            >
+              >
               <Star size={14} fill={favorite ? 'currentColor' : 'none'} />
               <span>{translate(locale, 'favorites')}</span>
-            </button>
-            <button
-              type="button"
-              className="note-action"
-              aria-label={translate(locale, 'editNote')}
-              disabled={!notePath}
-              onClick={() => notePath && onEditNote(notePath)}
-            >
-              <Pencil size={14} />
-              <span>{translate(locale, 'editNote')}</span>
             </button>
             <button
               type="button"
@@ -4812,21 +5408,44 @@ function NoteView({
               <Trash2 size={14} />
               <span>{translate(locale, 'deleteNote')}</span>
             </button>
+            <button
+              type="button"
+              className={`note-action ${isEditing ? 'active' : ''}`}
+              aria-label={translate(locale, isEditing ? 'closeEditor' : 'editNote')}
+              disabled={!notePath || loading}
+              onClick={onToggleEdit}
+            >
+              {isEditing ? <X size={14} /> : <Pencil size={14} />}
+              <span>{translate(locale, isEditing ? 'closeEditor' : 'editNote')}</span>
+            </button>
           </div>
         </div>
         {!loading && summary?.text && (
           <section className={`note-summary${summary.source === 'ai' ? ' is-ai' : ''}`}>
-            <div className="note-summary-head">
-              <strong>{translate(locale, 'noteSummary')}</strong>
-              <small>
-                {summary.status === 'loading'
-                  ? translate(locale, 'noteSummaryLoading')
-                  : summary.source === 'ai'
-                    ? translate(locale, 'noteSummaryAi')
-                    : translate(locale, 'noteSummaryLocal')}
-              </small>
-            </div>
-            <p>{summary.text}</p>
+            <button
+              type="button"
+              className="note-summary-head"
+              aria-expanded={noteSummaryExpanded}
+              onClick={() => setNoteSummaryExpanded((current) => !current)}
+            >
+              <span className="note-summary-toggle">
+                {noteSummaryExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <strong>{translate(locale, 'noteSummary')}</strong>
+              </span>
+              <small>{translate(locale, 'noteSummaryHint')}</small>
+            </button>
+            {noteSummaryExpanded && (
+              <div className="note-summary-body">
+                <p>{summary.text}</p>
+                <small>
+                  {summary.status === 'loading'
+                    ? translate(locale, 'noteSummaryLoading')
+                    : summary.source === 'ai'
+                      ? translate(locale, 'noteSummaryAi')
+                      : translate(locale, 'noteSummaryLocal')}
+                </small>
+              </div>
+            )}
           </section>
         )}
       </div>
@@ -4835,11 +5454,26 @@ function NoteView({
           <LoaderCircle className="spin" size={22} />
         </div>
       ) : (
-        <div className="markdown-body">
+        <div
+          ref={markdownBodyRef}
+          className="markdown-body"
+          onContextMenu={openReaderTextMenu}
+          onPointerDown={() => onActivateReaderCommands?.()}
+        >
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
             {renderedMarkdown}
           </ReactMarkdown>
         </div>
+      )}
+      {textMenu && (
+        <TextCommandMenu
+          x={textMenu.x}
+          y={textMenu.y}
+          locale={locale}
+          commands={READER_TEXT_COMMANDS}
+          controller={readerController}
+          onClose={() => setTextMenu(null)}
+        />
       )}
     </article>
   );
@@ -5636,6 +6270,7 @@ function RightRail({
   locale,
   view,
   aiActive,
+  editingNote,
   conversations,
   activeConversationId,
   chatBusy,
@@ -5652,11 +6287,16 @@ function RightRail({
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
+  onPreviewEditingNote,
+  onAutosaveEditingNote,
+  onActivateEditorCommands,
+  onRegisterEditorCommands,
   t,
 }: {
   locale: Locale;
   view: View;
   aiActive: boolean;
+  editingNote: RailEditorTarget | null;
   conversations: ConversationSummary[];
   activeConversationId: string;
   chatBusy: boolean;
@@ -5673,10 +6313,17 @@ function RightRail({
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
+  onPreviewEditingNote: (content: string) => void;
+  onAutosaveEditingNote: (content: string) => Promise<void>;
+  onActivateEditorCommands: () => void;
+  onRegisterEditorCommands: (controller: TextCommandController | null) => void;
   t: (key: TranslationKey) => string;
 }) {
   const planSections = getPlanSections(locale);
   const hasOpenContent = Boolean(supplement || person || story);
+  const [editorDraft, setEditorDraft] = useState(editingNote?.markdown || '');
+  const [editorSavedMarkdown, setEditorSavedMarkdown] = useState(editingNote?.markdown || '');
+  const autosaveTimerRef = useRef<number | null>(null);
   const favoriteItems = useMemo<FavoriteListItem[]>(() => {
     const items: FavoriteListItem[] = [];
     for (const favorite of favorites) {
@@ -5712,62 +6359,95 @@ function RightRail({
     return items;
   }, [favorites, library, locale, t]);
 
-  return (
-    <aside className="right-rail">
-      <div className="rail-header">
-        <div>
-          <span className="rail-kicker">
-            {aiActive ? (
-              <History size={15} />
-            ) : hasOpenContent ? (
-              <Library size={15} />
-            ) : (
-              <Sparkles size={15} />
-            )}
-            {aiActive
-              ? t('recentContexts')
-              : hasOpenContent
-                ? t('reading')
-                : t('workspace')}
-          </span>
-          <h3>
-            {aiActive
-              ? locale === 'zh'
-                ? '当前对话'
-                : 'Current conversation'
-              : (supplement
-                  ? locale === 'zh'
-                    ? supplement.nameZh
-                    : supplement.nameEn
-                  : null) ||
-                (person
-                  ? locale === 'zh'
-                    ? person.nameZh || person.name
-                    : person.name
-                  : null) ||
-                (story ? (locale === 'zh' ? story.title : story.titleEn || story.title) : null) ||
-                t('favoritesAndPlan')}
-          </h3>
-        </div>
-        {aiActive ? (
-          <button
-            type="button"
-            className="rail-resume-chat"
-            onClick={onNewChat}
-            disabled={chatBusy}
-          >
-            <Plus size={15} />
-            {t('newChat')}
-          </button>
-        ) : conversations.length > 0 ? (
-          <button type="button" className="rail-resume-chat" onClick={onResumeChat}>
-            <MessageCircleMore size={14} />
-            {t('backToChat')}
-          </button>
-        ) : null}
-      </div>
+  useEffect(() => {
+    setEditorDraft(editingNote?.markdown || '');
+    setEditorSavedMarkdown(editingNote?.markdown || '');
+  }, [editingNote?.markdown, editingNote?.relativePath]);
 
-      <div className="rail-scroll">
+  useEffect(() => {
+    if (!editingNote) return;
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+    if (editorDraft === editorSavedMarkdown) return;
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      void onAutosaveEditingNote(editorDraft)
+        .then(() => {
+          setEditorSavedMarkdown(editorDraft);
+        });
+    }, 700);
+    return () => {
+      if (autosaveTimerRef.current) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [editingNote, editorDraft, editorSavedMarkdown, onAutosaveEditingNote]);
+
+  const changeEditorDraft = (content: string) => {
+    setEditorDraft(content);
+    onPreviewEditingNote(content);
+  };
+
+  return (
+    <aside className={`right-rail${editingNote ? ' right-rail-editing' : ''}`}>
+      {!editingNote && (
+        <div className="rail-header">
+          <div>
+            <span className="rail-kicker">
+              {aiActive ? (
+                <History size={15} />
+              ) : hasOpenContent ? (
+                <Library size={15} />
+              ) : (
+                <Sparkles size={15} />
+              )}
+              {aiActive
+                ? t('recentContexts')
+                : hasOpenContent
+                  ? t('reading')
+                  : t('workspace')}
+            </span>
+            <h3>
+              {aiActive
+                ? locale === 'zh'
+                  ? '当前对话'
+                  : 'Current conversation'
+                : (supplement
+                    ? locale === 'zh'
+                      ? supplement.nameZh
+                      : supplement.nameEn
+                    : null) ||
+                  (person
+                    ? locale === 'zh'
+                      ? person.nameZh || person.name
+                      : person.name
+                    : null) ||
+                  (story ? (locale === 'zh' ? story.title : story.titleEn || story.title) : null) ||
+                  t('favoritesAndPlan')}
+            </h3>
+          </div>
+          {aiActive ? (
+            <button
+              type="button"
+              className="rail-resume-chat"
+              onClick={onNewChat}
+              disabled={chatBusy}
+            >
+              <Plus size={15} />
+              {t('newChat')}
+            </button>
+          ) : conversations.length > 0 ? (
+            <button type="button" className="rail-resume-chat" onClick={onResumeChat}>
+              <MessageCircleMore size={14} />
+              {t('backToChat')}
+            </button>
+          ) : null}
+        </div>
+      )}
+
+      <div className={`rail-scroll${editingNote ? ' rail-scroll-editor' : ''}`}>
         {aiActive ? (
           <>
             <div className="context-summary">
@@ -5824,6 +6504,16 @@ function RightRail({
               )}
             </div>
           </>
+        ) : editingNote ? (
+          <section className="rail-editor-shell">
+            <MarkdownEditor
+              value={editorDraft}
+              onChange={changeEditorDraft}
+              locale={locale}
+              onActivateCommands={onActivateEditorCommands}
+              onRegisterCommands={onRegisterEditorCommands}
+            />
+          </section>
         ) : (
           <>
             <div className="rail-section-title">
