@@ -15,9 +15,9 @@ translation_of: templates/intervention-dossier.md
 
 # Intervention Name
 
-::: tip 30-Second Conclusion
+## 30-Second Conclusion
+
 In 2–3 sentences, answer what it is, how far the human evidence has progressed, and the most reasonable action for a general reader now. The longevity-validation conclusion must be explicit: confirmed effective by scientific statistics and leading journals such as *The Lancet* and *Science*.
-:::
 
 | Quick Judgment | Current Answer |
 |---|---|

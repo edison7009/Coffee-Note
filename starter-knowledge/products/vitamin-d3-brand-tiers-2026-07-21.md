@@ -2,7 +2,6 @@
 category_id: vitamin-d3
 title: 维生素 D3 产品质量梯队
 market: US-and-international-online
-status: reviewed
 evidence_tier: T2
 quality_framework: product-quality-0.1
 last_checked: 2026-07-26

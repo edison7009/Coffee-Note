@@ -2,7 +2,6 @@
 id: vitamin-d3
 name_zh: 维生素 D3
 name_en: Vitamin D3
-status: reviewed
 tier: T3
 last_reviewed: 2026-07-21
 locale: en
@@ -10,9 +9,9 @@ translation_of: dossiers/vitamin-d3.md
 ---
 # Vitamin D3
 
-::: tip 30-second summary
+## 30-second summary
+
 Vitamin D is like a “hormone precursor” provided by sunlight, food, and supplements. Its clearest role is to support calcium and phosphorus metabolism and bone mineralization. The VITAL randomized controlled trial of 25,871 people, published in *The New England Journal of Medicine*, found that 2000 IU daily for about five years reduced the relative incidence of confirmed autoimmune disease by 22% (HR 0.61 after excluding the first two years). A meta-analysis published in *BMJ* found that vitamin D3 supplementation reduced all-cause mortality among older adults. **Included in Bryan Johnson’s protocol.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

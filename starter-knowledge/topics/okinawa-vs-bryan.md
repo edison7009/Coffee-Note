@@ -1,6 +1,5 @@
 ---
 title: 冲绳延寿 vs Bryan Johnson：维度对比
-status: reviewed
 last_updated: 2026-07-22
 sources:
   - PMID 40452754 (Blue Zone 概念, 2025)
@@ -10,9 +9,9 @@ sources:
 
 # 冲绳延寿 vs Bryan Johnson：维度对比
 
-::: tip 一句话结论
+## 一句话结论
+
 冲绳不是"低配版 Bryan"，Bryan 也不是"高配版冲绳"。两者**维度不完全重叠**：冲绳靠文化和习惯自然做到的饮食与活动，Bryan 用科学和钱量化升级了；但冲绳靠文化自然做到的**社群纽带与生活意义感**，Bryan 那套 200 万美元方案反而没有系统补上。最完整的做法是两边合并抄。
-:::
 
 ## 先纠正一个常见误读
 

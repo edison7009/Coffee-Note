@@ -2,20 +2,18 @@
 id: glp1-ra
 name_zh: GLP-1 受体激动剂
 name_en: GLP-1 Receptor Agonists
-status: reviewed
 tier: T2
 last_reviewed: 2026-07-23
 evidence_cutoff: 2026-07-23
-category: prescription-drug
 locale: en
 translation_of: dossiers/glp1-ra.md
 ---
 
 # GLP-1 Receptor Agonists
 
-::: tip 30-second summary
+## 30-second summary
+
 GLP-1 is a satiety hormone naturally secreted by the human gut. GLP-1 receptor agonists are prescription medicines that mimic this hormone. They were first used for diabetes and are now widely used for weight management. In July 2026, Bryan Johnson publicly added them to his longevity platform and described them as “potential longevity drugs.” **These are prescription medicines, not supplements, and require medical assessment and a prescription.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|
@@ -82,12 +80,12 @@ Tirzepatide is dual-targeted: it activates both GLP-1 and GIP receptors. Head-to
 
 ## Who Might Consider Them?
 
-::: tip Potential use cases
+## Potential use cases
+
 - BMI ≥ 30 (obesity), or BMI ≥ 27 plus at least one comorbidity such as hypertension, dyslipidemia, or prediabetes;
 - Clear signs of metabolic syndrome;
 - Severe, persistent “food noise” that cannot be controlled through willpower alone;
 - Use under medical supervision with regular follow-up.
-:::
 
 ::: warning Situations Unsuitable for Self-Directed Use
 - Normal BMI and an interest only in “anti-aging”—the risk-benefit balance does not support it;

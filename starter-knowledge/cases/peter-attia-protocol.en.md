@@ -12,9 +12,9 @@ translation_of: cases/peter-attia-protocol.md
 
 Peter Attia is a longevity physician, former surgeon, author of *Outlive: The Science and Art of Longevity*, and host of The Drive podcast. His framework aims to **shift medicine from treating disease to preventing disease and extending healthspan**. Exercise is its primary lever, measurable indicators drive decisions, and his position on supplements is relatively restrained.
 
-::: tip How to Read This Page
+## How to Read This Page
+
 This page records Attia’s public framework and practices to identify strategies worth further research. It does not constitute an TierNote recommendation of a dose, prescription, or brand. Content not yet archived source by source is marked `needs-source-check`; his relationship with Thorne is disclosed separately.
-:::
 
 ## Core Ideas
 

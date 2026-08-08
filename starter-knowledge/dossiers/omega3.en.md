@@ -2,7 +2,6 @@
 id: omega3
 name_zh: DHA / EPA
 name_en: Omega-3 fatty acids
-status: reviewed
 tier: T2
 last_reviewed: 2026-07-20
 locale: en
@@ -11,9 +10,9 @@ translation_of: dossiers/omega3.md
 
 # DHA / EPA
 
-::: tip 30-second summary
+## 30-second summary
+
 DHA and EPA are two long-chain omega-3 fatty acids. DHA is an important structural component of cell membranes in the brain and retina, while EPA is more often discussed in relation to inflammatory mediators and blood lipids. The REDUCE-IT randomized controlled trial published in *The New England Journal of Medicine* found that highly purified EPA reduced major cardiovascular events by 25%. Large cohort analyses associate higher fish intake and blood omega-3 levels with lower cardiovascular and all-cause mortality. **Included in Bryan Johnson’s current protocol.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

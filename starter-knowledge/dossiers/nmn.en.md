@@ -2,7 +2,6 @@
 id: nmn
 name_zh: NAD+
 name_en: NAD+
-status: reviewed
 tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -15,9 +14,9 @@ translation_of: dossiers/nmn.md
 
 # NAD+
 
-::: tip 30-second summary
+## 30-second summary
+
 NMN and NR are two different NAD⁺ precursors. NAD⁺ metabolism has repeatedly been reported in leading journals such as *Science*, *Nature*, and *Cell* and is one of longevity research’s central pathways. Randomized human trials show that both can significantly raise blood NAD⁺ levels, and some studies report positive signals in walking speed, sleep, and metabolic measures. **Included in Bryan Johnson’s protocol: NR 450 mg or NMN 500 mg.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

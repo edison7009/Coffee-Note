@@ -2,7 +2,6 @@
 id: vitamin-c
 name_zh: 维生素C
 name_en: Vitamin C (Ascorbic acid)
-status: reviewed
 tier: T3
 last_reviewed: 2026-07-22
 evidence_cutoff: 2026-07-22
@@ -15,9 +14,9 @@ translation_of: dossiers/vitamin-c.md
 
 # Vitamin C
 
-::: tip 30-second summary
+## 30-second summary
+
 Vitamin C is a classic antioxidant. In 2026, Guang-Hui Liu’s team at the Chinese Academy of Sciences published a primate study in *Cell Metabolism*: after middle-aged and older monkeys received vitamin C for about 40 months, biological age was significantly reversed across multiple organs—brain by 7.4 years, muscle by 4.4 years, and skin by 4.2 years. The proposed mechanism was direct inhibition of ACSL4, interrupting a “ferro-aging” pathway. Bryan Johnson’s protocol contains vitamin C. **Ordinary intake can be met through fruit, lemon water, and other foods; an additional supplement is not needed.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

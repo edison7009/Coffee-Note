@@ -2,7 +2,6 @@
 id: nmn
 name_zh: NAD+
 name_en: NAD+
-status: reviewed
 tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -13,9 +12,9 @@ audit_date: 2026-07-20
 
 # NAD+
 
-::: tip 30 秒结论
+## 30 秒结论
+
 NMN 和 NR 是两种不同的 NAD⁺ 前体。NAD⁺ 代谢研究多次发表在 Science、Nature、Cell 等顶级期刊，是延寿研究最核心的通路之一；人体随机试验确认它们能显著提升血液 NAD⁺ 水平，部分研究观察到步速、睡眠与代谢指标的积极信号。**Bryan Johnson 方案采纳（NR 450 mg 或 NMN 500 mg）。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|

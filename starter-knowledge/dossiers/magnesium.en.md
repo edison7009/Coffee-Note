@@ -2,7 +2,6 @@
 id: magnesium
 name_zh: 镁
 name_en: Magnesium
-status: reviewed
 tier: T3
 last_reviewed: 2026-07-20
 locale: en
@@ -11,9 +10,9 @@ translation_of: dossiers/magnesium.md
 
 # Magnesium
 
-::: tip 30-second summary
+## 30-second summary
+
 Magnesium acts as a “supporting tool” for hundreds of enzymes in the body and participates in energy metabolism, nerve transmission, muscle contraction, and heart rhythm. Large cohort analyses, including NHANES and ARIC, associate magnesium intake inversely with cardiovascular and all-cause mortality; meta-analyses of randomized trials support blood-pressure improvements, especially among people with hypertension or low magnesium status. **Included in Bryan Johnson’s protocol; prioritize legumes, nuts and seeds, whole grains, and leafy greens.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

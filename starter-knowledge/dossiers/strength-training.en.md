@@ -1,16 +1,15 @@
 ---
 id: strength-training
 tier: T1
-status: reviewed
 locale: en
 translation_of: dossiers/strength-training.md
 ---
 
 # Strength Training
 
-::: tip 30-second summary
+## 30-second summary
+
 Strength training is a T1 cornerstone of TierNote. It directly trains strength, muscle mass, skeletal loading, balance, and the ability to perform everyday movements. These capacities determine whether a person can continue living independently at an advanced age. Several publicly trackable long-term personal protocols also place strength training at their core.
-:::
 
 | Quick assessment | Current answer |
 |---|---|

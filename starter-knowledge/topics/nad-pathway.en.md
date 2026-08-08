@@ -10,9 +10,9 @@ translation_of: topics/nad-pathway.md
 
 # NAD⁺ Metabolic Pathway Overview
 
-::: tip 30-Second Conclusion
+## 30-Second Conclusion
+
 NAD⁺ is an essential coenzyme used in cellular energy conversion, redox reactions, DNA repair, and many signaling processes. NAD⁺ metabolism research has repeatedly appeared in leading journals such as *Science*, *Nature*, and *Cell*, making it one of the central pathways in longevity research. Randomized human trials confirm that NR and NMN can significantly raise blood NAD⁺ levels, and some studies have observed positive signals in walking speed, sleep, and metabolic markers. A normal diet should first provide adequate vitamin B3 and protein. Direct oral and intravenous NAD⁺ require assessment as separate routes.
-:::
 
 | Quick Question | Current Answer |
 |---|---|

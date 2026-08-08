@@ -2,16 +2,15 @@
 id: coq10
 name_zh: 辅酶 Q10
 name_en: Coenzyme Q10 / Ubiquinol
-status: reviewed
 tier: T4
 last_reviewed: 2026-07-20
 ---
 
 # 辅酶 Q10
 
-::: tip 30 秒结论
+## 30 秒结论
+
 辅酶 Q10 是线粒体制造能量链条中的“电子传递员”，人体本来就会合成，但水平随年龄显著下降。发表在 JACC Heart Failure 的 Q-SYMBIO 随机对照试验确认：心衰患者补充辅酶 Q10 后，主要不良心血管事件减少 43%，心血管死亡显著降低；荟萃分析确认它对血管内皮功能、血压和他汀相关肌肉症状的改善作用。**Bryan Johnson 方案采纳。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|

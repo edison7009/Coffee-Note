@@ -2,7 +2,6 @@
 id: ca-akg
 name_zh: Ca-AKG
 name_en: Calcium alpha-ketoglutarate
-status: reviewed
 tier: T5
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -15,9 +14,9 @@ translation_of: dossiers/ca-akg.md
 
 # Ca-AKG
 
-::: tip 30-second summary
+## 30-second summary
+
 AKG is a natural intermediate in human energy metabolism, and Ca-AKG is its calcium-salt supplement form. A 2020 study in *Cell Metabolism* found that Ca-AKG extended lifespan and compressed morbidity in mice. In human research, DNA-methylation biological age fell by about eight years on average, and a cohort of 4,260 people found lower biological age among users. Bryan Johnson’s protocol includes it. **This is a T4 candidate with clear mechanistic and animal-longevity evidence and ongoing human validation.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

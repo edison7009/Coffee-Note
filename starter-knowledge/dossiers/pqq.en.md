@@ -2,7 +2,6 @@
 id: pqq
 name_zh: PQQ
 name_en: Pyrroloquinoline quinone
-status: reviewed
 tier: T5
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -15,9 +14,9 @@ translation_of: dossiers/pqq.md
 
 # PQQ
 
-::: tip 30-second summary
+## 30-second summary
+
 PQQ is a redox-active small molecule that promotes mitochondrial biogenesis by activating the PGC-1α pathway, a mechanism reported in several leading journals. A 2022 randomized, double-blind controlled trial found that PQQ disodium salt at 21.5 mg/day for 12 weeks significantly improved multiple cognitive domains in middle-aged and older adults. **Bryan Johnson’s protocol previously included PQQ.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

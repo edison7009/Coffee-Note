@@ -2,7 +2,6 @@
 topic: vitamin-d-autoimmune
 review_date: 2026-07-21
 records: 5
-status: reviewed
 ---
 
 # 维生素 D 与自身免疫病证据批次

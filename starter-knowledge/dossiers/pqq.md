@@ -2,7 +2,6 @@
 id: pqq
 name_zh: PQQ
 name_en: Pyrroloquinoline quinone
-status: reviewed
 tier: T5
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -13,9 +12,9 @@ audit_date: 2026-07-20
 
 # PQQ
 
-::: tip 30 秒结论
+## 30 秒结论
+
 PQQ 是一种氧化还原活性小分子，通过激活 PGC-1α 通路促进线粒体新生，这一机制发表在多个顶级期刊。2022 年随机双盲对照试验确认：PQQ 二钠盐 21.5 mg/日、12 周显著改善中老年人多个认知域。**Bryan Johnson 方案曾采用 PQQ。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|

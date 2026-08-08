@@ -1,6 +1,5 @@
 ---
 title: Okinawan Longevity vs Bryan Johnson: A Comparison by Dimension
-status: reviewed
 last_updated: 2026-07-22
 sources:
   - PMID 40452754 (Blue Zone concept, 2025)
@@ -12,9 +11,9 @@ translation_of: topics/okinawa-vs-bryan.md
 
 # Okinawan Longevity vs Bryan Johnson: A Comparison by Dimension
 
-::: tip One-Sentence Conclusion
+## One-Sentence Conclusion
+
 Okinawa is not a "low-budget Bryan," and Bryan is not a "premium Okinawa." Their **dimensions do not completely overlap**: Bryan uses science and money to quantify and upgrade the diet and activity that Okinawan culture and habits achieve naturally. Yet Bryan's $2 million protocol does not systematically supply the **social bonds and sense of purpose** that Okinawan culture provides naturally. The most complete approach combines lessons from both.
-:::
 
 ## Correcting a Common Misreading
 

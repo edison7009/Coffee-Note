@@ -2,7 +2,6 @@
 id: vitamin-c
 name_zh: 维生素C
 name_en: Vitamin C (Ascorbic acid)
-status: reviewed
 tier: T3
 last_reviewed: 2026-07-22
 evidence_cutoff: 2026-07-22
@@ -13,9 +12,9 @@ audit_date:
 
 # 维生素C
 
-::: tip 30 秒结论
+## 30 秒结论
+
 维生素 C 是经典抗氧化剂，2026 年中科院刘光慧团队在 Cell Metabolism 发表灵长类研究：中老年猴补充维 C 约 40 个月后，多器官生物学年龄显著逆转（大脑 7.4 岁、肌肉 4.4 岁、皮肤 4.2 岁），机制为直接抑制 ACSL4 酶、切断"铁衰老"通路。Bryan Johnson 方案含维 C。**日常通过水果、柠檬水等饮食即可满足，不需要额外补剂。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|

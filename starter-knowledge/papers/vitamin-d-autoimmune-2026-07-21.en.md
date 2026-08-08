@@ -2,7 +2,6 @@
 topic: vitamin-d-autoimmune
 review_date: 2026-07-21
 records: 5
-status: reviewed
 locale: en
 translation_of: papers/vitamin-d-autoimmune-2026-07-21.md
 ---

@@ -1,6 +1,5 @@
 ---
 title: Scientific Rationale for Avoiding Food Before Sleep
-status: reviewed
 last_updated: 2026-07-21
 locale: en
 translation_of: topics/fasting-before-sleep.md

@@ -2,7 +2,6 @@
 id: ergothioneine
 name_zh: 麦角硫因
 name_en: Ergothioneine
-status: reviewed
 tier: T5
 last_reviewed: 2026-07-20
 locale: en
@@ -11,9 +10,9 @@ translation_of: dossiers/ergothioneine.md
 
 # Ergothioneine
 
-::: tip 30-second summary
+## 30-second summary
+
 Ergothioneine is a small molecule obtained from food and absorbed by a dedicated transporter in humans, OCTN1. This transport mechanism has been reported in a leading journal and represents a rare “dedicated pathway” among nutrients. A large cohort analysis from the Singapore Chinese Health Study found that higher blood ergothioneine levels were associated with significantly lower cardiovascular mortality; Bruce Ames proposed in *PNAS* that it is a “longevity vitamin.” **Included in Bryan Johnson’s protocol; mushrooms are the most prominent food source.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

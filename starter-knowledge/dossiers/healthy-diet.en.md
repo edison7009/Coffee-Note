@@ -1,17 +1,15 @@
 ---
 id: healthy-diet
 tier: T1
-status: reviewed
-category: Diet
 locale: en
 translation_of: dossiers/healthy-diet.md
 ---
 
 # Healthy Diet
 
-::: tip 30-second summary
+## 30-second summary
+
 A healthy diet is a T1 cornerstone of TierNote. The goal is not to pursue a single definitive menu, but to establish an overall dietary pattern that is sustainable, nutritionally adequate, and appropriate for the individual’s health.
-:::
 
 ## Core Principles
 

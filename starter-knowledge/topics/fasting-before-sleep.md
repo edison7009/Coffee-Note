@@ -1,6 +1,5 @@
 ---
 title: 睡前不进食的科学原理
-status: reviewed
 last_updated: 2026-07-21
 ---
 

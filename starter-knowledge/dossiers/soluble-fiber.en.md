@@ -2,7 +2,6 @@
 id: soluble-fiber
 name_zh: Soluble dietary fiber
 name_en: Soluble fiber
-status: reviewed
 tier: T2
 last_reviewed: 2026-07-20
 locale: en
@@ -11,9 +10,9 @@ translation_of: dossiers/soluble-fiber.md
 
 # Soluble Dietary Fiber
 
-::: tip 30-second summary
+## 30-second summary
+
 When soluble dietary fibers enter water, some form viscous, gel-like structures while others are more readily fermented by gut microorganisms. A major 2019 meta-analysis commissioned by WHO and published in *The Lancet*—185 prospective studies plus 58 clinical trials—found that higher dietary-fiber intake was associated with a 15–30% reduction in all-cause mortality, one of nutrition science’s strongest longevity findings. **Psyllium and oat/barley β-glucan have the best evidence for LDL reduction and bowel regularity; Bryan Johnson’s current protocol directly includes several fiber ingredients.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

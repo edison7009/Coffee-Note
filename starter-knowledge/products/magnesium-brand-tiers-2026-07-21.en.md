@@ -2,7 +2,6 @@
 category_id: magnesium
 title: Magnesium Product-Quality Tiers
 market: US-and-international-online
-status: reviewed
 evidence_tier: T2
 quality_framework: product-quality-0.1
 last_checked: 2026-07-21

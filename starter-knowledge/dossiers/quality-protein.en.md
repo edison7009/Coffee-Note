@@ -1,16 +1,15 @@
 ---
 id: quality-protein
 tier: T1
-status: reviewed
 locale: en
 translation_of: dossiers/quality-protein.md
 ---
 
 # High-Quality Protein
 
-::: tip 30-second summary
+## 30-second summary
+
 High-quality protein is a T1 dietary cornerstone of TierNote: first meet individual requirements, then consider essential amino acids, digestion and absorption, overall food quality, and distribution across the day. Together with strength training, it supports muscle maintenance, but it cannot replace training.
-:::
 
 | Quick assessment | Current answer |
 |---|---|

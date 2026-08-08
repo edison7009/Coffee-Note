@@ -11,9 +11,9 @@ translation_of: cases/andrew-huberman-protocol.md
 
 Andrew Huberman, professor of neurobiology and ophthalmology at Stanford School of Medicine and host of the Huberman Lab podcast. His positioning is to use neuroscience to make "executable tools/protocols", and his core belief is: zero-cost tools (light, sleep, exercise, breathing) should be done first, and supplements are only the "last 5%".
 
-::: tip reading method
+## reading method
+
 This page documents Huberman's public tools and protocols for discovering research candidates and does not constitute TierNote's recommendations for dosage, formulation, or brand. Content that is not archived from primary sources is marked as `needs-source-check`; supplement recommendations and commercial partnerships need to be read at the same time.
-:::
 
 ## Core Concept
 

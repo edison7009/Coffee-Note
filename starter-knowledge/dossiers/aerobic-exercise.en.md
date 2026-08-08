@@ -1,16 +1,15 @@
 ---
 id: aerobic-exercise
 tier: T1
-status: reviewed
 locale: en
 translation_of: dossiers/aerobic-exercise.md
 ---
 
 # Aerobic Exercise
 
-::: tip 30-second summary
+## 30-second summary
+
 Aerobic exercise is a T1 cornerstone of TierNote. It trains the cardiorespiratory system, work capacity, and recovery, and is consistently associated with lower risks of all-cause mortality, cardiovascular disease, and multiple chronic diseases.
-:::
 
 | Quick assessment | Current answer |
 |---|---|

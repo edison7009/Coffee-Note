@@ -4,8 +4,6 @@ title: Longevity Culture in Okinawa, Japan
 title_en: Longevity culture in Okinawa, Japan
 summary: Understanding the Okinawa case through traditional diet, daily activity, social connection, and long-running centenarian research.
 summary_en: A field note on traditional diet, daily movement, social ties, and long-running centenarian research.
-category: Regional observation
-status: reviewed
 locale: en
 translation_of: stories/okinawa-longevity.md
 ---

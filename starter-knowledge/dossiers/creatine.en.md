@@ -2,7 +2,6 @@
 id: creatine
 name_zh: 肌酸一水合物
 name_en: Creatine monohydrate
-status: reviewed
 tier: T2
 last_reviewed: 2026-07-20
 locale: en
@@ -11,9 +10,9 @@ translation_of: dossiers/creatine.md
 
 # Creatine Monohydrate
 
-::: tip 30-second summary
+## 30-second summary
+
 Creatine is like a short-term power bank for muscle: during high-intensity activities such as lifting and sprinting, it helps replenish immediately usable energy more quickly. It is one of the most extensively studied supplements in humans. Hundreds of randomized controlled trials and meta-analyses support improvements in strength, lean mass, and training adaptation. Large cohort analyses published in leading journals including *The Lancet*, such as the PURE study, identify muscle strength and muscle mass as strong predictors of all-cause mortality; preserving muscle is a core pillar of longevity. **If supplementation is being considered, single-ingredient creatine monohydrate is the most extensively studied form.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

@@ -2,7 +2,6 @@
 id: spermidine
 name_zh: 亚精胺
 name_en: Spermidine
-status: reviewed
 tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -13,9 +12,9 @@ audit_date: 2026-07-20
 
 # 亚精胺
 
-::: tip 30 秒结论
+## 30 秒结论
+
 亚精胺是人体和食物中天然存在的一种小分子。它最吸引人的地方，是在细胞和动物实验中能启动类似“细胞保洁与回收”的自噬过程；Bryan Johnson 方案曾采用亚精胺。**食物和补剂均可正常采用。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|
@@ -114,11 +113,11 @@ audit_date: 2026-07-20
 | **ProHealth Longevity Spermidine**（小麦胚芽提取物） | **P2** | 标签标示亚精胺含量 | 小麦胚芽 | ~$40–60 / 30–60 天 | [prohealthlongevity.com](https://www.prohealthlongevity.com) 或 Amazon |
 | **纳豆（食物）** | **P1（食物）** | 每盒 ~45 g 含天然亚精胺 | 发酵大豆 | ~¥5–15 / 盒 | 超市、日料店、自制 |
 
-::: tip 首选逻辑
+## 首选逻辑
+
 - **食物基本盘**：每天 1 盒纳豆（已在日常方案中），加上菌菇、全谷物、豆类；
 - **叠加补剂**：Primeadine® 是 Leslie Kenny 本人使用的产品，植物来源、成分单一、与临床试验使用的麦胚提取物方向一致；
 - **ProHealth** 是替代选项，透明度较高，价格更低。
-:::
 
 ### 怎么看标签（3 条规则）
 

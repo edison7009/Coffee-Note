@@ -2,7 +2,6 @@
 category_id: omega3
 title: DHA / EPA 产品质量梯队
 market: US-and-international-online
-status: reviewed
 evidence_tier: T1
 quality_framework: product-quality-0.1
 last_checked: 2026-07-20

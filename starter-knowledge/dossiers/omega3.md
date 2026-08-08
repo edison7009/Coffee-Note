@@ -2,16 +2,15 @@
 id: omega3
 name_zh: DHA / EPA
 name_en: Omega-3 fatty acids
-status: reviewed
 tier: T2
 last_reviewed: 2026-07-20
 ---
 
 # DHA / EPA
 
-::: tip 30 秒结论
+## 30 秒结论
+
 DHA 和 EPA 是两种长链 Omega-3 脂肪酸。DHA 是脑和视网膜细胞膜的重要组成部分，EPA 更常被讨论其炎症介质和血脂作用。发表在《新英格兰医学杂志》的 REDUCE-IT 随机对照试验确认：高纯度 EPA 使主要心血管事件减少 25%；大型队列统计确认较高的鱼类摄入和血液 Omega-3 水平与更低的心血管和全因死亡风险相关。**Bryan Johnson 当前方案采用。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|

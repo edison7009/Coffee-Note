@@ -2,7 +2,6 @@
 id: coq10
 name_zh: 辅酶 Q10
 name_en: Coenzyme Q10 / Ubiquinol
-status: reviewed
 tier: T4
 last_reviewed: 2026-07-20
 locale: en
@@ -11,9 +10,9 @@ translation_of: dossiers/coq10.md
 
 # Coenzyme Q10
 
-::: tip 30-second summary
+## 30-second summary
+
 Coenzyme Q10 is an “electron carrier” in the mitochondrial energy-production chain. The human body synthesizes it, but levels fall significantly with age. The Q-SYMBIO randomized controlled trial published in *JACC: Heart Failure* found that CoQ10 supplementation in patients with heart failure reduced major adverse cardiovascular events by 43% and significantly lowered cardiovascular mortality; meta-analyses support improvements in endothelial function, blood pressure, and statin-associated muscle symptoms. **Included in Bryan Johnson’s protocol.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|

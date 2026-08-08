@@ -4,8 +4,6 @@ title: 日本冲绳的延寿文化
 title_en: Longevity culture in Okinawa, Japan
 summary: 从传统饮食、日常活动、社会联结与长期百岁老人研究理解冲绳案例。
 summary_en: A field note on traditional diet, daily movement, social ties, and long-running centenarian research.
-category: 地区观察
-status: reviewed
 ---
 
 # 日本冲绳的延寿文化

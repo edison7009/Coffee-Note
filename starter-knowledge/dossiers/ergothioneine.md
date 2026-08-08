@@ -2,16 +2,15 @@
 id: ergothioneine
 name_zh: 麦角硫因
 name_en: Ergothioneine
-status: reviewed
 tier: T5
 last_reviewed: 2026-07-20
 ---
 
 # 麦角硫因
 
-::: tip 30 秒结论
+## 30 秒结论
+
 麦角硫因是一种来自食物、人体有专门转运蛋白（OCTN1）吸收的小分子，这一转运机制发表在顶级期刊，是营养素中罕见的“专属通道”。大型队列统计（新加坡华人健康研究）发现，血液麦角硫因水平较高者心血管死亡风险显著更低；Bruce Ames 在 PNAS 上提出它是“延寿维生素”。**Bryan Johnson 方案采纳；菌菇是最突出的食物来源。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|

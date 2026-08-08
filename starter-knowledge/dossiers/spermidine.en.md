@@ -2,7 +2,6 @@
 id: spermidine
 name_zh: 亚精胺
 name_en: Spermidine
-status: reviewed
 tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -14,9 +13,9 @@ translation_of: dossiers/spermidine.md
 ---
 # Spermidine
 
-::: tip 30-second summary
+## 30-second summary
+
 Spermidine is a small molecule that occurs naturally in the human body and food. Its most compelling feature is its ability to activate an autophagy process resembling “cellular cleaning and recycling” in cell and animal experiments. Bryan Johnson’s protocol previously included spermidine. **Both food sources and supplements can be considered in ordinary use.**
-:::
 
 | Quick assessment | Current answer |
 |---|---|
@@ -115,11 +114,11 @@ Rather than chasing a “spermidine superfood,” it makes more sense to incorpo
 | **ProHealth Longevity Spermidine** (Wheat Germ Extract) | **P2** | Label indicates spermidine content | Wheat Germ | ~$40–60 / 30–60 days | [prohealthlongevity.com](https://www.prohealthlongevity.com) or Amazon |
 | **Natto (food)** | **P1 (food)** | Each box ~45 g contains natural spermidine | Fermented soybeans | ~¥5–15 / box | Supermarkets, Japanese food stores, homemade |
 
-::: tip Preferred Approach
+## Preferred Approach
+
 - **Basic food plate**: 1 box of natto per day (already in the daily plan), plus mushrooms, whole grains, and beans;
 - **Stacked supplements**: Primeadine® is a product used by Leslie Kenny herself. It is of plant origin, has a single ingredient, and is consistent with the wheat germ extract used in clinical trials;
 - **ProHealth** is an alternative with more transparency and lower price.
-:::
 
 ### How to Read Labels: Three Rules
 

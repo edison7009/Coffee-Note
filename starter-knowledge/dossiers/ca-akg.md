@@ -2,7 +2,6 @@
 id: ca-akg
 name_zh: Ca-AKG
 name_en: Calcium alpha-ketoglutarate
-status: reviewed
 tier: T5
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
@@ -13,9 +12,9 @@ audit_date: 2026-07-20
 
 # Ca-AKG
 
-::: tip 30 秒结论
+## 30 秒结论
+
 AKG 是人体能量代谢中的天然中间体，Ca-AKG 是它的钙盐补剂形式。2020 年发表在 Cell Metabolism 的研究确认：Ca-AKG 延长小鼠寿命并压缩疾病期；人体研究中 DNA 甲基化生物年龄平均下降约 8 年，4,260 人队列观察到使用者生物年龄更低。Bryan Johnson 方案采纳。**这是机制与动物延寿证据明确、人体验证正在推进的 T4 候选。**
-:::
 
 | 快速判断 | 当前答案 |
 |---|---|
