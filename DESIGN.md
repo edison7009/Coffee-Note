@@ -33,12 +33,22 @@
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
 - Keep the left navigation pane within its 210-380px range. The right contextual rail has no product-level maximum; its only upper bound is the remaining window width after preserving the main workspace's 560px minimum.
 - Treat AI chat as one workspace mode, not the visual identity of the whole product.
+- Treat Settings as another global workspace mode, opened from the Settings text
+  action immediately to the right of Help in the title-bar menu. Do not duplicate
+  this action beside the window controls.
+  Below the shared title bar, replace the normal left rail with a settings navigation
+  rail and merge the center workspace plus contextual right rail into one continuous,
+  scrollable settings surface. Settings is not a modal and uses no backdrop or floating
+  dialog boundary. Keep model and appearance as distinct pages. Library switching
+  already belongs to the Home row and File menu and is not duplicated here.
 - On My Info, use five direct-entry content cards with independent retrieval
   switches, all enabled by default. Cards have no selected state: their light
   surface remains `#f1f1f1` during hover and navigation, with a neutral dark-mode
   counterpart. Reserve system blue for the enabled switch track; Add Material is
   an action and has no retrieval switch.
 - Keep the composer in a stable bottom row when chat is active.
+- Reserve matching scrollbar gutters on both sides of the center scroll area so
+  page content remains optically centered and aligns with the fixed composer.
 - Remove redundant dashboard cards, helper copy, metrics decoration, and duplicated labels as each screen is migrated.
 - Prefer one clear action per region. Secondary actions use familiar icons from Lucide.
 
@@ -105,3 +115,4 @@
 | 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `TierNote` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
 | 2026-08-08 | Gate My Info retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
 | 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Info seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
+| 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |

@@ -181,19 +181,26 @@ to the product template.
   controls on the left.
 - The desktop app is single-instance. Launching it again must restore and focus
   the existing main window instead of opening another process/window.
-- Settings is a gear button near the window controls, not a permanent sidebar
-  item. Keep the dialog organized into three focused categories: model,
-  knowledge library, and appearance. Currency controls belong at the bottom of
-  the model page rather than in a separate usage/cost category. Do not collapse
-  unrelated settings back into one long form. In the light theme, keep the
-  entire settings shell pure white, and keep all category panels at one fixed
-  outer height so switching never moves the dialog boundaries.
+- Settings opens from the text action immediately to the right of Help in the
+  title-bar menu; do not duplicate it near the window controls. It is a global
+  workspace mode rather than a modal dialog: below the shared title bar, a
+  dedicated settings navigation rail replaces the normal library rail while one
+  continuous work surface replaces both the center pane and contextual right
+  rail. Keep two focused categories: model and appearance. Knowledge-library
+  switching stays on the Home row and File menu, so it is not duplicated in
+  Settings. Currency controls belong at the bottom of the model page rather than in a
+  separate usage/cost category. A visible Back to app action exits settings;
+  Escape does the same. The settings rail has no redundant Settings heading;
+  version and Feedback share one footer row. Do not collapse unrelated settings
+  into one long form.
 - Remove redundant headers, helper labels, dark duplicate divider lines,
   “30 秒结论”, model IDs in the chat box, local-context labels, and knowledge
   context cards.
 - Keep the chat composer in a persistent bottom layout row. The content above
   it scrolls independently so the final message is never covered and the
-  composer never disappears while scrolling.
+  composer never disappears while scrolling. The center content scroller uses
+  stable gutters on both edges so page content stays visually centered despite
+  the visible right scrollbar and aligns with the composer.
 - Keep the composer compact. Below it, show one restrained metrics line with
   provider-reported cache hit rate and token usage, API request count, local
   context percentage, and a cost estimate when current model pricing is known.

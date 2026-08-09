@@ -2308,7 +2308,7 @@ function App() {
 
   return (
     <div
-      className={`app-shell ${isMacOSPlatform ? 'platform-macos-shell' : 'platform-custom-shell'} ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''}`}
+      className={`app-shell ${settingsOpen ? 'settings-mode' : ''} ${isMacOSPlatform ? 'platform-macos-shell' : 'platform-custom-shell'} ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''}`}
       style={
         {
           '--sidebar-width': `${normalizedPaneSizes.left}px`,
@@ -2327,9 +2327,25 @@ function App() {
         onHelp={() => void openExternalUrl(PRODUCT_WEBSITE)}
         onFeedback={() => void openExternalUrl(FEEDBACK_URL)}
         onSettings={() => setSettingsOpen(true)}
+        settingsActive={settingsOpen}
         onTextCommand={runTextCommand}
         isTextCommandEnabled={isTextCommandEnabled}
       />
+      {settingsOpen ? (
+        <SettingsPage
+          locale={locale}
+          config={modelSettings}
+          onChange={saveModelConfig}
+          onLocale={setLocale}
+          themeMode={themeMode}
+          onThemeMode={setThemeMode}
+          currencyMode={currencyMode}
+          onCurrencyMode={setCurrencyMode}
+          onClose={() => setSettingsOpen(false)}
+          t={t}
+        />
+      ) : (
+        <>
       <Sidebar
         locale={locale}
         library={library}
@@ -2636,20 +2652,7 @@ function App() {
         onNewChat={handleNewChat}
         t={t}
       />
-
-      {settingsOpen && (
-        <SettingsDialog
-          locale={locale}
-          config={modelSettings}
-          onChange={saveModelConfig}
-          onLocale={setLocale}
-          themeMode={themeMode}
-          onThemeMode={setThemeMode}
-          currencyMode={currencyMode}
-          onCurrencyMode={setCurrencyMode}
-          onClose={() => setSettingsOpen(false)}
-          t={t}
-        />
+        </>
       )}
 
       {captureGuideOpen && (
@@ -2905,6 +2908,7 @@ function AppTitlebar({
   onHelp,
   onFeedback,
   onSettings,
+  settingsActive,
   onTextCommand,
   isTextCommandEnabled,
 }: {
@@ -2918,6 +2922,7 @@ function AppTitlebar({
   onHelp: () => void;
   onFeedback: () => void;
   onSettings: () => void;
+  settingsActive: boolean;
   onTextCommand: (command: TextCommand) => void;
   isTextCommandEnabled: (command: TextCommand) => boolean;
 }) {
@@ -3074,6 +3079,15 @@ function AppTitlebar({
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            className={`titlebar-settings-entry ${settingsActive ? 'active' : ''}`}
+            onClick={onSettings}
+            aria-current={settingsActive ? 'page' : undefined}
+          >
+            {locale === 'zh' ? '设置' : 'Settings'}
+          </button>
         </nav>
       </div>
 
@@ -3081,14 +3095,6 @@ function AppTitlebar({
 
       <div className="window-controls">
         <UpdateButton locale={locale} />
-        <button
-          type="button"
-          className="titlebar-settings"
-          aria-label={locale === 'zh' ? '打开设置' : 'Open settings'}
-          onClick={onSettings}
-        >
-          <Settings size={14} strokeWidth={1.8} />
-        </button>
         {!isMacOSPlatform && (
           <>
             <button
@@ -6594,7 +6600,7 @@ function RightRail({
   );
 }
 
-function SettingsDialog({
+function SettingsPage({
   locale,
   config,
   themeMode,
@@ -6649,53 +6655,79 @@ function SettingsDialog({
     label: string;
     icon: ReactNode;
   }> = [
-    { id: 'model', label: t('settingsModel'), icon: <Bot size={16} /> },
-    { id: 'appearance', label: t('settingsAppearance'), icon: <Monitor size={16} /> },
+    { id: 'model', label: t('settingsModel'), icon: <Bot size={18} strokeWidth={1.8} /> },
+    { id: 'appearance', label: t('settingsAppearance'), icon: <Monitor size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
     ?? settingsSections[0];
   const visibleSection = currentSection.id;
   const resolvedCurrency = resolveCurrency(currencyMode, locale);
+  const sectionDescription = visibleSection === 'model'
+    ? (locale === 'zh' ? '配置 TierNote 用来整理与理解笔记的 AI 服务。' : 'Configure the AI service TierNote uses to organize and understand notes.')
+    : (locale === 'zh' ? '调整 TierNote 的显示方式与界面语言。' : 'Choose how TierNote looks and which language it uses.');
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <section
-        className="settings-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <DialogHeader
-          icon={<Settings size={21} />}
-          title={t('settings')}
-          titleId="settings-title"
-          onClose={onClose}
-          closeLabel={locale === 'zh' ? '关闭' : 'Close'}
-        />
+    <section className="settings-page" aria-labelledby="settings-title">
+      <aside className="settings-sidebar">
+        <button type="button" className="settings-back" onClick={onClose}>
+          <ChevronLeft size={18} strokeWidth={1.8} />
+          <span>{locale === 'zh' ? '返回应用' : 'Back to app'}</span>
+        </button>
 
-        <div className="settings-content">
-          <nav className="settings-nav" aria-label={locale === 'zh' ? '设置分类' : 'Settings sections'}>
+        <nav className="settings-nav" aria-label={locale === 'zh' ? '设置分类' : 'Settings sections'}>
             {settingsSections.map((section) => (
               <button
+                type="button"
                 className={visibleSection === section.id ? 'active' : ''}
                 onClick={() => setActiveSection(section.id)}
+                aria-current={visibleSection === section.id ? 'page' : undefined}
                 key={section.id}
               >
                 {section.icon}
                 <span>{section.label}</span>
               </button>
             ))}
-          </nav>
+        </nav>
 
+        <div className="settings-sidebar-footer">
+          <button type="button" onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}>
+            TierNote · v{APP_VERSION}
+          </button>
+          <button type="button" onClick={() => void openExternalUrl(FEEDBACK_URL)}>
+            <Github size={15} strokeWidth={1.8} />
+            {t('feedback')}
+          </button>
+        </div>
+      </aside>
+
+      <main className="settings-workspace">
+        <div className="settings-workspace-scroll">
           <div className={`settings-panel settings-panel-${visibleSection}`}>
+            <header className="settings-page-header">
+              <h1 id="settings-title">{currentSection.label}</h1>
+              <p>{sectionDescription}</p>
+            </header>
+
             {visibleSection === 'model' && (
               <>
-                <div className="settings-section">
-                  <label>{t('provider')}</label>
+                <section className="settings-section">
+                  <div className="settings-section-heading">
+                    <h2>{locale === 'zh' ? '模型服务' : 'Model service'}</h2>
+                    <p>{locale === 'zh' ? 'OpenAI 与 Anthropic 协议的配置相互独立，切换时不会覆盖。' : 'OpenAI and Anthropic protocol settings remain independent when you switch.'}</p>
+                  </div>
+                  <label className="settings-field-label">{t('provider')}</label>
                   <div className="provider-grid">
                     {(Object.keys(providerOptions) as ModelProvider[]).map((provider) => (
                       <button
+                        type="button"
                         className={draft.activeProvider === provider ? 'active' : ''}
                         onClick={() => updateProvider(provider)}
                         key={provider}
@@ -6711,6 +6743,7 @@ function SettingsDialog({
                         value={activeConfig.baseUrl}
                         onChange={(event) => updateDraft({ baseUrl: event.target.value })}
                         placeholder={activeOption.baseUrlPlaceholder}
+                        spellCheck={false}
                       />
                     </label>
                     <label>
@@ -6719,6 +6752,7 @@ function SettingsDialog({
                         value={activeConfig.model}
                         onChange={(event) => updateDraft({ model: event.target.value })}
                         placeholder={activeOption.modelPlaceholder}
+                        spellCheck={false}
                       />
                     </label>
                   </div>
@@ -6732,13 +6766,17 @@ function SettingsDialog({
                       autoComplete="off"
                     />
                   </label>
-                </div>
+                </section>
 
-                <div className="settings-section">
-                  <label>{t('pricingCurrency')}</label>
+                <section className="settings-section">
+                  <div className="settings-section-heading">
+                    <h2>{t('pricingCurrency')}</h2>
+                    <p>{t('currencyAutoHint')}</p>
+                  </div>
                   <div className="currency-switch">
                     {(['auto', 'CNY', 'USD'] as CurrencyMode[]).map((currency) => (
                       <button
+                        type="button"
                         className={currencyMode === currency ? 'active' : ''}
                         onClick={() => onCurrencyMode(currency)}
                         key={currency}
@@ -6751,60 +6789,45 @@ function SettingsDialog({
                       </button>
                     ))}
                   </div>
-                  <p className="settings-hint">{t('currencyAutoHint')}</p>
-                </div>
-
+                </section>
               </>
             )}
 
             {visibleSection === 'appearance' && (
-              <div className="settings-section settings-section-stack">
-                <div>
-                  <label>{t('appearance')}</label>
+              <div className="settings-section-stack">
+                <section className="settings-section">
+                  <div className="settings-section-heading">
+                    <h2>{t('appearance')}</h2>
+                    <p>{locale === 'zh' ? '选择浅色、深色，或跟随当前系统。' : 'Use light mode, dark mode, or follow your system.'}</p>
+                  </div>
                   <div className="theme-switch">
-                    <button className={themeMode === 'system' ? 'active' : ''} onClick={() => onThemeMode('system')}>
+                    <button type="button" className={themeMode === 'system' ? 'active' : ''} onClick={() => onThemeMode('system')}>
                       <Monitor size={15} />{t('themeSystem')}
                     </button>
-                    <button className={themeMode === 'light' ? 'active' : ''} onClick={() => onThemeMode('light')}>
+                    <button type="button" className={themeMode === 'light' ? 'active' : ''} onClick={() => onThemeMode('light')}>
                       <Sun size={15} />{t('themeLight')}
                     </button>
-                    <button className={themeMode === 'dark' ? 'active' : ''} onClick={() => onThemeMode('dark')}>
+                    <button type="button" className={themeMode === 'dark' ? 'active' : ''} onClick={() => onThemeMode('dark')}>
                       <Moon size={15} />{t('themeDark')}
                     </button>
                   </div>
-                </div>
-                <div>
-                  <label>{t('language')}</label>
-                  <div className="language-switch">
-                    <button className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>中文</button>
-                    <button className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
+                </section>
+                <section className="settings-section">
+                  <div className="settings-section-heading">
+                    <h2>{t('language')}</h2>
+                    <p>{locale === 'zh' ? '更改只影响应用界面，不会重命名或改写已有笔记。' : 'This changes the app interface only; existing notes are not renamed or rewritten.'}</p>
                   </div>
-                </div>
+                  <div className="language-switch">
+                    <button type="button" className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>中文</button>
+                    <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
+                  </div>
+                </section>
               </div>
             )}
-
           </div>
         </div>
-
-        <footer className="dialog-footer">
-          <div className="dialog-meta">
-            <button
-              className="version-link"
-              onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}
-            >
-              TierNote · v{APP_VERSION}
-            </button>
-            <button onClick={() => void openExternalUrl(FEEDBACK_URL)}>
-              <Github size={13} strokeWidth={1.8} />
-              {t('feedback')}
-            </button>
-          </div>
-          <button className="primary-button" onClick={onClose}>
-            {t('close')}
-          </button>
-        </footer>
-      </section>
-    </div>
+      </main>
+    </section>
   );
 }
 
