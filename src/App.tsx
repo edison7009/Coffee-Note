@@ -5627,7 +5627,7 @@ function ConversationView({
                         type="button"
                         onClick={() => onConfirmMemory(message.id, message.memorySuggestion!)}
                       >
-                        {locale === 'zh' ? '保存到我的资料' : 'Save to My information'}
+                        {locale === 'zh' ? '保存到我的设定' : 'Save to My Contexts'}
                       </button>
                       <button type="button" onClick={() => onDismissMemory(message.id)}>
                         {locale === 'zh' ? '忽略' : 'Dismiss'}
@@ -6464,8 +6464,8 @@ function RightRail({
                 </strong>
                 <small>
                   {locale === 'zh'
-                    ? '把当前目标和相关资料交给 TierNote，先看清冲突、选择与下一步。'
-                    : 'Bring a goal and the relevant material. Start by seeing conflicts, choices, and the next step.'}
+                    ? '个人设定和目录内资料会被AI索引，更懂你的对话。'
+                    : 'Personal contexts and files in your library are indexed by AI for conversations that understand you better.'}
                 </small>
               </div>
             </div>

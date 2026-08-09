@@ -6,6 +6,15 @@ const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'ut
 const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const i18n = await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8');
 
+test('the visible personal-context label is My Contexts', () => {
+  assert.match(i18n, /myPlan: '我的设定'/);
+  assert.match(i18n, /peopleCard: '我的设定'/);
+  assert.match(i18n, /planTitle: '我的设定'/);
+  assert.match(i18n, /myPlan: 'My Contexts'/);
+  assert.doesNotMatch(i18n, /'我的资料'|'My information'/);
+  assert.match(appSource, /'保存到我的设定'\s*:\s*'Save to My Contexts'/);
+});
+
 test('My Info explains that AI only retrieves enabled content', () => {
   assert.match(i18n, /planHint: 'AI只检索开关开启的内容，内容也可以是提示词、技能等。'/);
 });

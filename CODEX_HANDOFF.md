@@ -294,12 +294,12 @@ to the product template.
   app-data `memory.json` is only a rebuildable source index; personal context is
   retrieved from Markdown with a small question-aware byte budget and is placed
   in the user message so the system prompt stays cache-stable.
-- The My Info page exposes AI-retrieval switches for its five content notes.
+- The visible My Contexts (`我的设定`) page exposes AI-retrieval switches for its five content notes.
   All five default on and persist locally under
   `tiernote:my-info-retrieval:v1`; Add Material remains an action rather than a
   retrievable section. Every agent request sends the enabled stable IDs, and
   Rust applies the resulting localized-path allowlist to both question-aware
-  Library Graph context and always-on memory injection. My Info cards are direct
+  Library Graph context and always-on memory injection. My Contexts cards are direct
   navigation entries with no selected-card state; their light neutral surface is
   `#f1f1f1`, while the switch is the only blue state on the page.
 - A future night mode is desirable but not yet a release blocker.

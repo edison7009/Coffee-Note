@@ -41,7 +41,7 @@
   scrollable settings surface. Settings is not a modal and uses no backdrop or floating
   dialog boundary. Keep model and appearance as distinct pages. Library switching
   already belongs to the Home row and File menu and is not duplicated here.
-- On My Info, use five direct-entry content cards with independent retrieval
+- On My Contexts (`我的设定`), use five direct-entry content cards with independent retrieval
   switches, all enabled by default. Cards have no selected state: their light
   surface remains `#f1f1f1` during hover and navigation, with a neutral dark-mode
   counterpart. Reserve system blue for the enabled switch track; Add Material is
@@ -113,6 +113,6 @@
 | 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
 | 2026-08-08 | Use the default arrow except for pane resizing | A hand cursor is a web pattern; ordinary controls and content keep the default arrow, while the dividers between the three panes use native directional feedback during resize. |
 | 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `TierNote` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
-| 2026-08-08 | Gate My Info retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
-| 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Info seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
+| 2026-08-08 | Gate My Contexts retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
+| 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Contexts seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
 | 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |

@@ -5929,7 +5929,7 @@ textarea,
 [data-theme='dark'] .note-header h1 {
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: clamp(30px, 3vw, 38px);
+  font-size: clamp(28px, 2.4vw, 32px);
   font-weight: 650;
   letter-spacing: -0.035em;
   line-height: 1.14;
@@ -5937,7 +5937,7 @@ textarea,
 
 :lang(zh) .home-view .hero h1,
 :lang(en) .home-view .hero h1 {
-  font-size: clamp(30px, 3vw, 38px);
+  font-size: clamp(28px, 2.4vw, 32px);
 }
 
 :lang(zh) .hero h1,
