@@ -31,8 +31,13 @@ const LATEST_RELEASE_API: &str = "https://api.github.com/repos/edison7009/TierNo
 const WEBSITE_VERSION_API: &str = "https://tiernote.life/version.json?platform=windows";
 const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://tiernote.life/download/windows";
 const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/releases/download/";
+const MODELS_DEV_CATALOG_URL: &str = "https://models.dev/api.json";
+const MODEL_CATALOG_MAX_BYTES: usize = 24 * 1024 * 1024;
+const MODEL_CATALOG_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
 const TIER_ORDER_RELATIVE_PATH: &str = ".tiernote/tier-order.json";
+pub(crate) const MODEL_APP_URL: &str = "https://tiernote.org";
+pub(crate) const MODEL_APP_TITLE: &str = "TierNote";
 include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
 
 #[derive(Debug, Clone, Serialize)]
@@ -119,6 +124,10 @@ struct ChatRequest {
     api_key: String,
     base_url: String,
     model: String,
+    #[serde(default)]
+    provider: String,
+    #[serde(default)]
+    reasoning_effort: Option<String>,
     question: String,
     locale: String,
     knowledge_root: String,
@@ -187,6 +196,10 @@ struct PrepareCaptureRequest {
     api_key: String,
     base_url: String,
     model: String,
+    #[serde(default)]
+    provider: String,
+    #[serde(default)]
+    reasoning_effort: Option<String>,
     input: String,
     locale: String,
 }
@@ -202,22 +215,36 @@ struct CaptureDraft {
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProviderModelConfig {
+    #[serde(default)]
+    provider_id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    protocol: String,
+    #[serde(default)]
     base_url: String,
+    #[serde(default)]
     model: String,
+    #[serde(default)]
     api_key: String,
-}
-
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, Serialize)]
-struct ProviderModelConfigs {
-    openai: ProviderModelConfig,
-    anthropic: ProviderModelConfig,
+    #[serde(default)]
+    custom_models: Vec<String>,
+    #[serde(default)]
+    models: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ModelSettings {
     active_provider: String,
-    providers: ProviderModelConfigs,
+    #[serde(default = "default_reasoning_effort")]
+    reasoning_effort: String,
+    #[serde(default)]
+    providers: BTreeMap<String, ProviderModelConfig>,
+}
+
+fn default_reasoning_effort() -> String {
+    "medium".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -244,22 +271,52 @@ fn normalize_model_provider(provider: &str) -> &'static str {
     }
 }
 
+fn normalize_model_settings(mut settings: ModelSettings) -> ModelSettings {
+    for (key, provider) in &mut settings.providers {
+        let provider_id = if provider.provider_id.trim().is_empty() {
+            key.clone()
+        } else {
+            provider.provider_id.trim().to_string()
+        };
+        provider.provider_id = provider_id.clone();
+        provider.protocol = normalize_model_provider(&provider_id).to_string();
+        if provider_id.starts_with("custom-") && provider.custom_models.is_empty() {
+            provider.custom_models = provider.models.clone();
+        }
+
+        let normalized_url = provider.base_url.trim().trim_end_matches('/');
+        if provider_id.eq_ignore_ascii_case("deepseek")
+            && normalized_url.eq_ignore_ascii_case("https://api.deepseek.com/anthropic")
+        {
+            provider.base_url = "https://api.deepseek.com".to_string();
+        }
+    }
+    settings
+}
+
 impl From<LegacyModelConfig> for ModelSettings {
     fn from(legacy: LegacyModelConfig) -> Self {
         let active_provider = normalize_model_provider(&legacy.provider).to_string();
+        let model = legacy.model;
         let active_config = ProviderModelConfig {
+            provider_id: active_provider.clone(),
+            name: active_provider.clone(),
+            protocol: active_provider.clone(),
             base_url: legacy.base_url,
-            model: legacy.model,
+            custom_models: Vec::new(),
+            models: if model.is_empty() {
+                Vec::new()
+            } else {
+                vec![model.clone()]
+            },
+            model,
             api_key: legacy.api_key,
         };
-        let mut providers = ProviderModelConfigs::default();
-        if active_provider == "anthropic" {
-            providers.anthropic = active_config;
-        } else {
-            providers.openai = active_config;
-        }
+        let mut providers = BTreeMap::new();
+        providers.insert(active_provider.clone(), active_config);
         Self {
             active_provider,
+            reasoning_effort: default_reasoning_effort(),
             providers,
         }
     }
@@ -286,6 +343,13 @@ fn model_config_path() -> PathBuf {
         .join("config.json")
 }
 
+fn model_catalog_cache_path() -> PathBuf {
+    model_config_path()
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("models-dev-catalog.json")
+}
+
 fn load_model_config_from(path: &Path) -> Result<Option<ModelSettings>, String> {
     if !path.is_file() {
         return Ok(None);
@@ -295,12 +359,11 @@ fn load_model_config_from(path: &Path) -> Result<Option<ModelSettings>, String> 
         .map_err(|error| format!("Could not read model config: {error}"))?;
     let stored: StoredModelConfig = serde_json::from_str(&contents)
         .map_err(|error| format!("Could not parse model config: {error}"))?;
-    let mut settings = match stored {
+    let settings = match stored {
         StoredModelConfig::Legacy(config) => config.into(),
         StoredModelConfig::Current(config) => config,
     };
-    settings.active_provider = normalize_model_provider(&settings.active_provider).to_string();
-    Ok(Some(settings))
+    Ok(Some(normalize_model_settings(settings)))
 }
 
 fn save_model_config_to(path: &Path, config: &ModelSettings) -> Result<(), String> {
@@ -308,7 +371,8 @@ fn save_model_config_to(path: &Path, config: &ModelSettings) -> Result<(), Strin
         fs::create_dir_all(parent)
             .map_err(|error| format!("Could not create config directory: {error}"))?;
     }
-    let contents = serde_json::to_string_pretty(config)
+    let normalized = normalize_model_settings(config.clone());
+    let contents = serde_json::to_string_pretty(&normalized)
         .map_err(|error| format!("Could not serialize model config: {error}"))?;
     fs::write(path, format!("{contents}\n"))
         .map_err(|error| format!("Could not write model config: {error}"))
@@ -322,6 +386,69 @@ fn load_model_config() -> Result<Option<ModelSettings>, String> {
 #[tauri::command]
 fn save_model_config(config: ModelSettings) -> Result<(), String> {
     save_model_config_to(&model_config_path(), &config)
+}
+
+fn read_cached_model_catalog(path: &Path) -> Result<Value, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("Could not read cached model catalog: {error}"))?;
+    serde_json::from_str(&contents)
+        .map_err(|error| format!("Could not parse cached model catalog: {error}"))
+}
+
+fn model_catalog_cache_is_fresh(path: &Path) -> bool {
+    fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .and_then(|modified| modified.elapsed().map_err(std::io::Error::other))
+        .map(|age| age < MODEL_CATALOG_CACHE_TTL)
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+async fn load_model_catalog(refresh: bool) -> Result<Value, String> {
+    let cache_path = model_catalog_cache_path();
+    if !refresh && model_catalog_cache_is_fresh(&cache_path) {
+        if let Ok(catalog) = read_cached_model_catalog(&cache_path) {
+            return Ok(catalog);
+        }
+    }
+
+    let fetched = async {
+        let response = reqwest::Client::new()
+            .get(MODELS_DEV_CATALOG_URL)
+            .send()
+            .await
+            .map_err(|error| format!("Could not reach models.dev: {error}"))?
+            .error_for_status()
+            .map_err(|error| format!("models.dev request failed: {error}"))?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|error| format!("Could not download the model catalog: {error}"))?;
+        if bytes.len() > MODEL_CATALOG_MAX_BYTES {
+            return Err("The models.dev catalog is unexpectedly large".to_string());
+        }
+        serde_json::from_slice::<Value>(&bytes)
+            .map_err(|error| format!("Could not parse the models.dev catalog: {error}"))
+    }
+    .await;
+
+    match fetched {
+        Ok(catalog) => {
+            if let Some(parent) = cache_path.parent() {
+                fs::create_dir_all(parent).map_err(|error| {
+                    format!("Could not create the model cache directory: {error}")
+                })?;
+            }
+            let contents = serde_json::to_vec(&catalog)
+                .map_err(|error| format!("Could not serialize the model catalog: {error}"))?;
+            fs::write(&cache_path, contents)
+                .map_err(|error| format!("Could not cache the model catalog: {error}"))?;
+            Ok(catalog)
+        }
+        Err(fetch_error) => read_cached_model_catalog(&cache_path).map_err(|cache_error| {
+            format!("{fetch_error}. No usable offline catalog is available: {cache_error}")
+        }),
+    }
 }
 
 const DEMO_NOTES: &[(&str, &str)] = &[
@@ -1290,6 +1417,27 @@ fn read_note(root: String, relative_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn write_note(root: String, relative_path: String, content: String) -> Result<(), String> {
+    if content.len() > MAX_NOTE_BYTES {
+        return Err("This note is too large to save safely".to_string());
+    }
+    let path = safe_existing_path(Path::new(&root), &relative_path)?;
+    let metadata = fs::metadata(&path).map_err(|error| format!("Note is unavailable: {error}"))?;
+    if !metadata.is_file() {
+        return Err("Refusing to edit a non-file path".to_string());
+    }
+    let is_markdown = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension == "md" || extension == "markdown")
+        .unwrap_or(false);
+    if !is_markdown {
+        return Err("Refusing to edit a non-Markdown path".to_string());
+    }
+    fs::write(path, content).map_err(|error| format!("Could not save note: {error}"))
+}
+
+#[tauri::command]
 fn open_note(root: String, relative_path: String) -> Result<(), String> {
     let path = safe_existing_path(Path::new(&root), &relative_path)?;
     tauri_plugin_opener::open_path(path, None::<&str>)
@@ -1815,6 +1963,17 @@ fn chat_endpoint(base_url: &str) -> String {
     }
 }
 
+fn anthropic_messages_endpoint(base_url: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    if trimmed.ends_with("/messages") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1") {
+        format!("{trimmed}/messages")
+    } else {
+        format!("{trimmed}/v1/messages")
+    }
+}
+
 fn validate_public_url(url: &reqwest::Url) -> Result<(), String> {
     if !matches!(url.scheme(), "http" | "https") {
         return Err("Only public HTTP and HTTPS links are supported".to_string());
@@ -2015,6 +2174,8 @@ async fn request_model_text(
     api_key: &str,
     base_url: &str,
     model: &str,
+    provider: &str,
+    reasoning_effort: Option<&str>,
     max_tokens: u32,
     messages: Vec<Value>,
 ) -> Result<String, String> {
@@ -2022,19 +2183,62 @@ async fn request_model_text(
         .timeout(Duration::from_secs(180))
         .build()
         .map_err(|error| format!("Could not create model client: {error}"))?;
-    let response = client
-        .post(chat_endpoint(base_url))
-        .bearer_auth(api_key)
-        .header("HTTP-Referer", "https://tiernote.science")
-        .header("X-Title", "TierNote")
-        .json(&json!({
+    let effort = match reasoning_effort {
+        Some("low" | "medium" | "high" | "xhigh" | "max") => reasoning_effort,
+        _ => None,
+    };
+    let anthropic = provider.eq_ignore_ascii_case("anthropic");
+    let response = if anthropic {
+        let mut system = String::new();
+        let mut provider_messages = Vec::new();
+        for message in messages {
+            if message.get("role").and_then(Value::as_str) == Some("system") {
+                if let Some(content) = message.get("content").and_then(Value::as_str) {
+                    system = content.to_string();
+                }
+            } else {
+                provider_messages.push(message);
+            }
+        }
+        let mut body = json!({
+            "model": model,
+            "system": system,
+            "messages": provider_messages,
+            "max_tokens": max_tokens,
+        });
+        if let Some(value) = effort {
+            body["output_config"] = json!({ "effort": value });
+        }
+        client
+            .post(anthropic_messages_endpoint(base_url))
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("HTTP-Referer", MODEL_APP_URL)
+            .header("X-OpenRouter-Title", MODEL_APP_TITLE)
+            .header("X-Title", MODEL_APP_TITLE)
+            .json(&body)
+            .send()
+            .await
+    } else {
+        let mut body = json!({
             "model": model,
             "messages": messages,
             "max_tokens": max_tokens,
-        }))
-        .send()
-        .await
-        .map_err(|error| format!("Could not reach the model provider: {error}"))?;
+        });
+        if let Some(value) = effort {
+            body["reasoning_effort"] = json!(value);
+        }
+        client
+            .post(chat_endpoint(base_url))
+            .bearer_auth(api_key)
+            .header("HTTP-Referer", MODEL_APP_URL)
+            .header("X-OpenRouter-Title", MODEL_APP_TITLE)
+            .header("X-Title", MODEL_APP_TITLE)
+            .json(&body)
+            .send()
+            .await
+    }
+    .map_err(|error| format!("Could not reach the model provider: {error}"))?;
 
     let status = response.status();
     let payload: Value = response
@@ -2049,11 +2253,26 @@ async fn request_model_text(
         return Err(format!("Provider error {status}: {message}"));
     }
 
-    payload
-        .pointer("/choices/0/message/content")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .ok_or_else(|| "The provider response did not contain assistant text".to_string())
+    if anthropic {
+        payload
+            .get("content")
+            .and_then(Value::as_array)
+            .and_then(|blocks| {
+                blocks.iter().find_map(|block| {
+                    (block.get("type").and_then(Value::as_str) == Some("text"))
+                        .then(|| block.get("text").and_then(Value::as_str))
+                        .flatten()
+                })
+            })
+            .map(str::to_string)
+            .ok_or_else(|| "The provider response did not contain assistant text".to_string())
+    } else {
+        payload
+            .pointer("/choices/0/message/content")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "The provider response did not contain assistant text".to_string())
+    }
 }
 
 fn parse_capture_draft(response: &str, source_url: Option<String>) -> Result<CaptureDraft, String> {
@@ -2143,6 +2362,8 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         &request.api_key,
         &request.base_url,
         &request.model,
+        &request.provider,
+        request.reasoning_effort.as_deref(),
         3_000,
         messages,
     )
@@ -2215,6 +2436,8 @@ async fn plan_research_query(request: &ChatRequest) -> Option<String> {
         &request.api_key,
         &request.base_url,
         &request.model,
+        &request.provider,
+        request.reasoning_effort.as_deref(),
         300,
         messages,
     )
@@ -2706,6 +2929,8 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         &request.api_key,
         &request.base_url,
         &request.model,
+        &request.provider,
+        request.reasoning_effort.as_deref(),
         3000,
         messages,
     )
@@ -2990,6 +3215,8 @@ async fn agent_send_message(
             api_key: request.api_key.clone(),
             base_url: request.base_url.clone(),
             model: request.model.clone(),
+            provider: request.provider.clone(),
+            reasoning_effort: request.reasoning_effort.clone(),
             question: request.message.clone(),
             locale: request.locale.clone(),
             knowledge_root: request.knowledge_root.clone(),
@@ -3075,10 +3302,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_model_config,
             save_model_config,
+            load_model_catalog,
             load_library,
             inspect_library_graph,
             move_tier_item,
             read_note,
+            write_note,
             open_note,
             delete_note,
             set_note_tier,
@@ -3450,31 +3679,105 @@ mod tests {
         );
         let root = std::env::temp_dir().join(unique);
         let path = root.join("config.json");
+        let mut providers = BTreeMap::new();
+        providers.insert(
+            "openai".to_string(),
+            ProviderModelConfig {
+                provider_id: "openai".to_string(),
+                name: "OpenAI".to_string(),
+                protocol: "openai".to_string(),
+                base_url: "https://openai.example.com/v1".to_string(),
+                model: "openai-model".to_string(),
+                api_key: "plain-openai-key".to_string(),
+                custom_models: vec!["manual-openai-model".to_string()],
+                models: vec!["openai-model".to_string()],
+            },
+        );
+        providers.insert(
+            "anthropic".to_string(),
+            ProviderModelConfig {
+                provider_id: "anthropic".to_string(),
+                name: "Anthropic".to_string(),
+                protocol: "anthropic".to_string(),
+                base_url: "https://anthropic.example.com".to_string(),
+                model: "anthropic-model".to_string(),
+                api_key: "plain-anthropic-key".to_string(),
+                custom_models: Vec::new(),
+                models: vec!["anthropic-model".to_string()],
+            },
+        );
         let config = ModelSettings {
             active_provider: "anthropic".to_string(),
-            providers: ProviderModelConfigs {
-                openai: ProviderModelConfig {
-                    base_url: "https://openai.example.com/v1".to_string(),
-                    model: "openai-model".to_string(),
-                    api_key: "plain-openai-key".to_string(),
-                },
-                anthropic: ProviderModelConfig {
-                    base_url: "https://anthropic.example.com".to_string(),
-                    model: "anthropic-model".to_string(),
-                    api_key: "plain-anthropic-key".to_string(),
-                },
-            },
+            reasoning_effort: "high".to_string(),
+            providers,
         };
 
         save_model_config_to(&path, &config).expect("config should save");
         let contents = fs::read_to_string(&path).expect("config should be readable");
         assert!(contents.contains(r#""apiKey": "plain-openai-key""#));
         assert!(contents.contains(r#""apiKey": "plain-anthropic-key""#));
+        assert!(contents.contains(r#""customModels": ["#));
+        assert!(contents.contains("manual-openai-model"));
         assert_eq!(
             load_model_config_from(&path).expect("config should load"),
             Some(config)
         );
         fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn model_protocol_is_derived_and_mistaken_deepseek_default_is_migrated() {
+        let mut providers = BTreeMap::new();
+        providers.insert(
+            "deepseek".to_string(),
+            ProviderModelConfig {
+                provider_id: "deepseek".to_string(),
+                protocol: "anthropic".to_string(),
+                base_url: "https://api.deepseek.com/anthropic".to_string(),
+                ..ProviderModelConfig::default()
+            },
+        );
+        providers.insert(
+            "anthropic".to_string(),
+            ProviderModelConfig {
+                provider_id: "anthropic".to_string(),
+                protocol: "openai".to_string(),
+                ..ProviderModelConfig::default()
+            },
+        );
+
+        let normalized = normalize_model_settings(ModelSettings {
+            active_provider: "deepseek".to_string(),
+            reasoning_effort: "medium".to_string(),
+            providers,
+        });
+
+        assert_eq!(normalized.providers["deepseek"].protocol, "openai");
+        assert_eq!(
+            normalized.providers["deepseek"].base_url,
+            "https://api.deepseek.com"
+        );
+        assert_eq!(normalized.providers["anthropic"].protocol, "anthropic");
+    }
+
+    #[test]
+    fn custom_provider_models_migrate_into_the_local_registry() {
+        let provider = ProviderModelConfig {
+            provider_id: "custom-example".to_string(),
+            models: vec!["local-model-id".to_string()],
+            model: "local-model-id".to_string(),
+            ..ProviderModelConfig::default()
+        };
+        let normalized = normalize_model_settings(ModelSettings {
+            active_provider: "custom-example".to_string(),
+            reasoning_effort: "medium".to_string(),
+            providers: BTreeMap::from([("custom-example".to_string(), provider)]),
+        });
+
+        assert_eq!(
+            normalized.providers["custom-example"].custom_models,
+            vec!["local-model-id".to_string()]
+        );
     }
 
     #[test]
@@ -3503,12 +3806,12 @@ mod tests {
             .expect("legacy config should exist");
         assert_eq!(migrated.active_provider, "anthropic");
         assert_eq!(
-            migrated.providers.anthropic.base_url,
+            migrated.providers["anthropic"].base_url,
             "https://legacy.example.com"
         );
-        assert_eq!(migrated.providers.anthropic.model, "legacy-model");
-        assert_eq!(migrated.providers.anthropic.api_key, "legacy-key");
-        assert_eq!(migrated.providers.openai, ProviderModelConfig::default());
+        assert_eq!(migrated.providers["anthropic"].model, "legacy-model");
+        assert_eq!(migrated.providers["anthropic"].api_key, "legacy-key");
+        assert_eq!(migrated.reasoning_effort, "medium");
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
 
@@ -3539,7 +3842,7 @@ mod tests {
             .expect("old config should load")
             .expect("old config should exist");
         assert_eq!(settings.active_provider, "openai");
-        assert_eq!(settings.providers.openai.model, "cheap-model");
+        assert_eq!(settings.providers["openai"].model, "cheap-model");
         save_model_config_to(&path, &settings).expect("new config should save");
         let saved = fs::read_to_string(&path).expect("new config should be readable");
         assert!(!saved.contains("economyMode"));
@@ -3665,8 +3968,12 @@ mod tests {
                 .read(&mut request_bytes)
                 .expect("mock request should be readable");
             let request = String::from_utf8_lossy(&request_bytes[..read]);
+            let request_headers = request.to_ascii_lowercase();
             assert!(request.starts_with("POST /v1/chat/completions "));
+            assert!(request_headers.contains("http-referer: https://tiernote.org"));
+            assert!(request_headers.contains("x-openrouter-title: tiernote"));
             assert!(request.contains("\"max_tokens\":3000"));
+            assert!(request.contains("\"reasoning_effort\":\"high\""));
             let model_content =
                 r###"{"title":"Creatine trial","content":"## Findings\n\nA structured draft."}"###;
             let payload = json!({
@@ -3687,6 +3994,8 @@ mod tests {
             api_key: "test-key".to_string(),
             base_url: format!("http://{address}/v1"),
             model: "test-model".to_string(),
+            provider: "openai".to_string(),
+            reasoning_effort: Some("high".to_string()),
             input: "A 12-week creatine trial with 42 participants.".to_string(),
             locale: "en".to_string(),
         }))
@@ -3713,5 +4022,59 @@ mod tests {
         assert!(saved_content.contains("# Creatine trial"));
         assert!(saved_content.contains("A structured draft."));
         fs::remove_dir_all(root).expect("capture fixture should be removed");
+    }
+
+    #[test]
+    fn anthropic_text_request_uses_messages_protocol_and_effort() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("mock model should bind");
+        let address = listener
+            .local_addr()
+            .expect("mock address should be available");
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("mock model should accept");
+            let mut request_bytes = [0_u8; 8192];
+            let read = stream
+                .read(&mut request_bytes)
+                .expect("mock request should be readable");
+            let request = String::from_utf8_lossy(&request_bytes[..read]);
+            let request_headers = request.to_ascii_lowercase();
+            assert!(request.starts_with("POST /v1/messages "));
+            assert!(request_headers.contains("x-api-key: test-key"));
+            assert!(request_headers.contains("http-referer: https://tiernote.org"));
+            assert!(request_headers.contains("x-openrouter-title: tiernote"));
+            assert!(request.contains("\"output_config\":{\"effort\":\"medium\"}"));
+            assert!(request.contains("\"system\":\"System rule\""));
+            let payload = json!({
+                "content": [{ "type": "text", "text": "Anthropic response" }]
+            })
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                payload.len(),
+                payload
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("mock response should be writable");
+        });
+
+        let response = tauri::async_runtime::block_on(request_model_text(
+            "test-key",
+            &format!("http://{address}"),
+            "claude-test",
+            "anthropic",
+            Some("medium"),
+            2048,
+            vec![
+                json!({ "role": "system", "content": "System rule" }),
+                json!({ "role": "user", "content": "Hello" }),
+            ],
+        ))
+        .expect("Anthropic response should parse");
+        server.join().expect("mock model should finish");
+        assert_eq!(response, "Anthropic response");
     }
 }

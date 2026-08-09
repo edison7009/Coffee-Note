@@ -137,6 +137,9 @@ pub struct AgentRequest {
     /// Which wire protocol the provider speaks: "openai" or "anthropic".
     #[serde(default)]
     pub provider: String,
+    /// Optional provider-supported reasoning/effort level.
+    #[serde(default)]
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -854,6 +857,7 @@ pub async fn run_agent(
         api_key: request.api_key.clone(),
         model: request.model.clone(),
         max_output_tokens: 4096,
+        reasoning_effort: request.reasoning_effort.clone(),
     })?;
 
     let tools = agent_tools::get_tool_definitions();

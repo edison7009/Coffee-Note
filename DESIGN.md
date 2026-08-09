@@ -28,12 +28,22 @@
 
 - Keep the homepage tier list as the core first screen.
 - The Home greeting may include one compact animated weather mark on its right.
-  Home shows only the condition image. An explicit click opens a read-only current
-  and multi-day forecast; the header includes a direct gear shortcut to Appearance.
-  City search, recent cities, one-time device location, and source attribution live
-  only in Settings > Appearance. Never request location on launch. The mark is an
-  absolutely positioned background element and never compresses the greeting.
-  Multi-word recent-city names stay intact; keep up to ten deduplicated entries.
+  Home shows only the condition image: no city, temperature, forecast text,
+  provider name, enclosing card, or dashboard treatment. An explicit click opens
+  a read-only lightweight detail panel containing only current conditions and several
+  forecast days. Its title and city share the action row, where a gear opens
+  Settings > Appearance directly. City search, recent cities, one-time device
+  location and source attribution live only there. Once configured, weather stays
+  enabled as part of Home; users switch cities rather than removing the feature. Never request
+  location on launch. The
+  desktop prohibition on hover tooltips still applies to this mark. Treat the
+  mark as an absolutely positioned background element: it never consumes layout
+  width or compresses the greeting, and may sit behind the greeting when the
+  center workspace becomes narrow. Keep a small inset from the top-right edge
+  and allow the weather canvas to overflow so halos and clouds are never clipped.
+  Settings keeps up to ten deduplicated recent cities locally as direct text
+  actions. Multi-word names remain intact and the row wraps only between cities;
+  do not spend space on generic location-privacy helper copy.
 - Use one outer shell for the top bar and persistent left navigation rail.
 - Let the shared title bar span the full window width. Place the 16 x 16 product icon and the closed `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
 - Start the left rail below the title bar with Home as its first row. Do not repeat the product icon or wordmark there. Library switching remains in the File menu and is also exposed as a discoverable global-action icon at the right edge of the Home row, matching the placement of global actions such as search in Codex.
@@ -48,9 +58,48 @@
   scrollable settings surface. Settings is not a modal and uses no backdrop or floating
   dialog boundary. Keep model and appearance as distinct pages. Library switching
   already belongs to the Home row and File menu and is not duplicated here.
-  Appearance is one continuous grouped surface rather than three distant cards.
-  Theme and language use compact label/control rows. Weather places the current
-  city at the header's right, recent cities below, and current location beside search.
+  All settings scroll surfaces use the same narrow, transparent-track, low-contrast
+  scrollbar treatment as the main workspace; avoid native heavy scrollbar chrome.
+  Keep the settings navigation rail compact at 220px on the ordinary desktop layout.
+  Name its model destination Models to match common AI app settings language, and
+  keep the version and Feedback actions together on one unwrapped footer row.
+  Appearance is one continuous grouped surface rather than three distant cards:
+  theme and language use compact label/control rows, followed by a structured
+  Weather forecast section with the current-city readout at the header's right,
+  recent cities below, and the current-location action beside city search. Provider attribution belongs in the section's
+  introductory sentence rather than consuming its own row. Weather has no
+  removal action; selecting another city replaces the current one.
+- Model settings use a directory/detail split inside the model page: searchable
+  providers on the left and one provider's URL, local key, protocol note,
+  and selectable models on the right. Provider marks are compact monochrome
+  identifiers, not decorative cards. Show only the catalog's canonical provider
+  display name; never repeat its lowercase/internal provider ID beneath it, including
+  in the composer model menu. Keep OpenAI-compatible as the ordinary path;
+  only the official Anthropic provider uses its native Messages API, indicated by
+  a short inline note rather than a control. Model rows may show technical metadata at the 12px floor (model
+  ID, context size, and input/output price), while actions and names remain 13px
+  or larger. Keep the default provider first in the directory, followed by every
+  provider with selected models, then the untouched catalog entries. A compact
+  Add custom action in the provider directory asks for a custom name and creates
+  an OpenAI-compatible local provider whose model IDs are entered manually. Custom
+  providers stay grouped at the top and use a neutral cube mark. Their details
+  replace the catalog documentation action with a trash action;
+  the explicit trash action deletes immediately and removes only that provider's
+  local configuration.
+  Manually entered model IDs are local records and show the ID once, with no guessed
+  name, icon, or price. Adding one enables it immediately; it uses the same checkbox
+  interaction as catalog models, while a dedicated trash action removes its saved
+  local record. Unchecking only removes it from the composer. A catalog refresh must
+  never remove or hide a
+  locally saved model, including one newly marked deprecated upstream.
+  The AI composer exposes only models selected here. Every reasoning-capable
+  model gets TierNote's fixed five effort levels (low, medium, high, xhigh, max);
+  models.dev reasoning-option metadata must not filter or clamp them. A provider's model list always expands in
+  full inside the outer settings scroller; do not cap its result count or add a
+  nested model-list scrollbar. Non-default providers show a count only when at
+  least one model is selected; never render a zero badge. The composer model
+  readout must come only from the provider's explicitly selected model list;
+  never fall back to a seeded or example model ID.
 - On My Contexts (`我的设定`), use five direct-entry content cards with independent retrieval
   switches, all enabled by default. Cards have no selected state: their light
   surface remains `#f1f1f1` during hover and navigation, with a neutral dark-mode
@@ -100,9 +149,10 @@
 - **Approach:** Minimal and functional.
 - **Timing:** 90ms for hover/focus changes, 150-200ms for panels and dialogs.
 - **Behavior:** No decorative movement, scale-on-hover, or animated gradients. Respect reduced-motion settings.
-- **Home weather exception:** Slow condition-specific cloud, rain, or snow motion
-  may communicate current weather. It stops under reduced-motion preferences and
-  remains lower contrast than the greeting and tier list.
+- **Home weather exception:** Tiny condition-specific motion may communicate the
+  current weather inside the greeting readout: slow cloud drift and sparse rain
+  or snow only. It stops under reduced-motion preferences and must remain lower
+  contrast than the greeting and tier list. Do not animate the surrounding page.
 
 ## Migration Order
 
@@ -129,4 +179,5 @@
 | 2026-08-08 | Gate My Contexts retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
 | 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Contexts seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
 | 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |
-| 2026-08-09 | Add ambient Home weather | A quiet animated condition mark opens a read-only forecast, while city selection and location remain in Appearance. Weather stays enabled after setup; users switch cities instead of removing it. |
+| 2026-08-09 | Use models.dev for provider/model directory data; keep TierNote request configuration independent | A live catalog removes hard-coded model names and prices. Anthropic alone uses its native Messages API; every other provider uses the industry-default OpenAI-compatible path. TierNote always exposes five reasoning levels for reasoning models and lets provider endpoints normalize them. Composer selections change actual requests. |
+| 2026-08-09 | Add ambient weather beside the Home greeting | Home keeps only a quiet animated condition image; its click panel is a read-only current and multi-day forecast with a compact single-line city header and a direct gear shortcut to Settings > Appearance. City selection, location, history, and provider attribution live in Appearance; users replace the current city rather than removing weather. This preserves the calm workspace while connecting it to the user's day. Location is requested only from Settings after an explicit click, rounded to city-level precision, and stored locally; manual city search remains the universal fallback. |

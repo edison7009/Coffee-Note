@@ -60,22 +60,70 @@ export interface LibrarySnapshot {
   noteCount: number;
 }
 
-export type ModelProvider = 'openai' | 'anthropic';
+export type ModelProtocol = 'openai' | 'anthropic';
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface ProviderConfig {
+  providerId: string;
+  name: string;
+  protocol: ModelProtocol;
   baseUrl: string;
-  model: string;
   apiKey: string;
+  customModels: string[];
+  models: string[];
+  model: string;
 }
 
 export interface ModelConfig extends ProviderConfig {
-  provider: ModelProvider;
+  provider: ModelProtocol;
+  providerKey: string;
+  reasoningEffort: ReasoningEffort;
 }
 
 export interface ModelSettings {
-  activeProvider: ModelProvider;
-  providers: Record<ModelProvider, ProviderConfig>;
+  activeProvider: string;
+  reasoningEffort: ReasoningEffort;
+  providers: Record<string, ProviderConfig>;
 }
+
+export interface ModelCatalogCost {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  reasoning?: number;
+}
+
+export interface ModelCatalogLimit {
+  context?: number;
+  input?: number;
+  output?: number;
+}
+
+export interface ModelCatalogModel {
+  id: string;
+  name: string;
+  family?: string;
+  reasoning: boolean;
+  reasoningOptions: ReasoningEffort[];
+  toolCall: boolean;
+  attachment: boolean;
+  status?: string;
+  releaseDate?: string;
+  cost?: ModelCatalogCost;
+  limit?: ModelCatalogLimit;
+}
+
+export interface ModelCatalogProvider {
+  id: string;
+  name: string;
+  npm: string;
+  api?: string;
+  doc?: string;
+  models: Record<string, ModelCatalogModel>;
+}
+
+export type ModelCatalog = Record<string, ModelCatalogProvider>;
 
 export interface MemorySuggestion {
   id: string;
@@ -129,6 +177,8 @@ export interface ChatRequest {
   apiKey: string;
   baseUrl: string;
   model: string;
+  provider?: ModelProtocol;
+  reasoningEffort?: ReasoningEffort;
   question: string;
   locale: Locale;
   knowledgeRoot: string;
@@ -148,6 +198,8 @@ export interface PrepareCaptureRequest {
   apiKey: string;
   baseUrl: string;
   model: string;
+  provider?: ModelProtocol;
+  reasoningEffort?: ReasoningEffort;
   input: string;
   locale: Locale;
 }
@@ -194,6 +246,7 @@ export interface AgentRequest {
   baseUrl: string;
   model: string;
   provider?: string;
+  reasoningEffort?: ReasoningEffort;
   message: string;
   locale: Locale;
   knowledgeRoot: string;

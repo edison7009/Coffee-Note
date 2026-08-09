@@ -9,11 +9,22 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
+use crate::{MODEL_APP_TITLE, MODEL_APP_URL};
+
 /// Maximum quiet time between SSE chunks before declaring the upstream stalled.
 const SSE_CHUNK_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Number of attempts (including the first) for retryable upstream errors.
 const MAX_RETRY_ATTEMPTS: u32 = 3;
+
+fn insert_app_attribution_headers(headers: &mut HeaderMap) {
+    headers.insert("HTTP-Referer", HeaderValue::from_static(MODEL_APP_URL));
+    headers.insert(
+        "X-OpenRouter-Title",
+        HeaderValue::from_static(MODEL_APP_TITLE),
+    );
+    headers.insert("X-Title", HeaderValue::from_static(MODEL_APP_TITLE));
+}
 
 // ── Public Types ──
 
@@ -31,6 +42,7 @@ pub struct LlmConfig {
     pub api_key: String,
     pub model: String,
     pub max_output_tokens: u32,
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,6 +254,9 @@ impl LlmClient {
             body["tools"] = json!(tools_json);
             body["tool_choice"] = json!("auto");
         }
+        if let Some(effort) = normalized_reasoning_effort(self.config.reasoning_effort.as_deref()) {
+            body["reasoning_effort"] = json!(effort);
+        }
 
         let auth_value = HeaderValue::from_str(&format!("Bearer {}", self.config.api_key))
             .map_err(|e| format!("Invalid API key: {e}"))?;
@@ -253,11 +268,7 @@ impl LlmClient {
             let mut headers = HeaderMap::new();
             headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             headers.insert(AUTHORIZATION, auth_value.clone());
-            headers.insert(
-                "HTTP-Referer",
-                HeaderValue::from_static("https://tiernote.science"),
-            );
-            headers.insert("X-Title", HeaderValue::from_static("TierNote"));
+            insert_app_attribution_headers(&mut headers);
             Ok(http.post(&url_owned).headers(headers).json(&body_owned))
         };
 
@@ -429,6 +440,9 @@ impl LlmClient {
         if !tools_json.is_empty() {
             body["tools"] = json!(tools_json);
         }
+        if let Some(effort) = normalized_reasoning_effort(self.config.reasoning_effort.as_deref()) {
+            body["output_config"] = json!({ "effort": effort });
+        }
 
         let api_key_value = HeaderValue::from_str(&self.config.api_key)
             .map_err(|e| format!("Invalid API key: {e}"))?;
@@ -441,11 +455,7 @@ impl LlmClient {
             headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             headers.insert("x-api-key", api_key_value.clone());
             headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
-            headers.insert(
-                "HTTP-Referer",
-                HeaderValue::from_static("https://tiernote.science"),
-            );
-            headers.insert("X-Title", HeaderValue::from_static("TierNote"));
+            insert_app_attribution_headers(&mut headers);
             Ok(http.post(&url_owned).headers(headers).json(&body_owned))
         };
 
@@ -655,6 +665,13 @@ fn anthropic_endpoint(base_url: &str) -> String {
         format!("{trimmed}/messages")
     } else {
         format!("{trimmed}/v1/messages")
+    }
+}
+
+fn normalized_reasoning_effort(value: Option<&str>) -> Option<&str> {
+    match value {
+        Some("low" | "medium" | "high" | "xhigh" | "max") => value,
+        _ => None,
     }
 }
 
@@ -1005,6 +1022,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn app_attribution_headers_identify_tiernote() {
+        let mut headers = HeaderMap::new();
+        insert_app_attribution_headers(&mut headers);
+        assert_eq!(headers["HTTP-Referer"], "https://tiernote.org");
+        assert_eq!(headers["X-OpenRouter-Title"], "TierNote");
+        assert_eq!(headers["X-Title"], "TierNote");
+    }
 
     #[test]
     fn openai_endpoint_appends_chat_completions() {

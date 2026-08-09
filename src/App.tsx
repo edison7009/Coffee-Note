@@ -2,6 +2,7 @@ import {
   ArrowRight,
   BookOpen,
   Bot,
+  Box,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -54,6 +55,9 @@ import {
   Wrench,
   X,
   Redo2,
+  RefreshCw,
+  Search,
+  ExternalLink,
   Undo2,
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -98,6 +102,7 @@ import {
   downloadAndInstallUpdate,
   isTauri,
   loadModelConfig,
+  loadModelCatalog,
   loadLibrary,
   moveTierItem,
   onSelfUpdateProgress,
@@ -146,21 +151,32 @@ import type {
   Locale,
   LlmUsage,
   MemorySuggestion,
+  ModelCatalog,
+  ModelCatalogModel,
   ModelConfig,
-  ModelProvider,
   ModelSettings,
   Person,
   PriorityNote,
   ProviderConfig,
+  ReasoningEffort,
   Story,
   Supplement,
   View,
 } from './types';
 import {
   createEmptyModelSettings,
+  configuredModelChoices,
+  configuredProviderModels,
   getActiveModelConfig,
   normalizeModelSettings,
 } from './modelSettings';
+import {
+  defaultEndpointForProvider,
+  defaultProtocolForProvider,
+  getCatalogModel,
+  providerLogoUrl,
+  supportedCatalogProviders,
+} from './modelCatalog';
 import {
   createNavigationHistory,
   recordNavigation,
@@ -177,7 +193,7 @@ import {
 } from './myInfoRetrieval';
 
 const APP_VERSION = packageMetadata.version;
-const PRODUCT_WEBSITE = 'https://tiernote.life/';
+const PRODUCT_WEBSITE = 'https://tiernote.org/';
 const FEEDBACK_URL = 'https://github.com/edison7009/TierNote/issues';
 const CONVERSATION_USAGE_KEY = 'tiernote:conversation-usage:v1';
 
@@ -220,24 +236,33 @@ function resolveCurrency(currencyMode: CurrencyMode, locale: Locale): 'CNY' | 'U
   return currencyMode === 'auto' ? (locale === 'zh' ? 'CNY' : 'USD') : currencyMode;
 }
 
-function estimateDeepSeekCost(
+function estimateModelCost(
   usage: LlmUsage,
   config: ModelConfig,
   currency: 'CNY' | 'USD',
+  catalog: ModelCatalog,
 ): number | null {
+  const catalogModel = getCatalogModel(catalog, config.providerId, config.model);
+  if (config.customModels.includes(config.model) || !catalogModel) return null;
   const identity = `${config.baseUrl} ${config.model}`.toLowerCase();
-  if (!identity.includes('deepseek')) return null;
-
-  // Official regional prices per million tokens (snapshot: 2026-08-05).
-  // Unknown providers deliberately show no estimate.
-  const pro = /v4[-_. ]?pro/.test(identity);
-  const prices = currency === 'CNY'
-    ? pro
+  let prices: { cacheHit: number; cacheMiss: number; output: number } | null = null;
+  if (currency === 'CNY' && identity.includes('deepseek')) {
+    // DeepSeek publishes separate regional prices; do not convert them as exchange rates.
+    const pro = /v4[-_. ]?pro/.test(identity);
+    prices = pro
       ? { cacheHit: 0.025, cacheMiss: 3, output: 6 }
-      : { cacheHit: 0.02, cacheMiss: 1, output: 2 }
-    : pro
-      ? { cacheHit: 0.003625, cacheMiss: 0.435, output: 0.87 }
-      : { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 };
+      : { cacheHit: 0.02, cacheMiss: 1, output: 2 };
+  } else if (currency === 'USD') {
+    const cost = catalogModel.cost;
+    if (cost?.input != null && cost.output != null) {
+      prices = {
+        cacheHit: cost.cacheRead ?? cost.input,
+        cacheMiss: cost.input,
+        output: cost.output,
+      };
+    }
+  }
+  if (!prices) return null;
   return (
     usage.cacheHitTokens * prices.cacheHit
     + usage.cacheMissTokens * prices.cacheMiss
@@ -269,29 +294,6 @@ function createAmbientAssignments(count: number) {
 
   return assignments;
 }
-
-const providerOptions: Record<
-  ModelProvider,
-  {
-    label: Record<Locale, string>;
-    baseUrlPlaceholder: string;
-    modelPlaceholder: string;
-    apiKeyPlaceholder: string;
-  }
-> = {
-  openai: {
-    label: { zh: 'OpenAI 协议', en: 'OpenAI Protocol' },
-    baseUrlPlaceholder: 'https://api.deepseek.com',
-    modelPlaceholder: 'deepseek-v4-flash',
-    apiKeyPlaceholder: 'sk-…',
-  },
-  anthropic: {
-    label: { zh: 'Anthropic 协议', en: 'Anthropic Protocol' },
-    baseUrlPlaceholder: 'https://api.deepseek.com/anthropic',
-    modelPlaceholder: 'deepseek-v4-flash',
-    apiKeyPlaceholder: 'sk-ant-…',
-  },
-};
 
 const isMacOSPlatform =
   typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
@@ -613,7 +615,7 @@ function getPlanSections(locale: Locale): Array<{
   return [
     {
       id: 'supplements',
-      title: locale === 'zh' ? '我的简历' : 'My resume',
+      title: locale === 'zh' ? '我的简历' : 'My Resume',
       description:
         locale === 'zh'
           ? '个人简介、经历与当前状态'
@@ -623,7 +625,7 @@ function getPlanSections(locale: Locale): Array<{
     },
     {
       id: 'exercise',
-      title: locale === 'zh' ? '我的目标' : 'My goals',
+      title: locale === 'zh' ? '我的目标' : 'My Goals',
       description:
         locale === 'zh'
           ? '正在推进的事，以及想得到的结果'
@@ -633,7 +635,7 @@ function getPlanSections(locale: Locale): Array<{
     },
     {
       id: 'experience',
-      title: locale === 'zh' ? '我的经验' : 'My experience',
+      title: locale === 'zh' ? '我的经验' : 'My Experience',
       description:
         locale === 'zh'
           ? '试过什么、结果如何，以及什么真的有效'
@@ -643,7 +645,7 @@ function getPlanSections(locale: Locale): Array<{
     },
     {
       id: 'lessons',
-      title: locale === 'zh' ? '我的教训' : 'My lessons',
+      title: locale === 'zh' ? '我的教训' : 'My Lessons',
       description:
         locale === 'zh'
           ? '避开什么、什么不行，以及现实边界'
@@ -653,7 +655,7 @@ function getPlanSections(locale: Locale): Array<{
     },
     {
       id: 'sleep',
-      title: locale === 'zh' ? '重要记录' : 'Key records',
+      title: locale === 'zh' ? '重要记录' : 'Key Records',
       description:
         locale === 'zh'
           ? '简历、项目、经历与值得回看的资料'
@@ -883,6 +885,9 @@ function App() {
   const normalizedKnowledgeRoot =
     knowledgeRoot && !isLegacyDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
   const [modelSettings, setModelSettings] = useState<ModelSettings>(createEmptyModelSettings);
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({});
+  const [modelCatalogError, setModelCatalogError] = useState('');
+  const [modelCatalogLoading, setModelCatalogLoading] = useState(true);
   const modelConfigSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
@@ -908,6 +913,25 @@ function App() {
       alive = false;
     };
   }, []);
+
+  const refreshModelCatalog = useCallback((refresh = false) => {
+    setModelCatalogLoading(true);
+    setModelCatalogError('');
+    return loadModelCatalog(refresh)
+      .then((catalog) => {
+        setModelCatalog(catalog);
+        return catalog;
+      })
+      .catch((error) => {
+        setModelCatalogError(String(error).replace(/^Error:\s*/i, ''));
+        throw error;
+      })
+      .finally(() => setModelCatalogLoading(false));
+  }, []);
+
+  useEffect(() => {
+    void refreshModelCatalog().catch(() => undefined);
+  }, [refreshModelCatalog]);
 
   const [library, setLibrary] = useState<LibrarySnapshot>(fallbackLibrary);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
@@ -1412,6 +1436,8 @@ function App() {
           apiKey: modelConfig.apiKey,
           baseUrl: modelConfig.baseUrl,
           model: modelConfig.model,
+          provider: modelConfig.provider,
+          reasoningEffort: modelConfig.reasoningEffort,
           question,
           locale,
           knowledgeRoot: noteRoot || library.root,
@@ -2262,7 +2288,14 @@ function App() {
     if (view !== 'ai') setView('ai');
     setChatBusy(true);
 
-    if (isTauri && !modelConfig.apiKey) {
+    if (
+      isTauri
+      && (
+        !modelConfig.apiKey.trim()
+        || !modelConfig.baseUrl.trim()
+        || !modelConfig.model.trim()
+      )
+    ) {
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -2281,6 +2314,7 @@ function App() {
         baseUrl: modelConfig.baseUrl,
         model: modelConfig.model,
         provider: modelConfig.provider,
+        reasoningEffort: modelConfig.reasoningEffort,
         message: clean,
         locale,
         knowledgeRoot: library.root,
@@ -2330,13 +2364,29 @@ function App() {
     setChatMessages([]);
   };
   const saveModelConfig = (config: ModelSettings) => {
-    setModelSettings(config);
+    const normalized = normalizeModelSettings(config);
+    setModelSettings(normalized);
     modelConfigSaveQueueRef.current = modelConfigSaveQueueRef.current
       .catch(() => undefined)
-      .then(() => persistModelConfig(config))
+      .then(() => persistModelConfig(normalized))
       .catch((error) => {
         console.error('Could not save the model config.', error);
       });
+  };
+  const selectComposerModel = (providerKey: string, model: string) => {
+    const provider = modelSettings.providers[providerKey];
+    if (!provider || !configuredProviderModels(provider).includes(model)) return;
+    saveModelConfig({
+      ...modelSettings,
+      activeProvider: providerKey,
+      providers: {
+        ...modelSettings.providers,
+        [providerKey]: { ...provider, model },
+      },
+    });
+  };
+  const selectReasoningEffort = (reasoningEffort: ReasoningEffort) => {
+    saveModelConfig({ ...modelSettings, reasoningEffort });
   };
 
   const references = useMemo(() => getLinks(noteMarkdown), [noteMarkdown]);
@@ -2394,6 +2444,10 @@ function App() {
           initialSection={settingsSection}
           locale={locale}
           config={modelSettings}
+          catalog={modelCatalog}
+          catalogLoading={modelCatalogLoading}
+          catalogError={modelCatalogError}
+          onRefreshCatalog={() => void refreshModelCatalog(true).catch(() => undefined)}
           onChange={saveModelConfig}
           onLocale={setLocale}
           themeMode={themeMode}
@@ -2670,6 +2724,10 @@ function App() {
           contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
           usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
           modelConfig={modelConfig}
+          modelSettings={modelSettings}
+          modelCatalog={modelCatalog}
+          onModelChange={selectComposerModel}
+          onReasoningEffortChange={selectReasoningEffort}
           currencyMode={currencyMode}
           locale={locale}
         />
@@ -5977,6 +6035,10 @@ function ChatComposer({
   contextMaxBytes,
   usage,
   modelConfig,
+  modelSettings,
+  modelCatalog,
+  onModelChange,
+  onReasoningEffortChange,
   currencyMode,
   locale,
 }: {
@@ -5992,13 +6054,22 @@ function ChatComposer({
   contextMaxBytes: number;
   usage: ConversationUsage;
   modelConfig: ModelConfig;
+  modelSettings: ModelSettings;
+  modelCatalog: ModelCatalog;
+  onModelChange: (providerKey: string, model: string) => void;
+  onReasoningEffortChange: (effort: ReasoningEffort) => void;
   currencyMode: CurrencyMode;
   locale: Locale;
 }) {
   const [value, setValue] = useState('');
-  const configuredModel = modelConfig.model.trim() || providerOptions[modelConfig.provider].modelPlaceholder;
-  const [previewModel, setPreviewModel] = useState(configuredModel);
-  const [previewReasoningPosition, setPreviewReasoningPosition] = useState(2);
+  const configuredModel = modelConfig.model.trim();
+  const modelChoices = useMemo(() => configuredModelChoices(modelSettings), [modelSettings]);
+  const reasoningLevels = configuredModel ? COMPOSER_REASONING_LEVELS : [];
+  const configuredReasoningIndex = Math.max(
+    0,
+    reasoningLevels.findIndex((level) => level.value === modelConfig.reasoningEffort),
+  );
+  const [previewReasoningPosition, setPreviewReasoningPosition] = useState(configuredReasoningIndex);
   const [reasoningDragging, setReasoningDragging] = useState(false);
   const [reasoningDragPhase, setReasoningDragPhase] = useState<'idle' | 'slow' | 'catchup' | 'tracking'>('idle');
   const reasoningMotionTimersRef = useRef<number[]>([]);
@@ -6011,34 +6082,33 @@ function ChatComposer({
   const contextPercent = `${Math.min(100, Math.round((contextBytes / contextMaxBytes) * 100))}%`;
   const currency = resolveCurrency(currencyMode, locale);
   const currencySymbol = currency === 'CNY' ? '¥' : '$';
-  const cost = estimateDeepSeekCost(usage, modelConfig, currency);
+  const cost = estimateModelCost(usage, modelConfig, currency, modelCatalog);
   const costLabel = usage.requestCount === 0
     ? `${currencySymbol}0.00`
     : cost == null
       ? '—'
     : `${currencySymbol}${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
   const numberFormat = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
-  const previewModelOptions = useMemo(() => {
-    const examples = modelConfig.provider === 'anthropic'
-      ? ['claude-opus-5', 'claude-opus-5-1M']
-      : ['deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner'];
-    return Array.from(new Set([configuredModel, ...examples]));
-  }, [configuredModel, modelConfig.provider]);
   const reasoningPosition = Math.min(
-    COMPOSER_REASONING_LEVELS.length - 1,
+    Math.max(0, reasoningLevels.length - 1),
     Math.max(0, previewReasoningPosition),
   );
   const selectedReasoningIndex = Math.round(reasoningPosition);
-  const selectedReasoning = COMPOSER_REASONING_LEVELS[selectedReasoningIndex]
-    ?? COMPOSER_REASONING_LEVELS[2];
-  const selectedReasoningLabel = selectedReasoning.label[locale];
-  const reasoningAtMax = reasoningPosition >= COMPOSER_REASONING_LEVELS.length - 1 - 0.001;
+  const selectedReasoning = reasoningLevels[selectedReasoningIndex];
+  const selectedReasoningLabel = selectedReasoning?.label[locale]
+    ?? (locale === 'zh' ? '标准' : 'Standard');
+  const reasoningAtMax = selectedReasoning?.value === 'max';
+  const reasoningStepPercent = reasoningLevels.length > 1
+    ? 100 / (reasoningLevels.length - 1)
+    : 0;
   const snapReasoningPosition = (position: number) => {
     const nextIndex = Math.min(
-      COMPOSER_REASONING_LEVELS.length - 1,
+      Math.max(0, reasoningLevels.length - 1),
       Math.max(0, Math.round(position)),
     );
     setPreviewReasoningPosition(nextIndex);
+    const effort = reasoningLevels[nextIndex]?.value;
+    if (effort) onReasoningEffortChange(effort);
   };
   const clearReasoningMotionTimers = () => {
     reasoningMotionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -6062,8 +6132,8 @@ function ChatComposer({
   };
 
   useEffect(() => {
-    setPreviewModel(configuredModel);
-  }, [configuredModel, modelConfig.provider]);
+    setPreviewReasoningPosition(configuredReasoningIndex);
+  }, [configuredReasoningIndex, configuredModel]);
 
   useEffect(() => () => {
     reasoningMotionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -6153,44 +6223,60 @@ function ChatComposer({
                 aria-haspopup="listbox"
                 onClick={() => setOpenComposerMenu((current) => current === 'model' ? null : 'model')}
               >
-                {previewModel}
+                {configuredModel || (locale === 'zh' ? '选择模型' : 'Choose model')}
               </button>
               {openComposerMenu === 'model' && (
                 <div
                   className="composer-preview-popover composer-model-popover"
                   role="listbox"
-                  aria-label={locale === 'zh' ? '模型预览' : 'Model preview'}
+                  aria-label={locale === 'zh' ? '选择模型' : 'Choose model'}
                 >
-                  {previewModelOptions.map((model) => (
+                  {modelChoices.map(({ providerKey, provider, model }) => (
                     <button
                       type="button"
-                      className={previewModel === model ? 'selected' : ''}
+                      className={modelConfig.providerKey === providerKey && configuredModel === model ? 'selected' : ''}
                       role="option"
-                      aria-selected={previewModel === model}
+                      aria-selected={modelConfig.providerKey === providerKey && configuredModel === model}
                       onClick={() => {
-                        setPreviewModel(model);
+                        onModelChange(providerKey, model);
                         setOpenComposerMenu(null);
                       }}
-                      key={model}
+                      key={`${providerKey}:${model}`}
                     >
-                      <span>{model}</span>
-                      {previewModel === model && <Check size={15} strokeWidth={2.2} />}
+                      <ProviderMark providerId={provider.providerId} />
+                      <span>
+                        <strong>{model}</strong>
+                        <small>{modelCatalog[provider.providerId]?.name || provider.name}</small>
+                      </span>
+                      {modelConfig.providerKey === providerKey && configuredModel === model
+                        && <Check size={15} strokeWidth={2.2} />}
                     </button>
                   ))}
+                  {modelChoices.length === 0 && (
+                    <p className="composer-model-empty">
+                      {locale === 'zh' ? '请先在设置中添加模型。' : 'Add a model in Settings first.'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
 
             <div className="composer-preview-control">
-              <button
-                type="button"
-                className={`composer-preview-trigger composer-reasoning-level${reasoningAtMax ? ' is-max' : ''}`}
-                aria-expanded={openComposerMenu === 'reasoning'}
-                aria-haspopup="dialog"
-                onClick={() => setOpenComposerMenu((current) => current === 'reasoning' ? null : 'reasoning')}
-              >
-                {selectedReasoningLabel}
-              </button>
+              {reasoningLevels.length > 0 ? (
+                <button
+                  type="button"
+                  className={`composer-preview-trigger composer-reasoning-level${reasoningAtMax ? ' is-max' : ''}`}
+                  aria-expanded={openComposerMenu === 'reasoning'}
+                  aria-haspopup="dialog"
+                  onClick={() => setOpenComposerMenu((current) => current === 'reasoning' ? null : 'reasoning')}
+                >
+                  {selectedReasoningLabel}
+                </button>
+              ) : (
+                <span className="composer-reasoning-unavailable">
+                  {locale === 'zh' ? '标准' : 'Standard'}
+                </span>
+              )}
               {openComposerMenu === 'reasoning' && (
                 <div
                   className="composer-preview-popover composer-reasoning-popover"
@@ -6210,14 +6296,14 @@ function ChatComposer({
                       <span
                         className="composer-reasoning-fill"
                         style={{
-                          width: `calc(8px + ${reasoningPosition * 25}% - ${reasoningPosition * 4}px)`,
+                          width: `calc(8px + ${reasoningPosition * reasoningStepPercent}% - ${reasoningPosition * 4}px)`,
                         }}
                       />
                       <div className="composer-reasoning-points">
-                        {COMPOSER_REASONING_LEVELS.map((level, index) => (
+                        {reasoningLevels.map((level, index) => (
                           <span
-                            className={`${index === COMPOSER_REASONING_LEVELS.length - 1 ? 'last ' : ''}${index === selectedReasoningIndex ? 'selected' : ''}`}
-                            style={{ left: `${index * 25}%` }}
+                            className={`${index === reasoningLevels.length - 1 ? 'last ' : ''}${index === selectedReasoningIndex ? 'selected' : ''}`}
+                            style={{ left: `${index * reasoningStepPercent}%` }}
                             key={level.value}
                           />
                         ))}
@@ -6227,13 +6313,13 @@ function ChatComposer({
                       className="composer-reasoning-thumb"
                       aria-hidden="true"
                       style={{
-                        left: `calc(8px + ${reasoningPosition * 25}% - ${reasoningPosition * 4}px)`,
+                        left: `calc(8px + ${reasoningPosition * reasoningStepPercent}% - ${reasoningPosition * 4}px)`,
                       }}
                     />
                     <input
                       type="range"
                       min="0"
-                      max={COMPOSER_REASONING_LEVELS.length - 1}
+                      max={reasoningLevels.length - 1}
                       step="any"
                       value={reasoningPosition}
                       aria-label={locale === 'zh' ? '推理强度' : 'Reasoning effort'}
@@ -6658,10 +6744,599 @@ function RightRail({
   );
 }
 
+function formatCompactTokens(value: number): string {
+  if (value >= 1_000_000) return `${Number((value / 1_000_000).toFixed(1))}M`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
+  return String(value);
+}
+
+const CUSTOM_PROVIDER_PREFIX = 'custom-';
+
+function isCustomProviderId(providerId: string): boolean {
+  return providerId.startsWith(CUSTOM_PROVIDER_PREFIX);
+}
+
+function ProviderMark({ providerId }: { providerId: string }) {
+  return isCustomProviderId(providerId)
+    ? <Box className="provider-mark provider-custom-mark" aria-hidden="true" />
+    : <img className="provider-mark" src={providerLogoUrl(providerId)} alt="" />;
+}
+
+function ModelSettingsSection({
+  locale,
+  config,
+  catalog,
+  catalogLoading,
+  catalogError,
+  currencyMode,
+  onChange,
+  onCurrencyMode,
+  onRefreshCatalog,
+  t,
+}: {
+  locale: Locale;
+  config: ModelSettings;
+  catalog: ModelCatalog;
+  catalogLoading: boolean;
+  catalogError: string;
+  currencyMode: CurrencyMode;
+  onChange: (config: ModelSettings) => void;
+  onCurrencyMode: (currencyMode: CurrencyMode) => void;
+  onRefreshCatalog: () => void;
+  t: (key: TranslationKey) => string;
+}) {
+  const resolvedCurrency = resolveCurrency(currencyMode, locale);
+  const configuredProviders = Object.values(config.providers);
+  const catalogProviders = useMemo(() => {
+    const supported = supportedCatalogProviders(catalog);
+    const known = new Set(supported.map((provider) => provider.id));
+    const missing = configuredProviders
+      .filter((provider) => !known.has(provider.providerId))
+      .map((provider) => ({
+        id: provider.providerId,
+        name: provider.name,
+        npm: '',
+        api: provider.baseUrl,
+        doc: undefined,
+        models: {},
+      }));
+    return [...supported, ...missing];
+  }, [catalog, configuredProviders]);
+  const initialProviderId = config.providers[config.activeProvider]?.providerId;
+  const [selectedProviderId, setSelectedProviderId] = useState(initialProviderId || 'openai');
+  const [providerSearch, setProviderSearch] = useState('');
+  const [modelSearch, setModelSearch] = useState('');
+  const [manualModel, setManualModel] = useState('');
+  const [addingCustomProvider, setAddingCustomProvider] = useState(false);
+  const [customProviderName, setCustomProviderName] = useState('');
+  const selectedCatalogProvider = catalogProviders.find(
+    (provider) => provider.id === selectedProviderId,
+  );
+  const configuredEntry = Object.entries(config.providers).find(
+    ([, provider]) => provider.providerId === selectedProviderId,
+  );
+  const configuredKey = configuredEntry?.[0] || selectedProviderId;
+  const selectedConfig = configuredEntry?.[1];
+  const isActiveProvider = config.activeProvider === configuredKey;
+  const filteredProviders = useMemo(() => {
+    const query = providerSearch.trim().toLowerCase();
+    const defaultProviderId = config.providers[config.activeProvider]?.providerId;
+    const configuredByProviderId = new Map(
+      Object.values(config.providers).map((provider) => [provider.providerId, provider]),
+    );
+    const priority = (providerId: string) => {
+      if (isCustomProviderId(providerId)) return 0;
+      if (providerId === defaultProviderId) return 1;
+      const configured = configuredByProviderId.get(providerId);
+      if (configured && configuredProviderModels(configured).length > 0) return 2;
+      return 3;
+    };
+    return catalogProviders
+      .filter((provider) =>
+        !query || `${provider.name} ${provider.id}`.toLowerCase().includes(query),
+      )
+      .sort((left, right) => priority(left.id) - priority(right.id));
+  }, [catalogProviders, config.activeProvider, config.providers, providerSearch]);
+  const filteredModels = useMemo(() => {
+    if (!selectedCatalogProvider) return [];
+    const query = modelSearch.trim().toLowerCase();
+    const enabled = new Set(selectedConfig?.models || []);
+    const registeredCustomModels = new Set(selectedConfig?.customModels || []);
+    const catalogModels = Object.values(selectedCatalogProvider.models)
+      .filter((model) => !registeredCustomModels.has(model.id));
+    const catalogModelIds = new Set(catalogModels.map((model) => model.id));
+    const localModelIds = Array.from(new Set([
+      ...(selectedConfig?.customModels || []),
+      ...configuredProviderModels(selectedConfig || { models: [] })
+        .filter((modelId) => !catalogModelIds.has(modelId)),
+    ]));
+    const manualModels = localModelIds
+      .map((modelId): ModelCatalogModel => ({
+        id: modelId,
+        name: modelId,
+        reasoning: false,
+        reasoningOptions: [],
+        toolCall: false,
+        attachment: false,
+      }));
+    return [...catalogModels, ...manualModels]
+      .filter((model) =>
+        (model.status !== 'deprecated' || enabled.has(model.id))
+        && (!query || `${model.name} ${model.id} ${model.family || ''}`.toLowerCase().includes(query)),
+      )
+      .sort((left, right) => {
+        const selectedDelta = Number(enabled.has(right.id)) - Number(enabled.has(left.id));
+        if (selectedDelta) return selectedDelta;
+        return (right.releaseDate || '').localeCompare(left.releaseDate || '')
+          || left.name.localeCompare(right.name);
+      });
+  }, [modelSearch, selectedCatalogProvider, selectedConfig?.customModels, selectedConfig?.models]);
+
+  useEffect(() => {
+    if (!selectedCatalogProvider && catalogProviders[0]) {
+      setSelectedProviderId(catalogProviders[0].id);
+    }
+  }, [catalogProviders, selectedCatalogProvider]);
+
+  const createProviderConfig = (): ProviderConfig => ({
+    providerId: selectedProviderId,
+    name: selectedCatalogProvider?.name || selectedProviderId,
+    protocol: defaultProtocolForProvider(selectedProviderId),
+    baseUrl: selectedCatalogProvider ? defaultEndpointForProvider(selectedCatalogProvider) : '',
+    apiKey: '',
+    customModels: [],
+    models: [],
+    model: '',
+  });
+  const updateSelectedProvider = (patch: Partial<ProviderConfig>) => {
+    const provider = {
+      ...(selectedConfig || createProviderConfig()),
+      ...patch,
+      protocol: defaultProtocolForProvider(selectedProviderId),
+    };
+    onChange({
+      ...config,
+      activeProvider: config.activeProvider || configuredKey,
+      providers: { ...config.providers, [configuredKey]: provider },
+    });
+  };
+  const toggleModel = (modelId: string) => {
+    const current = selectedConfig || createProviderConfig();
+    const configuredModels = configuredProviderModels(current);
+    const enabled = configuredModels.includes(modelId);
+    const models = enabled
+      ? configuredModels.filter((id) => id !== modelId)
+      : [...configuredModels, modelId];
+    const model = enabled && current.model === modelId
+      ? models[0] || ''
+      : current.model || modelId;
+    onChange({
+      ...config,
+      activeProvider: config.activeProvider || configuredKey,
+      providers: {
+        ...config.providers,
+        [configuredKey]: { ...current, models, model },
+      },
+    });
+  };
+  const activateSelectedProvider = () => {
+    if (!selectedConfig) return;
+    const configuredModels = configuredProviderModels(selectedConfig);
+    if (!configuredModels.length) return;
+    const model = configuredModels.includes(selectedConfig.model)
+      ? selectedConfig.model
+      : configuredModels[0];
+    onChange({
+      ...config,
+      activeProvider: configuredKey,
+      providers: {
+        ...config.providers,
+        [configuredKey]: { ...selectedConfig, models: configuredModels, model },
+      },
+    });
+  };
+  const addManualModel = () => {
+    const modelId = manualModel.trim();
+    if (!modelId) return;
+    const current = selectedConfig || createProviderConfig();
+    const customModels = Array.from(new Set([...current.customModels, modelId]));
+    const models = Array.from(new Set([...configuredProviderModels(current), modelId]));
+    onChange({
+      ...config,
+      activeProvider: config.activeProvider || configuredKey,
+      providers: {
+        ...config.providers,
+        [configuredKey]: {
+          ...current,
+          customModels,
+          models,
+          model: current.model || modelId,
+        },
+      },
+    });
+    setManualModel('');
+  };
+  const deleteManualModel = (modelId: string) => {
+    if (!selectedConfig) return;
+    const customModels = selectedConfig.customModels.filter((id) => id !== modelId);
+    const models = configuredProviderModels(selectedConfig).filter((id) => id !== modelId);
+    const model = selectedConfig.model === modelId
+      ? models[0] || ''
+      : selectedConfig.model;
+    onChange({
+      ...config,
+      providers: {
+        ...config.providers,
+        [configuredKey]: { ...selectedConfig, customModels, models, model },
+      },
+    });
+  };
+  const addCustomProvider = () => {
+    const name = customProviderName.trim();
+    if (!name) return;
+    const providerId = `${CUSTOM_PROVIDER_PREFIX}${crypto.randomUUID()}`;
+    const provider: ProviderConfig = {
+      providerId,
+      name,
+      protocol: 'openai',
+      baseUrl: '',
+      apiKey: '',
+      customModels: [],
+      models: [],
+      model: '',
+    };
+    onChange({
+      ...config,
+      activeProvider: config.activeProvider || providerId,
+      providers: { ...config.providers, [providerId]: provider },
+    });
+    setSelectedProviderId(providerId);
+    setProviderSearch('');
+    setModelSearch('');
+    setCustomProviderName('');
+    setAddingCustomProvider(false);
+  };
+  const deleteCustomProvider = () => {
+    if (!selectedConfig || !isCustomProviderId(selectedProviderId)) return;
+    const providers = { ...config.providers };
+    delete providers[configuredKey];
+    const nextActiveProvider = config.activeProvider === configuredKey
+      ? Object.entries(providers).find(([, provider]) => configuredProviderModels(provider).length)?.[0]
+        || Object.keys(providers)[0]
+        || ''
+      : config.activeProvider;
+    onChange({ ...config, activeProvider: nextActiveProvider, providers });
+    setSelectedProviderId(
+      providers[nextActiveProvider]?.providerId
+        || supportedCatalogProviders(catalog)[0]?.id
+        || 'openai',
+    );
+    setModelSearch('');
+  };
+
+  return (
+    <section className="settings-section settings-model-section">
+      <div className="settings-section-heading settings-model-section-heading">
+          <h2>{locale === 'zh' ? '模型' : 'Models'}</h2>
+        <button
+          type="button"
+          className="settings-refresh-catalog"
+          onClick={onRefreshCatalog}
+          disabled={catalogLoading}
+        >
+          <RefreshCw size={15} className={catalogLoading ? 'is-spinning' : ''} />
+          {locale === 'zh' ? '刷新目录' : 'Refresh catalog'}
+        </button>
+        <p>{locale === 'zh' ? '模型的规划决定输出结果和运行上下文，以及不同的价格。' : 'Model configuration determines output results, runtime context, and pricing.'}</p>
+        <div className="settings-currency-control">
+          <span>{t('currencyUnit')}</span>
+          <div className="settings-currency-symbols">
+            {(['CNY', 'USD'] as const).map((currency) => (
+              <button
+                type="button"
+                className={resolvedCurrency === currency ? 'active' : ''}
+                onClick={() => onCurrencyMode(currency)}
+                aria-pressed={resolvedCurrency === currency}
+                aria-label={currency === 'CNY'
+                  ? (locale === 'zh' ? '货币单位：人民币' : 'Currency: Chinese yuan')
+                  : (locale === 'zh' ? '货币单位：美元' : 'Currency: US dollar')}
+                key={currency}
+              >
+                {currency === 'CNY' ? '¥' : '$'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {catalogError && (
+        <p className="settings-catalog-error">
+          {locale === 'zh' ? '目录暂时不可用：' : 'Catalog unavailable: '}{catalogError}
+        </p>
+      )}
+      <div className="settings-model-browser">
+        <div className="settings-provider-directory">
+          <div className="settings-search-field">
+            <Search size={15} />
+            <input
+              value={providerSearch}
+              onChange={(event) => setProviderSearch(event.target.value)}
+              placeholder={locale === 'zh' ? '搜索供应商' : 'Search providers'}
+              aria-label={locale === 'zh' ? '搜索供应商' : 'Search providers'}
+            />
+            {providerSearch && (
+              <button
+                type="button"
+                className="settings-search-clear"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setProviderSearch('')}
+                aria-label={locale === 'zh' ? '清空供应商搜索' : 'Clear provider search'}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {addingCustomProvider ? (
+            <form
+              className="settings-custom-provider-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addCustomProvider();
+              }}
+            >
+              <input
+                value={customProviderName}
+                onChange={(event) => setCustomProviderName(event.target.value)}
+                placeholder={locale === 'zh' ? '自定义名称' : 'Custom name'}
+                aria-label={locale === 'zh' ? '自定义名称' : 'Custom name'}
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={!customProviderName.trim()}
+                aria-label={locale === 'zh' ? '添加自定义供应商' : 'Add custom provider'}
+              >
+                <Check size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddingCustomProvider(false);
+                  setCustomProviderName('');
+                }}
+                aria-label={locale === 'zh' ? '取消添加' : 'Cancel adding provider'}
+              >
+                <X size={14} />
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="settings-add-provider"
+              onClick={() => setAddingCustomProvider(true)}
+            >
+              <Plus size={15} />
+              {locale === 'zh' ? '添加自定义' : 'Add custom'}
+            </button>
+          )}
+          <div className="settings-provider-list">
+            {filteredProviders.map((provider) => {
+              const entry = Object.entries(config.providers).find(
+                ([, item]) => item.providerId === provider.id,
+              );
+              const selectedModelCount = entry
+                ? configuredProviderModels(entry[1]).length
+                : 0;
+              return (
+                <button
+                  type="button"
+                  className={selectedProviderId === provider.id ? 'active' : ''}
+                  onClick={() => {
+                    setSelectedProviderId(provider.id);
+                    setModelSearch('');
+                  }}
+                  key={provider.id}
+                >
+                  <ProviderMark providerId={provider.id} />
+                  <span>{provider.name}</span>
+                  {entry?.[0] === config.activeProvider ? (
+                    <small>{locale === 'zh' ? '默认' : 'Default'}</small>
+                  ) : selectedModelCount > 0 ? (
+                    <small>{selectedModelCount}</small>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="settings-provider-detail">
+          {selectedCatalogProvider ? (
+            <>
+              <div className="settings-provider-header">
+                <ProviderMark providerId={selectedCatalogProvider.id} />
+                <h3>{selectedCatalogProvider.name}</h3>
+                {isCustomProviderId(selectedProviderId) ? (
+                  <button
+                    type="button"
+                    className="settings-provider-docs settings-delete-provider"
+                    onClick={deleteCustomProvider}
+                    aria-label={locale === 'zh' ? '删除自定义供应商' : 'Delete custom provider'}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                ) : selectedCatalogProvider.doc ? (
+                  <button
+                    type="button"
+                    className="settings-provider-docs"
+                    onClick={() => void openExternalUrl(selectedCatalogProvider.doc!)}
+                    aria-label={locale === 'zh' ? '打开供应商文档' : 'Open provider documentation'}
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={`settings-use-provider${isActiveProvider ? ' active' : ''}`}
+                  onClick={activateSelectedProvider}
+                  disabled={!selectedConfig || configuredProviderModels(selectedConfig).length === 0 || isActiveProvider}
+                >
+                  {isActiveProvider
+                    ? (locale === 'zh' ? '默认' : 'Default')
+                    : (locale === 'zh' ? '设为默认' : 'Set as default')}
+                </button>
+              </div>
+
+              <div className="settings-provider-fields">
+                <label>
+                  <span>{t('baseUrl')}</span>
+                  <input
+                    value={selectedConfig?.baseUrl ?? defaultEndpointForProvider(selectedCatalogProvider)}
+                    onChange={(event) => updateSelectedProvider({ baseUrl: event.target.value })}
+                    spellCheck={false}
+                  />
+                </label>
+                <label>
+                  <span>{t('apiKey')}</span>
+                  <input
+                    type="password"
+                    value={selectedConfig?.apiKey || ''}
+                    onChange={(event) => updateSelectedProvider({ apiKey: event.target.value })}
+                    placeholder={selectedProviderId === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+
+              {selectedProviderId === 'anthropic' && (
+                <p className="settings-protocol-note">
+                  {locale === 'zh'
+                    ? 'Anthropic 固定使用原生 Messages API 协议。'
+                    : 'Anthropic always uses its native Messages API protocol.'}
+                </p>
+              )}
+
+              <div className="settings-model-picker-header">
+                <div>
+                  <h4>{locale === 'zh' ? '输入框中可选的模型' : 'Models available in the composer'}</h4>
+                  <p>{locale === 'zh' ? '勾选后即可在 AI 输入框直接切换。' : 'Selected models become available directly in the AI composer.'}</p>
+                </div>
+                <div className="settings-search-field settings-model-search">
+                  <Search size={15} />
+                  <input
+                    value={modelSearch}
+                    onChange={(event) => setModelSearch(event.target.value)}
+                    placeholder={locale === 'zh' ? '搜索模型' : 'Search models'}
+                    aria-label={locale === 'zh' ? '搜索模型' : 'Search models'}
+                  />
+                  {modelSearch && (
+                    <button
+                      type="button"
+                      className="settings-search-clear"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setModelSearch('')}
+                      aria-label={locale === 'zh' ? '清空模型搜索' : 'Clear model search'}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="settings-model-list">
+                {filteredModels.map((model) => {
+                  const enabled = selectedConfig?.models.includes(model.id) || false;
+                  const isManualModel = !Object.prototype.hasOwnProperty.call(
+                    selectedCatalogProvider.models,
+                    model.id,
+                  ) || selectedConfig?.customModels.includes(model.id);
+                  if (isManualModel) {
+                    return (
+                      <div
+                        className={`settings-model-row settings-custom-model-row${enabled ? ' selected' : ''}`}
+                        key={model.id}
+                      >
+                        <button
+                          type="button"
+                          className="settings-custom-model-toggle"
+                          aria-pressed={enabled}
+                          onClick={() => toggleModel(model.id)}
+                        >
+                          <span className="settings-model-check">{enabled && <Check size={14} />}</span>
+                          <span className="settings-model-copy">
+                            <strong>{model.id}</strong>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-custom-model-delete"
+                          onClick={() => deleteManualModel(model.id)}
+                          aria-label={locale === 'zh'
+                            ? `删除自定义模型 ${model.id}`
+                            : `Delete custom model ${model.id}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      type="button"
+                      className={`settings-model-row${enabled ? ' selected' : ''}`}
+                      aria-pressed={enabled}
+                      onClick={() => toggleModel(model.id)}
+                      key={model.id}
+                    >
+                      <span className="settings-model-check">{enabled && <Check size={14} />}</span>
+                      <span className="settings-model-copy">
+                        <strong>{model.name}</strong>
+                        <small>{model.id}</small>
+                      </span>
+                      <span className="settings-model-meta">
+                        {model.reasoning && <small>{locale === 'zh' ? '推理' : 'Reasoning'}</small>}
+                        {model.limit?.context && <small>{formatCompactTokens(model.limit.context)}</small>}
+                        {model.cost?.input != null && model.cost.output != null
+                          && <small>${model.cost.input} → ${model.cost.output}/M</small>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="settings-manual-model">
+                <input
+                  value={manualModel}
+                  onChange={(event) => setManualModel(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') addManualModel();
+                  }}
+                  placeholder={locale === 'zh' ? '目录中没有？输入模型 ID' : 'Not listed? Enter a model ID'}
+                  aria-label={locale === 'zh' ? '自定义模型 ID' : 'Custom model ID'}
+                  spellCheck={false}
+                />
+                <button type="button" onClick={addManualModel} disabled={!manualModel.trim()}>
+                  {locale === 'zh' ? '添加' : 'Add'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="settings-catalog-loading">
+              <LoaderCircle size={18} className={catalogLoading ? 'is-spinning' : ''} />
+              {locale === 'zh' ? '正在读取模型目录…' : 'Loading model catalog…'}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SettingsPage({
   initialSection,
   locale,
   config,
+  catalog,
+  catalogLoading,
+  catalogError,
+  onRefreshCatalog,
   themeMode,
   currencyMode,
   onChange,
@@ -6674,6 +7349,10 @@ function SettingsPage({
   initialSection: SettingsSectionId;
   locale: Locale;
   config: ModelSettings;
+  catalog: ModelCatalog;
+  catalogLoading: boolean;
+  catalogError: string;
+  onRefreshCatalog: () => void;
   themeMode: ThemeMode;
   currencyMode: CurrencyMode;
   onChange: (config: ModelSettings) => void;
@@ -6685,47 +7364,18 @@ function SettingsPage({
 }) {
   const [draft, setDraft] = useState(config);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection);
-
-  const updateProvider = (provider: ModelProvider) => {
-    const next = {
-      ...draft,
-      activeProvider: provider,
-    };
-    setDraft(next);
-    onChange(next);
-  };
-
-  const updateDraft = (patch: Partial<ProviderConfig>) => {
-    const provider = draft.activeProvider;
-    const next = {
-      ...draft,
-      providers: {
-        ...draft.providers,
-        [provider]: { ...draft.providers[provider], ...patch },
-      },
-    };
-    setDraft(next);
-    onChange(next);
-  };
-
-  const activeConfig = draft.providers[draft.activeProvider];
-  const activeOption = providerOptions[draft.activeProvider];
+  useEffect(() => setDraft(config), [config]);
   const settingsSections: Array<{
     id: SettingsSectionId;
     label: string;
     icon: ReactNode;
   }> = [
-    { id: 'model', label: t('settingsModel'), icon: <Bot size={18} strokeWidth={1.8} /> },
-    { id: 'appearance', label: t('settingsAppearance'), icon: <Monitor size={18} strokeWidth={1.8} /> },
+    { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
+    { id: 'appearance', label: t('settingsAppearance'), icon: <Sun size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
     ?? settingsSections[0];
   const visibleSection = currentSection.id;
-  const resolvedCurrency = resolveCurrency(currencyMode, locale);
-  const sectionDescription = visibleSection === 'model'
-    ? (locale === 'zh' ? '配置 TierNote 用来整理与理解笔记的 AI 服务。' : 'Configure the AI service TierNote uses to organize and understand notes.')
-    : (locale === 'zh' ? '调整 TierNote 的显示方式与界面语言。' : 'Choose how TierNote looks and which language it uses.');
-
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -6735,7 +7385,7 @@ function SettingsPage({
   }, [onClose]);
 
   return (
-    <section className="settings-page" aria-labelledby="settings-title">
+    <section className="settings-page" aria-label={currentSection.label}>
       <aside className="settings-sidebar">
         <button type="button" className="settings-back" onClick={onClose}>
           <ChevronLeft size={18} strokeWidth={1.8} />
@@ -6771,85 +7421,23 @@ function SettingsPage({
       <main className="settings-workspace">
         <div className="settings-workspace-scroll">
           <div className={`settings-panel settings-panel-${visibleSection}`}>
-            <header className="settings-page-header">
-              <h1 id="settings-title">{currentSection.label}</h1>
-              <p>{sectionDescription}</p>
-            </header>
-
             {visibleSection === 'model' && (
               <>
-                <section className="settings-section">
-                  <div className="settings-section-heading">
-                    <h2>{locale === 'zh' ? '模型服务' : 'Model service'}</h2>
-                    <p>{locale === 'zh' ? 'OpenAI 与 Anthropic 协议的配置相互独立，切换时不会覆盖。' : 'OpenAI and Anthropic protocol settings remain independent when you switch.'}</p>
-                  </div>
-                  <label className="settings-field-label">{t('provider')}</label>
-                  <div className="provider-grid">
-                    {(Object.keys(providerOptions) as ModelProvider[]).map((provider) => (
-                      <button
-                        type="button"
-                        className={draft.activeProvider === provider ? 'active' : ''}
-                        onClick={() => updateProvider(provider)}
-                        key={provider}
-                      >
-                        {providerOptions[provider].label[locale]}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="field-row">
-                    <label>
-                      <span>{t('baseUrl')}</span>
-                      <input
-                        value={activeConfig.baseUrl}
-                        onChange={(event) => updateDraft({ baseUrl: event.target.value })}
-                        placeholder={activeOption.baseUrlPlaceholder}
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label>
-                      <span>{t('model')}</span>
-                      <input
-                        value={activeConfig.model}
-                        onChange={(event) => updateDraft({ model: event.target.value })}
-                        placeholder={activeOption.modelPlaceholder}
-                        spellCheck={false}
-                      />
-                    </label>
-                  </div>
-                  <label className="full-field">
-                    <span>{t('apiKey')}</span>
-                    <input
-                      type="password"
-                      value={activeConfig.apiKey}
-                      onChange={(event) => updateDraft({ apiKey: event.target.value })}
-                      placeholder={activeOption.apiKeyPlaceholder}
-                      autoComplete="off"
-                    />
-                  </label>
-                </section>
-
-                <section className="settings-section">
-                  <div className="settings-section-heading">
-                    <h2>{t('pricingCurrency')}</h2>
-                    <p>{t('currencyAutoHint')}</p>
-                  </div>
-                  <div className="currency-switch">
-                    {(['auto', 'CNY', 'USD'] as CurrencyMode[]).map((currency) => (
-                      <button
-                        type="button"
-                        className={currencyMode === currency ? 'active' : ''}
-                        onClick={() => onCurrencyMode(currency)}
-                        key={currency}
-                      >
-                        {currency === 'auto'
-                          ? `${t('currencyAuto')} (${resolvedCurrency === 'CNY' ? '¥' : '$'})`
-                          : currency === 'CNY'
-                            ? `¥ ${t('currencyCny')}`
-                            : `$ ${t('currencyUsd')}`}
-                      </button>
-                    ))}
-                  </div>
-                </section>
+                <ModelSettingsSection
+                  locale={locale}
+                  config={draft}
+                  catalog={catalog}
+                  catalogLoading={catalogLoading}
+                  catalogError={catalogError}
+                  currencyMode={currencyMode}
+                  onChange={(next) => {
+                    setDraft(next);
+                    onChange(next);
+                  }}
+                  onCurrencyMode={onCurrencyMode}
+                  onRefreshCatalog={onRefreshCatalog}
+                  t={t}
+                />
               </>
             )}
 
@@ -7067,7 +7655,14 @@ function CaptureGuideDialog({
       setError(t('captureInputRequired'));
       return;
     }
-    if (isTauri && !config.apiKey.trim()) {
+    if (
+      isTauri
+      && (
+        !config.apiKey.trim()
+        || !config.baseUrl.trim()
+        || !config.model.trim()
+      )
+    ) {
       setError(t('captureNeedsModel'));
       return;
     }
@@ -7080,6 +7675,8 @@ function CaptureGuideDialog({
           apiKey: config.apiKey,
           baseUrl: config.baseUrl,
           model: config.model,
+          provider: config.provider,
+          reasoningEffort: config.reasoningEffort,
           input: clean,
           locale,
         }),

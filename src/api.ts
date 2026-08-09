@@ -12,10 +12,12 @@ import type {
   LibrarySnapshot,
   MemoryItem,
   MemorySuggestion,
+  ModelCatalog,
   ModelSettings,
   PrepareCaptureRequest,
 } from './types';
 import { normalizeModelSettings } from './modelSettings';
+import { normalizeModelCatalog } from './modelCatalog';
 
 export const isTauri = '__TAURI_INTERNALS__' in window;
 
@@ -89,6 +91,15 @@ export async function loadLibrary(root: string | undefined, locale: 'zh' | 'en')
   return invoke<LibrarySnapshot>('load_library', { root: root || null, locale });
 }
 
+export async function loadModelCatalog(refresh = false): Promise<ModelCatalog> {
+  if (!isTauri) {
+    const response = await fetch('https://models.dev/api.json', { cache: refresh ? 'reload' : 'default' });
+    if (!response.ok) throw new Error(`models.dev returned HTTP ${response.status}`);
+    return normalizeModelCatalog(await response.json());
+  }
+  return normalizeModelCatalog(await invoke<unknown>('load_model_catalog', { refresh }));
+}
+
 export interface GraphDiagnostics {
   noteCount: number;
   edgeCount: number;
@@ -131,6 +142,17 @@ export async function readNote(root: string, relativePath: string): Promise<stri
     );
   }
   return invoke<string>('read_note', { root, relativePath });
+}
+
+export async function writeNote(
+  root: string,
+  relativePath: string,
+  content: string,
+): Promise<void> {
+  if (!isTauri) {
+    throw new Error('Editing notes is only available in the desktop app.');
+  }
+  await invoke('write_note', { root, relativePath, content });
 }
 
 export async function openNote(root: string, relativePath: string): Promise<void> {

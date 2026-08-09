@@ -30,6 +30,15 @@ test('the five My Info documents expose independent accessible switches', () => 
   assert.doesNotMatch(appSource, /retrievalState\[section\.id\] \? '关闭' : '开启'/);
 });
 
+test('default My Contexts card titles use English title case', () => {
+  for (const title of ['My Resume', 'My Goals', 'My Experience', 'My Lessons', 'Key Records']) {
+    assert.match(appSource, new RegExp(`'${title}'`));
+  }
+  assert.match(i18n, /addMaterial: 'Add Material'/);
+  assert.doesNotMatch(appSource, /'My (resume|goals|experience|lessons)'|'Key records'/);
+  assert.doesNotMatch(i18n, /addMaterial: 'Add material'/);
+});
+
 test('My Info cards open directly without a selected-card state', () => {
   assert.match(appSource, /className="plan-section-card"[\s\S]*?onClick=\{\(\) => onSection\(section\.id\)\}/s);
   assert.doesNotMatch(appSource, /plan-section-card \$\{section\.id === activeSection/);

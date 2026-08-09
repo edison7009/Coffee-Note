@@ -19,16 +19,26 @@ or temporary deployment credentials.
 
 ## Desktop redesign direction (2026-08-07)
 
-- **Ambient Home weather (2026-08-09):** The right side of the Home greeting holds
-  only a compact animated condition image. Clicking it opens a read-only current
-  and four-day forecast whose gear opens Settings > Appearance directly. Current
-  city, recent-city history, search, one-time device location, and plain Open-Meteo
-  attribution live in Appearance. Weather has no removal action; another city
-  replaces the current one. Device coordinates are rounded to 0.1 degrees, forecasts
-  are cached locally for 30 minutes, and location is never requested on launch.
-  Recent history stores up to ten deduplicated, non-breaking city names. Settings
-  changes refresh Home immediately through a local browser event. The mark is
-  absolutely positioned behind the hero layout and respects reduced motion.
+- **Ambient Home weather (2026-08-09):** The open area to the right of the Home
+  greeting holds only a compact animated condition image: no city, temperature,
+  forecast text, provider name, or enclosing card appears on Home. Explicit click
+  opens a read-only lightweight panel with current conditions and four forecast days.
+  Its compact header keeps the forecast title and city on one line, with a gear shortcut
+  directly to Settings > Appearance. All city search, recent-city, one-time device location,
+  and Open-Meteo attribution controls live there. Weather has no removal action; choosing
+  another city replaces the current one. Device coordinates are rounded
+  to 0.1 degrees before saving/requesting, and results are cached locally for 30
+  minutes. It never prompts for location on launch. City search stores up to ten
+  deduplicated recent cities locally and exposes them as direct, non-breaking text actions,
+  replacing generic privacy helper copy. Settings changes dispatch a local browser
+  event so Home refreshes immediately without a restart. The mark is absolutely
+  positioned in the hero
+  background, never consumes horizontal layout space, and may sit behind the
+  greeting as the center narrows. The condition scene is the one Home exception to
+  the static-motion rule: slow cloud/rain/snow motion only, with the global
+  reduced-motion rule providing a static fallback. Keep the weather provider behind
+  the normalized frontend module so production licensing or a proxy can replace the
+  prototype endpoint without changing Home.
 - **Typography floor (2026-08-07):** Desktop UI text must never render below
   **13px** for readable/interactive text and **12px** for technical metadata
   (counts, shortcuts, timestamps, badges). Left navigation uses **15px**,
@@ -191,17 +201,27 @@ to the product template.
   controls on the left.
 - The desktop app is single-instance. Launching it again must restore and focus
   the existing main window instead of opening another process/window.
-- Settings opens from the text action immediately to the right of Help in the
+- Settings opens from the **Settings** text action immediately to the right of Help in the
   title-bar menu; do not duplicate it near the window controls. It is a global
   workspace mode rather than a modal dialog: below the shared title bar, a
   dedicated settings navigation rail replaces the normal library rail while one
   continuous work surface replaces both the center pane and contextual right
   rail. Keep two focused categories: model and appearance. Knowledge-library
   switching stays on the Home row and File menu, so it is not duplicated in
-  Settings. Currency controls belong at the bottom of the model page rather than in a
-  separate usage/cost category. A visible Back to app action exits settings;
+  Settings. The model page places one compact Currency label with `¥` / `$`
+  symbol controls directly below Refresh Catalog; do not create a separate
+  currency section or add explanatory pricing copy. A visible Back to app action exits settings;
   Escape does the same. The settings rail has no redundant Settings heading;
-  version and Feedback share one footer row. Do not collapse unrelated settings
+  version and Feedback share one unwrapped footer row. The model navigation item
+  is named **Models** to match common AI app settings language. Settings scrollbars, including the
+  outer work surface and provider directory, stay thin with transparent tracks
+  and low-contrast thumbs. The settings navigation rail is 220px wide on the
+  ordinary desktop layout. Appearance uses one continuous grouped surface: theme
+  and language are compact label/control rows, and Weather forecast follows with
+  current city at the header's right, recent cities below, and the current-location
+  action beside city search. Open-Meteo attribution
+  is plain text in the weather section description, with no separate footer or link.
+  Do not collapse unrelated settings
   into one long form.
 - Remove redundant headers, helper labels, dark duplicate divider lines,
   “30 秒结论”, model IDs in the chat box, local-context labels, and knowledge
@@ -215,8 +235,9 @@ to the product template.
   provider-reported cache hit rate and token usage, API request count, local
   context percentage, and a cost estimate when current model pricing is known.
   The metrics are stored per conversation and switch with the active chat.
-  The cost unit supports Auto, CNY, and USD. Auto follows the interface language
-  (Chinese uses CNY, English uses USD); CNY and USD use DeepSeek's official
+  The visible cost-unit control offers only `¥` and `$`; a legacy Auto preference
+  resolves from the interface language until the user makes an explicit choice.
+  CNY and USD use DeepSeek's official
   regional token prices directly rather than converting through an exchange
   rate. Persist the preference locally under `tiernote:currency`.
 - Chat uses a minimal two-sided conversation layout: user messages are compact
@@ -263,10 +284,63 @@ to the product template.
   later edits are never overwritten.
 - The **My Plan** rail has five sections: supplements (补剂计划), exercise (运动计划), diet (饮食计划), daily routine (作息计划), and health log (健康记录). Clicking a section opens its own **note page** — `plans/supplements.md`, `plans/exercise.md`, `plans/diet.md`, `plans/daily-routine.md` — rendered like any other library note (new page, back navigation); the health log opens the per-day editor page. The AI maintains the four plan pages via the `update_plan` tool (standard format: goals, current status, concrete arrangements, review notes).
 - AI tools follow the "everything is a note" model: `save_note` (new notes in inbox/dossiers/cases/stories), `update_note` (edit any note by relative path, optionally writing `sources` into frontmatter), `update_plan` (the four plan pages), and `update_tier` (reassign any Markdown note's T1–T5 `tier` frontmatter; `pending` hides it). The home tier list is derived only from tiered Markdown in the currently selected library, so a new library starts empty and switching roots never leaks the Demo list. Loading reads only the first 32 KB needed for metadata rather than parsing note bodies. Drag order is library-local metadata in `.tiernote/tier-order.json`; the Markdown frontmatter remains the source of truth for tier membership. Frontend library work is generation-scoped: selecting another root immediately invalidates pending loads and mutations so an old root can never republish its snapshot over the new workspace. The frontend reloads the library after every agent run so edits appear immediately.
-- AI settings expose OpenAI and Anthropic wire protocols. Each protocol keeps
-  its own API URL, model, and API key, and switching protocols must never
-  overwrite the other protocol's values. New fields start empty; service URLs
-  and model names appear only as visibly marked `e.g.` placeholders.
+- AI settings separate **provider** and **model**; wire protocol is derived. TierNote
+  reads the public `https://models.dev/api.json` catalog for provider names,
+  default OpenAI-compatible endpoints, models, capabilities, context limits,
+  reasoning effort options, and USD pricing; provider marks come from
+  `https://models.dev/logos/{provider}.svg`. The Rust backend caches the bounded,
+  validated catalog for 24 hours at `TierNote/models-dev-catalog.json` in the
+  current user's app-data directory and falls back to that cache while offline.
+  Provider UI uses the canonical models.dev display name only. Do not repeat the
+  internal lowercase provider ID below the name; composer model choices also use
+  the canonical name rather than a legacy stored label.
+  Selected providers may expose multiple composer models. The official Anthropic
+  provider always uses its native Messages API and shows a short inline note;
+  every other provider, including DeepSeek, always uses the OpenAI-compatible
+  protocol. DeepSeek's default base URL is `https://api.deepseek.com`; the old
+  mistaken `/anthropic` default is migrated automatically. Provider URL, API key,
+  selected models, active model, derived protocol, and reasoning
+  effort persist in plaintext `TierNote/config.json` in app-data only. Existing
+  two-protocol configs migrate without discarding their URL, model, or key. In
+  the provider directory, the default provider stays first and providers with
+  selected models move directly below it; untouched catalog providers follow.
+  A configured non-default provider with no selected models keeps its local URL
+  and key but shows no `0` badge.
+  Each provider's model list is fully expanded with no height cap, result limit,
+  or nested scrollbar; the outer settings surface handles the added height.
+  Normalization merges duplicate legacy records that resolve to the same provider
+  ID, preferring the active record and unioning its explicitly selected models. This
+  prevents a configured non-default provider from incorrectly displaying `0`.
+  The provider directory also offers **Add custom**. It asks for a custom name,
+  creates an OpenAI-compatible local configuration, and lets the user add model IDs
+  manually. Custom providers stay together at the top of the directory, use a
+  neutral cube mark, and replace the catalog
+  documentation link with an explicit trash action that removes that provider only.
+  Manually entered model IDs are local records: they are enabled immediately, render
+  once without a duplicate display name, icon, or guessed price, and use the same
+  checkbox as catalog models. Unchecking only removes the model from the composer;
+  its separate local record remains until the row's trash action deletes it. Catalog
+  refreshes may enrich matching metadata but never
+  remove local model selections; even a catalog-deprecated selected model stays visible.
+  The former seeded `deepseek-v4-flash` default is cleared when its legacy
+  OpenAI/Anthropic slot is migrated. Composer model text is valid only when the
+  model remains in the explicit selected-model array; otherwise it reads Choose model.
+- The AI composer model menu and reasoning control are functional configuration,
+  not previews. Model changes update the active provider/model immediately.
+  Every catalog-declared reasoning model exposes TierNote's fixed five choices:
+  `low`, `medium`, `high`, `xhigh`, and `max`. Do not filter or clamp these from
+  models.dev `reasoning_options`; provider endpoints may normalize unsupported
+  intermediate values themselves. Choices are sent as `reasoning_effort` for OpenAI-compatible Chat
+  Completions or `output_config.effort` for Anthropic Messages. Models without a
+  catalog-declared reasoning capability show a non-interactive Standard readout and
+  receive no guessed reasoning parameter.
+- Every outbound model request identifies the app to compatible upstreams with
+  `HTTP-Referer: https://tiernote.org`, `X-OpenRouter-Title: TierNote`, and the
+  backward-compatible `X-Title: TierNote`. This attribution replaces any inherited
+  EchoBird or obsolete TierNote-domain identity and applies to both streaming and
+  synchronous OpenAI-compatible/Anthropic requests.
+- The desktop app's TierNote brand link opens `https://tiernote.org/`. Download and
+  update endpoints remain separately configured until their hosting is migrated.
 - AI provider settings, including API keys, persist as plaintext JSON in the
   current user's app-data directory (`TierNote/config.json`). They must
   never be written into the repository or knowledge library.
