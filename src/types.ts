@@ -21,6 +21,13 @@ export interface Supplement {
   filePath?: string;
 }
 
+export interface PriorityNote {
+  id: string;
+  title: string;
+  tier: string;
+  filePath: string;
+}
+
 export interface Person {
   id: string;
   name: string;
@@ -46,6 +53,7 @@ export interface LibrarySnapshot {
   root: string;
   myInfoRoot: string;
   connected: boolean;
+  priorities: PriorityNote[];
   supplements: Supplement[];
   people: Person[];
   stories: Story[];

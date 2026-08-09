@@ -10,7 +10,9 @@ mod llm_stream;
 mod memory;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
@@ -29,6 +31,8 @@ const LATEST_RELEASE_API: &str = "https://api.github.com/repos/edison7009/TierNo
 const WEBSITE_VERSION_API: &str = "https://tiernote.life/version.json?platform=windows";
 const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://tiernote.life/download/windows";
 const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/releases/download/";
+const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
+const TIER_ORDER_RELATIVE_PATH: &str = ".tiernote/tier-order.json";
 include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,6 +45,27 @@ struct Supplement {
     tier: String,
     summary: String,
     file_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PriorityNote {
+    id: String,
+    title: String,
+    tier: String,
+    file_path: String,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+struct TierOrderIndex {
+    #[serde(default = "tier_order_version")]
+    version: u8,
+    #[serde(default)]
+    tiers: BTreeMap<String, Vec<String>>,
+}
+
+fn tier_order_version() -> u8 {
+    1
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -74,6 +99,7 @@ struct LibrarySnapshot {
     root: String,
     my_info_root: String,
     connected: bool,
+    priorities: Vec<PriorityNote>,
     supplements: Vec<Supplement>,
     people: Vec<Person>,
     stories: Vec<Story>,
@@ -497,22 +523,6 @@ fn split_csv_line(line: &str) -> Vec<String> {
     fields
 }
 
-fn encode_csv_field(value: &str) -> String {
-    if value.contains([',', '"', '\r', '\n']) {
-        format!("\"{}\"", value.replace('"', "\"\""))
-    } else {
-        value.to_string()
-    }
-}
-
-fn join_csv_fields(fields: &[String]) -> String {
-    fields
-        .iter()
-        .map(|field| encode_csv_field(field))
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
 fn tier_rank(tier: &str) -> usize {
     match tier {
         "T1" => 0,
@@ -522,68 +532,6 @@ fn tier_rank(tier: &str) -> usize {
         "T5" => 4,
         _ => 5,
     }
-}
-
-fn move_catalog_item(
-    existing: &str,
-    item_id: &str,
-    target_tier: &str,
-    target_index: usize,
-) -> Result<String, String> {
-    const VALID_TIERS: [&str; 5] = ["T1", "T2", "T3", "T4", "T5"];
-    if !VALID_TIERS.contains(&target_tier) {
-        return Err(format!("Invalid target tier: {target_tier}"));
-    }
-
-    let mut lines = existing.lines();
-    let header = lines
-        .next()
-        .filter(|line| !line.trim().is_empty())
-        .ok_or_else(|| "Strategy catalog is empty".to_string())?
-        .to_string();
-    let mut rows = lines.map(str::to_string).collect::<Vec<_>>();
-    let source_index = rows
-        .iter()
-        .position(|line| {
-            split_csv_line(line)
-                .first()
-                .is_some_and(|id| id.eq_ignore_ascii_case(item_id))
-        })
-        .ok_or_else(|| format!("Could not find '{item_id}' in the strategy catalog"))?;
-
-    let mut fields = split_csv_line(&rows[source_index]);
-    if fields.len() < 7 {
-        return Err(format!("Catalog row for '{item_id}' is incomplete"));
-    }
-    fields[6] = target_tier.to_string();
-    let moved_row = join_csv_fields(&fields);
-    rows.remove(source_index);
-
-    let target_positions = rows
-        .iter()
-        .enumerate()
-        .filter_map(|(index, line)| {
-            let fields = split_csv_line(line);
-            (fields.get(6).map(String::as_str) == Some(target_tier)).then_some(index)
-        })
-        .collect::<Vec<_>>();
-    let insertion_index = if let Some(index) = target_positions.get(target_index) {
-        *index
-    } else if let Some(index) = target_positions.last() {
-        index + 1
-    } else {
-        let target_rank = tier_rank(target_tier);
-        rows.iter()
-            .position(|line| {
-                split_csv_line(line)
-                    .get(6)
-                    .is_some_and(|tier| tier_rank(tier) > target_rank)
-            })
-            .unwrap_or(rows.len())
-    };
-    rows.insert(insertion_index, moved_row);
-
-    Ok(format!("{}\n{}\n", header, rows.join("\n")))
 }
 
 fn clean_markdown_text(value: &str) -> String {
@@ -651,7 +599,7 @@ fn extract_frontmatter_value(markdown: &str, key: &str) -> Option<String> {
         let Some((field, value)) = trimmed.split_once(':') else {
             continue;
         };
-        if field.trim() != key {
+        if !field.trim().eq_ignore_ascii_case(key) {
             continue;
         }
         let value = value.trim();
@@ -724,6 +672,258 @@ fn extract_markdown_title(markdown: &str) -> Option<String> {
             .filter(|title| !title.is_empty())
             .map(ToOwned::to_owned)
     })
+}
+
+fn read_markdown_metadata(path: &Path) -> Option<String> {
+    let file = fs::File::open(path).ok()?;
+    let mut bytes = Vec::new();
+    file.take(TIER_METADATA_MAX_BYTES)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+fn collect_markdown_paths(root: &Path) -> Vec<PathBuf> {
+    fn visit(directory: &Path, paths: &mut Vec<PathBuf>) {
+        let Ok(entries) = fs::read_dir(directory) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if matches!(
+                    name.as_str(),
+                    ".tiernote" | ".git" | "node_modules" | "target"
+                ) {
+                    continue;
+                }
+                visit(&path, paths);
+                continue;
+            }
+            if file_type.is_file()
+                && path.extension().is_some_and(|extension| {
+                    extension.eq_ignore_ascii_case("md")
+                        || extension.eq_ignore_ascii_case("markdown")
+                })
+                && !is_paired_english_companion(&path)
+            {
+                paths.push(path);
+            }
+        }
+    }
+
+    let mut paths = Vec::new();
+    visit(root, &mut paths);
+    paths.sort();
+    paths
+}
+
+fn tier_order_path(root: &Path) -> PathBuf {
+    root.join(TIER_ORDER_RELATIVE_PATH)
+}
+
+fn load_tier_order(root: &Path) -> TierOrderIndex {
+    fs::read_to_string(tier_order_path(root))
+        .ok()
+        .and_then(|contents| serde_json::from_str(&contents).ok())
+        .unwrap_or_else(|| TierOrderIndex {
+            version: tier_order_version(),
+            tiers: BTreeMap::new(),
+        })
+}
+
+fn save_tier_order(root: &Path, index: &TierOrderIndex) -> Result<(), String> {
+    let path = tier_order_path(root);
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid tier-order index path".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Could not create the tier-order directory: {error}"))?;
+    let contents = serde_json::to_string_pretty(index)
+        .map_err(|error| format!("Could not encode the tier-order index: {error}"))?;
+    fs::write(path, format!("{contents}\n"))
+        .map_err(|error| format!("Could not save the tier-order index: {error}"))
+}
+
+fn update_tier_order(
+    root: &Path,
+    relative_path: &str,
+    tier: &str,
+    target_index: Option<usize>,
+    current_priorities: Option<&[PriorityNote]>,
+) -> Result<(), String> {
+    let mut index = load_tier_order(root);
+    index.version = tier_order_version();
+    if let Some(priorities) = current_priorities {
+        for tier_id in ["T1", "T2", "T3", "T4", "T5"] {
+            index.tiers.insert(
+                tier_id.to_string(),
+                priorities
+                    .iter()
+                    .filter(|note| note.tier == tier_id)
+                    .map(|note| note.id.clone())
+                    .collect(),
+            );
+        }
+    }
+    for paths in index.tiers.values_mut() {
+        paths.retain(|path| path != relative_path);
+    }
+    if matches!(tier, "T1" | "T2" | "T3" | "T4" | "T5") {
+        let paths = index.tiers.entry(tier.to_string()).or_default();
+        let insertion = target_index.unwrap_or(paths.len()).min(paths.len());
+        paths.insert(insertion, relative_path.to_string());
+    }
+    index.tiers.retain(|_, paths| !paths.is_empty());
+    save_tier_order(root, &index)
+}
+
+fn tier_order_position(index: &TierOrderIndex, note: &PriorityNote) -> Option<usize> {
+    index
+        .tiers
+        .get(&note.tier)
+        .and_then(|paths| paths.iter().position(|path| path == &note.id))
+}
+
+fn load_priorities(root: &Path, locale: &str) -> Vec<PriorityNote> {
+    let mut priorities = Vec::new();
+    for base_path in collect_markdown_paths(root) {
+        let Some(base_metadata) = read_markdown_metadata(&base_path) else {
+            continue;
+        };
+        let companion_path = english_companion_path(&base_path);
+        let companion_metadata = companion_path
+            .is_file()
+            .then(|| read_markdown_metadata(&companion_path))
+            .flatten();
+        let tier = extract_frontmatter_value(&base_metadata, "tier")
+            .or_else(|| {
+                companion_metadata
+                    .as_deref()
+                    .and_then(|metadata| extract_frontmatter_value(metadata, "tier"))
+            })
+            .and_then(|value| normalize_tier(&value).ok());
+        let Some(tier) =
+            tier.filter(|value| matches!(value.as_str(), "T1" | "T2" | "T3" | "T4" | "T5"))
+        else {
+            continue;
+        };
+
+        let display_path = if locale == "en" && companion_path.is_file() {
+            companion_path
+        } else {
+            base_path.clone()
+        };
+        let display_metadata = if display_path == base_path {
+            &base_metadata
+        } else {
+            companion_metadata.as_deref().unwrap_or(&base_metadata)
+        };
+        let title = extract_frontmatter_value(display_metadata, "title")
+            .or_else(|| extract_markdown_title(display_metadata))
+            .or_else(|| {
+                display_path
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().trim_end_matches(".en").to_string())
+            })
+            .unwrap_or_else(|| relative_note_path(root, &base_path));
+
+        priorities.push(PriorityNote {
+            id: relative_note_path(root, &base_path),
+            title,
+            tier,
+            file_path: relative_note_path(root, &display_path),
+        });
+    }
+
+    let order = load_tier_order(root);
+    priorities.sort_by(|left, right| {
+        tier_rank(&left.tier)
+            .cmp(&tier_rank(&right.tier))
+            .then_with(|| {
+                match (
+                    tier_order_position(&order, left),
+                    tier_order_position(&order, right),
+                ) {
+                    (Some(left), Some(right)) => left.cmp(&right),
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => left
+                        .title
+                        .to_lowercase()
+                        .cmp(&right.title.to_lowercase())
+                        .then_with(|| left.id.cmp(&right.id)),
+                }
+            })
+    });
+    priorities
+}
+
+pub(crate) fn set_note_tier_by_query(
+    root: &Path,
+    query: &str,
+    tier: &str,
+) -> Result<String, String> {
+    let normalized_tier = normalize_tier(tier)?;
+    let query = query.trim().replace('\\', "/");
+    if query.is_empty() {
+        return Err("A note name or relative path is required".to_string());
+    }
+
+    let mut matches = Vec::new();
+    for base_path in collect_markdown_paths(root) {
+        let relative_path = relative_note_path(root, &base_path);
+        let stem = base_path
+            .file_stem()
+            .map(|value| value.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let mut identifiers = vec![relative_path.clone(), stem];
+        for path in [base_path.clone(), english_companion_path(&base_path)] {
+            if !path.is_file() {
+                continue;
+            }
+            if let Some(metadata) = read_markdown_metadata(&path) {
+                if let Some(title) = extract_frontmatter_value(&metadata, "title") {
+                    identifiers.push(title);
+                }
+                if let Some(title) = extract_markdown_title(&metadata) {
+                    identifiers.push(title);
+                }
+            }
+        }
+        if identifiers
+            .iter()
+            .any(|identifier| identifier.eq_ignore_ascii_case(&query))
+        {
+            matches.push(base_path);
+        }
+    }
+
+    let path = match matches.as_slice() {
+        [] => return Err(format!("Could not find a Markdown note matching '{query}'")),
+        [path] => path,
+        _ => {
+            let paths = matches
+                .iter()
+                .map(|path| relative_note_path(root, path))
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(format!(
+                "'{query}' matches more than one note; use a relative path: {paths}"
+            ));
+        }
+    };
+
+    let relative_path = set_note_tier_files(root, path, &normalized_tier)?;
+    update_tier_order(root, &relative_path, &normalized_tier, None, None)?;
+    Ok(relative_path)
 }
 
 fn truncate_utf8(value: &str, max_bytes: usize) -> String {
@@ -983,17 +1183,20 @@ fn move_tier_item(
     target_index: usize,
 ) -> Result<(), String> {
     let root = PathBuf::from(root);
-    let relative_path = if root.join("catalog/strategies.csv").is_file() {
-        "catalog/strategies.csv"
-    } else {
-        "catalog/supplements.csv"
-    };
-    let catalog_path = safe_existing_path(&root, relative_path)?;
-    let existing = fs::read_to_string(&catalog_path)
-        .map_err(|error| format!("Could not read strategy catalog: {error}"))?;
-    let updated = move_catalog_item(&existing, item_id.trim(), target_tier.trim(), target_index)?;
-    fs::write(catalog_path, updated)
-        .map_err(|error| format!("Could not update strategy catalog: {error}"))
+    let target_tier = normalize_tier(&target_tier)?;
+    if !matches!(target_tier.as_str(), "T1" | "T2" | "T3" | "T4" | "T5") {
+        return Err(format!("Invalid target tier: {target_tier}"));
+    }
+    let path = safe_existing_path(&root, item_id.trim())?;
+    let current_priorities = load_priorities(&root, "zh");
+    let canonical_relative = set_note_tier_files(&root, &path, &target_tier)?;
+    update_tier_order(
+        &root,
+        &canonical_relative,
+        &target_tier,
+        Some(target_index),
+        Some(&current_priorities),
+    )
 }
 
 #[tauri::command]
@@ -1012,6 +1215,11 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
         ensure_demo_library(&root)?;
     }
     let connected = root.is_dir();
+    let priorities = if connected {
+        load_priorities(&root, &locale)
+    } else {
+        Vec::new()
+    };
     let supplements = if connected {
         load_supplements(&root, &locale)
     } else {
@@ -1037,6 +1245,7 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
         root: path_string(&root),
         my_info_root: path_string(&my_info_root()),
         connected,
+        priorities,
         supplements,
         people,
         stories,
@@ -1121,25 +1330,44 @@ fn normalize_tier(tier: &str) -> Result<String, String> {
     Ok(normalized)
 }
 
+fn set_note_tier_files(root: &Path, path: &Path, tier: &str) -> Result<String, String> {
+    let base_path = source_path_for_english_companion(path)
+        .filter(|source| source.is_file())
+        .unwrap_or_else(|| path.to_path_buf());
+    let companion_path = english_companion_path(&base_path);
+    let mut paths = vec![base_path.clone()];
+    if companion_path.is_file() {
+        paths.push(companion_path);
+    }
+
+    for note_path in paths {
+        let contents = fs::read_to_string(&note_path)
+            .map_err(|error| format!("Could not read note: {error}"))?;
+        if contents.len() > MAX_NOTE_BYTES {
+            return Err("This note is too large to update safely".to_string());
+        }
+        let updated = set_frontmatter_field(
+            &contents,
+            "tier",
+            if tier.is_empty() { None } else { Some(tier) },
+        );
+        fs::write(&note_path, updated)
+            .map_err(|error| format!("Could not update note: {error}"))?;
+    }
+
+    Ok(relative_under_root(root, &base_path))
+}
+
 #[tauri::command]
 fn set_note_tier(root: String, relative_path: String, tier: String) -> Result<(), String> {
-    let path = safe_existing_path(Path::new(&root), &relative_path)?;
+    let root = PathBuf::from(root);
+    let path = safe_existing_path(&root, &relative_path)?;
     if !path.is_file() {
         return Err("Note is unavailable".to_string());
     }
     let normalized = normalize_tier(&tier)?;
-    let contents =
-        fs::read_to_string(&path).map_err(|error| format!("Could not read note: {error}"))?;
-    let updated = set_frontmatter_field(
-        &contents,
-        "tier",
-        if normalized.is_empty() {
-            None
-        } else {
-            Some(normalized.as_str())
-        },
-    );
-    fs::write(&path, updated).map_err(|error| format!("Could not update note: {error}"))
+    let canonical_relative = set_note_tier_files(&root, &path, &normalized)?;
+    update_tier_order(&root, &canonical_relative, &normalized, None, None)
 }
 
 // ── Library file tree ──────────────────────────────────────────────────────
@@ -3136,29 +3364,73 @@ mod tests {
     }
 
     #[test]
-    fn tier_item_move_updates_tier_order_and_preserves_csv_fields() {
-        let catalog =
-            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\n\
-a,甲,A,分类,reference,reviewed,T1,maintain,\"alpha, note\"\n\
-b,乙,B,分类,reference,reviewed,T1,maintain,beta\n\
-c,丙,C,分类,reference,reviewed,T2,review,gamma\n";
-        let moved = move_catalog_item(catalog, "a", "T2", 1).expect("move should succeed");
-        let rows = moved.lines().skip(1).collect::<Vec<_>>();
-        assert_eq!(split_csv_line(rows[0])[0], "b");
-        assert_eq!(split_csv_line(rows[1])[0], "c");
-        let moved_fields = split_csv_line(rows[2]);
-        assert_eq!(moved_fields[0], "a");
-        assert_eq!(moved_fields[6], "T2");
-        assert_eq!(moved_fields[8], "alpha, note");
+    fn priority_list_comes_only_from_tiered_markdown_in_the_selected_root() {
+        let root = temp_fixture("priority-source");
+        fs::create_dir_all(root.join("catalog")).unwrap();
+        fs::write(
+            root.join("catalog/strategies.csv"),
+            "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\nlegacy,旧项,Legacy,分类,x,x,T1,x,x\n",
+        )
+        .unwrap();
+        fs::write(root.join("plain.md"), "# No priority\n").unwrap();
+        assert!(load_priorities(&root, "zh").is_empty());
 
-        let reordered =
-            move_catalog_item(&moved, "c", "T2", 1).expect("same-tier reorder should succeed");
-        let reordered_ids = reordered
-            .lines()
-            .skip(1)
-            .map(|line| split_csv_line(line)[0].clone())
-            .collect::<Vec<_>>();
-        assert_eq!(reordered_ids, vec!["b", "a", "c"]);
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::write(
+            root.join("notes/alpha.md"),
+            "---\ntitle: 用户设置的事项\ntier: T3\n---\n\n# Ignored fallback\n",
+        )
+        .unwrap();
+        let priorities = load_priorities(&root, "zh");
+        assert_eq!(priorities.len(), 1);
+        assert_eq!(priorities[0].id, "notes/alpha.md");
+        assert_eq!(priorities[0].title, "用户设置的事项");
+        assert_eq!(priorities[0].tier, "T3");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn tier_item_move_updates_markdown_and_directory_order_index() {
+        let root = temp_fixture("priority-move");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("alpha.md"), "---\ntier: T2\n---\n# Alpha\n").unwrap();
+        fs::write(root.join("beta.md"), "---\ntier: T2\n---\n# Beta\n").unwrap();
+        fs::write(root.join("gamma.md"), "---\ntier: T2\n---\n# Gamma\n").unwrap();
+        let root_string = path_string(&root);
+
+        move_tier_item(
+            root_string.clone(),
+            "gamma.md".to_string(),
+            "T2".to_string(),
+            1,
+        )
+        .expect("same-tier move should succeed");
+        assert_eq!(
+            load_priorities(&root, "en")
+                .iter()
+                .map(|note| note.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["alpha.md", "gamma.md", "beta.md"]
+        );
+
+        move_tier_item(root_string, "beta.md".to_string(), "T1".to_string(), 0)
+            .expect("move should succeed");
+        assert!(fs::read_to_string(root.join("beta.md"))
+            .unwrap()
+            .contains("tier: T1"));
+
+        set_note_tier(path_string(&root), "alpha.md".to_string(), "T1".to_string())
+            .expect("setting a tier inside a note should succeed");
+        let priorities = load_priorities(&root, "en");
+        assert_eq!(
+            priorities
+                .iter()
+                .map(|note| note.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["beta.md", "alpha.md", "gamma.md"]
+        );
+        assert!(root.join(TIER_ORDER_RELATIVE_PATH).is_file());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

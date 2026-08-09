@@ -50,7 +50,7 @@ const messages = {
     send: '发送',
     stopGenerating: '停止生成',
     evidenceMap: '优先级',
-    evidenceMapSub: '下面的榜单可以拖动，也可以在笔记中设置，或让 AI 帮你调整。',
+    evidenceMapSub: '拖动下列层级表，也可以在内容中设置，让 AI 更了解你的优先级。',
     viewAll: '查看全部',
     recentContexts: '对话与上下文',
     newConversation: '新对话',

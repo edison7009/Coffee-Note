@@ -113,18 +113,18 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "update_tier".into(),
-            description: "Adjust the T1–T5 tier of an item on the user's home strategy map \
-                (catalog/strategies.csv). 'name' may be the item id, Chinese name, or English name \
-                (e.g. 'creatine' or '肌酸' or 'Creatine'). 'tier' is one of T1, T2, T3, T4, T5, or \
-                'pending' to hide the item from the home map. The home page reflects the change \
-                after the library reloads."
+            description: "Set the T1–T5 priority of any Markdown note in the user's current \
+                library. 'name' may be the note's relative path, filename stem, frontmatter title, \
+                or first Markdown heading. 'tier' is one of T1, T2, T3, T4, T5, or 'pending' to \
+                hide the note from the home tier list. The priority is stored in the note's \
+                frontmatter and appears after the library reloads."
                 .into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Item id, Chinese name, or English name"
+                        "description": "Relative note path, filename stem, or note title"
                     },
                     "tier": {
                         "type": "string",
@@ -614,24 +614,6 @@ fn exec_update_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
 
 // ── update_tier ──
 
-fn split_csv_line(line: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut cur = String::new();
-    let mut in_quotes = false;
-    for ch in line.chars() {
-        match ch {
-            '"' => in_quotes = !in_quotes,
-            ',' if !in_quotes => {
-                out.push(cur.trim().to_string());
-                cur = String::new();
-            }
-            _ => cur.push(ch),
-        }
-    }
-    out.push(cur.trim().to_string());
-    out
-}
-
 fn exec_update_tier(args: &Value, root: &Path, _locale: &str) -> ToolResult {
     if !args.is_object() {
         return ToolResult {
@@ -646,10 +628,9 @@ fn exec_update_tier(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         _ => {
             return ToolResult {
                 success: false,
-                output:
-                    "Missing or empty 'name' — update_tier requires the item id, Chinese name, \
-                    or English name. Retry with complete arguments."
-                        .into(),
+                output: "Missing or empty 'name' — update_tier requires a relative note path, \
+                    filename stem, or note title. Retry with complete arguments."
+                    .into(),
             }
         }
     };
@@ -672,70 +653,14 @@ fn exec_update_tier(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         };
     }
 
-    let strategies_path = root.join("catalog").join("strategies.csv");
-    let catalog_path = if strategies_path.is_file() {
-        strategies_path
-    } else {
-        root.join("catalog").join("supplements.csv")
-    };
-    let Ok(existing) = fs::read_to_string(&catalog_path) else {
-        return ToolResult {
-            success: false,
-            output: format!("Cannot read strategy catalog at {}", catalog_path.display()),
-        };
-    };
-    let mut lines: Vec<String> = existing.lines().map(str::to_string).collect();
-    if lines.len() < 2 {
-        return ToolResult {
-            success: false,
-            output: "Strategy catalog has no items to update.".into(),
-        };
-    }
-
-    let mut found = false;
-    for line in lines.iter_mut().skip(1) {
-        let mut fields = split_csv_line(line);
-        if fields.len() < 7 {
-            continue;
-        }
-        let matches = fields[0].eq_ignore_ascii_case(name)
-            || fields[1] == name
-            || fields[2].eq_ignore_ascii_case(name);
-        if matches {
-            fields[6] = tier.to_string();
-            *line = fields.join(",");
-            found = true;
-            break;
-        }
-    }
-    if !found {
-        let names: Vec<String> = lines
-            .iter()
-            .skip(1)
-            .filter_map(|line| {
-                let fields = split_csv_line(line);
-                (fields.len() >= 3)
-                    .then(|| format!("{} / {} / {}", fields[0], fields[1], fields[2]))
-            })
-            .take(24)
-            .collect();
-        return ToolResult {
-            success: false,
-            output: format!(
-                "Could not find '{name}' in the strategy catalog. Available items: {}",
-                names.join(", ")
-            ),
-        };
-    }
-
-    match fs::write(&catalog_path, format!("{}\n", lines.join("\n"))) {
-        Ok(_) => ToolResult {
+    match crate::set_note_tier_by_query(root, name, tier) {
+        Ok(path) => ToolResult {
             success: true,
-            output: format!("Updated tier of '{name}' to {tier} in catalog/strategies.csv"),
+            output: format!("Updated '{path}' to {tier}"),
         },
-        Err(e) => ToolResult {
+        Err(error) => ToolResult {
             success: false,
-            output: format!("Failed to write {}: {e}", catalog_path.display()),
+            output: error,
         },
     }
 }
@@ -1159,16 +1084,15 @@ mod tests {
     }
 
     #[test]
-    fn update_tier_reassigns_catalog_row() {
+    fn update_tier_writes_markdown_frontmatter() {
         let dir = std::env::temp_dir().join(format!("ol-update-tier-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(dir.join("catalog")).unwrap();
-        let csv = "id,name_zh,name_en,category,bryan_status,evidence_status,tier,review_priority,notes\ncreatine,肌酸,Creatine,运动营养,example,starter,T2,review,notes here\n";
-        fs::write(dir.join("catalog").join("strategies.csv"), csv).unwrap();
+        fs::create_dir_all(dir.join("notes")).unwrap();
+        fs::write(dir.join("notes/creatine.md"), "# 肌酸\n").unwrap();
         let result = exec_update_tier(&json!({"name": "肌酸", "tier": "T1"}), &dir, "zh");
         assert!(result.success, "{}", result.output);
-        let updated = fs::read_to_string(dir.join("catalog").join("strategies.csv")).unwrap();
-        assert!(updated.contains(",T1,review,"));
+        let updated = fs::read_to_string(dir.join("notes/creatine.md")).unwrap();
+        assert!(updated.starts_with("---\ntier: T1\n---\n"));
         let missing = exec_update_tier(&json!({"name": "不存在", "tier": "T2"}), &dir, "zh");
         assert!(!missing.success);
         assert!(missing.output.contains("Could not find"));

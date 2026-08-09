@@ -353,8 +353,8 @@ fn build_system_prompt(locale: &str) -> String {
          and plans/daily-routine.md (重要记录), with matching .en.md companions for English requests, plus a daily health log. When the user asks you to \
          organize or update one of these pages, call \
          update_plan with the matching module and write the full page while preserving its existing \
-         structure. Prefer update_plan over save_note for My information pages; save_note is for general notes. The home strategy map (T1–T5) is driven by \
-         catalog/strategies.csv; use update_tier to reassign an item's tier ('pending' hides it). To \
+         structure. Prefer update_plan over save_note for My information pages; save_note is for general notes. The home tier list (T1–T5) is driven by \
+         each Markdown note's tier frontmatter; use update_tier to reassign a note ('pending' hides it). To \
          edit any existing note, including its frontmatter and sources, use update_note with the \
          relative path and the full new content. \
          Use suggest_memory only for durable user-confirmed goals, preferences, constraints, corrections, profile facts, or health context worth reusing in future conversations. \

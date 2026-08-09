@@ -148,6 +148,7 @@ import type {
   ModelProvider,
   ModelSettings,
   Person,
+  PriorityNote,
   ProviderConfig,
   Story,
   Supplement,
@@ -336,11 +337,11 @@ function normalizeTier(tier: string | undefined): string | undefined {
 }
 
 function reorderTierItems(
-  items: Supplement[],
+  items: PriorityNote[],
   itemId: string,
   targetTier: TierId,
   targetIndex: number,
-): Supplement[] {
+): PriorityNote[] {
   const moved = items.find((item) => item.id === itemId);
   if (!moved) return items;
 
@@ -920,7 +921,8 @@ function App() {
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
   const libraryRootRef = useRef(library.root || normalizedKnowledgeRoot || '');
   const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  libraryRootRef.current = library.root || normalizedKnowledgeRoot || '';
+  const libraryGenerationRef = useRef(0);
+  libraryRootRef.current = normalizedKnowledgeRoot || library.root || '';
   const fileNotePathRef = useRef(fileNotePath);
   fileNotePathRef.current = fileNotePath;
   const fileNoteSourceRef = useRef(fileNoteSource);
@@ -1095,18 +1097,23 @@ function App() {
 
   useEffect(() => {
     let alive = true;
+    const generation = ++libraryGenerationRef.current;
     setLoadingLibrary(true);
     loadLibrary(normalizedKnowledgeRoot || undefined, locale)
       .then((snapshot) => {
-        if (!alive) return;
+        if (!alive || generation !== libraryGenerationRef.current) return;
         setLibrary(snapshot);
         if (!normalizedKnowledgeRoot && snapshot.root) setKnowledgeRoot(snapshot.root);
       })
       .catch(() => {
-        if (alive) setLibrary(fallbackLibrary);
+        if (alive && generation === libraryGenerationRef.current) {
+          setLibrary(fallbackLibrary);
+        }
       })
       .finally(() => {
-        if (alive) setLoadingLibrary(false);
+        if (alive && generation === libraryGenerationRef.current) {
+          setLoadingLibrary(false);
+        }
       });
     return () => {
       alive = false;
@@ -1492,15 +1499,20 @@ function App() {
       setToast({ message: t('desktopOnlyAction'), kind: 'status' });
       return;
     }
+    const generation = libraryGenerationRef.current;
     try {
       await writeNote(root, relativePath, content);
+      if (generation !== libraryGenerationRef.current) return;
       setNoteMarkdown(content);
       setTreeRefresh((current) => current + 1);
-      setLibrary(await loadLibrary(root || undefined, locale));
+      const snapshot = await loadLibrary(root || undefined, locale);
+      if (generation !== libraryGenerationRef.current) return;
+      setLibrary(snapshot);
       if (!options.quiet) {
         setToast({ message: t('noteSaved'), kind: 'status' });
       }
     } catch (error) {
+      if (generation !== libraryGenerationRef.current) return;
       setToast({
         message: `${t('noteSaveFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
         kind: 'status',
@@ -1579,8 +1591,10 @@ function App() {
     const root =
       source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
     const target = currentNoteTarget;
+    const generation = libraryGenerationRef.current;
     try {
       await deleteNote(root, relativePath);
+      if (generation !== libraryGenerationRef.current) return;
       if (target) {
         setFavorites(
           favorites.filter(
@@ -1590,8 +1604,11 @@ function App() {
       }
       setToast({ message: t('noteDeleted'), kind: 'status' });
       goBack();
-      setLibrary(await loadLibrary(root || undefined, locale));
+      const snapshot = await loadLibrary(root || undefined, locale);
+      if (generation !== libraryGenerationRef.current) return;
+      setLibrary(snapshot);
     } catch (error) {
+      if (generation !== libraryGenerationRef.current) return;
       setToast({
         message: `${t('deleteNoteFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
         kind: 'status',
@@ -1607,10 +1624,14 @@ function App() {
     const source = view === 'file' ? fileNoteSourceRef.current : 'library';
     const root =
       source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
+    const generation = libraryGenerationRef.current;
     try {
       await setNoteTier(root, relativePath, tier);
+      if (generation !== libraryGenerationRef.current) return;
       if (view === 'file' && fileNotePath === relativePath) {
-        setNoteMarkdown(await readNote(root, relativePath));
+        const markdown = await readNote(root, relativePath);
+        if (generation !== libraryGenerationRef.current) return;
+        setNoteMarkdown(markdown);
       } else {
         if (selectedSupplement?.filePath === relativePath) {
           setSelectedSupplement({ ...selectedSupplement, tier });
@@ -1632,8 +1653,14 @@ function App() {
           ),
         }));
       }
+      if (source === 'library') {
+        const snapshot = await loadLibrary(root || undefined, locale);
+        if (generation !== libraryGenerationRef.current) return;
+        setLibrary(snapshot);
+      }
       setToast({ message: t('tierUpdated'), kind: 'status' });
     } catch (error) {
+      if (generation !== libraryGenerationRef.current) return;
       setToast({
         message: `${t('setTier')}${locale === 'zh' ? '失败：' : ' failed: '}${String(error).replace(/^Error:\s*/i, '')}`,
         kind: 'status',
@@ -1643,15 +1670,25 @@ function App() {
 
   const handleLibraryChanged = () => {
     const root = libraryRootRef.current || library.root;
+    const generation = libraryGenerationRef.current;
     void loadLibrary(root || undefined, locale)
-      .then((snapshot) => setLibrary(snapshot))
+      .then((snapshot) => {
+        if (generation === libraryGenerationRef.current) {
+          setLibrary(snapshot);
+        }
+      })
       .catch(() => {});
     if (view === 'file' && fileNotePath) {
       const source = fileNoteSourceRef.current;
       const noteRoot = source === 'myInfo' ? library.myInfoRoot : root;
       readNote(noteRoot, fileNotePath)
-        .then((raw) => setNoteMarkdown(raw))
+        .then((raw) => {
+          if (generation === libraryGenerationRef.current) {
+            setNoteMarkdown(raw);
+          }
+        })
         .catch(() => {
+          if (generation !== libraryGenerationRef.current) return;
           navigate('home');
           setToast({ message: t('fileGone'), kind: 'status' });
         });
@@ -1662,6 +1699,9 @@ function App() {
     if (!isTauri) return;
     const selected = await chooseKnowledgeFolder();
     if (!selected) return;
+    libraryGenerationRef.current += 1;
+    libraryRootRef.current = selected;
+    setLoadingLibrary(true);
     setKnowledgeRoot(selected);
     navigate('home');
     setToast({
@@ -1689,13 +1729,16 @@ function App() {
     }
   };
 
-  const openFileNote = (filePath: string, remember = true) => {
+  const openFileNote = (
+    filePath: string,
+    remember = true,
+    sourceOverride?: 'library' | 'myInfo',
+  ) => {
     if (remember) rememberCurrentLocation({ view: 'file', filePath });
     setView('file');
     setFileNotePath(filePath);
-    const source: 'library' | 'myInfo' = filePath.startsWith('plans/')
-      ? 'myInfo'
-      : 'library';
+    const source: 'library' | 'myInfo' =
+      sourceOverride || (filePath.startsWith('plans/') ? 'myInfo' : 'library');
     setFileNoteSource(source);
     setSelectedSupplement(null);
     setSelectedPerson(null);
@@ -1717,24 +1760,27 @@ function App() {
   const handleTierMove = (itemId: string, targetTier: TierId, targetIndex: number) => {
     setLibrary((current) => ({
       ...current,
-      supplements: reorderTierItems(current.supplements, itemId, targetTier, targetIndex),
+      priorities: reorderTierItems(current.priorities, itemId, targetTier, targetIndex),
     }));
 
     if (!isTauri) return;
     const root = libraryRootRef.current;
+    const generation = libraryGenerationRef.current;
     tierMoveQueueRef.current = tierMoveQueueRef.current
       .then(async () => {
         await moveTierItem(root, itemId, targetTier, targetIndex);
-        const moved = library.supplements.find((item) => item.id === itemId);
-        if (moved?.filePath) {
-          await setNoteTier(root, moved.filePath, targetTier);
-        }
+        if (generation !== libraryGenerationRef.current) return;
         const snapshot = await loadLibrary(root || undefined, locale);
+        if (generation !== libraryGenerationRef.current) return;
         setLibrary(snapshot);
       })
       .catch(async (error) => {
+        if (generation !== libraryGenerationRef.current) return;
         try {
-          setLibrary(await loadLibrary(root || undefined, locale));
+          const snapshot = await loadLibrary(root || undefined, locale);
+          if (generation === libraryGenerationRef.current) {
+            setLibrary(snapshot);
+          }
         } catch {
           // Keep the optimistic state if the library cannot be reloaded yet.
         }
@@ -1754,7 +1800,7 @@ function App() {
       navigate('log');
       return;
     }
-    openFileNote(getPlanSectionFile(section, locale));
+    openFileNote(getPlanSectionFile(section, locale), true, 'myInfo');
   };
 
   const toggleMyInfoRetrieval = (section: MyInfoSectionId) => {
@@ -1836,12 +1882,13 @@ function App() {
 
   const finishCapture = async (path: string) => {
     setCaptureGuideOpen(false);
+    const root = libraryRootRef.current;
+    const generation = libraryGenerationRef.current;
     try {
-      const snapshot = await loadLibrary(
-        library.root || normalizedKnowledgeRoot || undefined,
-        locale,
-      );
-      setLibrary(snapshot);
+      const snapshot = await loadLibrary(root || undefined, locale);
+      if (generation === libraryGenerationRef.current) {
+        setLibrary(snapshot);
+      }
     } catch {
       // The note is already saved; a later library refresh can recover the updated count.
     }
@@ -2055,16 +2102,21 @@ function App() {
     let cancelled = false;
     const refreshLibraryAfterAgent = async () => {
       const root = libraryRootRef.current;
+      const generation = libraryGenerationRef.current;
       try {
         const snapshot = await loadLibrary(root || undefined, locale);
+        if (generation !== libraryGenerationRef.current) return;
         setLibrary(snapshot);
       } catch {
         // Best-effort refresh after AI tools modify the library.
       }
       const openPath = fileNotePathRef.current;
-      if (openPath && root) {
+      if (openPath && root && generation === libraryGenerationRef.current) {
         try {
-          setNoteMarkdown(await readNote(root, openPath));
+          const markdown = await readNote(root, openPath);
+          if (generation === libraryGenerationRef.current) {
+            setNoteMarkdown(markdown);
+          }
         } catch {
           // Keep the current content if the file cannot be read again.
         }
@@ -2350,7 +2402,7 @@ function App() {
         locale={locale}
         library={library}
         view={view}
-        libraryRoot={library.root || normalizedKnowledgeRoot}
+        libraryRoot={normalizedKnowledgeRoot || library.root}
         activeFilePath={view === 'file' ? fileNotePath : null}
         onNavigate={navigate}
         onNewChat={handleNewChat}
@@ -2400,8 +2452,8 @@ function App() {
                   onCapture={() => setCaptureGuideOpen(true)}
                   onOrganize={() => navigate('ai')}
                   onPlan={() => navigate('plan')}
-                  onSupplement={openSupplement}
-                  onMoveSupplement={handleTierMove}
+                  onPriority={(note) => openFileNote(note.filePath, true, 'library')}
+                  onMovePriority={handleTierMove}
                   t={t}
                 />
               )}
@@ -4450,8 +4502,8 @@ function HomeView({
   onCapture,
   onOrganize,
   onPlan,
-  onSupplement,
-  onMoveSupplement,
+  onPriority,
+  onMovePriority,
   t,
 }: {
   locale: Locale;
@@ -4459,19 +4511,19 @@ function HomeView({
   onCapture: () => void;
   onOrganize: () => void;
   onPlan: () => void;
-  onSupplement: (supplement: Supplement) => void;
-  onMoveSupplement: (itemId: string, targetTier: TierId, targetIndex: number) => void;
+  onPriority: (note: PriorityNote) => void;
+  onMovePriority: (itemId: string, targetTier: TierId, targetIndex: number) => void;
   t: (key: TranslationKey) => string;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const tiered = useMemo(() => {
     return TIER_IDS.map((tier) => ({
       tier,
-      supplements: library.supplements.filter(
-        (supplement) => supplement.tier === tier && supplement.id !== draggedId,
+      notes: library.priorities.filter(
+        (note) => note.tier === tier && note.id !== draggedId,
       ),
     }));
-  }, [draggedId, library.supplements]);
+  }, [draggedId, library.priorities]);
   const ambientAssignments = useMemo(() => createAmbientAssignments(3), []);
   const [dropTarget, setDropTarget] = useState<{
     tier: TierId;
@@ -4559,13 +4611,13 @@ function HomeView({
   };
 
   const moveDraggedItem = (itemId: string, targetTier: TierId, targetIndex: number) => {
-    const moved = library.supplements.find((item) => item.id === itemId);
+    const moved = library.priorities.find((item) => item.id === itemId);
     if (!moved) {
       clearDragState();
       return;
     }
 
-    onMoveSupplement(itemId, targetTier, targetIndex);
+    onMovePriority(itemId, targetTier, targetIndex);
     clearDragState();
   };
 
@@ -4599,9 +4651,9 @@ function HomeView({
     const startY = event.clientY;
     const offsetX = startX - bounds.left;
     const offsetY = startY - bounds.top;
-    const source = library.supplements.find((item) => item.id === itemId);
+    const source = library.priorities.find((item) => item.id === itemId);
     if (!source) return;
-    const sourceIndex = library.supplements
+    const sourceIndex = library.priorities
       .filter((item) => item.tier === source.tier)
       .findIndex((item) => item.id === itemId);
     pointerDragRef.current = {
@@ -4760,16 +4812,16 @@ function HomeView({
           <div>
             <p>{t('evidenceMapSub')}</p>
           </div>
-          <span className="section-stat">{library.supplements.length} items</span>
+          <span className="section-stat">{library.priorities.length} items</span>
         </div>
         <div className="tier-map" ref={tierMapRef}>
-          {tiered.map(({ tier, supplements }) => {
+          {tiered.map(({ tier, notes }) => {
             const insertAt =
               dropTarget?.tier === tier
-                ? Math.min(Math.max(dropTarget.index, 0), supplements.length)
+                ? Math.min(Math.max(dropTarget.index, 0), notes.length)
                 : -1;
             const cards: ReactNode[] = [];
-            supplements.forEach((supplement, index) => {
+            notes.forEach((note, index) => {
               if (index === insertAt) {
                 cards.push(
                   <div
@@ -4784,22 +4836,22 @@ function HomeView({
                 <button
                   data-tier={tier}
                   data-tier-index={index}
-                  data-tier-item={supplement.id}
-                  key={supplement.id}
+                  data-tier-item={note.id}
+                  key={note.id}
                   onClick={(event) => {
                     if (suppressTierClickRef.current) {
                       event.preventDefault();
                       return;
                     }
-                    onSupplement(supplement);
+                    onPriority(note);
                   }}
-                  onPointerDown={(pointerEvent) => beginPointerDrag(pointerEvent, supplement.id)}
+                  onPointerDown={(pointerEvent) => beginPointerDrag(pointerEvent, note.id)}
                 >
-                  <span>{locale === 'zh' ? supplement.nameZh : supplement.nameEn}</span>
+                  <span>{note.title}</span>
                 </button>,
               );
             });
-            if (insertAt === supplements.length) {
+            if (insertAt === notes.length) {
               cards.push(
                 <div
                   className="tier-drag-placeholder"
@@ -4813,7 +4865,7 @@ function HomeView({
             return (
               <div
                 className="tier-row"
-                data-tier-count={supplements.length}
+                data-tier-count={notes.length}
                 data-tier-row={tier}
                 key={tier}
               >
@@ -4827,7 +4879,7 @@ function HomeView({
                   className={`tier-items${draggedId ? ' is-dragging' : ''}${
                     dropTarget?.tier === tier ? ' drag-over' : ''
                   }`}
-                  data-tier-count={supplements.length}
+                  data-tier-count={notes.length}
                   data-tier-row={tier}
                 >
                   {cards.length ? cards : <span className="tier-empty">—</span>}

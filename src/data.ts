@@ -223,6 +223,7 @@ export const fallbackLibrary: LibrarySnapshot = {
   root: 'TierNote / library',
   myInfoRoot: 'TierNote / my info',
   connected: true,
+  priorities: [],
   supplements: fallbackSupplements,
   people: fallbackPeople,
   stories: fallbackStories,
