@@ -152,7 +152,11 @@ pub struct HistoryLine {
 // ── Session state ──
 
 pub struct AgentSession {
+    /// Clean transcript used for local conversation recovery and inspection.
     pub messages: Vec<Message>,
+    /// Exact transcript sent to the provider. Request-scoped context remains in
+    /// earlier user turns so every later request grows prepend-only.
+    pub provider_messages: Vec<Message>,
     pub running: bool,
     pub cancel_token: CancellationToken,
     /// Ring buffer of recent tool-call hashes for loop detection.
@@ -169,6 +173,7 @@ impl AgentSession {
     pub fn new() -> Self {
         Self {
             messages: Vec::new(),
+            provider_messages: Vec::new(),
             running: false,
             cancel_token: CancellationToken::new(),
             recent_calls: std::collections::VecDeque::with_capacity(RECENT_CALLS_CAPACITY),
@@ -186,6 +191,29 @@ impl AgentSession {
         }
         self.running = true;
         self.recent_calls.clear();
+    }
+
+    fn push_shared(&mut self, message: Message) {
+        self.provider_messages.push(message.clone());
+        self.messages.push(message);
+    }
+
+    fn push_user(&mut self, content: String, transient_context: &str) {
+        let raw_message = Message {
+            role: "user".into(),
+            content: MessageContent::Text(content),
+        };
+        let mut provider_message = raw_message.clone();
+        if !transient_context.is_empty() {
+            match &mut provider_message.content {
+                MessageContent::Text(text) => text.push_str(transient_context),
+                MessageContent::Blocks(blocks) => blocks.push(ContentBlock::Text {
+                    text: transient_context.to_string(),
+                }),
+            }
+        }
+        self.messages.push(raw_message);
+        self.provider_messages.push(provider_message);
     }
 
     /// Record a tool call and return Some(reason) if it has now repeated
@@ -311,28 +339,6 @@ fn build_user_profile_context(
         format!("\n\n## RELEVANT PERSONAL CONTEXT\n{context}")
     } else {
         format!("\n\n## 与当前问题相关的个人资料\n{context}")
-    }
-}
-
-/// Add request-scoped retrieval to the latest user message without persisting
-/// it. This keeps the session history small and lets the personal router stay
-/// fresh when the user edits a Markdown source between turns.
-fn append_transient_context(messages: &mut [Message], context: &str) {
-    if context.is_empty() {
-        return;
-    }
-    let Some(message) = messages
-        .iter_mut()
-        .rev()
-        .find(|message| message.role == "user")
-    else {
-        return;
-    };
-    match &mut message.content {
-        MessageContent::Text(text) => text.push_str(context),
-        MessageContent::Blocks(blocks) => blocks.push(ContentBlock::Text {
-            text: context.to_string(),
-        }),
     }
 }
 
@@ -819,7 +825,7 @@ async fn push_tool_result(
 ) {
     let mut map = session_map.lock().await;
     if let Some(sess) = map.get_mut(conversation_id) {
-        sess.messages.push(Message {
+        sess.push_shared(Message {
             role: "tool".into(),
             content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                 tool_use_id: tool_use_id.into(),
@@ -910,8 +916,11 @@ pub async fn run_agent(
         let sess = map
             .entry(conversation_id.clone())
             .or_insert_with(AgentSession::new);
-        if sess.messages.is_empty() {
-            sess.messages = conversations::load_llm_messages(&conversation_id);
+        if sess.messages.is_empty() && sess.provider_messages.is_empty() {
+            let (messages, provider_messages) =
+                conversations::load_agent_messages(&conversation_id);
+            sess.messages = messages;
+            sess.provider_messages = provider_messages;
         }
         // If the persisted session is empty, seed from frontend-provided history.
         if sess.messages.is_empty() && !request.history.is_empty() {
@@ -925,7 +934,7 @@ pub async fn run_agent(
                 .rev()
             {
                 if matches!(line.role.as_str(), "user" | "assistant") {
-                    sess.messages.push(Message {
+                    sess.push_shared(Message {
                         role: line.role.clone(),
                         content: MessageContent::Text(line.content.clone()),
                     });
@@ -933,10 +942,7 @@ pub async fn run_agent(
             }
         }
         sess.prepare_run();
-        sess.messages.push(Message {
-            role: "user".into(),
-            content: MessageContent::Text(request.message.clone()),
-        });
+        sess.push_user(request.message.clone(), &transient_context);
         sess.cancel_token = CancellationToken::new();
     }
 
@@ -966,10 +972,9 @@ pub async fn run_agent(
             let map = session_map.lock().await;
             let all: Vec<Message> = map
                 .get(&conversation_id)
-                .map(|s| s.messages.clone())
+                .map(|s| s.provider_messages.clone())
                 .unwrap_or_default();
-            let (mut window, _) = context_window(&all);
-            append_transient_context(&mut window, &transient_context);
+            let (window, _) = context_window(&all);
             window
         };
 
@@ -1146,7 +1151,7 @@ pub async fn run_agent(
                 if !text_accum.is_empty() && tool_calls.is_empty() {
                     let mut map = session_map.lock().await;
                     if let Some(sess) = map.get_mut(&conversation_id) {
-                        sess.messages.push(Message {
+                        sess.push_shared(Message {
                             role: "assistant".into(),
                             content: MessageContent::Text(text_accum.clone()),
                         });
@@ -1189,7 +1194,7 @@ pub async fn run_agent(
             }
             let mut map = session_map.lock().await;
             if let Some(sess) = map.get_mut(&conversation_id) {
-                sess.messages.push(Message {
+                sess.push_shared(Message {
                     role: "assistant".into(),
                     content: MessageContent::Text(final_text),
                 });
@@ -1201,7 +1206,7 @@ pub async fn run_agent(
         {
             let mut map = session_map.lock().await;
             if let Some(sess) = map.get_mut(&conversation_id) {
-                sess.messages.push(build_assistant_message(
+                sess.push_shared(build_assistant_message(
                     &text_accum,
                     &thinking_accum,
                     &thinking_sig,
@@ -1382,7 +1387,11 @@ pub async fn run_agent(
         let mut map = session_map.lock().await;
         if let Some(sess) = map.get_mut(&conversation_id) {
             sess.running = false;
-            if let Err(error) = conversations::save_llm_messages(&conversation_id, &sess.messages) {
+            if let Err(error) = conversations::save_agent_messages(
+                &conversation_id,
+                &sess.messages,
+                &sess.provider_messages,
+            ) {
                 log::error!(
                     "[AgentSession] Failed to save conversation {conversation_id}: {error}"
                 );
@@ -1418,13 +1427,34 @@ mod tests {
     }
 
     #[test]
-    fn transient_context_is_not_persisted_in_the_original_message() {
-        let mut messages = vec![text_message("user", "question".to_string())];
-        append_transient_context(&mut messages, "\n\nPERSONAL CONTEXT");
+    fn transient_context_is_kept_only_in_provider_history() {
+        let mut session = AgentSession::new();
+        session.push_user("question".to_string(), "\n\nPERSONAL CONTEXT");
         assert!(matches!(
-            &messages[0].content,
+            &session.messages[0].content,
+            MessageContent::Text(text) if text == "question"
+        ));
+        assert!(matches!(
+            &session.provider_messages[0].content,
             MessageContent::Text(text) if text == "question\n\nPERSONAL CONTEXT"
         ));
+    }
+
+    #[test]
+    fn provider_history_grows_prepend_only_between_user_turns() {
+        let mut session = AgentSession::new();
+        session.push_user("first".to_string(), "\n\nCONTEXT ONE");
+        session.push_shared(text_message("assistant", "answer".to_string()));
+        let previous_provider_history = session.provider_messages.clone();
+
+        session.push_user("second".to_string(), "\n\nCONTEXT TWO");
+
+        assert_eq!(
+            serde_json::to_value(&session.provider_messages[..previous_provider_history.len()])
+                .expect("serialize provider prefix"),
+            serde_json::to_value(&previous_provider_history)
+                .expect("serialize previous provider history")
+        );
     }
 
     #[test]

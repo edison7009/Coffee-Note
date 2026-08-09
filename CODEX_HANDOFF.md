@@ -53,6 +53,46 @@ or temporary deployment credentials.
   information belongs inline or behind an explicit click, with `aria-label`
   kept for accessibility. Non-interactive readouts (e.g. the AI composer model
   ID) are plain text: no cursor change, no hover effects, no tooltip.
+- **AI activity rows (2026-08-10):** Thinking and tool calls in AI chat render as
+  compact, unframed disclosure rows rather than stacked full-width cards. The active
+  row uses a restrained left-to-right text shimmer, its chevron explicitly expands
+  arguments/results, completed rows become static muted text, and failures keep a
+  semantic error state. Reduced motion disables the shimmer. This exposes operational
+  progress only; provider reasoning content remains internal and is never persisted.
+- **Working conversation indicator (2026-08-10):** While the agent is busy, the
+  active conversation card in the right history rail replaces its delete action with
+  an always-visible, geometrically centered CSS loading ring and exposes `aria-busy`.
+  Delete returns when work finishes, with a 16px icon inside a 30px hit area. History
+  rows are unframed and transparent at rest; only hover/current state adds a neutral
+  background. Working rows remain highlighted with the spinner; a conversation that
+  completes while it is not being viewed remains highlighted as unread until opened.
+  Completion is keyed by the event's conversation ID before background events are
+  ignored, so it cannot leak A's content into B. The current frontend still permits
+  only one working conversation and blocks switching conversations mid-run, but the
+  row-level presentation is ready to consume multiple working conversation IDs later.
+- **Neutral chat surfaces (2026-08-10):** Light-mode AI chat uses a warm-neutral
+  composer surface (`#f7f7f7`) and a slightly deeper neutral user bubble (`#f1f1f1`)
+  with neutral ink; do not restore the inherited green/teal composer or bubble.
+  Small estimated costs keep up to four decimals but trim meaningless trailing zeros
+  (`0.0040` displays as `0.004`), while the no-request baseline remains `0.00`.
+- **Auto-hiding scrollbars (2026-08-10):** Main content, settings, provider lists,
+  and Markdown editors follow the Coffee-CLI pattern: native WebView scrollbars are
+  fully hidden and a narrow real-DOM slider floats over the edge. The slider has no
+  native arrow buttons or visible track, supports dragging, fades over 220ms, and
+  begins hiding 450ms after inactivity; reduced motion switches immediately. Sidebar
+  and contextual-rail scrollbars remain fully hidden.
+- **AI transcript context menu (2026-08-10):** Conversation records reuse the
+  desktop reader context menu. Copy uses the current transcript selection when one
+  exists; otherwise it copies the user, assistant, memory, or tool record under the
+  pointer. Select all selects the complete visible transcript.
+- **AI composer context menu (2026-08-10):** The AI prompt textarea reuses the
+  full desktop editor menu: undo, redo, cut, copy, paste, delete, and select all.
+  Clipboard read access is invoked only by the explicit Paste action.
+- **Conversation-card context menu (2026-08-10):** Right-clicking a saved
+  conversation offers inline rename, copy conversation UUID, copy its local JSON
+  path, reveal that file in the system file manager, and delete. Manual titles are
+  persisted as custom titles and are not replaced by later automatic first-message
+  title updates. Rename/delete stay disabled while the single active agent is busy.
 - The desktop app is moving to a calm, Codex-informed note-workspace style. This
   supersedes older instructions below that require a colorful dashboard shell or
   a blue-green gradient title bar.
@@ -583,3 +623,22 @@ Next-work plan:
 4. **Phase 4 — Evidence-retrieval self-healing routing** (Agent-Reach pattern):
    primary/fallback endpoints for Europe PMC / PubMed / ClinicalTrials with
    health checks and automatic degradation.
+
+## Provider prefix-cache continuity (2026-08-10)
+
+AI conversations now keep two local transcripts. `llmMessages` remains the
+clean conversation used for UI recovery and inspection. `providerMessages`
+stores the exact provider-visible transcript, including the personal/page
+context appended to each user turn. Later requests reuse that transcript
+unchanged and only append new messages, matching Reasonix's prepend-only cache
+strategy. Old conversation files migrate lazily: when `providerMessages` is
+absent, TierNote seeds it from `llmMessages` on the next run.
+Conversation mutations share one process-local storage lock so simultaneous UI
+autosave and Agent finalization cannot overwrite each other's JSON fields or
+race the conversation index. `load_conversation` returns a UI-only record and
+does not send either model transcript through the WebView IPC boundary.
+
+Cache usage remains the provider-reported aggregate. DeepSeek does not return
+token attribution by prompt section, so TierNote must not claim a synthetic
+rate that subtracts personal-context tokens. The composer labels this value
+`累计命中` / `Total cache` to make the cold-start-inclusive scope explicit.

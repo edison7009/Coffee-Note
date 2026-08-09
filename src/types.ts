@@ -170,7 +170,6 @@ export interface ConversationRecord {
   createdAt: number;
   updatedAt: number;
   uiMessages: ChatMessage[];
-  llmMessages: unknown[];
 }
 
 export interface ChatRequest {

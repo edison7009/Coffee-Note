@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Mutex, MutexGuard};
 
 use crate::llm_stream::{ContentBlock, Message, MessageContent};
 
 const INDEX_FILE: &str = "index.json";
 const LEGACY_IMPORT_FLAG: &str = ".legacy-session-imported";
+static CONVERSATION_WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,9 +30,44 @@ pub struct ConversationRecord {
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
+    pub custom_title: bool,
+    #[serde(default)]
     pub ui_messages: Vec<Value>,
     #[serde(default)]
     pub llm_messages: Vec<Message>,
+    /// Exact provider-visible transcript, including request-scoped context that
+    /// must remain byte-stable for prefix caching. The regular LLM transcript
+    /// stays clean for UI recovery and local conversation inspection.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provider_messages: Vec<Message>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversationClientRecord {
+    pub id: String,
+    pub title: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub ui_messages: Vec<Value>,
+}
+
+impl From<ConversationRecord> for ConversationClientRecord {
+    fn from(record: ConversationRecord) -> Self {
+        Self {
+            id: record.id,
+            title: record.title,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+            ui_messages: record.ui_messages,
+        }
+    }
+}
+
+fn conversation_write_lock() -> Result<MutexGuard<'static, ()>, String> {
+    CONVERSATION_WRITE_LOCK
+        .lock()
+        .map_err(|_| "Conversation storage lock is poisoned".to_string())
 }
 
 fn app_data_dir() -> PathBuf {
@@ -159,6 +196,17 @@ fn truncate_title(content: &str) -> String {
     title
 }
 
+fn update_automatic_title(record: &mut ConversationRecord, title: Option<&str>) {
+    if record.custom_title {
+        return;
+    }
+    record.title = title
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(truncate_title)
+        .unwrap_or_else(|| title_from_ui_messages(&record.ui_messages, &record.title));
+}
+
 fn read_record(id: &str) -> Result<ConversationRecord, String> {
     let path = conversation_path(id)?;
     let json = fs::read_to_string(&path)
@@ -205,6 +253,7 @@ fn message_to_ui(message: &Message) -> Option<Value> {
 fn migrate_legacy_session_if_needed() -> Result<(), String> {
     fs::create_dir_all(conversations_dir())
         .map_err(|error| format!("Cannot create conversations dir: {error}"))?;
+    let _write_guard = conversation_write_lock()?;
     if legacy_import_flag().exists() || !read_index().is_empty() {
         return Ok(());
     }
@@ -235,8 +284,10 @@ fn migrate_legacy_session_if_needed() -> Result<(), String> {
         title: title_from_ui_messages(&ui_messages, "Imported conversation"),
         created_at: timestamp,
         updated_at: timestamp,
+        custom_title: false,
         ui_messages,
         llm_messages,
+        provider_messages: Vec::new(),
     };
     write_record(&record)?;
     upsert_summary(summary_for(&record, 0))?;
@@ -248,12 +299,14 @@ fn migrate_legacy_session_if_needed() -> Result<(), String> {
 #[tauri::command]
 pub fn list_conversations() -> Result<Vec<ConversationSummary>, String> {
     migrate_legacy_session_if_needed()?;
+    let _write_guard = conversation_write_lock()?;
     write_index(read_index())
 }
 
 #[tauri::command]
 pub fn create_conversation(title: Option<String>) -> Result<ConversationSummary, String> {
     migrate_legacy_session_if_needed()?;
+    let _write_guard = conversation_write_lock()?;
     let timestamp = now_ms();
     let record = ConversationRecord {
         id: uuid::Uuid::new_v4().to_string(),
@@ -265,8 +318,10 @@ pub fn create_conversation(title: Option<String>) -> Result<ConversationSummary,
             .unwrap_or_else(|| "New conversation".to_string()),
         created_at: timestamp,
         updated_at: timestamp,
+        custom_title: false,
         ui_messages: Vec::new(),
         llm_messages: Vec::new(),
+        provider_messages: Vec::new(),
     };
     write_record(&record)?;
     let summary = summary_for(&record, 0);
@@ -275,9 +330,41 @@ pub fn create_conversation(title: Option<String>) -> Result<ConversationSummary,
 }
 
 #[tauri::command]
-pub fn load_conversation(id: String) -> Result<ConversationRecord, String> {
+pub fn load_conversation(id: String) -> Result<ConversationClientRecord, String> {
     migrate_legacy_session_if_needed()?;
-    read_record(&id)
+    read_record(&id).map(ConversationClientRecord::from)
+}
+
+#[tauri::command]
+pub fn rename_conversation(id: String, title: String) -> Result<String, String> {
+    migrate_legacy_session_if_needed()?;
+    let _write_guard = conversation_write_lock()?;
+    let clean_title = title.trim();
+    if clean_title.is_empty() {
+        return Err("Conversation title cannot be empty".to_string());
+    }
+
+    let mut record = read_record(&id)?;
+    record.title = truncate_title(clean_title);
+    record.custom_title = true;
+    write_record(&record)?;
+
+    let estimated_context_bytes = read_index()
+        .into_iter()
+        .find(|summary| summary.id == id)
+        .map(|summary| summary.estimated_context_bytes)
+        .unwrap_or_default();
+    upsert_summary(summary_for(&record, estimated_context_bytes))?;
+    Ok(record.title)
+}
+
+#[tauri::command]
+pub fn conversation_file_path(id: String) -> Result<String, String> {
+    let path = conversation_path(&id)?;
+    if !path.is_file() {
+        return Err("Conversation file does not exist".to_string());
+    }
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -288,6 +375,7 @@ pub fn save_conversation_ui(
     estimated_context_bytes: Option<usize>,
 ) -> Result<ConversationSummary, String> {
     migrate_legacy_session_if_needed()?;
+    let _write_guard = conversation_write_lock()?;
     let mut record = read_record(&id).or_else(|_| {
         let timestamp = now_ms();
         Ok::<ConversationRecord, String>(ConversationRecord {
@@ -295,18 +383,15 @@ pub fn save_conversation_ui(
             title: "New conversation".to_string(),
             created_at: timestamp,
             updated_at: timestamp,
+            custom_title: false,
             ui_messages: Vec::new(),
             llm_messages: Vec::new(),
+            provider_messages: Vec::new(),
         })
     })?;
     record.ui_messages = ui_messages;
     record.updated_at = now_ms();
-    record.title = title
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(truncate_title)
-        .unwrap_or_else(|| title_from_ui_messages(&record.ui_messages, &record.title));
+    update_automatic_title(&mut record, title.as_deref());
     write_record(&record)?;
     let summary = summary_for(&record, estimated_context_bytes.unwrap_or_default());
     upsert_summary(summary.clone())?;
@@ -315,6 +400,7 @@ pub fn save_conversation_ui(
 
 #[tauri::command]
 pub fn delete_conversation(id: String) -> Result<Vec<ConversationSummary>, String> {
+    let _write_guard = conversation_write_lock()?;
     let path = conversation_path(&id)?;
     if path.exists() {
         fs::remove_file(&path)
@@ -327,13 +413,25 @@ pub fn delete_conversation(id: String) -> Result<Vec<ConversationSummary>, Strin
     write_index(summaries)
 }
 
-pub fn load_llm_messages(id: &str) -> Vec<Message> {
-    read_record(id)
-        .map(|record| record.llm_messages)
-        .unwrap_or_default()
+pub fn load_agent_messages(id: &str) -> (Vec<Message>, Vec<Message>) {
+    let Ok(record) = read_record(id) else {
+        return (Vec::new(), Vec::new());
+    };
+    let raw_messages = record.llm_messages;
+    let provider_messages = if record.provider_messages.is_empty() {
+        raw_messages.clone()
+    } else {
+        record.provider_messages
+    };
+    (raw_messages, provider_messages)
 }
 
-pub fn save_llm_messages(id: &str, llm_messages: &[Message]) -> Result<(), String> {
+pub fn save_agent_messages(
+    id: &str,
+    llm_messages: &[Message],
+    provider_messages: &[Message],
+) -> Result<(), String> {
+    let _write_guard = conversation_write_lock()?;
     let mut record = read_record(id).or_else(|_| {
         let timestamp = now_ms();
         Ok::<ConversationRecord, String>(ConversationRecord {
@@ -341,11 +439,14 @@ pub fn save_llm_messages(id: &str, llm_messages: &[Message]) -> Result<(), Strin
             title: "New conversation".to_string(),
             created_at: timestamp,
             updated_at: timestamp,
+            custom_title: false,
             ui_messages: Vec::new(),
             llm_messages: Vec::new(),
+            provider_messages: Vec::new(),
         })
     })?;
     record.llm_messages = llm_messages.to_vec();
+    record.provider_messages = provider_messages.to_vec();
     record.updated_at = now_ms();
     write_record(&record)?;
     let estimated = read_index()
@@ -374,5 +475,23 @@ mod tests {
             truncate_title("这是一个很长很长很长很长很长很长很长很长的标题"),
             "这是一个很长很长很长很长很长很长很长很长…"
         );
+    }
+
+    #[test]
+    fn automatic_title_does_not_replace_custom_title() {
+        let mut record = ConversationRecord {
+            id: "test-id".to_string(),
+            title: "Manual title".to_string(),
+            created_at: 0,
+            updated_at: 0,
+            custom_title: true,
+            ui_messages: Vec::new(),
+            llm_messages: Vec::new(),
+            provider_messages: Vec::new(),
+        };
+
+        update_automatic_title(&mut record, Some("First user message"));
+
+        assert_eq!(record.title, "Manual title");
     }
 }

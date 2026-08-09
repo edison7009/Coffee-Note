@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Github,
   Globe2,
+  Hash,
   History,
   House,
   Layers3,
@@ -118,6 +119,8 @@ import {
   abortAgent,
   listConversations,
   loadConversation,
+  renameConversation,
+  getConversationFilePath,
   saveConversationUi,
   createConversation,
   deleteConversation,
@@ -383,6 +386,132 @@ function useStoredState<T>(key: string, initial: T): [T, (value: T) => void] {
     }
   };
   return [state, update];
+}
+
+function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450): () => void {
+  let hideTimer: number | null = null;
+  let updateFrame: number | null = null;
+  let maxScroll = 0;
+  let thumbTravel = 0;
+  let dragStartY = 0;
+  let dragStartScrollTop = 0;
+  element.classList.add('auto-hide-scrollbar');
+
+  const rail = document.createElement('div');
+  rail.className = 'tier-scrollbar';
+  rail.setAttribute('aria-hidden', 'true');
+  const slider = document.createElement('div');
+  slider.className = 'tier-scrollbar-slider';
+  rail.append(slider);
+  document.body.append(rail);
+
+  const updatePosition = () => {
+    if (updateFrame != null) return;
+    updateFrame = window.requestAnimationFrame(() => {
+      updateFrame = null;
+      const rect = element.getBoundingClientRect();
+      const top = Math.max(0, rect.top);
+      const bottom = Math.min(window.innerHeight, rect.bottom);
+      const viewportHeight = Math.max(0, bottom - top);
+      maxScroll = Math.max(0, element.scrollHeight - element.clientHeight);
+
+      if (maxScroll <= 1 || viewportHeight < 24 || rect.width <= 0) {
+        rail.classList.add('is-empty');
+        return;
+      }
+
+      rail.classList.remove('is-empty');
+      rail.style.top = `${Math.round(top)}px`;
+      rail.style.left = `${Math.round(Math.min(window.innerWidth - 10, rect.right - 10))}px`;
+      rail.style.height = `${Math.round(viewportHeight)}px`;
+
+      const trackHeight = Math.max(0, viewportHeight - 4);
+      const thumbHeight = Math.max(28, trackHeight * (element.clientHeight / element.scrollHeight));
+      thumbTravel = Math.max(0, trackHeight - thumbHeight);
+      const thumbTop = maxScroll > 0 ? (element.scrollTop / maxScroll) * thumbTravel : 0;
+      slider.style.height = `${Math.round(thumbHeight)}px`;
+      slider.style.transform = `translateY(${Math.round(thumbTop + 2)}px)`;
+    });
+  };
+
+  const reveal = () => {
+    updatePosition();
+    rail.classList.add('is-visible');
+    if (hideTimer != null) window.clearTimeout(hideTimer);
+    hideTimer = window.setTimeout(() => {
+      hideTimer = null;
+      rail.classList.remove('is-visible');
+    }, hideDelay);
+  };
+
+  const handleDragMove = (event: PointerEvent) => {
+    if (thumbTravel <= 0) return;
+    const scrollDelta = ((event.clientY - dragStartY) / thumbTravel) * maxScroll;
+    element.scrollTop = Math.max(0, Math.min(maxScroll, dragStartScrollTop + scrollDelta));
+  };
+
+  const handleDragEnd = () => {
+    rail.classList.remove('is-dragging');
+    document.removeEventListener('pointermove', handleDragMove);
+    document.removeEventListener('pointerup', handleDragEnd);
+    document.removeEventListener('pointercancel', handleDragEnd);
+    reveal();
+  };
+
+  const handleDragStart = (event: PointerEvent) => {
+    if (event.button !== 0 || maxScroll <= 0) return;
+    event.preventDefault();
+    dragStartY = event.clientY;
+    dragStartScrollTop = element.scrollTop;
+    rail.classList.add('is-dragging', 'is-visible');
+    if (hideTimer != null) window.clearTimeout(hideTimer);
+    document.addEventListener('pointermove', handleDragMove);
+    document.addEventListener('pointerup', handleDragEnd);
+    document.addEventListener('pointercancel', handleDragEnd);
+  };
+
+  element.addEventListener('scroll', reveal, { passive: true });
+  element.addEventListener('wheel', reveal, { passive: true });
+  element.addEventListener('pointermove', reveal, { passive: true });
+  element.addEventListener('touchstart', reveal, { passive: true });
+  element.addEventListener('keydown', reveal);
+  element.addEventListener('focusin', reveal);
+  slider.addEventListener('pointerdown', handleDragStart);
+  window.addEventListener('resize', updatePosition);
+  document.addEventListener('scroll', updatePosition, true);
+  const resizeObserver = new ResizeObserver(updatePosition);
+  resizeObserver.observe(element);
+  updatePosition();
+
+  return () => {
+    if (hideTimer != null) window.clearTimeout(hideTimer);
+    if (updateFrame != null) window.cancelAnimationFrame(updateFrame);
+    element.removeEventListener('scroll', reveal);
+    element.removeEventListener('wheel', reveal);
+    element.removeEventListener('pointermove', reveal);
+    element.removeEventListener('touchstart', reveal);
+    element.removeEventListener('keydown', reveal);
+    element.removeEventListener('focusin', reveal);
+    slider.removeEventListener('pointerdown', handleDragStart);
+    window.removeEventListener('resize', updatePosition);
+    document.removeEventListener('scroll', updatePosition, true);
+    document.removeEventListener('pointermove', handleDragMove);
+    document.removeEventListener('pointerup', handleDragEnd);
+    document.removeEventListener('pointercancel', handleDragEnd);
+    resizeObserver.disconnect();
+    rail.remove();
+    element.classList.remove('auto-hide-scrollbar');
+  };
+}
+
+function useAutoHideScrollbar<T extends HTMLElement>(): React.RefObject<T> {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    return bindAutoHideScrollbar(element);
+  }, []);
+  return ref;
 }
 
 function normalizeMarkdown(markdown: string): string {
@@ -999,15 +1128,21 @@ function App() {
   const conversationSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [conversationSummaries, setConversationSummaries] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState('');
+  const [unreadConversationIds, setUnreadConversationIds] = useState<string[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [contextBytes, setContextBytes] = useState(0);
   const [usageByConversation, setUsageByConversation] = useState<Record<string, ConversationUsage>>(
     loadConversationUsage,
   );
   const [chatBusy, setChatBusy] = useState(false);
+  const activeConversationIdRef = useRef(activeConversationId);
+  activeConversationIdRef.current = activeConversationId;
+  const appViewRef = useRef(view);
+  appViewRef.current = view;
   const [toast, setToast] = useState<ToastState | null>(null);
   const [resizingPane, setResizingPane] = useState<ResizeSide | null>(null);
   const chatComposerRef = useRef<HTMLTextAreaElement>(null);
+  const contentScrollRef = useAutoHideScrollbar<HTMLDivElement>();
   const navigationHistoryRef = useRef(createNavigationHistory<NavigationLocation>());
   const [, setNavigationHistoryVersion] = useState(0);
 
@@ -2058,7 +2193,19 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [activeConversationId, chatMessages, loadingConversations]);
 
+  useEffect(() => {
+    if (view !== 'ai' || !activeConversationId) return;
+    setUnreadConversationIds((current) =>
+      current.includes(activeConversationId)
+        ? current.filter((id) => id !== activeConversationId)
+        : current,
+    );
+  }, [view, activeConversationId]);
+
   const handleSelectConversation = async (id: string) => {
+    setUnreadConversationIds((current) =>
+      current.includes(id) ? current.filter((conversationId) => conversationId !== id) : current,
+    );
     if (chatBusy || id === activeConversationId) return;
     if (activeConversationId) {
       await persistConversationMessages(activeConversationId, chatMessages);
@@ -2073,6 +2220,9 @@ function App() {
   const handleDeleteConversation = async (id: string) => {
     if (chatBusy) return;
     const summaries = await deleteConversation(id);
+    setUnreadConversationIds((current) =>
+      current.includes(id) ? current.filter((conversationId) => conversationId !== id) : current,
+    );
     setUsageByConversation((current) => {
       if (!(id in current)) return current;
       const next = { ...current };
@@ -2153,7 +2303,26 @@ function App() {
     };
     listenAgentEvents((event: AgentEvent) => {
       if (cancelled) return;
-      if (event.conversationId && activeConversationId && event.conversationId !== activeConversationId) {
+      const eventConversationId = event.conversationId || activeConversationIdRef.current;
+      if (
+        (event.type === 'done' || event.type === 'error')
+        && eventConversationId
+        && (
+          appViewRef.current !== 'ai'
+          || eventConversationId !== activeConversationIdRef.current
+        )
+      ) {
+        setUnreadConversationIds((current) =>
+          current.includes(eventConversationId)
+            ? current
+            : [...current, eventConversationId],
+        );
+      }
+      if (
+        event.conversationId
+        && activeConversationIdRef.current
+        && event.conversationId !== activeConversationIdRef.current
+      ) {
         return;
       }
       switch (event.type) {
@@ -2214,7 +2383,7 @@ function App() {
           ]);
           break;
         case 'usage': {
-          const conversationId = event.conversationId || activeConversationId;
+          const conversationId = event.conversationId || activeConversationIdRef.current;
           if (!conversationId) break;
           setUsageByConversation((current) => {
             const previous = current[conversationId] || EMPTY_USAGE;
@@ -2233,7 +2402,7 @@ function App() {
           break;
         }
         case 'request_started': {
-          const conversationId = event.conversationId || activeConversationId;
+          const conversationId = event.conversationId || activeConversationIdRef.current;
           if (!conversationId) break;
           setUsageByConversation((current) => {
             const previous = current[conversationId] || EMPTY_USAGE;
@@ -2270,13 +2439,18 @@ function App() {
       cancelled = true;
       unlisten?.();
     };
-  }, [activeConversationId, locale]);
+  }, [locale]);
 
   const handleSend = async (question: string) => {
     const clean = question.trim();
     if (!clean || chatBusy) return;
 
     const conversationId = await ensureConversation();
+    setUnreadConversationIds((current) =>
+      current.includes(conversationId)
+        ? current.filter((id) => id !== conversationId)
+        : current,
+    );
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -2372,6 +2546,15 @@ function App() {
       .catch((error) => {
         console.error('Could not save the model config.', error);
       });
+  };
+
+  const handleRenameConversation = async (id: string, title: string) => {
+    const normalizedTitle = await renameConversation(id, title);
+    setConversationSummaries((current) =>
+      current.map((conversation) =>
+        conversation.id === id ? { ...conversation, title: normalizedTitle } : conversation,
+      ),
+    );
   };
   const selectComposerModel = (providerKey: string, model: string) => {
     const provider = modelSettings.providers[providerKey];
@@ -2487,7 +2670,7 @@ function App() {
       />
 
       <main className="main-pane">
-        <div className="content-scroll">
+        <div ref={contentScrollRef} className="content-scroll auto-hide-scrollbar">
           {loadingLibrary ? (
             <div className="loading-state">
               <LoaderCircle className="spin" size={24} />
@@ -2751,8 +2934,10 @@ function App() {
         editingNote={railEditorTarget}
         conversations={conversationSummaries}
         activeConversationId={activeConversationId}
+        unreadConversationIds={unreadConversationIds}
         chatBusy={chatBusy}
         onSelectConversation={handleSelectConversation}
+        onRenameConversation={handleRenameConversation}
         onDeleteConversation={handleDeleteConversation}
         onPreviewEditingNote={handlePreviewRailEdit}
         onAutosaveEditingNote={handleAutosaveRailEdit}
@@ -3605,6 +3790,126 @@ function TextCommandMenu({
           </button>
         </React.Fragment>
       ))}
+    </div>,
+    document.body,
+  );
+}
+
+interface ConversationContextMenuState {
+  conversation: ConversationSummary;
+  x: number;
+  y: number;
+}
+
+function ConversationContextMenu({
+  menu,
+  locale,
+  mutationDisabled,
+  onRename,
+  onDelete,
+  onClose,
+}: {
+  menu: ConversationContextMenuState;
+  locale: Locale;
+  mutationDisabled: boolean;
+  onRename: (conversation: ConversationSummary) => void;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) onClose();
+    };
+    const closeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const closeWheel = () => onClose();
+    document.addEventListener('mousedown', close, true);
+    document.addEventListener('keydown', closeKey, true);
+    document.addEventListener('wheel', closeWheel, { capture: true, passive: true });
+    window.addEventListener('blur', onClose);
+    window.addEventListener('resize', onClose);
+    return () => {
+      document.removeEventListener('mousedown', close, true);
+      document.removeEventListener('keydown', closeKey, true);
+      document.removeEventListener('wheel', closeWheel, { capture: true } as EventListenerOptions);
+      window.removeEventListener('blur', onClose);
+      window.removeEventListener('resize', onClose);
+    };
+  }, [onClose]);
+
+  const copy = async (text: string) => {
+    onClose();
+    await writeClipboardText(text);
+  };
+  const withConversationPath = async (action: (path: string) => void | Promise<void>) => {
+    onClose();
+    try {
+      const path = await getConversationFilePath(menu.conversation.id);
+      if (path) await action(path);
+    } catch {
+      // The record may have been removed outside TierNote; keep the menu action best-effort.
+    }
+  };
+  const style: React.CSSProperties = {
+    left: Math.max(4, Math.min(menu.x, window.innerWidth - 230)),
+    top: Math.max(4, Math.min(menu.y, window.innerHeight - 258)),
+  };
+
+  return createPortal(
+    <div className="ctx-menu conversation-context-menu" ref={menuRef} style={style}>
+      <button
+        type="button"
+        className="ctx-menu-item"
+        disabled={mutationDisabled}
+        onClick={() => {
+          onClose();
+          onRename(menu.conversation);
+        }}
+      >
+        <Pencil size={13} />
+        <span>{locale === 'zh' ? '重命名对话' : 'Rename conversation'}</span>
+      </button>
+      <div className="ctx-menu-divider" />
+      <button
+        type="button"
+        className="ctx-menu-item"
+        onClick={() => void copy(menu.conversation.id)}
+      >
+        <Hash size={13} />
+        <span>{locale === 'zh' ? '复制对话 ID' : 'Copy conversation ID'}</span>
+      </button>
+      <button
+        type="button"
+        className="ctx-menu-item"
+        onClick={() => void withConversationPath((path) => writeClipboardText(path))}
+      >
+        <Copy size={13} />
+        <span>{locale === 'zh' ? '复制对话路径' : 'Copy conversation path'}</span>
+      </button>
+      <button
+        type="button"
+        className="ctx-menu-item"
+        onClick={() => void withConversationPath(revealInFolder)}
+      >
+        <FolderSearch size={13} />
+        <span>{locale === 'zh' ? '在文件管理器中显示' : 'Reveal in File Explorer'}</span>
+      </button>
+      <div className="ctx-menu-divider" />
+      <button
+        type="button"
+        className="ctx-menu-item danger"
+        disabled={mutationDisabled}
+        onClick={() => {
+          onClose();
+          onDelete(menu.conversation.id);
+        }}
+      >
+        <Trash2 size={13} />
+        <span>{locale === 'zh' ? '删除对话' : 'Delete conversation'}</span>
+      </button>
     </div>,
     document.body,
   );
@@ -5229,6 +5534,7 @@ function MarkdownEditor({
       ],
       parent: host,
     });
+    const unbindScrollbar = bindAutoHideScrollbar(view.scrollDOM);
     viewRef.current = view;
     onRegisterCommandsRef.current?.({
       canRun: () => true,
@@ -5238,6 +5544,7 @@ function MarkdownEditor({
     onActivateCommandsRef.current?.();
     return () => {
       onRegisterCommandsRef.current?.(null);
+      unbindScrollbar();
       view.destroy();
       viewRef.current = null;
     };
@@ -5629,8 +5936,13 @@ function ConversationView({
   onDismissMemory: (messageId: string) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const [textMenu, setTextMenu] = useState<{ x: number; y: number; copyText: string } | null>(null);
   const renderedConversationRef = useRef('');
   const previousScrollHeightRef = useRef(0);
+  const hasRunningTool = messages.some(
+    (message) => message.role === 'tool_call' && message.toolStatus === 'running',
+  );
   const components = useMemo(
     () => ({
       a: (
@@ -5659,8 +5971,46 @@ function ConversationView({
     previousScrollHeightRef.current = scrollContainer.scrollHeight;
   }, [conversationId, messages, busy]);
 
+  const conversationTextController = useMemo<TextCommandController>(
+    () => ({
+      canRun: (command) =>
+        command === 'selectAll'
+          ? messages.length > 0
+          : command === 'copy' && Boolean(textMenu?.copyText),
+      run: async (command) => {
+        const list = messageListRef.current;
+        if (!list) return;
+        if (command === 'selectAll') {
+          selectElementText(list);
+          return;
+        }
+        if (command === 'copy' && textMenu?.copyText) {
+          await writeClipboardText(textMenu.copyText);
+        }
+      },
+    }),
+    [messages.length, textMenu?.copyText],
+  );
+
+  const openConversationTextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const list = messageListRef.current;
+    if (!list || messages.length === 0) return;
+    event.preventDefault();
+
+    const selection = window.getSelection();
+    const selectedText =
+      selection && selectionIsInside(list) ? selection.toString() : '';
+    const record = (event.target as Element).closest<HTMLElement>('[data-conversation-copy]');
+    const recordText = record?.innerText.trim() || '';
+    setTextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      copyText: selectedText || recordText,
+    });
+  };
+
   return (
-    <div className="page conversation-view">
+    <div className="page conversation-view" onContextMenu={openConversationTextMenu}>
       {messages.length === 0 && (
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
@@ -5674,50 +6024,107 @@ function ConversationView({
           </p>
         </div>
       )}
-      <div className="message-list">
+      <div ref={messageListRef} className="message-list">
         {messages.map((message) => {
           if (message.role === 'tool_call') {
-            const toolLabels: Record<string, string> = {
-              save_note: locale === 'zh' ? '保存笔记' : 'Save note',
-              search_library: locale === 'zh' ? '搜索知识库' : 'Search library',
-              read_note: locale === 'zh' ? '读取笔记' : 'Read note',
+            const toolLabels: Record<string, Record<NonNullable<ChatMessage['toolStatus']>, string>> = {
+              save_note: {
+                running: locale === 'zh' ? '正在保存笔记' : 'Saving note',
+                done: locale === 'zh' ? '已保存笔记' : 'Saved note',
+                failed: locale === 'zh' ? '保存笔记失败' : 'Could not save note',
+              },
+              update_note: {
+                running: locale === 'zh' ? '正在更新笔记' : 'Updating note',
+                done: locale === 'zh' ? '已更新笔记' : 'Updated note',
+                failed: locale === 'zh' ? '更新笔记失败' : 'Could not update note',
+              },
+              update_plan: {
+                running: locale === 'zh' ? '正在更新计划' : 'Updating plan',
+                done: locale === 'zh' ? '已更新计划' : 'Updated plan',
+                failed: locale === 'zh' ? '更新计划失败' : 'Could not update plan',
+              },
+              update_tier: {
+                running: locale === 'zh' ? '正在调整层级' : 'Updating tier',
+                done: locale === 'zh' ? '已调整层级' : 'Updated tier',
+                failed: locale === 'zh' ? '调整层级失败' : 'Could not update tier',
+              },
+              search_library: {
+                running: locale === 'zh' ? '正在搜索知识库' : 'Searching library',
+                done: locale === 'zh' ? '已搜索知识库' : 'Searched library',
+                failed: locale === 'zh' ? '搜索知识库失败' : 'Could not search library',
+              },
+              read_note: {
+                running: locale === 'zh' ? '正在读取笔记' : 'Reading note',
+                done: locale === 'zh' ? '已读取笔记' : 'Read note',
+                failed: locale === 'zh' ? '读取笔记失败' : 'Could not read note',
+              },
             };
-            const label = toolLabels[message.toolName || ''] || message.toolName || 'tool';
+            const status = message.toolStatus || 'running';
+            const fallbackName = (message.toolName || (locale === 'zh' ? '工具' : 'tool'))
+              .replaceAll('_', ' ');
+            const label = toolLabels[message.toolName || '']?.[status]
+              || (locale === 'zh'
+                ? status === 'running'
+                  ? `正在执行${fallbackName}`
+                  : status === 'failed'
+                    ? `执行${fallbackName}失败`
+                    : `已执行${fallbackName}`
+                : status === 'running'
+                  ? `Running ${fallbackName}`
+                  : status === 'failed'
+                    ? `Could not run ${fallbackName}`
+                    : `Ran ${fallbackName}`);
             const statusIcon =
-              message.toolStatus === 'running' ? (
-                <LoaderCircle size={12} className="spin" />
-              ) : message.toolStatus === 'failed' ? (
-                <X size={12} />
+              status === 'failed' ? (
+                <X size={13} />
+              ) : status === 'done' ? (
+                <Check size={13} />
               ) : (
-                <Check size={12} />
+                <Wrench size={13} />
               );
             return (
-              <div className="tool-call-card" key={message.id}>
-                <button
-                  type="button"
-                  className="tool-call-header"
-                  onClick={(e) => {
-                    const card = (e.currentTarget as HTMLElement).closest('.tool-call-card');
-                    card?.classList.toggle('open');
-                  }}
-                >
-                  <Wrench size={13} />
-                  <span className="tool-call-label">{label}</span>
-                  <span className="tool-call-status">{statusIcon}</span>
-                </button>
-                <div className="tool-call-body">
+              <details
+                className={`tool-activity is-${status}`}
+                key={message.id}
+                data-conversation-copy
+              >
+                <summary className="tool-activity-summary">
+                  <span className="tool-activity-status" aria-hidden="true">{statusIcon}</span>
+                  <span className="tool-activity-label">{label}</span>
+                  <ChevronRight className="tool-activity-chevron" size={14} aria-hidden="true" />
+                </summary>
+                <div className="tool-activity-body">
                   {message.toolArgs && (
-                    <pre className="tool-call-args">{message.toolArgs}</pre>
+                    <div className="tool-activity-section">
+                      <span className="tool-activity-section-label">
+                        {locale === 'zh' ? '输入' : 'Input'}
+                      </span>
+                      <pre className="tool-activity-data">{message.toolArgs}</pre>
+                    </div>
                   )}
                   {message.toolOutput && (
-                    <pre className={`tool-call-output ${message.toolStatus === 'failed' ? 'failed' : ''}`}>
-                      {message.toolOutput.length > 2000
-                        ? message.toolOutput.slice(0, 2000) + '\n…'
-                        : message.toolOutput}
-                    </pre>
+                    <div className="tool-activity-section">
+                      <span className="tool-activity-section-label">
+                        {status === 'failed'
+                          ? locale === 'zh' ? '错误' : 'Error'
+                          : locale === 'zh' ? '结果' : 'Result'}
+                      </span>
+                      <pre className={`tool-activity-data ${status === 'failed' ? 'failed' : ''}`}>
+                        {message.toolOutput.length > 2000
+                          ? message.toolOutput.slice(0, 2000) + '\n…'
+                          : message.toolOutput}
+                      </pre>
+                    </div>
+                  )}
+                  {!message.toolArgs && !message.toolOutput && (
+                    <span className="tool-activity-empty">
+                      {status === 'running'
+                        ? locale === 'zh' ? '正在准备详情…' : 'Preparing details…'
+                        : locale === 'zh' ? '没有更多详情' : 'No additional details'}
+                    </span>
                   )}
                 </div>
-              </div>
+              </details>
             );
           }
           if (message.role === 'memory_suggestion' && message.memorySuggestion) {
@@ -5727,6 +6134,7 @@ function ConversationView({
               <div
                 className={`memory-suggestion-card ${saved ? 'saved' : ''} ${dismissed ? 'dismissed' : ''}`}
                 key={message.id}
+                data-conversation-copy
               >
                 <div className="memory-suggestion-copy">
                   <span className="memory-suggestion-kicker">
@@ -5765,7 +6173,11 @@ function ConversationView({
             );
           }
           return (
-            <div className={`message ${message.role}`} key={message.id}>
+            <div
+              className={`message ${message.role}`}
+              key={message.id}
+              data-conversation-copy
+            >
               <div className="message-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
                   {message.content}
@@ -5774,17 +6186,26 @@ function ConversationView({
             </div>
           );
         })}
-        {busy && (
-          <div className="message assistant">
-            <div className="message-content thinking-line">
-              <span />
-              <span />
-              <span />
-            </div>
+        {busy && !hasRunningTool && (
+          <div className="agent-thinking" role="status" aria-live="polite">
+            <Sparkles size={13} aria-hidden="true" />
+            <span className="agent-thinking-label">
+              {locale === 'zh' ? '正在思考…' : 'Thinking…'}
+            </span>
           </div>
         )}
         <div ref={endRef} />
       </div>
+      {textMenu && (
+        <TextCommandMenu
+          x={textMenu.x}
+          y={textMenu.y}
+          locale={locale}
+          commands={READER_TEXT_COMMANDS}
+          controller={conversationTextController}
+          onClose={() => setTextMenu(null)}
+        />
+      )}
     </div>
   );
 }
@@ -6062,6 +6483,7 @@ function ChatComposer({
   locale: Locale;
 }) {
   const [value, setValue] = useState('');
+  const [textMenu, setTextMenu] = useState<{ x: number; y: number } | null>(null);
   const configuredModel = modelConfig.model.trim();
   const modelChoices = useMemo(() => configuredModelChoices(modelSettings), [modelSettings]);
   const reasoningLevels = configuredModel ? COMPOSER_REASONING_LEVELS : [];
@@ -6083,11 +6505,16 @@ function ChatComposer({
   const currency = resolveCurrency(currencyMode, locale);
   const currencySymbol = currency === 'CNY' ? '¥' : '$';
   const cost = estimateModelCost(usage, modelConfig, currency, modelCatalog);
+  const formattedCost = cost == null
+    ? null
+    : cost < 0.01
+      ? cost.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
+      : cost.toFixed(2);
   const costLabel = usage.requestCount === 0
     ? `${currencySymbol}0.00`
     : cost == null
       ? '—'
-    : `${currencySymbol}${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
+      : `${currencySymbol}${formattedCost}`;
   const numberFormat = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
   const reasoningPosition = Math.min(
     Math.max(0, reasoningLevels.length - 1),
@@ -6195,6 +6622,76 @@ function ChatComposer({
     setValue('');
   };
 
+  const replaceComposerSelection = (text: string, from?: number, to?: number) => {
+    const input = inputRef.current;
+    if (!input) return;
+    const start = from ?? input.selectionStart;
+    const end = to ?? input.selectionEnd;
+    input.focus();
+    input.setSelectionRange(start, end);
+
+    if (document.execCommand('insertText', false, text)) {
+      setValue(input.value);
+      return;
+    }
+
+    const nextValue = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
+    const nextCaret = start + text.length;
+    setValue(nextValue);
+    window.requestAnimationFrame(() => input.setSelectionRange(nextCaret, nextCaret));
+  };
+
+  const composerTextController: TextCommandController = {
+    canRun: (command) => {
+      const input = inputRef.current;
+      if (!input) return false;
+      const hasSelection = input.selectionEnd > input.selectionStart;
+      if (command === 'copy' || command === 'cut') return hasSelection;
+      if (command === 'delete') return hasSelection || input.selectionStart < input.value.length;
+      if (command === 'selectAll') return input.value.length > 0;
+      return true;
+    },
+    run: async (command) => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+
+      if (command === 'undo' || command === 'redo') {
+        document.execCommand(command);
+        setValue(input.value);
+        return;
+      }
+      if (command === 'selectAll') {
+        input.setSelectionRange(0, input.value.length);
+        return;
+      }
+
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const selectedText = input.value.slice(start, end);
+      if (command === 'copy' || command === 'cut') {
+        if (!selectedText) return;
+        await writeClipboardText(selectedText);
+        if (command === 'cut') replaceComposerSelection('', start, end);
+        return;
+      }
+      if (command === 'paste') {
+        const clipboardText = await readClipboardText();
+        if (clipboardText) replaceComposerSelection(clipboardText, start, end);
+        return;
+      }
+      if (command === 'delete') {
+        replaceComposerSelection('', start, end > start ? end : Math.min(start + 1, input.value.length));
+      }
+    },
+  };
+
+  const openComposerTextMenu = (event: React.MouseEvent<HTMLTextAreaElement>) => {
+    event.preventDefault();
+    event.currentTarget.focus();
+    setTextMenu({ x: event.clientX, y: event.clientY });
+  };
+
   return (
     <div className="composer-wrap">
       <form className="composer" onSubmit={submit}>
@@ -6204,6 +6701,7 @@ function ChatComposer({
           value={value}
           placeholder={placeholder}
           onChange={(event) => setValue(event.target.value)}
+          onContextMenu={openComposerTextMenu}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
@@ -6370,9 +6868,19 @@ function ChatComposer({
           </button>
         </div>
       </form>
+      {textMenu && (
+        <TextCommandMenu
+          x={textMenu.x}
+          y={textMenu.y}
+          locale={locale}
+          commands={EDITOR_TEXT_COMMANDS}
+          controller={composerTextController}
+          onClose={() => setTextMenu(null)}
+        />
+      )}
       <div className="composer-metrics" aria-label={locale === 'zh' ? 'AI 用量统计' : 'AI usage'}>
         <span>
-          <b>{locale === 'zh' ? '命中率' : 'Cache hit'}</b>{cacheHitRate}
+          <b>{locale === 'zh' ? '累计命中' : 'Total cache'}</b>{cacheHitRate}
         </span>
         <span>
           <b>{locale === 'zh' ? '消耗 Tokens' : 'Tokens'}</b>{numberFormat.format(usage.totalTokens)}
@@ -6433,6 +6941,7 @@ function RightRail({
   editingNote,
   conversations,
   activeConversationId,
+  unreadConversationIds,
   chatBusy,
   supplement,
   person,
@@ -6446,6 +6955,7 @@ function RightRail({
   onResumeChat,
   onNewChat,
   onSelectConversation,
+  onRenameConversation,
   onDeleteConversation,
   onPreviewEditingNote,
   onAutosaveEditingNote,
@@ -6459,6 +6969,7 @@ function RightRail({
   editingNote: RailEditorTarget | null;
   conversations: ConversationSummary[];
   activeConversationId: string;
+  unreadConversationIds: string[];
   chatBusy: boolean;
   supplement: Supplement | null;
   person: Person | null;
@@ -6472,6 +6983,7 @@ function RightRail({
   onResumeChat: () => void;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
+  onRenameConversation: (id: string, title: string) => Promise<void>;
   onDeleteConversation: (id: string) => void;
   onPreviewEditingNote: (content: string) => void;
   onAutosaveEditingNote: (content: string) => Promise<void>;
@@ -6483,6 +6995,10 @@ function RightRail({
   const hasOpenContent = Boolean(supplement || person || story);
   const [editorDraft, setEditorDraft] = useState(editingNote?.markdown || '');
   const [editorSavedMarkdown, setEditorSavedMarkdown] = useState(editingNote?.markdown || '');
+  const [conversationMenu, setConversationMenu] = useState<ConversationContextMenuState | null>(null);
+  const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
+  const [conversationRenameValue, setConversationRenameValue] = useState('');
+  const cancelConversationRenameRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
   const favoriteItems = useMemo<FavoriteListItem[]>(() => {
     const items: FavoriteListItem[] = [];
@@ -6548,6 +7064,22 @@ function RightRail({
   const changeEditorDraft = (content: string) => {
     setEditorDraft(content);
     onPreviewEditingNote(content);
+  };
+  const startConversationRename = (conversation: ConversationSummary) => {
+    setConversationMenu(null);
+    cancelConversationRenameRef.current = false;
+    setConversationRenameValue(conversation.title || (locale === 'zh' ? '新对话' : 'New conversation'));
+    setRenamingConversationId(conversation.id);
+  };
+  const finishConversationRename = async (conversation: ConversationSummary) => {
+    const nextTitle = conversationRenameValue.trim();
+    setRenamingConversationId(null);
+    if (!nextTitle || nextTitle === conversation.title) return;
+    try {
+      await onRenameConversation(conversation.id, nextTitle);
+    } catch {
+      // A later reload restores the persisted title if the record changed externally.
+    }
   };
   const indexedSourceCount = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US')
     .format(library.noteCount);
@@ -6618,37 +7150,108 @@ function RightRail({
             </div>
             <div className="conversation-history-list">
               {conversations.length ? (
-                conversations.map((conversation) => (
-                  <div
-                    className={`conversation-history-item ${conversation.id === activeConversationId ? 'active' : ''}`}
-                    key={conversation.id}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onSelectConversation(conversation.id)}
-                      disabled={chatBusy || conversation.id === activeConversationId}
-                    >
+                conversations.map((conversation) => {
+                  const isWorking = chatBusy && conversation.id === activeConversationId;
+                  const isUnread = unreadConversationIds.includes(conversation.id);
+                  const isRenaming = renamingConversationId === conversation.id;
+                  const conversationTitle = conversation.title || (locale === 'zh' ? '新对话' : 'New conversation');
+                  const conversationMeta = (
+                    <small className="conversation-history-meta">
                       <span>
-                        <strong>{conversation.title || (locale === 'zh' ? '新对话' : 'New conversation')}</strong>
-                        <small className="conversation-history-meta">
-                          <span>
-                            {conversation.messageCount}{locale === 'zh' ? ' 条消息' : ' messages'} · {Math.max(1, Math.round(conversation.estimatedContextBytes / 1024))} KB
-                          </span>
-                          <time>{formatConversationTime(conversation.updatedAt, locale)}</time>
-                        </small>
+                        {conversation.messageCount}{locale === 'zh' ? ' 条消息' : ' messages'} · {Math.max(1, Math.round(conversation.estimatedContextBytes / 1024))} KB
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="conversation-history-delete"
-                      onClick={() => onDeleteConversation(conversation.id)}
-                      disabled={chatBusy}
-                      aria-label={locale === 'zh' ? '删除对话' : 'Delete conversation'}
+                      <time>{formatConversationTime(conversation.updatedAt, locale)}</time>
+                    </small>
+                  );
+                  return (
+                    <div
+                      className={`conversation-history-item${conversation.id === activeConversationId ? ' active' : ''}${isWorking ? ' working' : ''}${isUnread ? ' unread' : ''}`}
+                      key={conversation.id}
+                      aria-busy={isWorking || undefined}
+                      onContextMenu={(event) => {
+                        if (isRenaming) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setConversationMenu({
+                          conversation,
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      }}
                     >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))
+                      {isRenaming ? (
+                        <div className="conversation-history-rename">
+                          <input
+                            autoFocus
+                            value={conversationRenameValue}
+                            aria-label={locale === 'zh' ? '对话名称' : 'Conversation name'}
+                            onChange={(event) => setConversationRenameValue(event.target.value)}
+                            onClick={(event) => event.stopPropagation()}
+                            onContextMenu={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                            }}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                cancelConversationRenameRef.current = false;
+                                event.currentTarget.blur();
+                              } else if (event.key === 'Escape') {
+                                event.preventDefault();
+                                cancelConversationRenameRef.current = true;
+                                setRenamingConversationId(null);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (cancelConversationRenameRef.current) {
+                                cancelConversationRenameRef.current = false;
+                                return;
+                              }
+                              void finishConversationRename(conversation);
+                            }}
+                          />
+                          {conversationMeta}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onSelectConversation(conversation.id)}
+                          disabled={chatBusy || conversation.id === activeConversationId}
+                          aria-label={isUnread
+                            ? locale === 'zh'
+                              ? `${conversationTitle}，有未查看的回复`
+                              : `${conversationTitle}, has an unread response`
+                            : undefined}
+                        >
+                        <span>
+                          <strong>{conversationTitle}</strong>
+                          {conversationMeta}
+                        </span>
+                        </button>
+                      )}
+                      {!isRenaming && (isWorking ? (
+                        <span
+                          className="conversation-history-working"
+                          role="status"
+                          aria-label={locale === 'zh' ? 'AI 正在处理这个对话' : 'AI is working on this conversation'}
+                        >
+                          <span className="conversation-history-spinner" aria-hidden="true" />
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="conversation-history-delete"
+                          onClick={() => onDeleteConversation(conversation.id)}
+                          disabled={chatBusy}
+                          aria-label={locale === 'zh' ? '删除对话' : 'Delete conversation'}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })
               ) : (
                 <p className="rail-empty-state">{locale === 'zh' ? '暂无历史对话' : 'No saved conversations yet'}</p>
               )}
@@ -6740,6 +7343,17 @@ function RightRail({
         )}
       </div>
 
+      {conversationMenu && (
+        <ConversationContextMenu
+          menu={conversationMenu}
+          locale={locale}
+          mutationDisabled={chatBusy}
+          onRename={startConversationRename}
+          onDelete={onDeleteConversation}
+          onClose={() => setConversationMenu(null)}
+        />
+      )}
+
     </aside>
   );
 }
@@ -6809,6 +7423,7 @@ function ModelSettingsSection({
   const [manualModel, setManualModel] = useState('');
   const [addingCustomProvider, setAddingCustomProvider] = useState(false);
   const [customProviderName, setCustomProviderName] = useState('');
+  const providerListScrollRef = useAutoHideScrollbar<HTMLDivElement>();
   const selectedCatalogProvider = catalogProviders.find(
     (provider) => provider.id === selectedProviderId,
   );
@@ -7118,7 +7733,7 @@ function ModelSettingsSection({
               {locale === 'zh' ? '添加自定义' : 'Add custom'}
             </button>
           )}
-          <div className="settings-provider-list">
+          <div ref={providerListScrollRef} className="settings-provider-list auto-hide-scrollbar">
             {filteredProviders.map((provider) => {
               const entry = Object.entries(config.providers).find(
                 ([, item]) => item.providerId === provider.id,
@@ -7364,6 +7979,7 @@ function SettingsPage({
 }) {
   const [draft, setDraft] = useState(config);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection);
+  const settingsScrollRef = useAutoHideScrollbar<HTMLDivElement>();
   useEffect(() => setDraft(config), [config]);
   const settingsSections: Array<{
     id: SettingsSectionId;
@@ -7419,7 +8035,7 @@ function SettingsPage({
       </aside>
 
       <main className="settings-workspace">
-        <div className="settings-workspace-scroll">
+        <div ref={settingsScrollRef} className="settings-workspace-scroll auto-hide-scrollbar">
           <div className={`settings-panel settings-panel-${visibleSection}`}>
             {visibleSection === 'model' && (
               <>

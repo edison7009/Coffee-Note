@@ -341,10 +341,22 @@ export async function loadConversation(id: string): Promise<ConversationRecord> 
       createdAt: timestamp,
       updatedAt: timestamp,
       uiMessages: [],
-      llmMessages: [],
     };
   }
   return invoke<ConversationRecord>('load_conversation', { id });
+}
+
+export async function renameConversation(id: string, title: string): Promise<string> {
+  if (!isTauri) {
+    const characters = Array.from(title.trim());
+    return characters.length > 20 ? `${characters.slice(0, 20).join('')}…` : characters.join('');
+  }
+  return invoke<string>('rename_conversation', { id, title });
+}
+
+export async function getConversationFilePath(id: string): Promise<string | null> {
+  if (!isTauri) return null;
+  return invoke<string>('conversation_file_path', { id });
 }
 
 export async function saveConversationUi(

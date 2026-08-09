@@ -107,8 +107,39 @@
   counterpart. Reserve system blue for the enabled switch track; Add Material is
   an action and has no retrieval switch.
 - Keep the composer in a stable bottom row when chat is active.
+- Render AI thinking and tool activity as compact, unframed disclosure rows rather
+  than full-width cards. A running row uses a restrained left-to-right text shimmer;
+  clicking its chevron reveals arguments and results inline. Completed rows become
+  static muted text, failures retain a clear semantic error state, and raw provider
+  reasoning remains private.
+- In the right conversation history, replace the active working conversation's
+  delete action with an always-visible loading indicator. Restore delete only after
+  work finishes; its icon and hit area must remain comfortably legible without
+  dominating the row. Conversation rows have no persistent borders: ordinary rows
+  are transparent, while hover and the current conversation use one soft neutral
+  background. A working row keeps that background with its loading ring. When work
+  completes outside the conversation currently being viewed, keep the same background
+  as an unread-completion signal until the user opens that conversation. Keep the
+  loading ring geometrically centered in the action area.
+- In light mode, the chat composer and user message bubble use layered neutral gray
+  surfaces with neutral ink, never the inherited green/teal treatment. The user
+  bubble keeps a compact Codex-like rounded shape rather than becoming a card.
 - Reserve matching scrollbar gutters on both sides of the center scroll area so
   page content remains optically centered and aligns with the fixed composer.
+- Desktop scrollbars hide the native WebView chrome and use a narrow, real-DOM,
+  low-contrast neutral slider with no track or arrow buttons. The slider appears only
+  during scrolling, pointer/keyboard interaction, or editor activity, then fades after
+  a short idle delay. It floats over the edge so content never shifts; scrolling and
+  thumb dragging always remain available.
+- AI conversation records use the same restrained desktop context menu as note
+  content. Copy prioritizes selected text and otherwise copies the record under the
+  pointer; Select all covers the visible transcript.
+- The AI composer textarea uses the complete desktop editing context menu. Keep
+  selection-sensitive commands disabled when they have no applicable text, and read
+  the clipboard only after the user explicitly invokes Paste.
+- Saved conversation rows expose a restrained right-click menu for rename, identity,
+  local-file access, and deletion. Rename happens inline without changing row height;
+  destructive hover uses semantic red, while all other actions remain neutral.
 - Remove redundant dashboard cards, helper copy, metrics decoration, and duplicated labels as each screen is migrated.
 - Prefer one clear action per region. Secondary actions use familiar icons from Lucide.
 
@@ -150,6 +181,9 @@
 - **Approach:** Minimal and functional.
 - **Timing:** 90ms for hover/focus changes, 150-200ms for panels and dialogs.
 - **Behavior:** No decorative movement, scale-on-hover, or animated gradients. Respect reduced-motion settings.
+- **AI activity exception:** A currently running thinking/tool label may use one
+  low-contrast text-only shimmer from left to right. It becomes static under reduced
+  motion and never animates a card, border, icon, or surrounding layout.
 - **Home weather exception:** Tiny condition-specific motion may communicate the
   current weather inside the greeting readout: slow cloud drift and sparse rain
   or snow only. It stops under reduced-motion preferences and must remain lower

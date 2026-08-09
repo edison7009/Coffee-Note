@@ -12,6 +12,7 @@
     "dialog:allow-open",
     "dialog:allow-message",
     "opener:default",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text"
   ]
 }

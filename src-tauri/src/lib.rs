@@ -3325,6 +3325,8 @@ pub fn run() {
             agent_reset,
             conversations::list_conversations,
             conversations::load_conversation,
+            conversations::rename_conversation,
+            conversations::conversation_file_path,
             conversations::save_conversation_ui,
             conversations::create_conversation,
             conversations::delete_conversation,
