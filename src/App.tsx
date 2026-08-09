@@ -6463,6 +6463,11 @@ function RightRail({
     setEditorDraft(content);
     onPreviewEditingNote(content);
   };
+  const indexedSourceCount = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US')
+    .format(library.noteCount);
+  const indexedSourceCountLabel = locale === 'zh'
+    ? `${indexedSourceCount} 篇`
+    : `${indexedSourceCount} ${library.noteCount === 1 ? 'item' : 'items'}`;
 
   return (
     <aside className={`right-rail${editingNote ? ' right-rail-editing' : ''}`}>
@@ -6485,9 +6490,7 @@ function RightRail({
             </span>
             <h3>
               {aiActive
-                ? locale === 'zh'
-                  ? '当前对话'
-                  : 'Current conversation'
+                ? indexedSourceCountLabel
                 : (supplement
                     ? locale === 'zh'
                       ? supplement.nameZh
@@ -6524,19 +6527,6 @@ function RightRail({
       <div className={`rail-scroll${editingNote ? ' rail-scroll-editor' : ''}`}>
         {aiActive ? (
           <>
-            <div className="context-summary">
-              <div>
-                <strong>
-                  {library.noteCount}{' '}
-                  {locale === 'zh' ? '条本地资料' : 'local source items'}
-                </strong>
-                <small>
-                  {locale === 'zh'
-                    ? '个人设定和目录内资料会被AI索引，更懂你的对话。'
-                    : 'Personal contexts and files in your library are indexed by AI for conversations that understand you better.'}
-                </small>
-              </div>
-            </div>
             <div className="rail-section-title">
               {locale === 'zh' ? '历史对话' : 'Conversations'} <span>{conversations.length}</span>
             </div>
