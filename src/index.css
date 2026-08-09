@@ -3575,7 +3575,6 @@ html.tree-drag-active * {
   padding: 24px;
   place-items: center;
   background: rgba(19, 40, 39, 0.38);
-  backdrop-filter: blur(7px);
   animation: fade-in 130ms ease-out;
 }
 
@@ -5721,7 +5720,7 @@ textarea,
 }
 
 .sidebar-scroll {
-  padding: 0 12px 18px;
+  padding: 14px 12px 18px;
 }
 
 .brand {
@@ -6616,7 +6615,6 @@ textarea,
 
 .modal-backdrop {
   background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(12px);
 }
 
 .capture-prompt-example,

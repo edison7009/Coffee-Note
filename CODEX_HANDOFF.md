@@ -96,6 +96,8 @@ or temporary deployment credentials.
 - The title-bar wordmark reuses the AI-chat identity's bundled `Lora`
   bold-italic face at 16px. The AI-chat empty-state logo and wordmark keep their
   separate 42px identity treatment.
+- The left navigation keeps a modest top inset above Home so the first row does
+  not feel crowded against the shared title bar.
 - `DESIGN.md` is the desktop design source of truth. The public `website/` remains
   a separate product surface with its existing expressive brand direction.
 - **Cursor rule (2026-08-08):** the desktop app uses the system default arrow

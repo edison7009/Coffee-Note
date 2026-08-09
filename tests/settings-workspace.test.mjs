@@ -68,6 +68,14 @@ test('settings uses one continuous work surface without the contextual rail', ()
   assert.doesNotMatch(styles, /settings-library/);
 });
 
+test('desktop modal backdrops dim without blurring the workspace', () => {
+  const modalBackdropRules = [...styles.matchAll(/\.modal-backdrop\s*\{([^}]*)\}/g)]
+    .map((match) => match[1])
+    .join('\n');
+  assert.doesNotMatch(modalBackdropRules, /backdrop-filter|filter:\s*blur/);
+  assert.match(modalBackdropRules, /background:\s*rgba/);
+});
+
 test('settings scrollbars stay thin and low contrast', () => {
   assert.match(styles, /\.settings-workspace-scroll,[\s\S]*\.settings-provider-list\s*\{[^}]*scrollbar-color:[^}]*26%[^}]*scrollbar-width:\s*thin;/);
   assert.match(styles, /\.settings-workspace-scroll::\-webkit-scrollbar[\s\S]*width:\s*8px;/);

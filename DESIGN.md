@@ -47,6 +47,7 @@
 - Use one outer shell for the top bar and persistent left navigation rail.
 - Let the shared title bar span the full window width. Place the 16 x 16 product icon and the closed `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
 - Start the left rail below the title bar with Home as its first row. Do not repeat the product icon or wordmark there. Library switching remains in the File menu and is also exposed as a discoverable global-action icon at the right edge of the Home row, matching the placement of global actions such as search in Codex.
+- Leave a modest top inset above the Home row so the left rail breathes under the title bar rather than feeling pinned to it.
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
 - Keep the left navigation pane within its 210-380px range. The right contextual rail has no product-level maximum; its only upper bound is the remaining window width after preserving the main workspace's 560px minimum.
 - Treat AI chat as one workspace mode, not the visual identity of the whole product.
