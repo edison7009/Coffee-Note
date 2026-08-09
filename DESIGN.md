@@ -27,6 +27,13 @@
 ## Product Structure
 
 - Keep the homepage tier list as the core first screen.
+- The Home greeting may include one compact animated weather mark on its right.
+  Home shows only the condition image. An explicit click opens a read-only current
+  and multi-day forecast; the header includes a direct gear shortcut to Appearance.
+  City search, recent cities, one-time device location, and source attribution live
+  only in Settings > Appearance. Never request location on launch. The mark is an
+  absolutely positioned background element and never compresses the greeting.
+  Multi-word recent-city names stay intact; keep up to ten deduplicated entries.
 - Use one outer shell for the top bar and persistent left navigation rail.
 - Let the shared title bar span the full window width. Place the 16 x 16 product icon and the closed `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
 - Start the left rail below the title bar with Home as its first row. Do not repeat the product icon or wordmark there. Library switching remains in the File menu and is also exposed as a discoverable global-action icon at the right edge of the Home row, matching the placement of global actions such as search in Codex.
@@ -41,6 +48,9 @@
   scrollable settings surface. Settings is not a modal and uses no backdrop or floating
   dialog boundary. Keep model and appearance as distinct pages. Library switching
   already belongs to the Home row and File menu and is not duplicated here.
+  Appearance is one continuous grouped surface rather than three distant cards.
+  Theme and language use compact label/control rows. Weather places the current
+  city at the header's right, recent cities below, and current location beside search.
 - On My Contexts (`我的设定`), use five direct-entry content cards with independent retrieval
   switches, all enabled by default. Cards have no selected state: their light
   surface remains `#f1f1f1` during hover and navigation, with a neutral dark-mode
@@ -90,6 +100,9 @@
 - **Approach:** Minimal and functional.
 - **Timing:** 90ms for hover/focus changes, 150-200ms for panels and dialogs.
 - **Behavior:** No decorative movement, scale-on-hover, or animated gradients. Respect reduced-motion settings.
+- **Home weather exception:** Slow condition-specific cloud, rain, or snow motion
+  may communicate current weather. It stops under reduced-motion preferences and
+  remains lower contrast than the greeting and tier list.
 
 ## Migration Order
 
@@ -116,3 +129,4 @@
 | 2026-08-08 | Gate My Contexts retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
 | 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Contexts seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
 | 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |
+| 2026-08-09 | Add ambient Home weather | A quiet animated condition mark opens a read-only forecast, while city selection and location remain in Appearance. Weather stays enabled after setup; users switch cities instead of removing it. |

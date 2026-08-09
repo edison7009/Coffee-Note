@@ -1,5 +1,17 @@
 # Third-party notices
 
+## Open-Meteo
+
+TierNote's optional weather panel uses geocoding and forecast data from
+[Open-Meteo](https://open-meteo.com/). Home shows the compact condition image and
+read-only forecast; plain provider attribution appears in Settings > Appearance.
+Open-Meteo combines open data from multiple national weather services; its API
+data is provided under the [Creative Commons Attribution 4.0 International licence](https://creativecommons.org/licenses/by/4.0/).
+
+The no-key public endpoint is suitable for development and non-commercial use.
+A commercial TierNote release must use an appropriately licensed endpoint or a
+compliant self-hosted/proxied deployment.
+
 ## DeepSeek-Reasonix
 
 TierNote's staged context maintenance and provider cache-usage normalization

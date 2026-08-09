@@ -134,7 +134,9 @@ import {
   estimateContextBytes,
 } from './chat/contextUsage';
 import { fallbackLibrary, fallbackMarkdown } from './data';
+import { WeatherAmbient } from './home/WeatherAmbient';
 import { translate, type TranslationKey } from './i18n';
+import { WeatherLocationSettings } from './settings/WeatherLocationSettings';
 import type {
   AgentEvent,
   ChatMessage,
@@ -964,6 +966,7 @@ function App() {
   const editorTextCommandsRef = useRef<TextCommandController | null>(null);
   const readerTextCommandsRef = useRef<TextCommandController | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('model');
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [treeRefresh, setTreeRefresh] = useState(0);
@@ -2378,13 +2381,17 @@ function App() {
         onSwitchRoot={handleSwitchRoot}
         onHelp={() => void openExternalUrl(PRODUCT_WEBSITE)}
         onFeedback={() => void openExternalUrl(FEEDBACK_URL)}
-        onSettings={() => setSettingsOpen(true)}
+        onSettings={() => {
+          setSettingsSection('model');
+          setSettingsOpen(true);
+        }}
         settingsActive={settingsOpen}
         onTextCommand={runTextCommand}
         isTextCommandEnabled={isTextCommandEnabled}
       />
       {settingsOpen ? (
         <SettingsPage
+          initialSection={settingsSection}
           locale={locale}
           config={modelSettings}
           onChange={saveModelConfig}
@@ -2449,6 +2456,10 @@ function App() {
                 <HomeView
                   locale={locale}
                   library={library}
+                  onOpenAppearanceSettings={() => {
+                    setSettingsSection('appearance');
+                    setSettingsOpen(true);
+                  }}
                   onCapture={() => setCaptureGuideOpen(true)}
                   onOrganize={() => navigate('ai')}
                   onPlan={() => navigate('plan')}
@@ -4499,6 +4510,7 @@ const greetingIconByKey: Record<string, typeof Sun> = {
 function HomeView({
   locale,
   library,
+  onOpenAppearanceSettings,
   onCapture,
   onOrganize,
   onPlan,
@@ -4508,6 +4520,7 @@ function HomeView({
 }: {
   locale: Locale;
   library: LibrarySnapshot;
+  onOpenAppearanceSettings: () => void;
   onCapture: () => void;
   onOrganize: () => void;
   onPlan: () => void;
@@ -4777,11 +4790,14 @@ function HomeView({
   return (
     <div className="home-view page">
       <section className="hero">
-        <div className="hero-kicker">
-          <GreetingIcon size={15} />
-          Your AI Second Brain for Knowledge & Ideas
+        <div className="hero-copy">
+          <div className="hero-kicker">
+            <GreetingIcon size={15} />
+            Your AI Second Brain for Knowledge & Ideas
+          </div>
+          <h1>{t(greetingKey)}</h1>
         </div>
-        <h1>{t(greetingKey)}</h1>
+        <WeatherAmbient locale={locale} onOpenAppearanceSettings={onOpenAppearanceSettings} />
       </section>
 
       <section className="start-section" aria-label={t('coreModules')}>
@@ -6653,6 +6669,7 @@ function RightRail({
 }
 
 function SettingsPage({
+  initialSection,
   locale,
   config,
   themeMode,
@@ -6664,6 +6681,7 @@ function SettingsPage({
   onClose,
   t,
 }: {
+  initialSection: SettingsSectionId;
   locale: Locale;
   config: ModelSettings;
   themeMode: ThemeMode;
@@ -6676,7 +6694,7 @@ function SettingsPage({
   t: (key: TranslationKey) => string;
 }) {
   const [draft, setDraft] = useState(config);
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('model');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection);
 
   const updateProvider = (provider: ModelProvider) => {
     const next = {
@@ -6846,8 +6864,8 @@ function SettingsPage({
             )}
 
             {visibleSection === 'appearance' && (
-              <div className="settings-section-stack">
-                <section className="settings-section">
+              <div className="settings-appearance-group">
+                <section className="settings-appearance-block settings-appearance-inline">
                   <div className="settings-section-heading">
                     <h2>{t('appearance')}</h2>
                     <p>{locale === 'zh' ? '选择浅色、深色，或跟随当前系统。' : 'Use light mode, dark mode, or follow your system.'}</p>
@@ -6864,16 +6882,17 @@ function SettingsPage({
                     </button>
                   </div>
                 </section>
-                <section className="settings-section">
+                <section className="settings-appearance-block settings-appearance-inline">
                   <div className="settings-section-heading">
                     <h2>{t('language')}</h2>
-                    <p>{locale === 'zh' ? '更改只影响应用界面，不会重命名或改写已有笔记。' : 'This changes the app interface only; existing notes are not renamed or rewritten.'}</p>
+                    <p>{locale === 'zh' ? '切换语言仅影响界面。' : 'Language changes affect the interface only.'}</p>
                   </div>
                   <div className="language-switch">
                     <button type="button" className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>中文</button>
                     <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
                   </div>
                 </section>
+                <WeatherLocationSettings locale={locale} />
               </div>
             )}
           </div>

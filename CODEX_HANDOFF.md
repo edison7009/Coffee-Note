@@ -19,6 +19,16 @@ or temporary deployment credentials.
 
 ## Desktop redesign direction (2026-08-07)
 
+- **Ambient Home weather (2026-08-09):** The right side of the Home greeting holds
+  only a compact animated condition image. Clicking it opens a read-only current
+  and four-day forecast whose gear opens Settings > Appearance directly. Current
+  city, recent-city history, search, one-time device location, and plain Open-Meteo
+  attribution live in Appearance. Weather has no removal action; another city
+  replaces the current one. Device coordinates are rounded to 0.1 degrees, forecasts
+  are cached locally for 30 minutes, and location is never requested on launch.
+  Recent history stores up to ten deduplicated, non-breaking city names. Settings
+  changes refresh Home immediately through a local browser event. The mark is
+  absolutely positioned behind the hero layout and respects reduced motion.
 - **Typography floor (2026-08-07):** Desktop UI text must never render below
   **13px** for readable/interactive text and **12px** for technical metadata
   (counts, shortcuts, timestamps, badges). Left navigation uses **15px**,
