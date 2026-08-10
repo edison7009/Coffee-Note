@@ -575,6 +575,33 @@ of its ancestors/descendants, the managed My Info subtree is excluded from the
 general library route and only the enabled personal-section allowlist may expose
 its contents.
 
+## Audio-to-text import foundation (2026-08-10)
+
+The desktop Audio to text settings are backed by real app-data state rather
+than UI-only placeholders. Provider configuration is stored as plaintext JSON
+at the current user's local app-data `TierNote/transcription.json`; it is never
+written into the repository or knowledge library. Provider records are kept
+independently so switching services does not discard their endpoint, model, or
+API key. The hosted path has separate request adapters for OpenAI-compatible,
+Deepgram, and AssemblyAI protocols and streams audio files instead of reading
+the whole upload into memory.
+
+The local path downloads pinned runtime and model resources into the current
+user's local app-data `TierNote/transcription/` directory. Every fixed resource
+has an expected byte size and SHA-256 digest; archives are extracted only after
+verification. Windows supports the CPU and NVIDIA CUDA runtimes, Linux supports
+the CPU runtime, and macOS is intentionally shown as unavailable until a pinned
+runtime package is defined. Local input is decoded and converted to 16 kHz
+mono PCM WAV before the selected runtime and model are executed.
+
+The home capture flow now treats YouTube, TikTok, Douyin, Xiaohongshu, X, and
+their supported short-link hosts as media sources. It validates the selected
+hosted or local configuration first, downloads the best compatible audio into
+a temporary directory, transcribes it, and then sends the transcript through
+the existing note-organization model to produce editable Markdown. Ordinary
+web URLs retain the existing HTML extraction path. Direct local audio/video
+file selection is not implemented yet.
+
 ## Reference archive and next-work plan (2026-08-07)
 
 `references/` holds shallow clones of projects studied for TierNote. It is
@@ -609,13 +636,13 @@ OpenMontage (cost transparency + self-review gates only).
 
 Next-work plan:
 
-1. **Phase 1 — Import preprocessing layer** (markitdown + Agent-Reach pattern):
-   detect source type → multi-backend routing → fallback. URLs use the
-   zero-config read chain (Jina Reader / built-in HTML cleaning / yt-dlp
-   subtitles / RSS); local files use built-in Rust conversion for
-   md/html/txt/pdf/docx subset, optional markitdown CLI for complex formats.
-   Local-file-only, SSRF-safe, no login-cookie channels. Acceptance: pasting
-   a PDF or a URL produces a structured Markdown note.
+1. **Phase 1 — Finish import preprocessing**: media URL audio download and
+   hosted/local transcription are implemented. Next, add direct local file
+   selection and conversion for md/html/txt/pdf/docx/audio/video, then define
+   deterministic fallback and error reporting for unsupported sources.
+   Keep processing local by default, SSRF-safe, and free of login-cookie
+   channels. Acceptance: selecting a local document or media file produces an
+   editable Markdown note through the same capture dialog.
 2. **Phase 2 — Library Graph** (codebase-memory-mcp + pi-llm-wiki blueprints):
    evolve `knowledge_map.rs` into a persistent registry + backlinks + orphan/
    broken-link lint + deterministic metadata rebuild after agent runs;

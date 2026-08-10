@@ -8,6 +8,7 @@ mod json_repair;
 mod knowledge_map;
 mod llm_stream;
 mod memory;
+mod transcription;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -33,6 +34,7 @@ const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/re
 const MODELS_DEV_CATALOG_URL: &str = "https://models.dev/api.json";
 const MODEL_CATALOG_MAX_BYTES: usize = 24 * 1024 * 1024;
 const MODEL_CATALOG_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+const TRANSCRIPTION_CONFIG_FILE: &str = "transcription.json";
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
 const TIER_ORDER_RELATIVE_PATH: &str = ".tiernote/tier-order.json";
 pub(crate) const MODEL_APP_URL: &str = "https://tiernote.org";
@@ -244,6 +246,41 @@ struct ModelSettings {
     providers: BTreeMap<String, ProviderModelConfig>,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TranscriptionProviderConfig {
+    #[serde(default)]
+    pub(crate) provider_id: String,
+    #[serde(default)]
+    pub(crate) protocol: String,
+    #[serde(default)]
+    pub(crate) endpoint: String,
+    #[serde(default)]
+    pub(crate) model: String,
+    #[serde(default)]
+    pub(crate) api_key: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TranscriptionSettingsConfig {
+    #[serde(default)]
+    pub(crate) active_provider: String,
+    #[serde(default)]
+    pub(crate) providers: BTreeMap<String, TranscriptionProviderConfig>,
+    #[serde(default)]
+    pub(crate) active_runtime: String,
+    #[serde(default)]
+    pub(crate) active_model: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TranscriptionCheckResult {
+    ok: bool,
+    message: String,
+}
+
 fn default_reasoning_effort() -> String {
     "medium".to_string()
 }
@@ -342,6 +379,112 @@ fn model_config_path() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join("TierNote")
         .join("config.json")
+}
+
+fn transcription_config_path() -> PathBuf {
+    model_config_path()
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(TRANSCRIPTION_CONFIG_FILE)
+}
+
+fn load_transcription_config_from(
+    path: &Path,
+) -> Result<Option<TranscriptionSettingsConfig>, String> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("Could not read transcription config: {error}"))?;
+    serde_json::from_str(&contents)
+        .map(Some)
+        .map_err(|error| format!("Could not parse transcription config: {error}"))
+}
+
+fn save_transcription_config_to(
+    path: &Path,
+    config: &TranscriptionSettingsConfig,
+) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Could not create transcription config directory: {error}"))?;
+    }
+    let contents = serde_json::to_string_pretty(config)
+        .map_err(|error| format!("Could not serialize transcription config: {error}"))?;
+    fs::write(path, format!("{contents}\n"))
+        .map_err(|error| format!("Could not write transcription config: {error}"))
+}
+
+#[tauri::command]
+fn load_transcription_config() -> Result<Option<TranscriptionSettingsConfig>, String> {
+    load_transcription_config_from(&transcription_config_path())
+}
+
+#[tauri::command]
+fn save_transcription_config(config: TranscriptionSettingsConfig) -> Result<(), String> {
+    save_transcription_config_to(&transcription_config_path(), &config)
+}
+
+#[tauri::command]
+async fn check_transcription_config(
+    config: TranscriptionSettingsConfig,
+) -> Result<TranscriptionCheckResult, String> {
+    let provider = config
+        .providers
+        .get(&config.active_provider)
+        .ok_or_else(|| "Choose a speech recognition service".to_string())?;
+    let endpoint = reqwest::Url::parse(provider.endpoint.trim())
+        .map_err(|_| "Enter a valid transcription API URL".to_string())?;
+    if !matches!(endpoint.scheme(), "http" | "https") {
+        return Err("Transcription API URL must use HTTP or HTTPS".to_string());
+    }
+    if provider.api_key.trim().is_empty() {
+        return Err("An API key is required".to_string());
+    }
+    if provider.model.trim().is_empty() {
+        return Err("A transcription model is required".to_string());
+    }
+
+    let client = reqwest::Client::new();
+    let mut request = match provider.protocol.as_str() {
+        "assemblyai" => client.get(endpoint).query(&[("limit", "1")]),
+        _ => client
+            .post(endpoint)
+            .header("Content-Type", "application/octet-stream"),
+    }
+    .header("User-Agent", "TierNote");
+    request = match provider.protocol.as_str() {
+        "deepgram" => request.header(
+            "Authorization",
+            format!("Token {}", provider.api_key.trim()),
+        ),
+        "assemblyai" => request.header("Authorization", provider.api_key.trim()),
+        _ => request.bearer_auth(provider.api_key.trim()),
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the transcription service: {error}"))?;
+    let status = response.status();
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return Ok(TranscriptionCheckResult {
+            ok: false,
+            message: "The API key was rejected by the transcription service".to_string(),
+        });
+    }
+    if status.is_server_error()
+        || status == reqwest::StatusCode::NOT_FOUND
+        || status == reqwest::StatusCode::METHOD_NOT_ALLOWED
+    {
+        return Ok(TranscriptionCheckResult {
+            ok: false,
+            message: format!("The transcription service returned HTTP {status}"),
+        });
+    }
+    Ok(TranscriptionCheckResult {
+        ok: true,
+        message: "Transcription service is reachable".to_string(),
+    })
 }
 
 fn model_catalog_cache_path() -> PathBuf {
@@ -2317,7 +2460,10 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
     if !matches!(request.locale.as_str(), "zh" | "en") {
         return Err("Unsupported note locale".to_string());
     }
-    if !matches!(request.transcription_mode.as_deref(), None | Some("api") | Some("local")) {
+    if !matches!(
+        request.transcription_mode.as_deref(),
+        None | Some("api") | Some("local")
+    ) {
         return Err("Unsupported transcription mode".to_string());
     }
 
@@ -2333,8 +2479,23 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         .ok()
         .filter(|url| matches!(url.scheme(), "http" | "https"));
     let (source_material, source_url) = if let Some(url) = parsed_url {
-        let material = fetch_capture_source(&url).await?;
-        (material, Some(url.to_string()))
+        validate_public_url(&url)?;
+        if transcription::supports_media_url(&url) {
+            let mode = request.transcription_mode.as_deref().unwrap_or("api");
+            let config = load_transcription_config()?
+                .ok_or_else(|| "Configure audio transcription first".to_string())?;
+            let transcript = transcription::transcribe_media_url(&url, mode, &config).await?;
+            if transcript.trim().is_empty() {
+                return Err("Audio transcription returned no text".to_string());
+            }
+            (
+                format!("Audio transcript:\n{}", transcript.trim()),
+                Some(url.to_string()),
+            )
+        } else {
+            let material = fetch_capture_source(&url).await?;
+            (material, Some(url.to_string()))
+        }
     } else {
         (input.to_string(), None)
     };
@@ -3361,6 +3522,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_model_config,
             save_model_config,
+            load_transcription_config,
+            save_transcription_config,
+            check_transcription_config,
+            transcription::list_transcription_resources,
+            transcription::download_transcription_resource,
+            transcription::cancel_transcription_download,
+            transcription::remove_transcription_resource,
             load_model_catalog,
             load_library,
             inspect_library_graph,
@@ -3394,6 +3562,7 @@ pub fn run() {
             download_and_install_update,
             set_tray_locale
         ])
+        .manage(transcription::TranscriptionDownloadState::default())
         .run(tauri::generate_context!())
         .expect("error while running TierNote");
 }
@@ -3908,6 +4077,36 @@ mod tests {
         save_model_config_to(&path, &settings).expect("new config should save");
         let saved = fs::read_to_string(&path).expect("new config should be readable");
         assert!(!saved.contains("economyMode"));
+        fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn transcription_config_round_trips_outside_the_library() {
+        let root = temp_fixture("transcription-config");
+        let path = root.join("transcription.json");
+        let provider = TranscriptionProviderConfig {
+            provider_id: "siliconflow".to_string(),
+            protocol: "openai-compatible".to_string(),
+            endpoint: "https://api.siliconflow.cn/v1/audio/transcriptions".to_string(),
+            model: "FunAudioLLM/SenseVoiceSmall".to_string(),
+            api_key: "local-test-key".to_string(),
+        };
+        let config = TranscriptionSettingsConfig {
+            active_provider: provider.provider_id.clone(),
+            providers: BTreeMap::from([(provider.provider_id.clone(), provider)]),
+            active_runtime: "native".to_string(),
+            active_model: "standard".to_string(),
+        };
+
+        save_transcription_config_to(&path, &config).expect("transcription config should save");
+        let loaded = load_transcription_config_from(&path)
+            .expect("transcription config should load")
+            .expect("transcription config should exist");
+        assert_eq!(loaded, config);
+        assert!(fs::read_to_string(&path)
+            .unwrap()
+            .contains("local-test-key"));
+
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
 

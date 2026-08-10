@@ -12,8 +12,18 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { openExternalUrl } from '../api';
-import type { Locale } from '../types';
+import {
+  cancelTranscriptionDownload,
+  checkTranscriptionConfig,
+  downloadTranscriptionResource,
+  listTranscriptionResources,
+  loadTranscriptionConfig,
+  onTranscriptionResourceProgress,
+  openExternalUrl,
+  persistTranscriptionConfig,
+  removeTranscriptionResource,
+} from '../api';
+import type { Locale, TranscriptionProviderConfig, TranscriptionSettingsConfig } from '../types';
 import '../transcriptionSettings.css';
 
 type ComponentState = 'available' | 'downloading' | 'installed';
@@ -55,6 +65,7 @@ interface TranscriptionApiProvider {
   endpoint: string;
   model: string;
   website: string;
+  protocol: TranscriptionProviderConfig['protocol'];
 }
 
 interface TranscriptionSelectOption {
@@ -164,6 +175,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     endpoint: 'https://api.siliconflow.cn/v1/audio/transcriptions',
     model: 'FunAudioLLM/SenseVoiceSmall',
     website: 'https://cloud.siliconflow.cn/account/ak',
+    protocol: 'openai-compatible',
   },
   {
     id: 'openai',
@@ -171,6 +183,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     endpoint: 'https://api.openai.com/v1/audio/transcriptions',
     model: 'gpt-4o-mini-transcribe',
     website: 'https://platform.openai.com/api-keys',
+    protocol: 'openai-compatible',
   },
   {
     id: 'groq',
@@ -178,6 +191,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
     model: 'whisper-large-v3-turbo',
     website: 'https://console.groq.com/keys',
+    protocol: 'openai-compatible',
   },
   {
     id: 'deepgram',
@@ -185,6 +199,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     endpoint: 'https://api.deepgram.com/v1/listen',
     model: 'nova-3',
     website: 'https://console.deepgram.com/project',
+    protocol: 'deepgram',
   },
   {
     id: 'assemblyai',
@@ -192,6 +207,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     endpoint: 'https://api.assemblyai.com/v2/transcript',
     model: 'universal-2',
     website: 'https://www.assemblyai.com/app',
+    protocol: 'assemblyai',
   },
   {
     id: 'custom',
@@ -199,6 +215,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     endpoint: '',
     model: '',
     website: '',
+    protocol: 'custom',
   },
 ];
 
@@ -217,16 +234,7 @@ function currentPlatform(): 'windows' | 'macos' | 'linux' {
 
 function runtimeComponents(platform: ReturnType<typeof currentPlatform>): DownloadableComponent[] {
   if (platform === 'macos') {
-    return [
-      {
-        id: 'native',
-        name: { zh: 'Apple 芯片加速', en: 'Apple silicon acceleration' },
-        detail: { zh: '随 TierNote 安装 · CPU 与 Metal 自动调度', en: 'Included with TierNote · automatic CPU and Metal use' },
-        size: '51 MB',
-        included: true,
-        recommended: true,
-      },
-    ];
+    return [];
   }
 
   if (platform === 'linux') {
@@ -234,16 +242,9 @@ function runtimeComponents(platform: ReturnType<typeof currentPlatform>): Downlo
       {
         id: 'native',
         name: { zh: 'CPU 通用引擎', en: 'Universal CPU engine' },
-        detail: { zh: '随 TierNote 安装 · 无需额外配置', en: 'Included with TierNote · no additional setup' },
+        detail: { zh: '下载后即可使用', en: 'Ready after download' },
         size: '9 MB',
-        included: true,
         recommended: true,
-      },
-      {
-        id: 'vulkan',
-        name: { zh: 'Vulkan GPU 加速', en: 'Vulkan GPU acceleration' },
-        detail: { zh: '适用于兼容的 AMD、Intel 或 NVIDIA 显卡', en: 'For compatible AMD, Intel, or NVIDIA graphics' },
-        size: '24 MB',
       },
     ];
   }
@@ -252,9 +253,8 @@ function runtimeComponents(platform: ReturnType<typeof currentPlatform>): Downlo
     {
       id: 'native',
       name: { zh: 'CPU 通用引擎', en: 'Universal CPU engine' },
-      detail: { zh: '随 TierNote 安装 · 无需额外配置', en: 'Included with TierNote · no additional setup' },
+      detail: { zh: '下载后即可使用', en: 'Ready after download' },
       size: '8 MB',
-      included: true,
       recommended: true,
     },
     {
@@ -282,20 +282,114 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
     Object.fromEntries(TRANSCRIPTION_MODELS.map((model) => [model.id, 'available'])),
   );
   const [progress, setProgress] = useState<Record<string, number>>({});
-  const [activeRuntime, setActiveRuntime] = useState('native');
+  const [activeRuntime, setActiveRuntime] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'api' | 'local'>('api');
   const [apiProvider, setApiProvider] = useState('siliconflow');
   const [apiUrl, setApiUrl] = useState(TRANSCRIPTION_API_PROVIDERS[0].endpoint);
   const [apiModel, setApiModel] = useState(TRANSCRIPTION_API_PROVIDERS[0].model);
   const [apiKey, setApiKey] = useState('');
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [apiTesting, setApiTesting] = useState(false);
   const [apiTested, setApiTested] = useState(false);
-  const timersRef = useRef<Record<string, number>>({});
+  const [apiError, setApiError] = useState('');
+  const providerConfigsRef = useRef<Record<string, TranscriptionProviderConfig>>(
+    Object.fromEntries(TRANSCRIPTION_API_PROVIDERS.map((provider) => [provider.id, {
+      providerId: provider.id,
+      protocol: provider.protocol,
+      endpoint: provider.endpoint,
+      model: provider.model,
+      apiKey: '',
+    }])),
+  );
+  const pendingConfigRef = useRef<TranscriptionSettingsConfig | null>(null);
+  const [resourceErrors, setResourceErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => () => {
-    Object.values(timersRef.current).forEach((timer) => window.clearInterval(timer));
+  useEffect(() => {
+    let alive = true;
+    void listTranscriptionResources().then((resources) => {
+      if (!alive) return;
+      const runtimeEntries = resources.filter((item) => item.kind === 'runtime');
+      const modelEntries = resources.filter((item) => item.kind === 'model');
+      setRuntimeStates((current) => ({ ...current, ...Object.fromEntries(runtimeEntries.map((item) => [item.id, item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
+      setModelStates((current) => ({ ...current, ...Object.fromEntries(modelEntries.map((item) => [item.id, item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
+    });
+    let unlisten: (() => void) | undefined;
+    void onTranscriptionResourceProgress((event) => {
+      if (!alive) return;
+      const setStates = event.kind === 'runtime' ? setRuntimeStates : setModelStates;
+      const nextState: ComponentState = event.status === 'downloading'
+        ? 'downloading'
+        : event.status === 'installed' ? 'installed' : 'available';
+      setStates((states) => ({ ...states, [event.id]: nextState }));
+      setProgress((values) => ({ ...values, [`${event.kind}:${event.id}`]: event.percent }));
+      if (event.status === 'installed') {
+        if (event.kind === 'runtime') setActiveRuntime(event.id);
+        else setActiveModel(event.id);
+      }
+      if (event.message && event.status === 'error') {
+        setResourceErrors((errors) => ({ ...errors, [`${event.kind}:${event.id}`]: event.message! }));
+      }
+    }).then((stop) => { unlisten = stop; });
+    return () => { alive = false; unlisten?.(); };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void loadTranscriptionConfig().then((config) => {
+      if (!alive) return;
+      providerConfigsRef.current = { ...providerConfigsRef.current, ...(config?.providers ?? {}) };
+      const provider = providerConfigsRef.current[config?.activeProvider || 'siliconflow'];
+      if (provider) {
+        setApiProvider(provider.providerId);
+        setApiUrl(provider.endpoint);
+        setApiModel(provider.model);
+        setApiKey(provider.apiKey);
+      }
+      if (config?.activeRuntime) setActiveRuntime(config.activeRuntime);
+      if (config?.activeModel) setActiveModel(config.activeModel);
+      setConfigLoaded(true);
+    }).catch(() => {
+      if (alive) setConfigLoaded(true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!configLoaded) return;
+    const provider = TRANSCRIPTION_API_PROVIDERS.find((item) => item.id === apiProvider)
+      ?? TRANSCRIPTION_API_PROVIDERS[0];
+    providerConfigsRef.current = {
+      ...providerConfigsRef.current,
+      [apiProvider]: {
+        providerId: apiProvider,
+        protocol: provider.protocol,
+        endpoint: apiUrl,
+        model: apiModel,
+        apiKey,
+      },
+    };
+    const config: TranscriptionSettingsConfig = {
+      activeProvider: apiProvider,
+      providers: providerConfigsRef.current,
+      activeRuntime,
+      activeModel: activeModel ?? '',
+    };
+    pendingConfigRef.current = config;
+    const timer = window.setTimeout(() => {
+      void persistTranscriptionConfig(config).catch((error) => {
+        setApiError(String(error).replace(/^Error:\s*/i, ''));
+      });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [activeModel, activeRuntime, apiKey, apiModel, apiProvider, apiUrl, configLoaded]);
+
+  useEffect(() => {
+    if (!configLoaded) return undefined;
+    return () => {
+      if (pendingConfigRef.current) void persistTranscriptionConfig(pendingConfigRef.current);
+    };
+  }, [configLoaded]);
 
   const startDownload = (
     item: DownloadableComponent,
@@ -305,36 +399,26 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
     const setStates = kind === 'runtime' ? setRuntimeStates : setModelStates;
     setStates((states) => ({ ...states, [item.id]: 'downloading' }));
     setProgress((values) => ({ ...values, [key]: 0 }));
-    window.clearInterval(timersRef.current[key]);
-    timersRef.current[key] = window.setInterval(() => {
-      setProgress((values) => {
-        const next = Math.min(100, (values[key] ?? 0) + 4);
-        if (next === 100) {
-          window.clearInterval(timersRef.current[key]);
-          delete timersRef.current[key];
-          setStates((states) => ({ ...states, [item.id]: 'installed' }));
-          if (kind === 'runtime') setActiveRuntime(item.id);
-          if (kind === 'model') setActiveModel(item.id);
-        }
-        return { ...values, [key]: next };
-      });
-    }, 90);
+    setResourceErrors((errors) => ({ ...errors, [key]: '' }));
+    void downloadTranscriptionResource(kind, item.id).catch((error) => {
+      setStates((states) => ({ ...states, [item.id]: 'available' }));
+      setResourceErrors((errors) => ({ ...errors, [key]: String(error).replace(/^Error:\s*/i, '') }));
+    });
   };
 
   const cancelDownload = (item: DownloadableComponent, kind: 'runtime' | 'model') => {
-    const key = `${kind}:${item.id}`;
-    window.clearInterval(timersRef.current[key]);
-    delete timersRef.current[key];
-    const setStates = kind === 'runtime' ? setRuntimeStates : setModelStates;
-    setStates((states) => ({ ...states, [item.id]: 'available' }));
-    setProgress((values) => ({ ...values, [key]: 0 }));
+    void cancelTranscriptionDownload(kind, item.id);
   };
 
   const removeComponent = (item: DownloadableComponent, kind: 'runtime' | 'model') => {
-    const setStates = kind === 'runtime' ? setRuntimeStates : setModelStates;
-    setStates((states) => ({ ...states, [item.id]: 'available' }));
-    if (kind === 'runtime' && activeRuntime === item.id) setActiveRuntime('native');
-    if (kind === 'model' && activeModel === item.id) setActiveModel(null);
+    void removeTranscriptionResource(kind, item.id).then(() => {
+      const setStates = kind === 'runtime' ? setRuntimeStates : setModelStates;
+      setStates((states) => ({ ...states, [item.id]: 'available' }));
+      if (kind === 'runtime' && activeRuntime === item.id) setActiveRuntime('');
+      if (kind === 'model' && activeModel === item.id) setActiveModel(null);
+    }).catch((error) => {
+      setResourceErrors((errors) => ({ ...errors, [`${kind}:${item.id}`]: String(error).replace(/^Error:\s*/i, '') }));
+    });
   };
 
   const renderRows = (items: DownloadableComponent[], kind: 'runtime' | 'model') => items.map((item) => {
@@ -359,6 +443,7 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
               <span style={{ width: `${value}%` }} />
             </div>
           )}
+          {resourceErrors[key] && <p className="transcription-resource-error" role="alert">{resourceErrors[key]}</p>}
         </div>
         <div className="transcription-component-meta">
           {state === 'downloading' ? `${value}% · ${item.size}` : item.size}
@@ -400,22 +485,55 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
   const testApiConnection = () => {
     setApiTesting(true);
     setApiTested(false);
-    window.setTimeout(() => {
+    setApiError('');
+    const provider = TRANSCRIPTION_API_PROVIDERS.find((item) => item.id === apiProvider)
+      ?? TRANSCRIPTION_API_PROVIDERS[0];
+    const config: TranscriptionSettingsConfig = {
+      activeProvider: apiProvider,
+      providers: {
+        [apiProvider]: {
+          providerId: apiProvider,
+          protocol: provider.protocol,
+          endpoint: apiUrl,
+          model: apiModel,
+          apiKey,
+        },
+      },
+      activeRuntime,
+      activeModel: activeModel ?? '',
+    };
+    void checkTranscriptionConfig(config).then((result) => {
       setApiTesting(false);
-      setApiTested(true);
-    }, 700);
+      setApiTested(result.ok);
+      if (!result.ok) setApiError(result.message);
+    }).catch((error) => {
+      setApiTesting(false);
+      setApiError(String(error).replace(/^Error:\s*/i, ''));
+    });
   };
 
   const selectedApiProvider = TRANSCRIPTION_API_PROVIDERS.find((provider) => provider.id === apiProvider)
     ?? TRANSCRIPTION_API_PROVIDERS[0];
 
   const selectApiProvider = (next: string) => {
+    const currentProvider = TRANSCRIPTION_API_PROVIDERS.find((item) => item.id === apiProvider)
+      ?? TRANSCRIPTION_API_PROVIDERS[0];
+    providerConfigsRef.current[apiProvider] = {
+      providerId: apiProvider,
+      protocol: currentProvider.protocol,
+      endpoint: apiUrl,
+      model: apiModel,
+      apiKey,
+    };
     const provider = TRANSCRIPTION_API_PROVIDERS.find((item) => item.id === next)
       ?? TRANSCRIPTION_API_PROVIDERS[0];
+    const stored = providerConfigsRef.current[provider.id];
     setApiProvider(provider.id);
-    setApiUrl(provider.endpoint);
-    setApiModel(provider.model);
+    setApiUrl(stored?.endpoint ?? provider.endpoint);
+    setApiModel(stored?.model ?? provider.model);
+    setApiKey(stored?.apiKey ?? '');
     setApiTested(false);
+    setApiError('');
   };
 
   return (
@@ -498,6 +616,7 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
           </div>
 
           <div className="transcription-api-footer">
+            {apiError && <p className="transcription-api-error" role="alert">{apiError}</p>}
             <button type="button" className="transcription-test-action" disabled={apiTesting || !apiUrl.trim() || !apiModel.trim() || !apiKey.trim()} onClick={testApiConnection}>
               {apiTesting ? (locale === 'zh' ? '检查中…' : 'Checking…') : (apiTested ? (locale === 'zh' ? '配置完整' : 'Configuration complete') : (locale === 'zh' ? '检查配置' : 'Check configuration'))}
             </button>
@@ -514,7 +633,9 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
           </div>
           <Zap size={18} strokeWidth={1.7} aria-hidden="true" />
         </div>
-        <div className="transcription-component-list">{renderRows(runtimes, 'runtime')}</div>
+        {runtimes.length > 0
+          ? <div className="transcription-component-list">{renderRows(runtimes, 'runtime')}</div>
+          : <p className="transcription-runtime-unavailable">{locale === 'zh' ? '当前系统的本地运行引擎尚未提供。' : 'A local runtime is not available for this system yet.'}</p>}
       </section>
 
       <section className="transcription-settings-block">

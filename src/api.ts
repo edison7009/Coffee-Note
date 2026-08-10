@@ -15,6 +15,10 @@ import type {
   ModelCatalog,
   ModelSettings,
   PrepareCaptureRequest,
+  TranscriptionCheckResult,
+  TranscriptionSettingsConfig,
+  TranscriptionResourceProgress,
+  TranscriptionResourceStatus,
 } from './types';
 import { normalizeModelSettings } from './modelSettings';
 import { normalizeModelCatalog } from './modelCatalog';
@@ -94,6 +98,61 @@ export async function loadLibrary(root: string | undefined, locale: 'zh' | 'en')
     return { ...fallbackLibrary, root: root || fallbackLibrary.root };
   }
   return invoke<LibrarySnapshot>('load_library', { root: root || null, locale });
+}
+
+export async function loadTranscriptionConfig(): Promise<TranscriptionSettingsConfig | null> {
+  if (!isTauri) {
+    try {
+      const stored = localStorage.getItem('tiernote:transcription-config');
+      return stored ? JSON.parse(stored) as TranscriptionSettingsConfig : null;
+    } catch {
+      return null;
+    }
+  }
+  return invoke<TranscriptionSettingsConfig | null>('load_transcription_config');
+}
+
+export async function persistTranscriptionConfig(config: TranscriptionSettingsConfig): Promise<void> {
+  if (!isTauri) {
+    localStorage.setItem('tiernote:transcription-config', JSON.stringify(config));
+    return;
+  }
+  await invoke('save_transcription_config', { config });
+}
+
+export async function checkTranscriptionConfig(config: TranscriptionSettingsConfig): Promise<TranscriptionCheckResult> {
+  if (!isTauri) {
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    return { ok: true, message: 'Browser preview configuration accepted.' };
+  }
+  return invoke<TranscriptionCheckResult>('check_transcription_config', { config });
+}
+
+export async function listTranscriptionResources(): Promise<TranscriptionResourceStatus[]> {
+  if (!isTauri) return [];
+  return invoke<TranscriptionResourceStatus[]>('list_transcription_resources');
+}
+
+export async function downloadTranscriptionResource(kind: 'runtime' | 'model', id: string): Promise<void> {
+  if (!isTauri) throw new Error('Resource downloads are only available in the desktop app.');
+  await invoke('download_transcription_resource', { kind, id });
+}
+
+export async function cancelTranscriptionDownload(kind: 'runtime' | 'model', id: string): Promise<void> {
+  if (!isTauri) return;
+  await invoke('cancel_transcription_download', { kind, id });
+}
+
+export async function removeTranscriptionResource(kind: 'runtime' | 'model', id: string): Promise<void> {
+  if (!isTauri) return;
+  await invoke('remove_transcription_resource', { kind, id });
+}
+
+export async function onTranscriptionResourceProgress(
+  callback: (progress: TranscriptionResourceProgress) => void,
+): Promise<() => void> {
+  if (!isTauri) return () => undefined;
+  return listen<TranscriptionResourceProgress>('transcription-resource-progress', (event) => callback(event.payload));
 }
 
 export async function loadModelCatalog(refresh = false): Promise<ModelCatalog> {

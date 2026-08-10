@@ -37,6 +37,10 @@
   letter-spacing: 0;
 }
 
+.transcription-component-copy .transcription-resource-error {
+  color: var(--danger);
+}
+
 .transcription-settings-header p {
   margin: 6px 0 0;
   font-size: 14px;
@@ -268,6 +272,14 @@
   margin-top: 18px;
 }
 
+.transcription-api-error {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .transcription-test-action {
   min-height: 34px;
   padding: 0 11px;
@@ -311,6 +323,12 @@
 
 .transcription-storage-total {
   flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.transcription-runtime-unavailable {
+  margin: 0;
   color: var(--muted);
   font-size: 13px;
 }

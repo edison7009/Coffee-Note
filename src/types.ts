@@ -204,6 +204,46 @@ export interface PrepareCaptureRequest {
   locale: Locale;
 }
 
+export type TranscriptionProtocol = 'openai-compatible' | 'deepgram' | 'assemblyai' | 'custom';
+
+export interface TranscriptionProviderConfig {
+  providerId: string;
+  protocol: TranscriptionProtocol;
+  endpoint: string;
+  model: string;
+  apiKey: string;
+}
+
+export interface TranscriptionSettingsConfig {
+  activeProvider: string;
+  providers: Record<string, TranscriptionProviderConfig>;
+  activeRuntime: string;
+  activeModel: string;
+}
+
+export interface TranscriptionCheckResult {
+  ok: boolean;
+  message: string;
+}
+
+export interface TranscriptionResourceStatus {
+  id: string;
+  kind: 'runtime' | 'model';
+  installed: boolean;
+  downloading: boolean;
+  bytes: number;
+}
+
+export interface TranscriptionResourceProgress {
+  id: string;
+  kind: 'runtime' | 'model';
+  status: 'downloading' | 'installed' | 'cancelled' | 'error';
+  percent: number;
+  downloadedBytes: number;
+  totalBytes: number;
+  message?: string;
+}
+
 export interface CaptureDraft {
   title: string;
   content: string;
