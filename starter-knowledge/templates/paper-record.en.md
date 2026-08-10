@@ -50,7 +50,7 @@ translation_of: templates/paper-record.md
 
 - 
 
-## Significance for TierNote
+## Significance for Coffee Note
 
 - What it supports:
 - What it does not support:

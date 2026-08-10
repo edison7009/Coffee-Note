@@ -83,9 +83,7 @@ fn stable_hash(value: &str) -> u64 {
 
 fn graph_registry_path(root: &Path, locale: &str) -> PathBuf {
     let root_key = stable_hash(&root.to_string_lossy());
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("TierNote")
+    crate::app_data_dir()
         .join(GRAPH_REGISTRY_DIR)
         .join(format!("{root_key:016x}-{locale}.json"))
 }
@@ -875,7 +873,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock should be valid")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!("tiernote-knowledge-map-{unique}"));
+        let root = std::env::temp_dir().join(format!("coffee-note-knowledge-map-{unique}"));
         fs::create_dir_all(root.join("dossiers")).expect("fixture directory should be created");
         fs::create_dir_all(root.join("sources")).expect("fixture directory should be created");
         root

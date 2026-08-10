@@ -22,6 +22,11 @@ import type {
 } from './types';
 import { normalizeModelSettings } from './modelSettings';
 import { normalizeModelCatalog } from './modelCatalog';
+import { readStorageValue, storageKey, writeStorageValue } from './storage';
+
+const MODEL_CONFIG_KEY = storageKey('model-config');
+const TRANSCRIPTION_CONFIG_KEY = storageKey('transcription-config');
+const CAPTURES_KEY = storageKey('captures');
 
 export const isTauri = '__TAURI_INTERNALS__' in window;
 
@@ -75,7 +80,7 @@ export async function onSelfUpdateProgress(
 export async function loadModelConfig(): Promise<ModelSettings | null> {
   if (!isTauri) {
     try {
-      const stored = localStorage.getItem('tiernote:model-config');
+      const stored = readStorageValue(MODEL_CONFIG_KEY);
       return stored ? normalizeModelSettings(JSON.parse(stored)) : null;
     } catch {
       return null;
@@ -87,7 +92,7 @@ export async function loadModelConfig(): Promise<ModelSettings | null> {
 
 export async function persistModelConfig(config: ModelSettings): Promise<void> {
   if (!isTauri) {
-    localStorage.setItem('tiernote:model-config', JSON.stringify(config));
+    writeStorageValue(MODEL_CONFIG_KEY, JSON.stringify(config));
     return;
   }
   await invoke('save_model_config', { config });
@@ -103,7 +108,7 @@ export async function loadLibrary(root: string | undefined, locale: 'zh' | 'en')
 export async function loadTranscriptionConfig(): Promise<TranscriptionSettingsConfig | null> {
   if (!isTauri) {
     try {
-      const stored = localStorage.getItem('tiernote:transcription-config');
+      const stored = readStorageValue(TRANSCRIPTION_CONFIG_KEY);
       return stored ? JSON.parse(stored) as TranscriptionSettingsConfig : null;
     } catch {
       return null;
@@ -114,7 +119,7 @@ export async function loadTranscriptionConfig(): Promise<TranscriptionSettingsCo
 
 export async function persistTranscriptionConfig(config: TranscriptionSettingsConfig): Promise<void> {
   if (!isTauri) {
-    localStorage.setItem('tiernote:transcription-config', JSON.stringify(config));
+    writeStorageValue(TRANSCRIPTION_CONFIG_KEY, JSON.stringify(config));
     return;
   }
   await invoke('save_transcription_config', { config });
@@ -311,9 +316,9 @@ export async function chooseKnowledgeFolder(): Promise<string | null> {
 
 export async function saveCapture(request: CaptureRequest): Promise<string> {
   if (!isTauri) {
-    const captures = JSON.parse(localStorage.getItem('tiernote:captures') || '[]');
+    const captures = JSON.parse(readStorageValue(CAPTURES_KEY) || '[]');
     captures.push({ ...request, createdAt: Date.now() });
-    localStorage.setItem('tiernote:captures', JSON.stringify(captures));
+    writeStorageValue(CAPTURES_KEY, JSON.stringify(captures));
     return 'prototype/inbox';
   }
   return invoke<string>('save_capture', { request });

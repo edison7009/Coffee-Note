@@ -1,6 +1,6 @@
-# TierNote website
+# Coffee Note website
 
-The public website for [TierNote](https://github.com/edison7009/TierNote).
+The public website for [Coffee Note](https://github.com/edison7009/Coffee-Note).
 It is plain HTML, CSS, and JavaScript and does not require a build step.
 
 ## Development
@@ -36,10 +36,10 @@ Leave the framework preset, build command, and root directory empty. The
 checked-in `_worker.js` serves static files and provides release-aware
 `/version.json` and `/download/<platform>` routes.
 
-Primary URL: [tiernote.life](https://tiernote.life/)
+Primary URL: [note.coffeecli.com](https://note.coffeecli.com/)
 
 The root `.github/workflows/website-pages.yml` workflow publishes the same
-directory to the [GitHub Pages mirror](https://edison7009.github.io/TierNote/).
+directory to the [GitHub Pages mirror](https://edison7009.github.io/Coffee-Note/).
 
 ## Versioning
 

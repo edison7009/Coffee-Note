@@ -3,7 +3,7 @@ locale: en
 translation_of: index.md
 ---
 
-# TierNote Knowledge Base
+# Coffee Note Knowledge Base
 
 A local-first, source-traceable document library for longevity research.
 

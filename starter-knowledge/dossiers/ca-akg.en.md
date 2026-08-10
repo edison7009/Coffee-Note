@@ -6,7 +6,7 @@ tier: T5
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
 audit_status: partial
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date: 2026-07-20
 locale: en
 translation_of: dossiers/ca-akg.md
@@ -80,7 +80,7 @@ DNA-methylation clocks are among the most important surrogate endpoints in aging
 - Changes in disease or mortality risk;
 - Cross-validation across multiple clocks and laboratories.
 
-TierNote classifies methylation clocks as surrogate endpoints and combines them with functional outcomes when assessing the longevity value of Ca-AKG.
+Coffee Note classifies methylation clocks as surrogate endpoints and combines them with functional outcomes when assessing the longevity value of Ca-AKG.
 
 ## Food, AKG, and Ca-AKG
 

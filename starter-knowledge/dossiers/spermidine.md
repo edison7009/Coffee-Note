@@ -6,7 +6,7 @@ tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
 audit_status: partial
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date: 2026-07-20
 ---
 
@@ -181,7 +181,7 @@ audit_date: 2026-07-20
 ## 研究审计
 
 - 审计状态：`partial`；
-- 框架：`tiernote-ai4l-0.1`，参考 AI4L `1.2.0`；
+- 框架：`coffee-note-ai4l-0.1`，参考 AI4L `1.2.0`；
 - 本轮已补：专用检索记录、2026 年免疫先导试验、研究利益冲突、个人探索边界；
 - 主要缺口：长期相互作用、肝肾与复杂疾病资料、确认性在研试验和不良事件频率；
 - 详细记录：[亚精胺档案首轮审计](../audits/spermidine-2026-07-20.md)。

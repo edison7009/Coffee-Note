@@ -7,6 +7,7 @@ const component = await readFile(new URL('../src/home/WeatherAmbient.tsx', impor
 const settings = await readFile(new URL('../src/settings/WeatherLocationSettings.tsx', import.meta.url), 'utf8');
 const i18n = await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8');
 const weather = await readFile(new URL('../src/weather.ts', import.meta.url), 'utf8');
+const storage = await readFile(new URL('../src/storage.ts', import.meta.url), 'utf8');
 const css = [
   await readFile(new URL('../src/index.css', import.meta.url), 'utf8'),
   await readFile(new URL('../src/weather.css', import.meta.url), 'utf8'),
@@ -21,11 +22,13 @@ test('weather remains opt-in and stores only rounded device coordinates', () => 
   assert.match(settings, /onClick=\{useCurrentLocation\}/);
   assert.doesNotMatch(settings, /useEffect\([^)]*navigator\.geolocation/s);
   assert.match(weather, /Math\.round\(value \* 10\) \/ 10/);
-  assert.match(weather, /tiernote:weather-location:v1/);
+  assert.match(weather, /storageKey\('weather-location:v1'\)/);
+  assert.match(storage, /STORAGE_PREFIX = 'coffee-note:'/);
+  assert.match(storage, /const STORAGE_PREFIX = 'coffee-note:'/);
 });
 
 test('weather keeps a local, deduplicated recent-city history', () => {
-  assert.match(weather, /tiernote:weather-recent-locations:v1/);
+  assert.match(weather, /storageKey\('weather-recent-locations:v1'\)/);
   assert.match(weather, /WEATHER_RECENT_LOCATIONS_LIMIT = 10/);
   assert.match(weather, /\[location, \.\.\.recent\]\.slice\(0, WEATHER_RECENT_LOCATIONS_LIMIT\)/);
   assert.match(weather, /normalizeWeatherLocationName/);

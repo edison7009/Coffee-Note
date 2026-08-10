@@ -23,11 +23,11 @@
 | `docs/Limitations.md` | AI 与审计局限 | `627ca322fd2f3f6344887dae09a75ab83bea442a0473e6432afc90f5e59b38e3` |
 | `LICENSE` | MIT 许可原文 | `ba7cefd3b80d4324725f76f9e723d3c0a7a100e44109b49a5849968799d0cada` |
 
-## 在 TierNote 中的角色
+## 在 Coffee Note 中的角色
 
-AI4L 是**研究方法来源**，不是 TierNote 结论的事实来源，也不是需要原样复制的网页模板。
+AI4L 是**研究方法来源**，不是 Coffee Note 结论的事实来源，也不是需要原样复制的网页模板。
 
-TierNote 吸收：
+Coffee Note 吸收：
 
 - 创建 → 独立审计 → 修正 → 再审计的循环；
 - 链接、标题、标识符和链接语义的逐项核验；
@@ -35,7 +35,7 @@ TierNote 吸收：
 - 审计者与作者分离，减少同一上下文的确认偏误；
 - 把未知、冲突、利益关系和失败终点保留在正文中。
 
-TierNote 不直接吸收：
+Coffee Note 不直接吸收：
 
 - 将专家、商业数据库或品牌当作疗效结论来源；
 - 未被指南支持的“功能医学最优范围”；
@@ -47,7 +47,7 @@ TierNote 不直接吸收：
 
 ## 许可与归属
 
-AI4L 采用 MIT 许可。TierNote 的本地化方法是重新组织后的衍生检查框架，保留上游项目名称、链接、版本与许可记录。MIT 许可原文见 [AI4L-MIT.md](../licenses/AI4L-MIT.md)。
+AI4L 采用 MIT 许可。Coffee Note 的本地化方法是重新组织后的衍生检查框架，保留上游项目名称、链接、版本与许可记录。MIT 许可原文见 [AI4L-MIT.md](../licenses/AI4L-MIT.md)。
 
 ## 更新规则
 
@@ -55,6 +55,6 @@ AI4L 采用 MIT 许可。TierNote 的本地化方法是重新组织后的衍生�
 
 1. 获取新版本并记录新提交；
 2. 比较 `prompts/AI4L.md`、技能文件和局限性说明；
-3. 只把适合 TierNote 来源政策的变化合并到本地框架；
+3. 只把适合 Coffee Note 来源政策的变化合并到本地框架；
 4. 在研究日志中说明新增、拒绝和改变的条目；
 5. 已有 dossier 不因上游模板变化自动改变 Tier。

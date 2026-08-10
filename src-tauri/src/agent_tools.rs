@@ -1,4 +1,4 @@
-// Agent Tools — domain-specific tools for TierNote.
+// Agent Tools — domain-specific tools for Coffee Note.
 // save_note, search_library, read_note operate on the local knowledge library.
 
 use serde_json::{json, Value};
@@ -57,7 +57,7 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
                 'experience' for My experience, 'lessons' for My lessons, and \
                 'daily_routine' for key records. The legacy 'diet' module remains available \
                 for existing diet-plan content. Provide the complete Markdown page and preserve \
-                its established structure. Confirmed-memory sections are protected by TierNote \
+                its established structure. Confirmed-memory sections are protected by Coffee Note \
                 and must not be invented, copied, removed, or rewritten by the model."
                 .into(),
             parameters: json!({
@@ -173,7 +173,7 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
             description: "Suggest one to three long-term memory candidates for the user to confirm. \
                 Use only for durable user-stated goals, preferences, constraints, corrections, profile facts, or health context that should help future conversations. \
                 This tool does not save memory; it only asks the frontend to show confirmation cards. \
-                Once confirmed, TierNote writes the fact into a visible page under My information and keeps only source metadata in its local memory index.".into(),
+                Once confirmed, Coffee Note writes the fact into a visible page under My information and keeps only source metadata in its local memory index.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -409,8 +409,14 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
 // ── update_plan ──
 
 fn content_without_memory_section(content: &str) -> String {
-    const MARKER: &str = "<!-- tiernote-memory-section:v1 -->";
-    let Some(marker_pos) = content.find(MARKER) else {
+    let marker_pos = [
+        "<!-- coffee-note-memory-section:v1 -->",
+        "<!-- coffee-note-memory-section:v1 -->",
+    ]
+    .iter()
+    .filter_map(|marker| content.find(marker))
+    .min();
+    let Some(marker_pos) = marker_pos else {
         return content.trim_end().to_string();
     };
     let section_start = content[..marker_pos]
@@ -421,9 +427,15 @@ fn content_without_memory_section(content: &str) -> String {
 }
 
 fn preserve_confirmed_memory(content: &str, existing: &str) -> String {
-    const MARKER: &str = "<!-- tiernote-memory-section:v1 -->";
     let clean_content = content_without_memory_section(content);
-    let Some(marker_pos) = existing.find(MARKER) else {
+    let marker_pos = [
+        "<!-- coffee-note-memory-section:v1 -->",
+        "<!-- coffee-note-memory-section:v1 -->",
+    ]
+    .iter()
+    .filter_map(|marker| existing.find(marker))
+    .min();
+    let Some(marker_pos) = marker_pos else {
         return clean_content;
     };
     let section_start = existing[..marker_pos]
@@ -909,7 +921,7 @@ mod tests {
     #[test]
     fn scoped_search_and_read_cannot_retrieve_excluded_notes() {
         let dir = std::env::temp_dir().join(format!(
-            "tiernote-tool-scope-{}-{}",
+            "coffee-note-tool-scope-{}-{}",
             std::process::id(),
             chrono::Local::now()
                 .timestamp_nanos_opt()
@@ -982,7 +994,7 @@ mod tests {
         fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
         fs::write(
             dir.join("plans/exercise.md"),
-            "# 运动计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 每周走路三次 <!-- tiernote-memory:id -->\n",
+            "# 运动计划\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [goal] 每周走路三次 <!-- coffee-note-memory:id -->\n",
         )
         .expect("existing plan should be writable");
         let result = exec_update_plan(
@@ -1007,11 +1019,11 @@ mod tests {
         fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
         fs::write(
             dir.join("plans/exercise.md"),
-            "# 运动计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 真实记忆 <!-- tiernote-memory:real -->\n",
+            "# 运动计划\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [goal] 真实记忆 <!-- coffee-note-memory:real -->\n",
         )
         .expect("existing plan should be writable");
         let result = exec_update_plan(
-            &json!({"module": "exercise", "content": "# 新计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 模型伪造 <!-- tiernote-memory:fake -->"}),
+            &json!({"module": "exercise", "content": "# 新计划\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [goal] 模型伪造 <!-- coffee-note-memory:fake -->"}),
             &dir,
             "zh",
         );

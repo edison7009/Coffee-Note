@@ -262,19 +262,11 @@ body.resizing-panels * {
   object-fit: cover;
 }
 
-.chat-empty-heading img {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-}
-
-[data-theme='dark'] .brand img,
-[data-theme='dark'] .chat-empty-heading img {
+[data-theme='dark'] .brand img {
   content: url('/brand/logo-new.png');
 }
 
-:root:not([data-theme='dark']) .brand img,
-:root:not([data-theme='dark']) .chat-empty-heading img {
+:root:not([data-theme='dark']) .brand img {
   content: url('/brand/logo-new.png');
 }
 
@@ -2177,7 +2169,6 @@ html.tree-drag-active * {
 .chat-empty-heading {
   display: flex;
   align-items: center;
-  gap: 18px;
 }
 
 .chat-empty-wordmark {
@@ -5844,13 +5835,6 @@ textarea,
   border-radius: 0;
 }
 
-.chat-empty-heading img {
-  width: 42px;
-  height: 42px;
-  object-fit: contain;
-  border-radius: 0;
-}
-
 .brand strong,
 [data-theme='dark'] .brand strong {
   overflow: visible;
@@ -5862,10 +5846,6 @@ textarea,
   letter-spacing: 0;
   line-height: 1;
   text-overflow: clip;
-}
-
-.chat-empty-heading {
-  gap: 10px;
 }
 
 .chat-empty-wordmark,

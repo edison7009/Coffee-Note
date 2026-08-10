@@ -1,3 +1,5 @@
+import { readStorageValue, storageKey, writeStorageValue } from './storage';
+
 export type WeatherKind =
   | 'clear'
   | 'partly-cloudy'
@@ -41,10 +43,10 @@ export interface WeatherSearchResult extends WeatherLocation {
   id: number;
 }
 
-const LOCATION_KEY = 'tiernote:weather-location:v1';
-const CACHE_KEY = 'tiernote:weather-cache:v1';
-const RECENT_LOCATIONS_KEY = 'tiernote:weather-recent-locations:v1';
-export const WEATHER_LOCATION_CHANGED_EVENT = 'tiernote:weather-location-changed';
+const LOCATION_KEY = storageKey('weather-location:v1');
+const CACHE_KEY = storageKey('weather-cache:v1');
+const RECENT_LOCATIONS_KEY = storageKey('weather-recent-locations:v1');
+export const WEATHER_LOCATION_CHANGED_EVENT = 'coffee-note:weather-location-changed';
 export const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000;
 export const WEATHER_RECENT_LOCATIONS_LIMIT = 10;
 
@@ -82,20 +84,20 @@ function parseLocation(value: unknown): WeatherLocation | null {
 
 export function loadWeatherLocation(): WeatherLocation | null {
   try {
-    return parseLocation(JSON.parse(localStorage.getItem(LOCATION_KEY) || 'null'));
+    return parseLocation(JSON.parse(readStorageValue(LOCATION_KEY) || 'null'));
   } catch {
     return null;
   }
 }
 
 export function saveWeatherLocation(location: WeatherLocation): void {
-  localStorage.setItem(LOCATION_KEY, JSON.stringify(location));
+  writeStorageValue(LOCATION_KEY, JSON.stringify(location));
   window.dispatchEvent(new Event(WEATHER_LOCATION_CHANGED_EVENT));
 }
 
 export function loadRecentWeatherLocations(): WeatherLocation[] {
   try {
-    const stored = JSON.parse(localStorage.getItem(RECENT_LOCATIONS_KEY) || '[]');
+    const stored = JSON.parse(readStorageValue(RECENT_LOCATIONS_KEY) || '[]');
     if (!Array.isArray(stored)) return [];
     return stored.flatMap((entry) => {
       const location = parseLocation(entry);
@@ -112,13 +114,13 @@ export function saveRecentWeatherLocation(location: WeatherLocation): WeatherLoc
     entry.latitude !== location.latitude || entry.longitude !== location.longitude
   ));
   const next = [location, ...recent].slice(0, WEATHER_RECENT_LOCATIONS_LIMIT);
-  localStorage.setItem(RECENT_LOCATIONS_KEY, JSON.stringify(next));
+  writeStorageValue(RECENT_LOCATIONS_KEY, JSON.stringify(next));
   return next;
 }
 
 export function loadCachedWeather(location: WeatherLocation): WeatherSnapshot | null {
   try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null') as WeatherSnapshot | null;
+    const cached = JSON.parse(readStorageValue(CACHE_KEY) || 'null') as WeatherSnapshot | null;
     if (!cached || !cached.location || !Array.isArray(cached.days)) return null;
     if (
       cached.location.latitude !== location.latitude ||
@@ -135,7 +137,7 @@ export function loadCachedWeather(location: WeatherLocation): WeatherSnapshot | 
 }
 
 function saveWeatherCache(snapshot: WeatherSnapshot): void {
-  localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
+  writeStorageValue(CACHE_KEY, JSON.stringify(snapshot));
 }
 
 export function weatherKind(code: number): WeatherKind {

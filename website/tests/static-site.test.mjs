@@ -10,8 +10,8 @@ test("website is directly deployable without a build step", async () => {
   const stylesheet = await readFile(new URL("css/style.css", website), "utf8");
   const version = JSON.parse(await readFile(new URL("version.json", website), "utf8"));
 
-  assert.match(html, /<title>延寿，是人类在 AI 时代最有价值的投资。 — TierNote<\/title>/);
-  assert.match(javascript, /metaTitle: "Longevity is humanity’s most valuable investment in the age of AI\. — TierNote"/);
+  assert.match(html, /<title>延寿，是人类在 AI 时代最有价值的投资。 — Coffee Note<\/title>/);
+  assert.match(javascript, /metaTitle: "Longevity is humanity’s most valuable investment in the age of AI\. — Coffee Note"/);
   assert.match(html, /src="\.\/js\/main\.js"/);
   assert.match(html, /href="\.\/css\/style\.css"/);
   assert.doesNotMatch(html, /\/src\/main\.tsx|%BASE_URL%/);
@@ -40,7 +40,7 @@ test("website is directly deployable without a build step", async () => {
   assert.match(javascript, /富豪花费百万美元借助科技延寿/);
   assert.match(javascript, /以 Bryan Johnson 公开的延寿计划为蓝本/);
   assert.doesNotMatch(javascript, /heroDetail:/);
-  assert.match(javascript, /install:\s*"安装 TierNote"/);
+  assert.match(javascript, /install:\s*"安装 Coffee Note"/);
   assert.match(javascript, /star:\s*"在 GitHub 上点星"/);
   assert.doesNotMatch(javascript, /数据以 Bryan Johnson|\(Built on data/);
   assert.doesNotMatch(html, /open-principles?|open-principle-heading/);
@@ -49,7 +49,7 @@ test("website is directly deployable without a build step", async () => {
   assert.match(html, /id="nad-preview"[^>]+product-ui\/nad-plus-zh\.webp/);
   assert.match(javascript, /product-ui\/nad-plus-\$\{locale\}\.webp/);
   assert.match(javascript, /macOS 首次需在「终端」/);
-  assert.match(html, /xattr -cr '\/Applications\/TierNote\.app'/);
+  assert.match(html, /xattr -cr '\/Applications\/Coffee Note\.app'/);
   assert.match(javascript, /navigator\.userAgentData\?\.platform/);
   assert.match(javascript, /note\.hidden = note\.dataset\.platformNote !== platform/);
   assert.match(version.version, /^\d+\.\d+\.\d+$/);
@@ -60,7 +60,7 @@ test("website is directly deployable without a build step", async () => {
     "_worker.js",
     "install.ps1",
     "install.sh",
-    "open-longevity-logo.png",
+    "coffee-note-logo.png",
     "tree-of-life-engraving.png",
     "textures/analog-film-grain.webp",
     "product-ui/home-en.webp",
@@ -82,8 +82,8 @@ test("install and update routes use published release assets", async () => {
   assert.match(worker, /_Windows_x64-setup\.exe/);
   assert.match(worker, /_macOS_arm64\.dmg/);
   assert.match(worker, /_Linux_x64\.AppImage/);
-  assert.match(windows, /tiernote\.life\/version\.json\?platform=windows/);
-  assert.match(unix, /tiernote\.life/);
+  assert.match(windows, /note\.coffeecli\.com\/version\.json\?platform=windows/);
+  assert.match(unix, /note\.coffeecli\.com/);
 });
 
 test("Cloudflare worker resolves versions, downloads, and static files", async () => {
@@ -92,7 +92,7 @@ test("Cloudflare worker resolves versions, downloads, and static files", async (
     tag_name: "v1.2.3",
     assets: [
       {
-        name: "Open.Longevity_1.2.3_Windows_x64-setup.exe",
+        name: "Coffee.Note_1.2.3_Windows_x64-setup.exe",
         browser_download_url: "https://github.com/example/windows.exe",
       },
     ],
@@ -118,23 +118,23 @@ test("Cloudflare worker resolves versions, downloads, and static files", async (
     };
 
     const versionResponse = await worker.fetch(
-      new Request("https://tiernote.life/version.json?platform=windows"),
+      new Request("https://note.coffeecli.com/version.json?platform=windows"),
       environment,
     );
     assert.deepEqual(await versionResponse.json(), { version: "1.2.3" });
 
     const downloadResponse = await worker.fetch(
-      new Request("https://tiernote.life/download/windows"),
+      new Request("https://note.coffeecli.com/download/windows"),
       environment,
     );
     assert.equal(await downloadResponse.text(), "installer");
     assert.equal(
       downloadResponse.headers.get("Content-Disposition"),
-      'attachment; filename="Open.Longevity_1.2.3_Windows_x64-setup.exe"',
+      'attachment; filename="Coffee.Note_1.2.3_Windows_x64-setup.exe"',
     );
 
     const staticResponse = await worker.fetch(
-      new Request("https://tiernote.life/index.html"),
+      new Request("https://note.coffeecli.com/index.html"),
       environment,
     );
     assert.equal(await staticResponse.text(), "static-file");

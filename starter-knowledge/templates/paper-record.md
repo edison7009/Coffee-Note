@@ -48,7 +48,7 @@ last_checked: YYYY-MM-DD
 
 - 
 
-## 对 TierNote 的意义
+## 对 Coffee Note 的意义
 
 - 支持什么：
 - 不支持什么：

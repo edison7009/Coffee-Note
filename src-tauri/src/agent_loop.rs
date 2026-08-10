@@ -1,4 +1,4 @@
-// Agent Loop — ReAct loop for TierNote.
+// Agent Loop — ReAct loop for Coffee Note.
 // Ported from EchoBird's services/agent_loop.rs mechanics, keeping Open
 // Longevity's domain (local knowledge library tools + longevity prompt).
 // Streams text + tool calls to the frontend via Tauri events.
@@ -245,10 +245,7 @@ pub fn create_session_map() -> SharedSessionMap {
 // ── Session persistence ──
 
 fn sessions_dir() -> std::path::PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("TierNote")
-        .join("sessions")
+    crate::app_data_dir().join("sessions")
 }
 
 fn session_file() -> std::path::PathBuf {
@@ -351,7 +348,7 @@ fn build_system_prompt(locale: &str) -> String {
         "使用简体中文回答。"
     };
     format!(
-        "You are TierNote, a local-first Note Agent for organizing a user's Markdown library and personal information with tool-calling ability. \
+        "You are Coffee Note, a local-first Note Agent for organizing a user's Markdown library and personal information with tool-calling ability. \
          You can save notes to the user's knowledge library, search existing notes, read note content, and suggest long-term memory candidates. \
          When the user wants to record, save, or remember something, use the save_note tool — do NOT just \
          tell them to do it manually. Always call save_note with complete JSON arguments: a non-empty \
@@ -556,7 +553,7 @@ fn snip_tool_result(content: &str) -> String {
         .skip(count - SNIPPED_TOOL_TAIL_CHARS)
         .collect::<String>();
     format!(
-        "{head}\n\n[… TierNote locally snipped {} characters from this stale tool result …]\n\n{tail}",
+        "{head}\n\n[… Coffee Note locally snipped {} characters from this stale tool result …]\n\n{tail}",
         count - SNIPPED_TOOL_HEAD_CHARS - SNIPPED_TOOL_TAIL_CHARS
     )
 }
@@ -581,7 +578,7 @@ fn maintain_stale_tool_results(messages: &mut [Message], prune: bool) {
             }
             *content = if prune {
                 format!(
-                    "[TierNote pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
+                    "[Coffee Note pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
                     content.len()
                 )
             } else {
@@ -1180,10 +1177,10 @@ pub async fn run_agent(
         if finalizing {
             let final_text = if text_accum.trim().is_empty() {
                 if request.locale == "en" {
-                    "TierNote reached its emergency safety limit. Completed tool results were preserved, but the model did not return a final status."
+                    "Coffee Note reached its emergency safety limit. Completed tool results were preserved, but the model did not return a final status."
                         .to_string()
                 } else {
-                    "TierNote 已达到异常安全上限。已完成的工具结果均已保留，但模型没有返回最终说明。"
+                    "Coffee Note 已达到异常安全上限。已完成的工具结果均已保留，但模型没有返回最终说明。"
                         .to_string()
                 }
             } else {
@@ -1480,7 +1477,7 @@ mod tests {
     #[test]
     fn my_info_exclusion_prefixes_cover_equal_nested_and_unrelated_roots() {
         let root =
-            std::env::temp_dir().join(format!("tiernote-agent-root-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("coffee-note-agent-root-{}", uuid::Uuid::new_v4()));
         let managed = root.join("managed");
         std::fs::create_dir_all(managed.join("plans")).expect("fixture should exist");
         assert_eq!(my_info_exclusion_prefixes(&root, &managed), vec!["managed"]);

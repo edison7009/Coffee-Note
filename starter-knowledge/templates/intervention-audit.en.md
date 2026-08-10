@@ -1,7 +1,7 @@
 ---
 intervention_id: stable-slug
 reviewed_file: knowledge/dossiers/stable-slug.md
-framework: tiernote-ai4l-0.1
+framework: coffee-note-ai4l-0.1
 upstream: AI4L-1.2.0
 audit_date: YYYY-MM-DD
 evidence_cutoff: YYYY-MM-DD

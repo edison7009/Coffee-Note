@@ -7,7 +7,7 @@ tier: pending
 last_reviewed: YYYY-MM-DD
 evidence_cutoff: YYYY-MM-DD
 audit_status: pending
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date:
 locale: en
 translation_of: templates/intervention-dossier.md

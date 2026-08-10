@@ -9,8 +9,8 @@ const desktopCapabilities = readFileSync(
   'utf8',
 );
 
-test('desktop brand link uses the canonical TierNote domain', () => {
-  assert.match(appSource, /const PRODUCT_WEBSITE = 'https:\/\/tiernote\.org\/'/);
+test('desktop brand link keeps the current production domain', () => {
+  assert.match(appSource, /const PRODUCT_WEBSITE = 'https:\/\/note\.coffeecli\.com\/'/);
 });
 
 test('settings replaces the three-pane workspace instead of opening a modal', () => {

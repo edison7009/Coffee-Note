@@ -6,7 +6,7 @@ tier: T3
 last_reviewed: 2026-07-22
 evidence_cutoff: 2026-07-22
 audit_status: pending
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date:
 locale: en
 translation_of: dossiers/vitamin-c.md

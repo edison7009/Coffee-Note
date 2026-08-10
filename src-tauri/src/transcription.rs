@@ -431,10 +431,7 @@ struct TranscriptionResourceProgress {
 }
 
 fn resource_root() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("TierNote")
-        .join("transcription")
+    crate::app_data_dir().join("transcription")
 }
 
 pub fn supports_media_url(url: &reqwest::Url) -> bool {
@@ -541,7 +538,7 @@ async fn download_media_captions(
     }
     let executable = ensure_media_fetcher().await?;
     let directory =
-        std::env::temp_dir().join(format!("tiernote-captions-{}", uuid::Uuid::new_v4()));
+        std::env::temp_dir().join(format!("coffee-note-captions-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Could not create caption workspace: {error}"))?;
     let guard = TempMediaDir(directory.clone());
@@ -658,7 +655,7 @@ async fn download_fixed_file(spec: ResourceSpec, target: &Path) -> Result<(), St
     let partial = target.with_extension("part");
     let response = reqwest::Client::new()
         .get(spec.url)
-        .header("User-Agent", "TierNote")
+        .header("User-Agent", "Coffee Note")
         .send()
         .await
         .map_err(|error| format!("Could not prepare media import: {error}"))?
@@ -717,7 +714,8 @@ async fn download_media_audio(url: &reqwest::Url) -> Result<(TempMediaDir, PathB
         return Err("This URL is not a supported media link".to_string());
     }
     let executable = ensure_media_fetcher().await?;
-    let directory = std::env::temp_dir().join(format!("tiernote-media-{}", uuid::Uuid::new_v4()));
+    let directory =
+        std::env::temp_dir().join(format!("coffee-note-media-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Could not create media workspace: {error}"))?;
     let guard = TempMediaDir(directory.clone());
@@ -1021,7 +1019,7 @@ pub async fn download_transcription_resource(
         let partial = target_dir.join(format!("{}.part", spec.file_name));
         let response = reqwest::Client::new()
             .get(spec.url)
-            .header("User-Agent", "TierNote")
+            .header("User-Agent", "Coffee Note")
             .send()
             .await
             .map_err(|error| format!("Could not download resource: {error}"))?
@@ -1147,7 +1145,7 @@ mod tests {
 
     fn fixture_root(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "tiernote-transcription-{label}-{}-{}",
+            "coffee-note-transcription-{label}-{}-{}",
             std::process::id(),
             uuid::Uuid::new_v4()
         ))
@@ -1160,9 +1158,9 @@ mod tests {
             "https://www.bilibili.com/video/BVexample",
             "https://b23.tv/example",
             "https://v.douyin.com/example",
-            "https://www.tiktok.com/@tiernote/video/1",
+            "https://www.tiktok.com/@coffeenote/video/1",
             "https://www.xiaohongshu.com/explore/example",
-            "https://x.com/tiernote/status/1",
+            "https://x.com/coffeenote/status/1",
         ] {
             let url = reqwest::Url::parse(source).expect("fixture URL should parse");
             assert!(supports_media_url(&url), "{source} should be supported");

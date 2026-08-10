@@ -27,18 +27,20 @@ const MAX_CAPTURE_INPUT_BYTES: usize = 180_000;
 const MAX_CAPTURE_DOWNLOAD_BYTES: usize = 600_000;
 const MAX_CAPTURE_SOURCE_BYTES: usize = 110_000;
 const MAX_RESEARCH_CONTEXT_BYTES: usize = 32_000;
-const LATEST_RELEASE_API: &str = "https://api.github.com/repos/edison7009/TierNote/releases/latest";
-const WEBSITE_VERSION_API: &str = "https://tiernote.life/version.json?platform=windows";
-const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://tiernote.life/download/windows";
-const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/releases/download/";
+const LATEST_RELEASE_API: &str =
+    "https://api.github.com/repos/edison7009/Coffee-Note/releases/latest";
+const WEBSITE_VERSION_API: &str = "https://note.coffeecli.com/version.json?platform=windows";
+const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://note.coffeecli.com/download/windows";
+const RELEASE_DOWNLOAD_PREFIX: &str =
+    "https://github.com/edison7009/Coffee-Note/releases/download/";
 const MODELS_DEV_CATALOG_URL: &str = "https://models.dev/api.json";
 const MODEL_CATALOG_MAX_BYTES: usize = 24 * 1024 * 1024;
 const MODEL_CATALOG_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const TRANSCRIPTION_CONFIG_FILE: &str = "transcription.json";
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
-const TIER_ORDER_RELATIVE_PATH: &str = ".tiernote/tier-order.json";
-pub(crate) const MODEL_APP_URL: &str = "https://tiernote.org";
-pub(crate) const MODEL_APP_TITLE: &str = "TierNote";
+const TIER_ORDER_RELATIVE_PATH: &str = ".coffee-note/tier-order.json";
+pub(crate) const MODEL_APP_URL: &str = "https://note.coffeecli.com";
+pub(crate) const MODEL_APP_TITLE: &str = "Coffee Note";
 include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
 
 #[derive(Debug, Clone, Serialize)]
@@ -360,25 +362,26 @@ impl From<LegacyModelConfig> for ModelSettings {
     }
 }
 
-fn tiernote_home() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".tiernote")
+pub(crate) fn app_data_dir() -> PathBuf {
+    let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.join("Coffee Note")
+}
+
+fn coffee_note_home() -> PathBuf {
+    let base = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.join(".coffee-note")
 }
 
 fn my_info_root() -> PathBuf {
-    tiernote_home().join("我的资料")
+    coffee_note_home().join("我的资料")
 }
 
 fn default_knowledge_root() -> PathBuf {
-    tiernote_home().join("演示笔记")
+    coffee_note_home().join("演示笔记")
 }
 
 fn model_config_path() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("TierNote")
-        .join("config.json")
+    app_data_dir().join("config.json")
 }
 
 fn transcription_config_path() -> PathBuf {
@@ -452,7 +455,7 @@ async fn check_transcription_config(
             .post(endpoint)
             .header("Content-Type", "application/octet-stream"),
     }
-    .header("User-Agent", "TierNote");
+    .header("User-Agent", "Coffee Note");
     request = match provider.protocol.as_str() {
         "deepgram" => request.header(
             "Authorization",
@@ -971,7 +974,7 @@ fn collect_markdown_paths(root: &Path) -> Vec<PathBuf> {
                 let name = entry.file_name().to_string_lossy().to_string();
                 if matches!(
                     name.as_str(),
-                    ".tiernote" | ".git" | "node_modules" | "target"
+                    ".coffee-note" | ".git" | "node_modules" | "target"
                 ) {
                     continue;
                 }
@@ -2231,7 +2234,7 @@ async fn fetch_capture_source(url: &reqwest::Url) -> Result<String, String> {
         .ok_or_else(|| "The source URL has no usable port".to_string())?;
     let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(35))
-        .user_agent("TierNote/0.0.1")
+        .user_agent("Coffee-Note/0.0.1")
         .redirect(reqwest::redirect::Policy::custom({
             let source_host = source_host.clone();
             move |attempt| {
@@ -2506,7 +2509,7 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         "使用简体中文撰写笔记。"
     };
     let system_prompt = format!(
-        "You organize source material for TierNote, a scientific longevity knowledge library. \
+        "You organize source material for Coffee Note, a scientific longevity knowledge library. \
          Preserve factual nuance and clearly distinguish evidence from inference. Never invent a study, \
          sample size, result, limitation, quotation, or source. If information is absent, say it is not \
          stated. Do not diagnose or prescribe. {language_rule} Return JSON only with exactly two string \
@@ -2615,7 +2618,7 @@ async fn plan_research_query(request: &ChatRequest) -> Option<String> {
 fn research_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(format!(
-            "Open-Longevity/{} (scientific evidence search)",
+            "Coffee-Note/{} (scientific evidence search)",
             env!("CARGO_PKG_VERSION")
         ))
         .timeout(Duration::from_secs(28))
@@ -2653,7 +2656,7 @@ async fn search_pubmed(
             ("retmode", "json"),
             ("retmax", "4"),
             ("sort", "relevance"),
-            ("tool", "TierNote"),
+            ("tool", "Coffee Note"),
         ])
         .send()
         .await
@@ -2675,7 +2678,7 @@ async fn search_pubmed(
             ("db", "pubmed"),
             ("id", joined_ids.as_str()),
             ("retmode", "json"),
-            ("tool", "TierNote"),
+            ("tool", "Coffee Note"),
         ])
         .send()
         .await
@@ -2715,7 +2718,7 @@ async fn search_pubmed(
             ("id", joined_ids.as_str()),
             ("rettype", "abstract"),
             ("retmode", "xml"),
-            ("tool", "TierNote"),
+            ("tool", "Coffee Note"),
         ])
         .send()
         .await
@@ -3054,7 +3057,7 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         "使用简体中文回答。"
     };
     let system_prompt = format!(
-        "You are TierNote, a local-first scientific longevity assistant. \
+        "You are Coffee Note, a local-first scientific longevity assistant. \
          The user's local notes are your primary memory. Use the supplied notes before general knowledge. \
          Cite the local note path in parentheses when a statement depends on it. \
          Clearly separate the user's personal protocol from general information. \
@@ -3109,7 +3112,7 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
 
 fn release_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent(format!("Open-Longevity/{}", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("Coffee-Note/{}", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| format!("Unable to prepare the update request: {error}"))
@@ -3253,7 +3256,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
         }
 
         let expected_size = expected_asset_size.max(response.content_length().unwrap_or(0));
-        let installer_path = std::env::temp_dir().join("Open-Longevity-update-setup.exe");
+        let installer_path = std::env::temp_dir().join("Coffee-Note-update-setup.exe");
         let mut installer = fs::File::create(&installer_path)
             .map_err(|error| format!("Unable to create the update installer: {error}"))?;
         let mut downloaded = 0_u64;
@@ -3465,7 +3468,7 @@ fn configure_tray_menu(app: &tauri::AppHandle, locale: &str) -> tauri::Result<()
     let quit = MenuItem::with_id(app, "quit", quit_label, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_app, &quit])?;
     let tray = app.tray_by_id("main").ok_or_else(|| {
-        tauri::Error::AssetNotFound("TierNote tray icon was not initialized".into())
+        tauri::Error::AssetNotFound("Coffee Note tray icon was not initialized".into())
     })?;
     tray.set_menu(Some(menu))
 }
@@ -3565,7 +3568,7 @@ pub fn run() {
         ])
         .manage(transcription::TranscriptionDownloadState::default())
         .run(tauri::generate_context!())
-        .expect("error while running TierNote");
+        .expect("error while running Coffee Note");
 }
 
 #[cfg(test)]
@@ -3573,7 +3576,7 @@ mod tests {
     use super::*;
 
     fn temp_fixture(prefix: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("tiernote-{prefix}-{}", uuid::Uuid::new_v4()))
+        std::env::temp_dir().join(format!("coffee-note-{prefix}-{}", uuid::Uuid::new_v4()))
     }
 
     #[test]
@@ -3748,7 +3751,7 @@ mod tests {
 
     #[test]
     fn unique_destination_appends_number_when_name_exists() {
-        let dir = std::env::temp_dir().join(format!("tiernote-unique-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("coffee-note-unique-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("a.md"), "x").unwrap();
         let first = unique_destination(&dir, "a.md");
@@ -3761,7 +3764,7 @@ mod tests {
 
     #[test]
     fn library_file_commands_round_trip_on_a_temp_root() {
-        let root = std::env::temp_dir().join(format!("tiernote-fs-{}", uuid::Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("coffee-note-fs-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(root.join("dossiers")).unwrap();
         fs::write(root.join("dossiers/strength-training.md"), "# 力量训练\n").unwrap();
         let root_str = root.to_string_lossy().to_string();
@@ -3905,7 +3908,7 @@ mod tests {
     #[test]
     fn model_settings_round_trip_two_providers_as_plain_json() {
         let unique = format!(
-            "tiernote-config-{}-{}",
+            "coffee-note-config-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -4015,7 +4018,7 @@ mod tests {
     #[test]
     fn legacy_model_config_migrates_without_losing_values() {
         let unique = format!(
-            "tiernote-legacy-config-{}-{}",
+            "coffee-note-legacy-config-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -4050,7 +4053,7 @@ mod tests {
     #[test]
     fn removed_economy_mode_is_ignored_and_not_resaved() {
         let unique = format!(
-            "tiernote-removed-economy-{}-{}",
+            "coffee-note-removed-economy-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -4232,8 +4235,8 @@ mod tests {
             let request = String::from_utf8_lossy(&request_bytes[..read]);
             let request_headers = request.to_ascii_lowercase();
             assert!(request.starts_with("POST /v1/chat/completions "));
-            assert!(request_headers.contains("http-referer: https://tiernote.org"));
-            assert!(request_headers.contains("x-openrouter-title: tiernote"));
+            assert!(request_headers.contains("http-referer: https://note.coffeecli.com"));
+            assert!(request_headers.contains("x-openrouter-title: coffee note"));
             assert!(request.contains("\"max_tokens\":3000"));
             assert!(request.contains("\"reasoning_effort\":\"high\""));
             let model_content =
@@ -4267,7 +4270,7 @@ mod tests {
         assert_eq!(draft.title, "Creatine trial");
 
         let unique = format!(
-            "tiernote-capture-{}-{}",
+            "coffee-note-capture-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -4306,8 +4309,8 @@ mod tests {
             let request_headers = request.to_ascii_lowercase();
             assert!(request.starts_with("POST /v1/messages "));
             assert!(request_headers.contains("x-api-key: test-key"));
-            assert!(request_headers.contains("http-referer: https://tiernote.org"));
-            assert!(request_headers.contains("x-openrouter-title: tiernote"));
+            assert!(request_headers.contains("http-referer: https://note.coffeecli.com"));
+            assert!(request_headers.contains("x-openrouter-title: coffee note"));
             assert!(request.contains("\"output_config\":{\"effort\":\"medium\"}"));
             assert!(request.contains("\"system\":\"System rule\""));
             let payload = json!({

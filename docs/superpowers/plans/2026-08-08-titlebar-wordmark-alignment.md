@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove the title-bar logo and align the TierNote wordmark with the Home navigation icon.
+**Goal:** Remove the title-bar logo and align the Coffee Note wordmark with the Home navigation icon.
 
 **Architecture:** Keep the existing React title-bar component and neutral shell CSS. The change is limited to the title-bar brand markup, its spacing rule, and a source-level regression test; all other brand placements remain intact.
 
@@ -18,7 +18,7 @@
 
 - [x] Remove only the `<img src="/brand/logo-new.png" ...>` child from `.titlebar-brand`.
 - [x] Remove the now-unused `gap` declaration from `.titlebar-brand`; keep its right padding so history controls retain their spacing.
-- [x] Preserve the existing `TierNote` element, font, title-bar drag region, and all menu/window controls.
+- [x] Preserve the existing `Coffee Note` element, font, title-bar drag region, and all menu/window controls.
 - [x] Set `.titlebar-leading` to a 23px left inset so the wordmark shares the Home icon's 14px sidebar padding plus 9px button padding.
 
 ### Task 2: Add regression coverage
@@ -27,7 +27,7 @@
 - Modify: `tests/sidebar-actions.test.mjs`
 
 - [x] Assert that the `.titlebar-brand` block contains no `<img>`.
-- [x] Assert that the title bar still contains the `TierNote` wordmark and that the chat empty state still contains the logo asset reference.
+- [x] Assert that the title bar still contains the `Coffee Note` wordmark and that the chat empty state still contains the logo asset reference.
 
 ### Task 3: Verify the change
 

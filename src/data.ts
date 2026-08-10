@@ -220,8 +220,8 @@ export const fallbackStories: Story[] = [
 ];
 
 export const fallbackLibrary: LibrarySnapshot = {
-  root: 'TierNote / library',
-  myInfoRoot: 'TierNote / my info',
+  root: 'Coffee Note / library',
+  myInfoRoot: 'Coffee Note / my info',
   connected: true,
   priorities: [],
   supplements: fallbackSupplements,
@@ -235,7 +235,7 @@ export const fallbackMarkdown: Record<string, string> = {
 
 > **30 秒结论**
 >
-> 力量训练是 TierNote 的 T1 基础支柱：它直接训练力量与身体功能，并帮助维护肌肉、骨骼负荷和晚年的独立生活能力。
+> 力量训练是 Coffee Note 的 T1 基础支柱：它直接训练力量与身体功能，并帮助维护肌肉、骨骼负荷和晚年的独立生活能力。
 
 ## 如何开始
 
@@ -261,7 +261,7 @@ export const fallbackMarkdown: Record<string, string> = {
 
 > **30 秒结论**
 >
-> 健康饮食是 TierNote 的 T1 基石。重点不是追逐唯一食谱，而是建立能够长期坚持、营养充足并适合个人健康状况的整体饮食模式。
+> 健康饮食是 Coffee Note 的 T1 基石。重点不是追逐唯一食谱，而是建立能够长期坚持、营养充足并适合个人健康状况的整体饮食模式。
 
 ## 核心原则
 

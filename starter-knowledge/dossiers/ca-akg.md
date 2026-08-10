@@ -6,7 +6,7 @@ tier: T5
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
 audit_status: partial
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date: 2026-07-20
 ---
 
@@ -78,7 +78,7 @@ DNA 甲基化时钟是当前衰老研究最重要的替代终点之一，相关�
 - 疾病或死亡风险变化；
 - 多个时钟与多个实验室的交叉验证。
 
-TierNote 把甲基化时钟归为替代终点，并与功能结局结合判断 Ca-AKG 的延寿价值。
+Coffee Note 把甲基化时钟归为替代终点，并与功能结局结合判断 Ca-AKG 的延寿价值。
 
 ## 食物、AKG 与 Ca-AKG
 

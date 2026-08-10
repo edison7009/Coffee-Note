@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="src-tauri/icons/icon.png" width="112" alt="TierNote logo">
+  <img src="src-tauri/icons/icon.png" width="112" alt="Coffee Note logo">
 </p>
 
-<h1 align="center">TierNote(开源延寿)</h1>
+<h1 align="center">Coffee Note(开源延寿)</h1>
 
 <p align="center"><strong>Longevity is humanity’s most valuable investment in the age of AI.</strong></p>
 
-![TierNote home screen](docs/assets/product-ui/home-en.webp)
+![Coffee Note home screen](docs/assets/product-ui/home-en.webp)
 
 <p align="center">
   <strong>Longevity science should not be reserved for the wealthy.</strong><br>
-  TierNote takes Bryan Johnson’s longevity plan as a starting blueprint.
+  Coffee Note takes Bryan Johnson’s longevity plan as a starting blueprint.
 </p>
 
 <p align="center">
@@ -18,15 +18,15 @@
 </p>
 
 <p align="center">
-  Windows · macOS · Linux · <a href="https://github.com/edison7009/TierNote/releases/latest"><strong>Download latest</strong></a> · <a href="https://tiernote.life/">Website</a>
+  Windows · macOS · Linux · <a href="https://github.com/edison7009/Coffee-Note/releases/latest"><strong>Download latest</strong></a> · <a href="https://note.coffeecli.com/">Website</a>
 </p>
 
 > Wealth can buy private medical teams, continuous measurement, research support, and rapidly evolving personal protocols.<br>
 > Everyone should have the tools to understand evidence, manage personal knowledge, and benefit from responsible AI.
 
-TierNote turns scattered papers, public protocols, and personal notes into a workspace that people can read, inspect, grow, and control. It does not sell an immortality shortcut, and it does not suggest copying an expensive protocol blindly. It offers a transparent, traceable, local-first foundation for learning about longevity science.
+Coffee Note turns scattered papers, public protocols, and personal notes into a workspace that people can read, inspect, grow, and control. It does not sell an immortality shortcut, and it does not suggest copying an expensive protocol blindly. It offers a transparent, traceable, local-first foundation for learning about longevity science.
 
-## Why TierNote
+## Why Coffee Note
 
 Longevity science has a serious access gap:
 
@@ -58,7 +58,7 @@ T1–T5 is a starting framework for reading and discussion—not a medical ranki
 
 ### Organize webpages and source material with AI
 
-Paste a public webpage, paper abstract, article text, or rough note. TierNote can:
+Paste a public webpage, paper abstract, article text, or rough note. Coffee Note can:
 
 1. Extract readable webpage content.
 2. Ask your configured OpenAI-compatible model for a structured Markdown draft.
@@ -72,7 +72,7 @@ The capture flow limits download size and duration and blocks access to localhos
 
 ### Ask AI against your own local notes
 
-![TierNote AI conversation](docs/assets/product-ui/chat-en.webp)
+![Coffee Note AI conversation](docs/assets/product-ui/chat-en.webp)
 
 AI context is prioritized in this order:
 
@@ -83,7 +83,7 @@ AI context is prioritized in this order:
 
 When an answer depends on local material, the assistant is instructed to preserve the corresponding note path for further inspection.
 
-For evidence-oriented questions, TierNote can also build a concise
+For evidence-oriented questions, Coffee Note can also build a concise
 English biomedical query that excludes personal identifiers and retrieve a small live snapshot from PubMed,
 ClinicalTrials.gov, and bioRxiv. The answer receives deterministic PMID, NCT,
 and preprint links and must distinguish papers, trial registrations/results,
@@ -99,11 +99,11 @@ and non-peer-reviewed preprints.
 
 ### Configure your model and local library
 
-![TierNote model settings](docs/assets/product-ui/settings-en.webp)
+![Coffee Note model settings](docs/assets/product-ui/settings-en.webp)
 
 ### Visit the project website
 
-![TierNote website](docs/assets/product-ui/website-en.webp)
+![Coffee Note website](docs/assets/product-ui/website-en.webp)
 
 ### Keep control of your data
 
@@ -111,7 +111,7 @@ and non-peer-reviewed preprints.
 - Markdown and CSV remain portable, readable, and easy to back up.
 - The complete AI provider configuration, including the API key, is stored as
   plaintext JSON in the current user's local app-data directory at
-  `TierNote/config.json`.
+  `Coffee Note/config.json`.
 - Content is sent to the configured model provider only after the user initiates an AI request.
 - For an evidence-oriented request, only that reduced biomedical query is sent
   to the public scientific databases.
@@ -119,13 +119,13 @@ and non-peer-reviewed preprints.
 
 ## Default library locations
 
-TierNote creates its own local library on first launch:
+Coffee Note creates its own local library on first launch:
 
 | Platform | Default directory |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\TierNote\library` |
-| macOS | `~/Library/Application Support/TierNote/library` |
-| Linux | `$XDG_DATA_HOME/TierNote/library`, usually `~/.local/share/TierNote/library` |
+| Windows | `%USERPROFILE%\.coffee-note\演示笔记` |
+| macOS | `~/.coffee-note/演示笔记` |
+| Linux | `~/.coffee-note/演示笔记` |
 
 Users can explicitly select another directory in Settings.
 
@@ -162,7 +162,7 @@ See [Architecture](docs/ARCHITECTURE.md) and
 After cloning the repository:
 
 ```powershell
-cd TierNote
+cd Coffee-Note
 npm install
 npm run library:check
 npm run tauri:dev
@@ -227,4 +227,4 @@ For scientific content:
 
 ## License
 
-[MIT](LICENSE) © 2026 TierNote contributors.
+[MIT](LICENSE) © 2026 Coffee Note contributors.

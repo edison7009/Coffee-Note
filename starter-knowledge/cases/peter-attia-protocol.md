@@ -12,7 +12,7 @@ Peter Attia，延寿医学医生、前外科医生，《Outlive: The Science and
 
 ## 阅读方式
 
-本页记录 Attia 的公开框架与做法，用于发现值得进一步研究的策略，不等于 TierNote 对剂量、处方或品牌的推荐。尚未逐条归档一手来源的内容标为 `needs-source-check`；与 Thorne 的合作关系单独披露。
+本页记录 Attia 的公开框架与做法，用于发现值得进一步研究的策略，不等于 Coffee Note 对剂量、处方或品牌的推荐。尚未逐条归档一手来源的内容标为 `needs-source-check`；与 Thorne 的合作关系单独披露。
 
 ## 核心理念
 

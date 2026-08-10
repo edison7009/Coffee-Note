@@ -1,11 +1,11 @@
 #!/bin/sh
-# TierNote installer / updater for macOS and Linux
-# Usage: curl -fsSL https://tiernote.life/install.sh | sh
+# Coffee Note installer / updater for macOS and Linux
+# Usage: curl -fsSL https://note.coffeecli.com/install.sh | sh
 
 set -eu
 
-SITE="https://tiernote.life"
-REPOSITORY="edison7009/TierNote"
+SITE="https://note.coffeecli.com"
+REPOSITORY="edison7009/Coffee-Note"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 
@@ -33,20 +33,20 @@ case "$OS" in
   *) fail "Unsupported operating system: $OS" ;;
 esac
 
-printf '\n  TierNote Installer\n  ------------------------\n'
+printf '\n  Coffee Note Installer\n  ------------------------\n'
 say "Checking the latest release..."
 VERSION="$(curl -fsSL "$SITE/version.json?platform=$PLATFORM" 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' || true)"
 DOWNLOAD="$SITE/download/$PLATFORM"
 
 if [ -z "$VERSION" ]; then
-  RELEASE="$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: Open-Longevity-Installer' "https://api.github.com/repos/$REPOSITORY/releases/latest" 2>/dev/null || true)"
+  RELEASE="$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: Coffee-Note-Installer' "https://api.github.com/repos/$REPOSITORY/releases/latest" 2>/dev/null || true)"
   VERSION="$(printf '%s' "$RELEASE" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' | head -n 1)"
   case "$PLATFORM" in
-    macos-arm) FILE="Open.Longevity_${VERSION}_macOS_arm64.dmg" ;;
-    macos-intel) FILE="Open.Longevity_${VERSION}_macOS_x64.dmg" ;;
-    linux-deb) FILE="Open.Longevity_${VERSION}_Linux_x64.deb" ;;
-    linux-rpm) FILE="Open.Longevity_${VERSION}_Linux_x64.rpm" ;;
-    *) FILE="Open.Longevity_${VERSION}_Linux_x64.AppImage" ;;
+    macos-arm) FILE="Coffee.Note_${VERSION}_macOS_arm64.dmg" ;;
+    macos-intel) FILE="Coffee.Note_${VERSION}_macOS_x64.dmg" ;;
+    linux-deb) FILE="Coffee.Note_${VERSION}_Linux_x64.deb" ;;
+    linux-rpm) FILE="Coffee.Note_${VERSION}_Linux_x64.rpm" ;;
+    *) FILE="Coffee.Note_${VERSION}_Linux_x64.AppImage" ;;
   esac
   DOWNLOAD="https://github.com/$REPOSITORY/releases/download/v$VERSION/$FILE"
 fi
@@ -56,26 +56,22 @@ say "Latest: v$VERSION"
 
 INSTALLED_VERSION=""
 if [ "$OS" = "Darwin" ]; then
-  APP_PATH="/Applications/TierNote.app"
-  LEGACY_APP_PATH="/Applications/Tier"" Note.app"
-  if [ ! -d "$APP_PATH" ] && [ -d "$LEGACY_APP_PATH" ]; then
-    APP_PATH="$LEGACY_APP_PATH"
-  fi
+  APP_PATH="/Applications/Coffee Note.app"
   if [ -d "$APP_PATH" ]; then
     INSTALLED_VERSION="$(defaults read "$APP_PATH/Contents/Info" CFBundleShortVersionString 2>/dev/null || true)"
   fi
 elif [ "$EXT" = "deb" ]; then
-  INSTALLED_VERSION="$(dpkg-query -W -f='${Version}' tiernote 2>/dev/null || true)"
+  INSTALLED_VERSION="$(dpkg-query -W -f='${Version}' coffee-note 2>/dev/null || true)"
 elif [ "$EXT" = "rpm" ]; then
-  INSTALLED_VERSION="$(rpm -q --queryformat '%{VERSION}' tiernote 2>/dev/null || true)"
-elif [ -f "$HOME/.local/bin/open-longevity.version" ]; then
-  INSTALLED_VERSION="$(cat "$HOME/.local/bin/open-longevity.version" 2>/dev/null || true)"
+  INSTALLED_VERSION="$(rpm -q --queryformat '%{VERSION}' coffee-note 2>/dev/null || true)"
+elif [ -f "$HOME/.local/bin/coffee-note.version" ]; then
+  INSTALLED_VERSION="$(cat "$HOME/.local/bin/coffee-note.version" 2>/dev/null || true)"
 fi
 
 if [ -n "$INSTALLED_VERSION" ]; then
   say "Installed: v$INSTALLED_VERSION"
   if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
-    printf '\n  TierNote is already up to date.\n\n'
+    printf '\n  Coffee Note is already up to date.\n\n'
     exit 0
   fi
   say "Upgrading v$INSTALLED_VERSION -> v$VERSION..."
@@ -83,7 +79,7 @@ else
   say "Performing a fresh installation..."
 fi
 
-PACKAGE="$TMP_DIR/Open-Longevity.$EXT"
+PACKAGE="$TMP_DIR/Coffee-Note.$EXT"
 say "Downloading..."
 curl -fL --retry 2 -o "$PACKAGE" "$DOWNLOAD" || fail "The download could not be completed."
 [ -s "$PACKAGE" ] || fail "The installer download is empty."
@@ -96,15 +92,13 @@ if [ "$OS" = "Darwin" ]; then
   [ -n "$APP" ] || fail "The disk image does not contain an application."
   say "Installing to /Applications..."
   if [ -w "/Applications" ]; then
-    rm -rf "/Applications/TierNote.app"
-    rm -rf "$LEGACY_APP_PATH"
-    cp -R "$APP" "/Applications/TierNote.app"
+    rm -rf "/Applications/Coffee Note.app"
+    cp -R "$APP" "/Applications/Coffee Note.app"
   else
-    sudo rm -rf "/Applications/TierNote.app"
-    sudo rm -rf "$LEGACY_APP_PATH"
-    sudo cp -R "$APP" "/Applications/TierNote.app"
+    sudo rm -rf "/Applications/Coffee Note.app"
+    sudo cp -R "$APP" "/Applications/Coffee Note.app"
   fi
-  xattr -cr "/Applications/TierNote.app" 2>/dev/null || true
+  xattr -cr "/Applications/Coffee Note.app" 2>/dev/null || true
   hdiutil detach "$MOUNT" -quiet || true
 elif [ "$EXT" = "deb" ]; then
   say "Installing the Debian package..."
@@ -113,12 +107,12 @@ elif [ "$EXT" = "rpm" ]; then
   say "Installing the RPM package..."
   if command -v dnf >/dev/null 2>&1; then sudo dnf install -y "$PACKAGE"; else sudo rpm -U "$PACKAGE"; fi
 else
-  TARGET="$HOME/.local/bin/open-longevity.AppImage"
+  TARGET="$HOME/.local/bin/coffee-note.AppImage"
   mkdir -p "$HOME/.local/bin"
   cp "$PACKAGE" "$TARGET"
   chmod +x "$TARGET"
-  printf '%s\n' "$VERSION" > "$HOME/.local/bin/open-longevity.version"
+  printf '%s\n' "$VERSION" > "$HOME/.local/bin/coffee-note.version"
   say "Installed AppImage to $TARGET"
 fi
 
-printf '\n  TierNote v%s is installed.\n\n' "$VERSION"
+printf '\n  Coffee Note v%s is installed.\n\n' "$VERSION"

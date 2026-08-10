@@ -1,8 +1,8 @@
-# TierNote 架构说明
+# Coffee Note 架构说明
 
 ## 产品边界
 
-TierNote 不是一个换皮的代码 Agent。它只暴露延寿知识工作所需的安全能力：
+Coffee Note 不是一个换皮的代码 Agent。它只暴露延寿知识工作所需的安全能力：
 
 1. 读取用户明确选择的知识库；
 2. 检索延寿策略、人物案例、延寿轶事、个人计划与论文笔记；
@@ -21,12 +21,12 @@ TierNote 不是一个换皮的代码 Agent。它只暴露延寿知识工作所�
 
 ## 独立资料库
 
-TierNote 不读取或绑定开发者的私人 `Life extension` 目录。默认资料库位于各平台的应用数据目录：
+Coffee Note 不读取或绑定开发者的私人 `Life extension` 目录。默认资料库位于各平台的应用数据目录：
 
 ```text
-Windows  %LOCALAPPDATA%/TierNote/library
-macOS    ~/Library/Application Support/TierNote/library
-Linux    $XDG_DATA_HOME/TierNote/library
+Windows  %USERPROFILE%/.coffee-note/演示笔记
+macOS    ~/.coffee-note/演示笔记
+Linux    ~/.coffee-note/演示笔记
 ```
 
 首次启动由应用创建目录和入门内容。`starter-knowledge/` 只包含公开的结构示例、用户资料空模板和通用安全边界，不包含开发者的个人方案、检测结果或私人研究记录。
@@ -41,7 +41,7 @@ Linux    $XDG_DATA_HOME/TierNote/library
 
 Pi 的 `pi-ai` 与 `pi-agent-core` 很适合统一模型调用、工具循环和状态管理；但 Pi 的主要运行时是 TypeScript/Node/Bun，而 Tauri WebView 本身不是 Node 环境。直接嵌入通常需要额外 sidecar、跨平台二进制打包和更大的权限面。Pi 官方说明也明确指出它本身不提供文件系统、进程、网络或凭证的内建权限系统。
 
-因此首版使用小型 Rust 核心，只实现 TierNote 必需的能力。接口应保持可替换：
+因此首版使用小型 Rust 核心，只实现 Coffee Note 必需的能力。接口应保持可替换：
 
 ```text
 React UI
@@ -72,7 +72,7 @@ OpenScience 提供大量科学技能、专业 Agent、数据库工具，以及�
 
 ## 本地知识与个人记忆
 
-TierNote 的记忆路由有两个用户可见的真源，以及一份可重建索引：
+Coffee Note 的记忆路由有两个用户可见的真源，以及一份可重建索引：
 
 - **我的资料**（应用管理的 Markdown）：用户确认的长期目标、偏好、约束、
   经验与健康背景写入对应的 `plans/*.md` 页面；这是个人事实的唯一真源。
@@ -122,6 +122,6 @@ TierNote 的记忆路由有两个用户可见的真源，以及一份可重建�
 - 路径 canonicalize 后检查，阻止 `../` 越界；
 - AI 收录只写入 `knowledge/inbox/`，且不会覆盖同名文件；
 - AI 服务商配置（包括 API Key）以明文 JSON 保存在当前用户的应用数据
-  目录 `TierNote/config.json`，不写入仓库或知识库；
+  目录 `Coffee Note/config.json`，不写入仓库或知识库；
 - 个人资料只在用户发起模型请求时发送给其配置的模型服务商；
 - 医疗相关输出保留交互作用、过敏、妊娠和器官功能等基本安全边界。

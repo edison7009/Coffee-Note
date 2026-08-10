@@ -70,14 +70,8 @@ fn conversation_write_lock() -> Result<MutexGuard<'static, ()>, String> {
         .map_err(|_| "Conversation storage lock is poisoned".to_string())
 }
 
-fn app_data_dir() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("TierNote")
-}
-
 fn conversations_dir() -> PathBuf {
-    app_data_dir().join("conversations")
+    crate::app_data_dir().join("conversations")
 }
 
 fn index_path() -> PathBuf {
@@ -85,7 +79,7 @@ fn index_path() -> PathBuf {
 }
 
 fn legacy_session_file() -> PathBuf {
-    app_data_dir().join("sessions").join("session.json")
+    crate::app_data_dir().join("sessions").join("session.json")
 }
 
 fn legacy_import_flag() -> PathBuf {

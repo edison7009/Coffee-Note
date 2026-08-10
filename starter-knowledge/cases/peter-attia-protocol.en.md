@@ -14,7 +14,7 @@ Peter Attia is a longevity physician, former surgeon, author of *Outlive: The Sc
 
 ## How to Read This Page
 
-This page records Attia’s public framework and practices to identify strategies worth further research. It does not constitute an TierNote recommendation of a dose, prescription, or brand. Content not yet archived source by source is marked `needs-source-check`; his relationship with Thorne is disclosed separately.
+This page records Attia’s public framework and practices to identify strategies worth further research. It does not constitute an Coffee Note recommendation of a dose, prescription, or brand. Content not yet archived source by source is marked `needs-source-check`; his relationship with Thorne is disclosed separately.
 
 ## Core Ideas
 

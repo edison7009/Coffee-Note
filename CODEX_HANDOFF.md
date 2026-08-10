@@ -1,4 +1,4 @@
-# TierNote — portable Codex project memory
+# Coffee Note — portable Codex project memory
 
 Updated: 2026-08-07
 
@@ -6,16 +6,22 @@ This file preserves the decisions and working context needed to continue the
 project on another machine. It contains no API keys, private user parameters,
 or temporary deployment credentials.
 
-## TierNote fork status
+## Coffee Note fork status
 
-- This repository is the TierNote sister product forked from the original longevity app.
-- Visible product name: **TierNote** (always use the closed wordmark, without a space).
-- Internal directory/package/storage identifiers may use `TierNote` or `tiernote`.
-- TierNote is a clean, general-purpose note system rather than a longevity product.
+- This repository is the Coffee Note sister product forked from the original longevity app.
+- Visible product name: **Coffee Note**.
+- The repository directory is `Coffee-Note`; internal identifiers use `coffee-note`
+  or `CoffeeNote` where spaces are invalid, with `app.coffeenote.desktop` as the
+  reverse-domain bundle identifier.
+- Coffee Note is a clean, general-purpose note system rather than a longevity product.
+- Coffee Note uses a clean application identity with no predecessor-brand
+  compatibility layer: `app.coffeenote.desktop`, `Coffee Note` app-data,
+  `.coffee-note` knowledge metadata, and `coffee-note:` browser storage keys.
+- GitHub release and feedback URLs use the `edison7009/Coffee-Note` repository.
 - The homepage editable T1–T5 tier list is the core interaction model because it
   makes prioritization and decisions immediately legible.
 - Longevity-specific starter content and product copy below are inherited context
-  awaiting replacement; they are not the TierNote product direction.
+  awaiting replacement; they are not the Coffee Note product direction.
 
 ## Desktop redesign direction (2026-08-07)
 
@@ -98,7 +104,7 @@ or temporary deployment credentials.
 - The desktop app is moving to a calm, Codex-informed note-workspace style. This
   supersedes older instructions below that require a colorful dashboard shell or
   a blue-green gradient title bar.
-- TierNote now uses a monochrome black, graphite, and gray shell with no selectable
+- Coffee Note now uses a monochrome black, graphite, and gray shell with no selectable
   brand color. The homepage is the deliberate exception: its three entry cards and
   T1-T5 map use restrained category colors. Appearance settings keep system/light/dark
   modes and language, but no longer expose accent choices.
@@ -121,10 +127,9 @@ or temporary deployment credentials.
   the compact note priority button, and the menu's small tier swatches. The button
   keeps its matching tinted background unchanged on hover/open; menu hover and
   selection use one neutral background with no colored border or glow.
-- The display brand uses the transparent rounded-corner feather mark plus the
-  closed `TierNote` name in the title bar; the same mark remains in the chat empty
-  state. Keep internal paths, storage keys, window title, and bundle identifiers
-  as `TierNote`. The in-app mark source is `src-tauri/icons/logo.png`, which must
+- The display brand uses the `Coffee Note` wordmark in the title bar and AI-chat
+  empty state. The AI-chat empty state intentionally has no logo image. The in-app
+  mark source is `src-tauri/icons/logo.png`, which must
   remain byte-identical to the copied UI source at `public/brand/logo-new.png`.
 - OS app icons are generated with `tauri icon` from full-bleed square sources in
   `src-tauri/icons/sources/`: `logo-windows.png` (Windows: `icon.ico`, the
@@ -154,12 +159,12 @@ or temporary deployment credentials.
 ## Legacy source-product context
 
 The remaining notes describe the source product and are retained temporarily so
-the working behavior is not lost during migration. The TierNote rules above take
+the working behavior is not lost during migration. The Coffee Note rules above take
 precedence whenever they conflict.
 
 ## Product identity
 
-- Product name: **TierNote** (always use the closed wordmark in visible text).
+- Product name: **Coffee Note**.
 - Chinese product name: **科学延寿**. Use **延寿** consistently in Chinese
   product, website, documentation, and starter-library copy; keep the previous
   product-domain term out of new copy.
@@ -231,7 +236,7 @@ to the product template.
 - The left pane keeps its 210-380px product range. The right rail has no fixed
   maximum; it may expand until the center workspace reaches its 560px minimum.
 - The top title/drag bar spans the full window width. Its left side shows a
-  16 x 16 product icon, the closed `TierNote` wordmark in the bundled `Lora`
+  16 x 16 product icon, the closed `Coffee Note` wordmark in the bundled `Lora`
   bold-italic face, functional back/forward navigation, and File/Edit/Help menus.
   File keeps the library-switch action; the right edge of the Home navigation
   row also exposes the same action as a discoverable global folder icon, matching
@@ -283,9 +288,9 @@ to the product template.
   resolves from the interface language until the user makes an explicit choice.
   CNY and USD use DeepSeek's official
   regional token prices directly rather than converting through an exchange
-  rate. Persist the preference locally under `tiernote:currency`.
+  rate. Persist the preference locally under `coffee-note:currency`.
 - Chat uses a minimal two-sided conversation layout: user messages are compact
-  bubbles aligned to the right, while TierNote answers remain readable,
+  bubbles aligned to the right, while Coffee Note answers remain readable,
   unframed content aligned to the left. Do not show participant names or avatars;
   message position already communicates the speaker.
 - Opening AI chat or switching conversations must position the message area at
@@ -314,7 +319,7 @@ to the product template.
 - Avoid hover tooltips and decorative hover motion throughout the app.
 - Use generous, older-adult-friendly typography, especially in the center
   reading area.
-- The home tier list keeps the original Open Longevity card presentation:
+- The home tier list keeps the original card presentation:
   a rounded bordered card with thin row dividers, tinted tier label cells with
   a left color strip, and plain large text items sized to their content. Do
   not render items as bordered buttons or equal-width grid cells, and do not
@@ -324,16 +329,16 @@ to the product template.
   **My Plan** shortcuts (supplements, exercise, diet, daily routine, health log) below; when a note
   is open its sources appear as a third section. The old header star toggle is
   gone (favorites are always visible). On first launch the favorites are seeded
-  once with Bryan Johnson (flag `tiernote:favorites-seeded:v1`); a user's
+  once with Bryan Johnson (flag `coffee-note:favorites-seeded:v1`); a user's
   later edits are never overwritten.
 - The **My Plan** rail has five sections: supplements (补剂计划), exercise (运动计划), diet (饮食计划), daily routine (作息计划), and health log (健康记录). Clicking a section opens its own **note page** — `plans/supplements.md`, `plans/exercise.md`, `plans/diet.md`, `plans/daily-routine.md` — rendered like any other library note (new page, back navigation); the health log opens the per-day editor page. The AI maintains the four plan pages via the `update_plan` tool (standard format: goals, current status, concrete arrangements, review notes).
-- AI tools follow the "everything is a note" model: `save_note` (new notes in inbox/dossiers/cases/stories), `update_note` (edit any note by relative path, optionally writing `sources` into frontmatter), `update_plan` (the four plan pages), and `update_tier` (reassign any Markdown note's T1–T5 `tier` frontmatter; `pending` hides it). The home tier list is derived only from tiered Markdown in the currently selected library, so a new library starts empty and switching roots never leaks the Demo list. Loading reads only the first 32 KB needed for metadata rather than parsing note bodies. Drag order is library-local metadata in `.tiernote/tier-order.json`; the Markdown frontmatter remains the source of truth for tier membership. Frontend library work is generation-scoped: selecting another root immediately invalidates pending loads and mutations so an old root can never republish its snapshot over the new workspace. The frontend reloads the library after every agent run so edits appear immediately.
-- AI settings separate **provider** and **model**; wire protocol is derived. TierNote
+- AI tools follow the "everything is a note" model: `save_note` (new notes in inbox/dossiers/cases/stories), `update_note` (edit any note by relative path, optionally writing `sources` into frontmatter), `update_plan` (the four plan pages), and `update_tier` (reassign any Markdown note's T1–T5 `tier` frontmatter; `pending` hides it). The home tier list is derived only from tiered Markdown in the currently selected library, so a new library starts empty and switching roots never leaks the Demo list. Loading reads only the first 32 KB needed for metadata rather than parsing note bodies. Drag order is library-local metadata in `.coffee-note/tier-order.json`; the Markdown frontmatter remains the source of truth for tier membership. Frontend library work is generation-scoped: selecting another root immediately invalidates pending loads and mutations so an old root can never republish its snapshot over the new workspace. The frontend reloads the library after every agent run so edits appear immediately.
+- AI settings separate **provider** and **model**; wire protocol is derived. Coffee Note
   reads the public `https://models.dev/api.json` catalog for provider names,
   default OpenAI-compatible endpoints, models, capabilities, context limits,
   reasoning effort options, and USD pricing; provider marks come from
   `https://models.dev/logos/{provider}.svg`. The Rust backend caches the bounded,
-  validated catalog for 24 hours at `TierNote/models-dev-catalog.json` in the
+  validated catalog for 24 hours at `Coffee Note/models-dev-catalog.json` in the
   current user's app-data directory and falls back to that cache while offline.
   Provider UI uses the canonical models.dev display name only. Do not repeat the
   internal lowercase provider ID below the name; composer model choices also use
@@ -344,7 +349,7 @@ to the product template.
   protocol. DeepSeek's default base URL is `https://api.deepseek.com`; the old
   mistaken `/anthropic` default is migrated automatically. Provider URL, API key,
   selected models, active model, derived protocol, and reasoning
-  effort persist in plaintext `TierNote/config.json` in app-data only. Existing
+  effort persist in plaintext `Coffee Note/config.json` in app-data only. Existing
   two-protocol configs migrate without discarding their URL, model, or key. In
   the provider directory, the default provider stays first and providers with
   selected models move directly below it; untouched catalog providers follow.
@@ -371,7 +376,7 @@ to the product template.
   model remains in the explicit selected-model array; otherwise it reads Choose model.
 - The AI composer model menu and reasoning control are functional configuration,
   not previews. Model changes update the active provider/model immediately.
-  Every catalog-declared reasoning model exposes TierNote's fixed five choices:
+  Every catalog-declared reasoning model exposes Coffee Note's fixed five choices:
   `low`, `medium`, `high`, `xhigh`, and `max`. Do not filter or clamp these from
   models.dev `reasoning_options`; provider endpoints may normalize unsupported
   intermediate values themselves. Choices are sent as `reasoning_effort` for OpenAI-compatible Chat
@@ -379,17 +384,17 @@ to the product template.
   catalog-declared reasoning capability show a non-interactive Standard readout and
   receive no guessed reasoning parameter.
 - Every outbound model request identifies the app to compatible upstreams with
-  `HTTP-Referer: https://tiernote.org`, `X-OpenRouter-Title: TierNote`, and the
-  backward-compatible `X-Title: TierNote`. This attribution replaces any inherited
-  EchoBird or obsolete TierNote-domain identity and applies to both streaming and
+  `HTTP-Referer: https://note.coffeecli.com`, `X-OpenRouter-Title: Coffee Note`, and the
+  backward-compatible `X-Title: Coffee Note`. This attribution replaces any inherited
+  EchoBird identity and applies to both streaming and
   synchronous OpenAI-compatible/Anthropic requests.
-- The desktop app's TierNote brand link opens `https://tiernote.org/`. Download and
+- The desktop app's Coffee Note brand link opens `https://note.coffeecli.com/`. Download and
   update endpoints remain separately configured until their hosting is migrated.
 - AI provider settings, including API keys, persist as plaintext JSON in the
-  current user's app-data directory (`TierNote/config.json`). They must
+  current user's app-data directory (`Coffee Note/config.json`). They must
   never be written into the repository or knowledge library.
 - Modal headers share one standard component: a fixed 44 x 44 icon tile aligned
-  to the vertical center of an `TIERNOTE` eyebrow plus main title block.
+  to the vertical center of an `COFFEE NOTE` eyebrow plus main title block.
   Settings and capture dialogs use the same header and add a close action on the
   right; do not maintain separate modal-title alignment rules.
 - Local knowledge retrieval uses an in-process Rust knowledge map: cached
@@ -424,7 +429,7 @@ to the product template.
   in the user message so the system prompt stays cache-stable.
 - The visible My Contexts (`我的设定`) page exposes AI-retrieval switches for its five content notes.
   All five default on and persist locally under
-  `tiernote:my-info-retrieval:v1`; Add Material remains an action rather than a
+  `coffee-note:my-info-retrieval:v1`; Add Material remains an action rather than a
   retrievable section. Every agent request sends the enabled stable IDs, and
   Rust applies the resulting localized-path allowlist to both question-aware
   Library Graph context and always-on memory injection. My Contexts cards are direct
@@ -435,17 +440,17 @@ to the product template.
 ## Website
 
 - Website source: `website/`
-- Primary hosted URL: `https://tiernote.life/` (Cloudflare Pages).
+- Primary product URL: `https://note.coffeecli.com/`.
 - The website is build-free HTML/CSS/JavaScript. For Cloudflare Pages, leave
   the framework preset, build command, and root directory empty; set only the
   build output directory to `website`. GitHub Pages publishes that same folder
   from the main repository workflow as a mirror at
-  `https://edison7009.github.io/TierNote/`.
+  `https://edison7009.github.io/Coffee-Note/`.
 - `website/version.json` participates in `npm run release:check` and must match
   all desktop version fields. `website/_worker.js` exposes release-aware
   version and download routes, and the install scripts fall back to GitHub.
 - The desktop app and website are separate products in the same repository.
-  The former `TierNote-website` repository remains as a migration backup.
+  The former standalone website repository remains only as a migration backup.
 - Visual direction: dark teal, Renaissance scientific engraving, warm paper,
   copper/brass lines, and a full-bleed Tree of Life hero image. It should feel
   optimistic, healthy, literary, and scientific—not dense or
@@ -459,15 +464,15 @@ to the product template.
   - Chinese: **延寿，是人类在 AI 时代最有价值的投资。**
   - English: **Longevity is humanity’s most valuable investment in the age of AI.**
 - Website hero lead is one unified subtitle paragraph at one visual level:
-  **富豪花费百万美元借助科技延寿，而 TierNote 希望把生命之光同样带给普通家庭；以
+  **富豪花费百万美元借助科技延寿，而 Coffee Note 希望把生命之光同样带给普通家庭；以
   Bryan Johnson 公开的延寿计划为蓝本，融入 AI 与科学依据，让普通人也能拥有富豪级的延寿策略。**
   Do not render the Bryan Johnson sentence as a smaller note.
 - The hero installer uses text-only platform tabs with no underline indicator.
-  Its Chinese primary actions are **安装 TierNote** and **在 GitHub 上点星**;
-  English keeps **Install TierNote** and **Star on GitHub**. Align the
+  Its Chinese primary actions are **安装 Coffee Note** and **在 GitHub 上点星**;
+  English keeps **Install Coffee Note** and **Star on GitHub**. Align the
   install label and release version by their text baselines.
   Its macOS fallback note is the compact inline command: `macOS 首次需在「终端」
-  xattr -cr '/Applications/TierNote.app'`. Keep this installation area
+  xattr -cr '/Applications/Coffee Note.app'`. Keep this installation area
   comfortably readable: 12px platform tabs, 13px desktop command text, and a
   14px macOS note; mobile may ellipsize the visible command while copying the
   complete value.
@@ -504,7 +509,7 @@ Prerequisites:
 Desktop:
 
 ```powershell
-cd C:\TierNote
+cd C:\Coffee-Note
 npm install
 npm run library:check
 npm run typecheck
@@ -514,7 +519,7 @@ npm run tauri:dev
 Website:
 
 ```powershell
-cd C:\TierNote\website
+cd C:\Coffee-Note\website
 npx serve .
 ```
 
@@ -537,7 +542,7 @@ and machine-specific. The website itself has no generated build directory.
 
 ## Agent-logic optimization references (added 2026-08-07)
 
-The AI-chat empty state advertises three capabilities that TierNote already
+The AI-chat empty state advertises three capabilities that Coffee Note already
 implements partially. When optimizing the agent loop later, borrow from these
 references:
 
@@ -560,12 +565,12 @@ Make every token deliver at least twice the value.)
 
 ## Starter data ownership (2026-08-08)
 
-The managed Demo library and My Info pages are starter data only. TierNote
+The managed Demo library and My Info pages are starter data only. Coffee Note
 creates their bilingual seed content once, and then treats every file as user
 data. A permanent `.starter-pack-initialized` marker prevents later launches,
 upgrades, or starter-content revisions from overwriting or recreating edited or
 deleted files. When upgrading a pre-marker installation, any existing file means
-the directory is adopted as-is; TierNote writes the marker without backfilling
+the directory is adopted as-is; Coffee Note writes the marker without backfilling
 missing seed files. Current Chinese directory names and My Info section IDs are
 transitional implementation details, not permanent product contracts.
 
@@ -579,7 +584,7 @@ its contents.
 
 The desktop Audio to text settings are backed by real app-data state rather
 than UI-only placeholders. Provider configuration is stored as plaintext JSON
-at the current user's local app-data `TierNote/transcription.json`; it is never
+at the current user's local app-data `Coffee Note/transcription.json`; it is never
 written into the repository or knowledge library. Provider records are kept
 independently so switching services does not discard their endpoint, model, or
 API key. The hosted path has separate request adapters for OpenAI-compatible,
@@ -587,7 +592,7 @@ Deepgram, and AssemblyAI protocols and streams audio files instead of reading
 the whole upload into memory.
 
 The local path downloads pinned runtime and model resources into the current
-user's local app-data `TierNote/transcription/` directory. Every fixed resource
+user's local app-data `Coffee Note/transcription/` directory. Every fixed resource
 has an expected byte size and SHA-256 digest; archives are extracted only after
 verification. Windows supports the CPU and NVIDIA CUDA runtimes, Linux supports
 the CPU runtime, and macOS is intentionally shown as unavailable until a pinned
@@ -606,18 +611,18 @@ selection is not implemented yet.
 
 ## Reference archive and next-work plan (2026-08-07)
 
-`references/` holds shallow clones of projects studied for TierNote. It is
+`references/` holds shallow clones of projects studied for Coffee Note. It is
 gitignored (never committed); on a new machine, re-clone as needed. A memory
 file with full analysis lives at `references/README.md`.
 
 Archived repos:
 
 - `markitdown/` — Microsoft's file → clean Markdown converter (PDF/Word/PPT/
-  Excel/HTML/images/audio/YouTube). Highest direct value: TierNote's
+  Excel/HTML/images/audio/YouTube). Highest direct value: Coffee Note's
   "paste material → AI structures and saves it" flow lacks this preprocessing
   layer. MIT license.
 - `codebase-memory-mcp/` — tree-sitter → persistent code knowledge graph.
-  Architecture blueprint for TierNote's Library Graph over the Markdown
+  Architecture blueprint for Coffee Note's Library Graph over the Markdown
   library (persistent registry, backlinks, structural queries). ~1.3 GB clone;
   self-reported benchmarks (arXiv:2603.27277) — borrow design, not numbers.
 - `pi-llm-wiki/` — Karpathy-style LLM Wiki: four-layer model (immutable raw /
@@ -663,13 +668,13 @@ stores the exact provider-visible transcript, including the personal/page
 context appended to each user turn. Later requests reuse that transcript
 unchanged and only append new messages, matching Reasonix's prepend-only cache
 strategy. Old conversation files migrate lazily: when `providerMessages` is
-absent, TierNote seeds it from `llmMessages` on the next run.
+absent, Coffee Note seeds it from `llmMessages` on the next run.
 Conversation mutations share one process-local storage lock so simultaneous UI
 autosave and Agent finalization cannot overwrite each other's JSON fields or
 race the conversation index. `load_conversation` returns a UI-only record and
 does not send either model transcript through the WebView IPC boundary.
 
 Cache usage remains the provider-reported aggregate. DeepSeek does not return
-token attribution by prompt section, so TierNote must not claim a synthetic
+token attribution by prompt section, so Coffee Note must not claim a synthetic
 rate that subtracts personal-context tokens. The composer labels this value
 `累计命中` / `Total cache` to make the cold-start-inclusive scope explicit.

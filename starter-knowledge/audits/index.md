@@ -6,11 +6,11 @@
 
 | 干预 | 框架 | 状态 | 结果 | 文件 |
 |---|---|---|---|---|
-| 维生素 D3 | `tiernote-ai4l-0.1` | `partial` | 40 PASS / 7 PARTIAL / 0 FAIL | [2026-07-21 审计](vitamin-d3-2026-07-21.md) |
-| NMN / NR | `tiernote-ai4l-0.1` | `partial` | 38 PASS / 8 PARTIAL / 1 FAIL | [2026-07-20 审计](nmn-nr-2026-07-20.md) |
-| 亚精胺 | `tiernote-ai4l-0.1` | `partial` | 38 PASS / 7 PARTIAL / 2 FAIL | [2026-07-20 更新审计](spermidine-2026-07-20.md) |
-| PQQ | `tiernote-ai4l-0.1` | `partial` | 35 PASS / 10 PARTIAL / 2 FAIL | [2026-07-20 审计](pqq-2026-07-20.md) |
-| Ca-AKG | `tiernote-ai4l-0.1` | `partial` | 39 PASS / 7 PARTIAL / 1 FAIL | [2026-07-20 审计](ca-akg-2026-07-20.md) |
+| 维生素 D3 | `coffee-note-ai4l-0.1` | `partial` | 40 PASS / 7 PARTIAL / 0 FAIL | [2026-07-21 审计](vitamin-d3-2026-07-21.md) |
+| NMN / NR | `coffee-note-ai4l-0.1` | `partial` | 38 PASS / 8 PARTIAL / 1 FAIL | [2026-07-20 审计](nmn-nr-2026-07-20.md) |
+| 亚精胺 | `coffee-note-ai4l-0.1` | `partial` | 38 PASS / 7 PARTIAL / 2 FAIL | [2026-07-20 更新审计](spermidine-2026-07-20.md) |
+| PQQ | `coffee-note-ai4l-0.1` | `partial` | 35 PASS / 10 PARTIAL / 2 FAIL | [2026-07-20 审计](pqq-2026-07-20.md) |
+| Ca-AKG | `coffee-note-ai4l-0.1` | `partial` | 39 PASS / 7 PARTIAL / 1 FAIL | [2026-07-20 审计](ca-akg-2026-07-20.md) |
 
 ## 阅读方法
 

@@ -20,9 +20,13 @@ test('title bar uses the aligned wordmark without a duplicate logo', () => {
     /<div className="titlebar-brand"[^>]*>([\s\S]*?)<\/div>/s,
   )?.[1];
   assert.ok(titlebarBrand, 'titlebar brand markup should exist');
-  assert.match(titlebarBrand, /<strong>TierNote<\/strong>/);
+  assert.match(titlebarBrand, /<strong>Coffee Note<\/strong>/);
   assert.doesNotMatch(titlebarBrand, /<img\b/);
-  assert.match(appSource, /className="chat-empty-heading"[\s\S]*?\/brand\/logo-new\.png/s);
+  const chatEmptyHeading = appSource.match(
+    /<div className="chat-empty-heading">([\s\S]*?)<\/div>/s,
+  )?.[1];
+  assert.ok(chatEmptyHeading, 'chat empty heading markup should exist');
+  assert.doesNotMatch(chatEmptyHeading, /<img\b/);
 });
 
 test('title bar wordmark shares the navigation icon inset', () => {

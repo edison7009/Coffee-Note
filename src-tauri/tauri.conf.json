@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TierNote",
+  "productName": "Coffee Note",
   "version": "0.1.1",
-  "identifier": "app.tiernote.desktop",
+  "identifier": "app.coffeenote.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5173",
@@ -18,7 +18,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "TierNote",
+        "title": "Coffee Note",
         "width": 1360,
         "height": 860,
         "minWidth": 920,
@@ -39,7 +39,7 @@
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "Local-first notes organized with a clear tier system.",
-    "longDescription": "TierNote is a local-first desktop note system centered on tier lists, clear decisions, and AI-assisted organization.",
+    "longDescription": "Coffee Note is a local-first AI second brain for knowledge, ideas, and clear decisions.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,7 +51,7 @@
       "nsis": {
         "template": "installer.nsi",
         "installerIcon": "icons/icon.ico",
-        "startMenuFolder": "TierNote"
+        "startMenuFolder": "Coffee Note"
       }
     }
   }

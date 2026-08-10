@@ -11,11 +11,11 @@ This directory stores independent quality checks of dossiers, not new medical co
 
 | Intervention | Framework | Status | Result | File |
 |---|---|---|---|---|
-| Vitamin D3 | `tiernote-ai4l-0.1` | `partial` | 40 PASS / 7 PARTIAL / 0 FAIL | [2026-07-21 audit](vitamin-d3-2026-07-21.en.md) |
-| NMN / NR | `tiernote-ai4l-0.1` | `partial` | 38 PASS / 8 PARTIAL / 1 FAIL | [2026-07-20 audit](nmn-nr-2026-07-20.en.md) |
-| Spermidine | `tiernote-ai4l-0.1` | `partial` | 38 PASS / 7 PARTIAL / 2 FAIL | [Updated 2026-07-20 audit](spermidine-2026-07-20.en.md) |
-| PQQ | `tiernote-ai4l-0.1` | `partial` | 35 PASS / 10 PARTIAL / 2 FAIL | [2026-07-20 audit](pqq-2026-07-20.en.md) |
-| Ca-AKG | `tiernote-ai4l-0.1` | `partial` | 39 PASS / 7 PARTIAL / 1 FAIL | [2026-07-20 audit](ca-akg-2026-07-20.en.md) |
+| Vitamin D3 | `coffee-note-ai4l-0.1` | `partial` | 40 PASS / 7 PARTIAL / 0 FAIL | [2026-07-21 audit](vitamin-d3-2026-07-21.en.md) |
+| NMN / NR | `coffee-note-ai4l-0.1` | `partial` | 38 PASS / 8 PARTIAL / 1 FAIL | [2026-07-20 audit](nmn-nr-2026-07-20.en.md) |
+| Spermidine | `coffee-note-ai4l-0.1` | `partial` | 38 PASS / 7 PARTIAL / 2 FAIL | [Updated 2026-07-20 audit](spermidine-2026-07-20.en.md) |
+| PQQ | `coffee-note-ai4l-0.1` | `partial` | 35 PASS / 10 PARTIAL / 2 FAIL | [2026-07-20 audit](pqq-2026-07-20.en.md) |
+| Ca-AKG | `coffee-note-ai4l-0.1` | `partial` | 39 PASS / 7 PARTIAL / 1 FAIL | [2026-07-20 audit](ca-akg-2026-07-20.en.md) |
 
 ## How to Read the Audits
 

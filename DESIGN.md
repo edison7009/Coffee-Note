@@ -1,4 +1,4 @@
-# TierNote Desktop Design System
+# Coffee Note Desktop Design System
 
 ## Product Context
 
@@ -20,7 +20,7 @@
   controls and drag-and-drop content. Text fields keep the browser-native I-beam.
   The two pane resizers are the only resize-cursor exception: use `col-resize`
   both while hovering over a divider and throughout an active pane resize.
-- **Mood:** Serious, quiet, capable, and spacious. TierNote should feel like a professional work surface, not a personalized dashboard template.
+- **Mood:** Serious, quiet, capable, and spacious. Coffee Note should feel like a professional work surface, not a personalized dashboard template.
 - **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
 - **References:** `references/pasture/` for a permissively licensed Tauri + React Codex client; `references/palot/` for sidebar and conversation-system organization only.
 
@@ -45,7 +45,7 @@
   actions. Multi-word names remain intact and the row wraps only between cities;
   do not spend space on generic location-privacy helper copy.
 - Use one outer shell for the top bar and persistent left navigation rail.
-- Let the shared title bar span the full window width. Place the 16 x 16 product icon and the closed `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
+- Let the shared title bar span the full window width. Place the `Coffee Note` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
 - Start the left rail below the title bar with Home as its first row. Do not repeat the product icon or wordmark there. Library switching remains in the File menu and is also exposed as a discoverable global-action icon at the right edge of the Home row, matching the placement of global actions such as search in Codex.
 - Leave a modest top inset above the Home row so the left rail breathes under the title bar rather than feeling pinned to it.
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
@@ -94,7 +94,7 @@
   never remove or hide a
   locally saved model, including one newly marked deprecated upstream.
   The AI composer exposes only models selected here. Every reasoning-capable
-  model gets TierNote's fixed five effort levels (low, medium, high, xhigh, max);
+  model gets Coffee Note's fixed five effort levels (low, medium, high, xhigh, max);
   models.dev reasoning-option metadata must not filter or clamp them. A provider's model list always expands in
   full inside the outer settings scroller; do not cap its result count or add a
   nested model-list scrollbar. Non-default providers show a count only when at
@@ -158,7 +158,7 @@
   the component; never shrink the type to fit.
 - **Weight:** Use 400 for body, 550-600 for controls and navigation, and 650-700 only for page titles.
 - **Letter spacing:** 0. Avoid uppercase tracking except tiny technical metadata.
-- **Brand exception:** The compact title-bar `TierNote` wordmark reuses the bundled `Lora` bold-italic face from the AI-chat identity at 16px.
+- **Brand exception:** The compact title-bar `Coffee Note` wordmark reuses the bundled `Lora` bold-italic face from the AI-chat identity at 16px.
 
 ## Color
 
@@ -211,9 +211,9 @@
 | 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |
 | 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
 | 2026-08-08 | Use the default arrow except for pane resizing | A hand cursor is a web pattern; ordinary controls and content keep the default arrow, while the dividers between the three panes use native directional feedback during resize. |
-| 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `TierNote` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
+| 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `Coffee Note` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
 | 2026-08-08 | Gate My Contexts retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
 | 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Contexts seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
 | 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |
-| 2026-08-09 | Use models.dev for provider/model directory data; keep TierNote request configuration independent | A live catalog removes hard-coded model names and prices. Anthropic alone uses its native Messages API; every other provider uses the industry-default OpenAI-compatible path. TierNote always exposes five reasoning levels for reasoning models and lets provider endpoints normalize them. Composer selections change actual requests. |
+| 2026-08-09 | Use models.dev for provider/model directory data; keep Coffee Note request configuration independent | A live catalog removes hard-coded model names and prices. Anthropic alone uses its native Messages API; every other provider uses the industry-default OpenAI-compatible path. Coffee Note always exposes five reasoning levels for reasoning models and lets provider endpoints normalize them. Composer selections change actual requests. |
 | 2026-08-09 | Add ambient weather beside the Home greeting | Home keeps only a quiet animated condition image; its click panel is a read-only current and multi-day forecast with a compact single-line city header and a direct gear shortcut to Settings > Appearance. City selection, location, history, and provider attribution live in Appearance; users replace the current city rather than removing weather. This preserves the calm workspace while connecting it to the user's day. Location is requested only from Settings after an explicit click, rounded to city-level precision, and stored locally; manual city search remains the universal fallback. |

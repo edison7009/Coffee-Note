@@ -6,7 +6,7 @@ tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
 audit_status: partial
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date: 2026-07-20
 locale: en
 translation_of: dossiers/nmn.md

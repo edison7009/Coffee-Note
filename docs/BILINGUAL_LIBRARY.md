@@ -1,6 +1,6 @@
 # Bilingual starter library
 
-TierNote keeps one logical knowledge library rather than two independent copies.
+Coffee Note keeps one logical knowledge library rather than two independent copies.
 
 ## File pairing
 

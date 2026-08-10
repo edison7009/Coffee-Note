@@ -12,7 +12,7 @@ Andrew Huberman，斯坦福医学院神经生物学与眼科学教授，Huberman
 
 ## 阅读方式
 
-本页记录 Huberman 的公开工具与方案，用于发现研究候选，不等于 TierNote 对剂量、处方或品牌的推荐。未逐条归档一手来源的内容标为 `needs-source-check`；补剂推荐与商业合作关系需要同时阅读。
+本页记录 Huberman 的公开工具与方案，用于发现研究候选，不等于 Coffee Note 对剂量、处方或品牌的推荐。未逐条归档一手来源的内容标为 `needs-source-check`；补剂推荐与商业合作关系需要同时阅读。
 
 ## 核心理念
 

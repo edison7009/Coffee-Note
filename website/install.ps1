@@ -1,20 +1,20 @@
-# TierNote installer / updater for Windows
-# Usage: irm https://tiernote.life/install.ps1 | iex
+# Coffee Note installer / updater for Windows
+# Usage: irm https://note.coffeecli.com/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
-$repository = "edison7009/TierNote"
-$headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "Open-Longevity-Installer" }
+$repository = "edison7009/Coffee-Note"
+$headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "Coffee-Note-Installer" }
 
 Write-Host ""
-Write-Host "  TierNote Installer" -ForegroundColor Cyan
+Write-Host "  Coffee Note Installer" -ForegroundColor Cyan
 Write-Host "  ------------------------" -ForegroundColor DarkGray
 Write-Host "  Checking the latest Windows release..." -ForegroundColor Gray
 
 $latestVersion = $null
 $downloadUrl = $null
 try {
-  $latestVersion = (Invoke-RestMethod "https://tiernote.life/version.json?platform=windows" -TimeoutSec 10).version
-  if ($latestVersion) { $downloadUrl = "https://tiernote.life/download/windows" }
+  $latestVersion = (Invoke-RestMethod "https://note.coffeecli.com/version.json?platform=windows" -TimeoutSec 10).version
+  if ($latestVersion) { $downloadUrl = "https://note.coffeecli.com/download/windows" }
 } catch {}
 
 if (-not $latestVersion) {
@@ -34,12 +34,9 @@ $registryPaths = @(
   "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
   "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
 )
-$legacyProductName = "Tier" + " Note"
 foreach ($path in $registryPaths) {
   $entry = Get-ItemProperty $path -ErrorAction SilentlyContinue |
-    Where-Object {
-      $_.DisplayName -like "TierNote*" -or $_.DisplayName -like "$legacyProductName*"
-    } | Select-Object -First 1
+    Where-Object { $_.DisplayName -like "Coffee Note*" } | Select-Object -First 1
   if ($entry) { $installedVersion = $entry.DisplayVersion; break }
 }
 
@@ -54,7 +51,7 @@ if ($installedVersion) {
   Write-Host "  Installed: v$installedVersion" -ForegroundColor Gray
   if ($installedVersion -eq $latestVersion) {
     Write-Host ""
-    Write-Host "  TierNote is already up to date." -ForegroundColor Green
+    Write-Host "  Coffee Note is already up to date." -ForegroundColor Green
     exit 0
   }
   Write-Host "  Upgrading v$installedVersion -> v$latestVersion..." -ForegroundColor Yellow
@@ -62,7 +59,7 @@ if ($installedVersion) {
   Write-Host "  Performing a fresh installation..." -ForegroundColor Gray
 }
 
-$installerPath = Join-Path ([IO.Path]::GetTempPath()) "Open-Longevity-$latestVersion-setup.exe"
+$installerPath = Join-Path ([IO.Path]::GetTempPath()) "Coffee-Note-$latestVersion-setup.exe"
 try {
   Write-Host "  Downloading..." -ForegroundColor Gray
   Invoke-WebRequest $downloadUrl -Headers $headers -OutFile $installerPath -UseBasicParsing
@@ -70,7 +67,7 @@ try {
   Write-Host "  Starting setup..." -ForegroundColor Gray
   Start-Process -FilePath $installerPath -Wait
   Write-Host ""
-  Write-Host "  TierNote v$latestVersion is installed." -ForegroundColor Green
+  Write-Host "  Coffee Note v$latestVersion is installed." -ForegroundColor Green
 } catch {
   Write-Host ""
   Write-Host "  Installation failed: $($_.Exception.Message)" -ForegroundColor Red

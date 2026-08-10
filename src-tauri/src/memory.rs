@@ -11,6 +11,8 @@ const VALID_KINDS: &[&str] = &[
     "correction",
     "health_context",
 ];
+const MEMORY_MARKER_PREFIX: &str = "<!-- coffee-note-memory:";
+const MEMORY_SECTION_MARKER: &str = "<!-- coffee-note-memory-section:v1 -->";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,10 +69,7 @@ impl Default for MemoryStore {
 }
 
 fn memory_dir() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("TierNote")
-        .join("memory")
+    crate::app_data_dir().join("memory")
 }
 
 fn memory_file() -> PathBuf {
@@ -256,16 +255,10 @@ fn parse_visible_memory_line(line: &str) -> Option<(&str, String, String)> {
         return None;
     }
     let content_start = kind_end + 2;
-    let content = rest[content_start..]
-        .split("<!-- tiernote-memory:")
-        .next()?
-        .trim();
-    let id = rest
-        .split_once("<!-- tiernote-memory:")?
-        .1
-        .strip_suffix("-->")?
-        .trim()
-        .to_string();
+    let memory_text = &rest[content_start..];
+    let (content, marker) = memory_text.split_once(MEMORY_MARKER_PREFIX)?;
+    let content = content.trim();
+    let id = marker.strip_suffix("-->")?.trim().to_string();
     if content.is_empty() || id.is_empty() {
         return None;
     }
@@ -349,18 +342,17 @@ fn append_to_my_info(root: &Path, item: &MemoryItem, locale: &str) -> Result<Str
             ))
         }
     };
-    let marker = format!("<!-- tiernote-memory:{} -->", item.id);
+    let marker = format!("{MEMORY_MARKER_PREFIX}{} -->", item.id);
     if markdown.contains(&marker) {
         return Ok(relative.to_string());
     }
-    let section_marker = "<!-- tiernote-memory-section:v1 -->";
-    if !markdown.contains(section_marker) {
+    if !markdown.contains(MEMORY_SECTION_MARKER) {
         let heading = if locale == "en" {
             "Confirmed memory"
         } else {
             "已确认记忆"
         };
-        markdown.push_str(&format!("\n\n## {heading}\n\n{section_marker}\n"));
+        markdown.push_str(&format!("\n\n## {heading}\n\n{MEMORY_SECTION_MARKER}\n"));
     }
     markdown.push_str(&format!("\n- [{}] {} {marker}\n", item.kind, item.content));
     let temp = path.with_extension("md.tmp");
@@ -543,7 +535,7 @@ mod tests {
     #[test]
     fn confirmed_memory_is_written_to_visible_personal_markdown() {
         let root = std::env::temp_dir().join(format!(
-            "tiernote-memory-test-{}-{}",
+            "coffee-note-memory-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -564,7 +556,7 @@ mod tests {
         let markdown = std::fs::read_to_string(root.join("plans/exercise.md"))
             .expect("plan should be readable");
         assert!(markdown.contains("每周走路三次"));
-        assert!(markdown.contains("tiernote-memory:memory-1"));
+        assert!(markdown.contains("coffee-note-memory:memory-1"));
         let index_json = std::fs::read_to_string(&index).expect("index should be readable");
         assert!(!index_json.contains("每周走路三次"));
         let duplicate = confirm_at(suggestion, &root, &index).expect("duplicate should dedupe");
@@ -575,7 +567,7 @@ mod tests {
     #[test]
     fn visible_markdown_prevents_duplicate_when_index_is_missing() {
         let root = std::env::temp_dir().join(format!(
-            "tiernote-memory-dedupe-test-{}-{}",
+            "coffee-note-memory-dedupe-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -583,7 +575,7 @@ mod tests {
         std::fs::create_dir_all(root.join("plans")).expect("test root should exist");
         std::fs::write(
             root.join("plans/lessons.md"),
-            "# 我的教训\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [constraint] 不使用含糖饮料 <!-- tiernote-memory:existing -->\n",
+            "# 我的教训\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [constraint] 不使用含糖饮料 <!-- coffee-note-memory:existing -->\n",
         )
         .expect("plan should be readable");
         let suggestion = MemorySuggestion {
@@ -603,14 +595,14 @@ mod tests {
     #[test]
     fn always_on_context_keeps_preferences_without_question_term_overlap() {
         let root = std::env::temp_dir().join(format!(
-            "tiernote-memory-routing-test-{}-{}",
+            "coffee-note-memory-routing-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
         std::fs::create_dir_all(root.join("plans")).expect("test root should exist");
         std::fs::write(
             root.join("plans/supplements.md"),
-            "# 我的资料\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [preference] 请始终使用简洁回答 <!-- tiernote-memory:p -->\n",
+            "# 我的资料\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [preference] 请始终使用简洁回答 <!-- coffee-note-memory:p -->\n",
         )
         .expect("plan should be readable");
         let context = build_always_on_context(&root, "zh", 2_000);
@@ -621,19 +613,19 @@ mod tests {
     #[test]
     fn filtered_always_on_context_excludes_disabled_sources() {
         let root = std::env::temp_dir().join(format!(
-            "tiernote-memory-filter-test-{}-{}",
+            "coffee-note-memory-filter-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
         std::fs::create_dir_all(root.join("plans")).expect("plans directory should exist");
         std::fs::write(
             root.join("plans/supplements.md"),
-            "# 我的简历\n\n- [preference] 简历偏好 <!-- tiernote-memory:resume -->\n",
+            "# 我的简历\n\n- [preference] 简历偏好 <!-- coffee-note-memory:resume -->\n",
         )
         .expect("resume fixture should be written");
         std::fs::write(
             root.join("plans/lessons.md"),
-            "# 我的教训\n\n- [constraint] 教训边界 <!-- tiernote-memory:lesson -->\n",
+            "# 我的教训\n\n- [constraint] 教训边界 <!-- coffee-note-memory:lesson -->\n",
         )
         .expect("lesson fixture should be written");
 

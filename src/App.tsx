@@ -197,11 +197,16 @@ import {
   type MyInfoRetrievalState,
   type MyInfoSectionId,
 } from './myInfoRetrieval';
+import {
+  readStorageValue,
+  storageKey,
+  writeStorageValue,
+} from './storage';
 
 const APP_VERSION = packageMetadata.version;
-const PRODUCT_WEBSITE = 'https://tiernote.org/';
-const FEEDBACK_URL = 'https://github.com/edison7009/TierNote/issues';
-const CONVERSATION_USAGE_KEY = 'tiernote:conversation-usage:v1';
+const PRODUCT_WEBSITE = 'https://note.coffeecli.com/';
+const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
+const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 
 type ConversationUsage = LlmUsage & { requestCount: number };
 
@@ -218,7 +223,7 @@ function loadConversationUsage(): Record<string, ConversationUsage> {
   const count = (value: unknown) =>
     typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
   try {
-    const stored = JSON.parse(window.localStorage.getItem(CONVERSATION_USAGE_KEY) || '{}');
+    const stored = JSON.parse(readStorageValue(CONVERSATION_USAGE_KEY) || '{}');
     if (!stored || typeof stored !== 'object') return {};
     return Object.fromEntries(
       Object.entries(stored as Record<string, Partial<ConversationUsage>>).map(([id, usage]) => [
@@ -373,7 +378,7 @@ function reorderTierItems(
 function useStoredState<T>(key: string, initial: T): [T, (value: T) => void] {
   const [state, setState] = useState<T>(() => {
     try {
-      const stored = localStorage.getItem(key);
+      const stored = readStorageValue(key);
       return stored ? (JSON.parse(stored) as T) : initial;
     } catch {
       return initial;
@@ -383,7 +388,7 @@ function useStoredState<T>(key: string, initial: T): [T, (value: T) => void] {
   const update = (value: T) => {
     setState(value);
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      writeStorageValue(key, JSON.stringify(value));
     } catch {
       // Private browsing and full storage should not stop the app.
     }
@@ -691,7 +696,7 @@ interface NavigationLocation {
   filePath?: string;
 }
 
-const FAVORITES_SEED_FLAG = 'tiernote:favorites-seeded:v2';
+const FAVORITES_SEED_FLAG = storageKey('favorites-seeded:v2');
 const DEFAULT_FAVORITES: FavoriteReference[] = [];
 
 type HealthLogField = 'exercise' | 'diet' | 'body';
@@ -704,7 +709,7 @@ interface HealthDayEntry {
 
 type HealthLog = Record<string, HealthDayEntry>;
 
-const HEALTH_LOG_KEY = 'tiernote:health-log:v1';
+const HEALTH_LOG_KEY = storageKey('health-log:v1');
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -989,33 +994,35 @@ type ToastState = {
 };
 
 function App() {
-  const [locale, setLocale] = useStoredState<Locale>('tiernote:locale', 'zh');
+  const [locale, setLocale] = useStoredState<Locale>(storageKey('locale'), 'zh');
   const [themeMode, setThemeMode] = useStoredState<ThemeMode>(
-    'tiernote:theme',
+    storageKey('theme'),
     'system',
   );
   const [currencyMode, setCurrencyMode] = useStoredState<CurrencyMode>(
-    'tiernote:currency',
+    storageKey('currency'),
     'auto',
   );
   const [paneSizes, setPaneSizes] = useStoredState<PaneSizes>(
-    'tiernote:pane-sizes',
+    storageKey('pane-sizes'),
     defaultPaneSizes,
   );
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const normalizedPaneSizes = normalizePaneSizes(paneSizes, viewportWidth);
   const [favorites, setFavorites] = useStoredState<FavoriteReference[]>(
-    'tiernote:favorites',
+    storageKey('favorites'),
     [],
   );
   const [knowledgeRoot, setKnowledgeRoot] = useStoredState(
-    'tiernote:knowledge-root:v2',
+    storageKey('knowledge-root:v2'),
     '',
   );
-  const isLegacyDefaultRoot = (root: string) =>
-    root.replace(/\\/g, '/').toLowerCase().endsWith('tiernote/library');
+  const isManagedDefaultRoot = (root: string) => {
+    const normalized = root.replace(/\\/g, '/').toLowerCase();
+    return normalized.endsWith('.coffee-note/演示笔记');
+  };
   const normalizedKnowledgeRoot =
-    knowledgeRoot && !isLegacyDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
+    knowledgeRoot && !isManagedDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
   const [modelSettings, setModelSettings] = useState<ModelSettings>(createEmptyModelSettings);
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({});
   const [modelCatalogError, setModelCatalogError] = useState('');
@@ -1027,16 +1034,7 @@ function App() {
     loadModelConfig()
       .then((storedConfig) => {
         if (!alive) return;
-        if (storedConfig) {
-          setModelSettings(storedConfig);
-          return;
-        }
-
-        const legacyConfig = window.localStorage.getItem('tiernote:model');
-        if (!legacyConfig) return;
-        const migrated = normalizeModelSettings(JSON.parse(legacyConfig));
-        setModelSettings(migrated);
-        void persistModelConfig(migrated);
+        if (storedConfig) setModelSettings(storedConfig);
       })
       .catch((error) => {
         console.error('Could not load the saved model config.', error);
@@ -1073,7 +1071,7 @@ function App() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
   const [myInfoRetrieval, setMyInfoRetrieval] = useState<MyInfoRetrievalState>(() =>
-    parseMyInfoRetrieval(window.localStorage.getItem(MY_INFO_RETRIEVAL_KEY)),
+    parseMyInfoRetrieval(readStorageValue(MY_INFO_RETRIEVAL_KEY)),
   );
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
@@ -1152,7 +1150,7 @@ function App() {
   useEffect(() => {
     let seeded = false;
     try {
-      seeded = window.localStorage.getItem(FAVORITES_SEED_FLAG) === '1';
+      seeded = readStorageValue(FAVORITES_SEED_FLAG) === '1';
     } catch {
       seeded = false;
     }
@@ -1161,7 +1159,7 @@ function App() {
         setFavorites(DEFAULT_FAVORITES);
       }
       try {
-        window.localStorage.setItem(FAVORITES_SEED_FLAG, '1');
+        writeStorageValue(FAVORITES_SEED_FLAG, '1');
       } catch {
         // ignore unavailable storage
       }
@@ -1978,7 +1976,7 @@ function App() {
     setMyInfoRetrieval((current) => {
       const next = { ...current, [section]: !current[section] };
       try {
-        window.localStorage.setItem(MY_INFO_RETRIEVAL_KEY, JSON.stringify(next));
+        writeStorageValue(MY_INFO_RETRIEVAL_KEY, JSON.stringify(next));
       } catch {
         // Storage failures must not prevent changing the current session.
       }
@@ -2186,7 +2184,7 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(CONVERSATION_USAGE_KEY, JSON.stringify(usageByConversation));
+      writeStorageValue(CONVERSATION_USAGE_KEY, JSON.stringify(usageByConversation));
     } catch {
       // Usage metrics are best-effort and never block chat.
     }
@@ -3287,7 +3285,7 @@ function AppTitlebar({
     >
       <div className="titlebar-leading">
         <div className="titlebar-brand" data-tauri-drag-region>
-          <strong>TierNote</strong>
+          <strong>Coffee Note</strong>
         </div>
 
         <div className="titlebar-history" aria-label={locale === 'zh' ? '页面历史' : 'Page history'}>
@@ -3383,7 +3381,7 @@ function AppTitlebar({
               <div className="titlebar-menu-popover" role="menu">
                 <button type="button" role="menuitem" onClick={() => runMenuAction(onHelp)}>
                   <BookOpen size={15} />
-                  <span>{locale === 'zh' ? 'TierNote 帮助' : 'TierNote help'}</span>
+                  <span>{locale === 'zh' ? 'Coffee Note 帮助' : 'Coffee Note help'}</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => runMenuAction(onFeedback)}>
                   <Github size={15} />
@@ -3503,8 +3501,8 @@ function UpdateButton({ locale }: { locale: Locale }) {
       onClick={() => void handleUpdate()}
       aria-label={
         locale === 'zh'
-          ? `更新至 TierNote ${availableVersion}`
-          : `Update TierNote to ${availableVersion}`
+          ? `更新至 Coffee Note ${availableVersion}`
+          : `Update Coffee Note to ${availableVersion}`
       }
       disabled={installingUpdate}
     >
@@ -3617,7 +3615,7 @@ function parentDirOf(relativePath: string): string {
 }
 
 function treeOrderStorageKey(root: string): string {
-  return `tiernote:library-tree-order:v1:${root.replace(/\\/g, '/').toLocaleLowerCase()}`;
+  return storageKey(`library-tree-order:v1:${root.replace(/\\/g, '/').toLocaleLowerCase()}`);
 }
 
 function replacePathPrefix(path: string, previous: string, next: string): string {
@@ -3857,7 +3855,7 @@ function ConversationContextMenu({
       const path = await getConversationFilePath(menu.conversation.id);
       if (path) await action(path);
     } catch {
-      // The record may have been removed outside TierNote; keep the menu action best-effort.
+      // The record may have been removed outside Coffee Note; keep the menu action best-effort.
     }
   };
   const style: React.CSSProperties = {
@@ -6021,8 +6019,7 @@ function ConversationView({
       {messages.length === 0 && (
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
-            <img src="/brand/logo-new.png" alt="" />
-            <strong className="chat-empty-wordmark">TierNote</strong>
+            <strong className="chat-empty-wordmark">Coffee Note</strong>
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
@@ -8048,7 +8045,7 @@ function SettingsPage({
 
         <div className="settings-sidebar-footer">
           <button type="button" onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}>
-            TierNote · v{APP_VERSION}
+            Coffee Note · v{APP_VERSION}
           </button>
           <button type="button" onClick={() => void openExternalUrl(FEEDBACK_URL)}>
             <Github size={15} strokeWidth={1.8} />

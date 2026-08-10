@@ -6,7 +6,7 @@ tier: T4
 last_reviewed: 2026-07-20
 evidence_cutoff: 2026-07-20
 audit_status: partial
-audit_framework: tiernote-ai4l-0.1
+audit_framework: coffee-note-ai4l-0.1
 audit_date: 2026-07-20
 locale: en
 translation_of: dossiers/spermidine.md
@@ -182,7 +182,7 @@ Spermidine has an evidence chain extending from mechanism—autophagy research p
 ## Research Audit
 
 - Audit status: `partial`;
-- Framework: `tiernote-ai4l-0.1`, refer to AI4L `1.2.0`;
+- Framework: `coffee-note-ai4l-0.1`, refer to AI4L `1.2.0`;
 - Supplemented in this round: dedicated search records, 2026 immune pilot trial, research conflicts of interest, personal exploration boundaries;
 - Key gaps: long-term interactions, liver, kidney and complex disease data, confirmatory ongoing trials and frequency of adverse events;
 - Detailed records: [First round audit of spermidine files](../audits/spermidine-2026-07-20.md).

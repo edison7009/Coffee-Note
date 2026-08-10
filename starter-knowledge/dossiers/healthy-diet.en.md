@@ -9,7 +9,7 @@ translation_of: dossiers/healthy-diet.md
 
 ## 30-second summary
 
-A healthy diet is a T1 cornerstone of TierNote. The goal is not to pursue a single definitive menu, but to establish an overall dietary pattern that is sustainable, nutritionally adequate, and appropriate for the individual’s health.
+A healthy diet is a T1 cornerstone of Coffee Note. The goal is not to pursue a single definitive menu, but to establish an overall dietary pattern that is sustainable, nutritionally adequate, and appropriate for the individual’s health.
 
 ## Core Principles
 

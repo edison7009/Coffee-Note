@@ -2,7 +2,7 @@ import type { Locale } from './types';
 
 const messages = {
   zh: {
-    appName: 'TierNote',
+    appName: 'Coffee Note',
     home: '首页',
     aiChat: 'AI对话',
     myPlan: '我的设定',
@@ -127,7 +127,7 @@ const messages = {
     captureSub: '粘贴链接、文字或零散笔记。无需先整理。',
     captureStep1: '复制任何与当前目标有关的链接、文字或笔记。',
     captureStep2: '直接粘贴，不必先分类或改格式。',
-    captureStep3: '告诉 TierNote 你想看清什么选择，或下一步该做什么。',
+    captureStep3: '告诉 Coffee Note 你想看清什么选择，或下一步该做什么。',
     captureTranscriptionLabel: '选择语音识别方式',
     captureTranscriptionApi: '语音识别模型',
     captureTranscriptionApiSub: '推荐：稳定、无需下载本地模型',
@@ -178,7 +178,7 @@ const messages = {
     peopleCard: '我的设定',
     peopleCardSub: '沉淀经验与教训，连接长期目标与短期计划',
     mapCard: '校准优先级',
-    mapCardSub: '拖动内容，告诉 TierNote 什么更重要',
+    mapCardSub: '拖动内容，告诉 Coffee Note 什么更重要',
     aiPlanCard: '与AI对话',
     aiPlanCardSub: '融合笔记、知识库与个人设定，这儿就是你的第二大脑',
     planTitle: '我的设定',
@@ -187,7 +187,7 @@ const messages = {
     comingSoon: '这里会逐步沉淀你的长期个人信息。',
   },
   en: {
-    appName: 'TierNote',
+    appName: 'Coffee Note',
     home: 'Home',
     aiChat: 'AI Chat',
     myPlan: 'My Contexts',

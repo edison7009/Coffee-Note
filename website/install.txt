@@ -1,2 +1,2 @@
 # Compatibility entry point for the previous website command.
-irm https://tiernote.life/install.ps1 | iex
+irm https://note.coffeecli.com/install.ps1 | iex

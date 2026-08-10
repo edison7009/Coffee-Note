@@ -1,4 +1,4 @@
-const REPOSITORY = "edison7009/TierNote";
+const REPOSITORY = "edison7009/Coffee-Note";
 
 const platformMatchers = {
   windows: (name) => name.endsWith("_Windows_x64-setup.exe"),
@@ -14,7 +14,7 @@ async function latestAssets() {
   const response = await fetch(`https://api.github.com/repos/${REPOSITORY}/releases/latest`, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "Open-Longevity-Website",
+      "User-Agent": "Coffee-Note-Website",
     },
     cf: { cacheEverything: true, cacheTtl: 300 },
   });
@@ -57,7 +57,7 @@ export default {
       try {
         const asset = (await latestAssets())[platform];
         if (!asset) return new Response("Installer is not available yet", { status: 404 });
-        const response = await fetch(asset.url, { headers: { "User-Agent": "Open-Longevity-Website" } });
+        const response = await fetch(asset.url, { headers: { "User-Agent": "Coffee-Note-Website" } });
         if (!response.ok) return new Response("Unable to download installer", { status: 502 });
         return new Response(response.body, {
           headers: {
@@ -65,7 +65,7 @@ export default {
             "Content-Disposition": `attachment; filename="${asset.name}"`,
             "Content-Length": response.headers.get("Content-Length") ?? "",
             "Cache-Control": "no-store",
-            "X-Open-Longevity-Version": asset.version,
+            "X-Coffee-Note-Version": asset.version,
           },
         });
       } catch (error) {

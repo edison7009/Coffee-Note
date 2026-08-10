@@ -13,7 +13,7 @@ Andrew Huberman, professor of neurobiology and ophthalmology at Stanford School 
 
 ## reading method
 
-This page documents Huberman's public tools and protocols for discovering research candidates and does not constitute TierNote's recommendations for dosage, formulation, or brand. Content that is not archived from primary sources is marked as `needs-source-check`; supplement recommendations and commercial partnerships need to be read at the same time.
+This page documents Huberman's public tools and protocols for discovering research candidates and does not constitute Coffee Note's recommendations for dosage, formulation, or brand. Content that is not archived from primary sources is marked as `needs-source-check`; supplement recommendations and commercial partnerships need to be read at the same time.
 
 ## Core Concept
 
