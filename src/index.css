@@ -3985,23 +3985,61 @@ html.tree-drag-active * {
   line-height: 1.55;
 }
 
-.capture-prompt-example {
-  display: block;
-  margin-top: 14px;
-  padding: 14px 15px;
-  color: var(--ink);
-  background: var(--secondary-surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+.capture-transcription-choice {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
 }
 
-.capture-prompt-example .capture-prompt-copy {
-  margin: 0;
+.capture-transcription-choice legend {
+  margin-bottom: 2px;
+  color: #526965;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.capture-transcription-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
   color: var(--muted);
-  font-family: var(--font-ui);
-  font-size: 13.5px;
-  font-weight: 450;
-  line-height: 1.6;
+  background: var(--secondary-surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.capture-transcription-choice label.selected {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.capture-transcription-choice input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
+.capture-transcription-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.capture-transcription-copy strong {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.capture-transcription-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .capture-guide-actions {
@@ -4639,8 +4677,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .plan-focus,
-[data-theme='dark'] .context-summary,
-[data-theme='dark'] .capture-prompt-example {
+[data-theme='dark'] .context-summary {
   color: #d0d5d2;
   background: linear-gradient(125deg, #252927, #222423);
   border-color: #3b4642;
@@ -6682,13 +6719,6 @@ textarea,
 
 .modal-backdrop {
   background: rgba(0, 0, 0, 0.3);
-}
-
-.capture-prompt-example,
-[data-theme='dark'] .capture-prompt-example {
-  color: var(--ink);
-  background: var(--secondary-surface);
-  border-color: var(--line);
 }
 
 .settings-dialog,

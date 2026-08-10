@@ -199,6 +199,7 @@ export interface PrepareCaptureRequest {
   model: string;
   provider?: ModelProtocol;
   reasoningEffort?: ReasoningEffort;
+  transcriptionMode?: 'api' | 'local';
   input: string;
   locale: Locale;
 }

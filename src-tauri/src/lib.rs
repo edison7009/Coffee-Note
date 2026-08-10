@@ -199,6 +199,8 @@ struct PrepareCaptureRequest {
     provider: String,
     #[serde(default)]
     reasoning_effort: Option<String>,
+    #[serde(default)]
+    transcription_mode: Option<String>,
     input: String,
     locale: String,
 }
@@ -2315,6 +2317,9 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
     if !matches!(request.locale.as_str(), "zh" | "en") {
         return Err("Unsupported note locale".to_string());
     }
+    if !matches!(request.transcription_mode.as_deref(), None | Some("api") | Some("local")) {
+        return Err("Unsupported transcription mode".to_string());
+    }
 
     let input = request.input.trim();
     if input.is_empty() {
@@ -4053,6 +4058,7 @@ mod tests {
             model: "test-model".to_string(),
             provider: "openai".to_string(),
             reasoning_effort: Some("high".to_string()),
+            transcription_mode: None,
             input: "A 12-week creatine trial with 42 participants.".to_string(),
             locale: "en".to_string(),
         }))

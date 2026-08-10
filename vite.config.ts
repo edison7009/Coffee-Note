@@ -16,6 +16,7 @@ export default defineConfig({
         '**/.git/**',
         '**/src-tauri/**',
         '**/website/**',
+        '**/references/**',
         '**/dist/**',
         '**/starter-knowledge/**',
       ],

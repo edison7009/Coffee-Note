@@ -8,6 +8,7 @@ import {
   ChevronRight,
   FilePlus2,
   Activity,
+  AudioLines,
   Dumbbell,
   FolderOpen,
   Github,
@@ -146,6 +147,7 @@ import { fallbackLibrary, fallbackMarkdown } from './data';
 import { WeatherAmbient } from './home/WeatherAmbient';
 import { translate, type TranslationKey } from './i18n';
 import { WeatherLocationSettings } from './settings/WeatherLocationSettings';
+import { TranscriptionSettings } from './settings/TranscriptionSettings';
 import type {
   AgentEvent,
   ChatMessage,
@@ -660,7 +662,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'appearance';
+type SettingsSectionId = 'model' | 'transcription' | 'appearance';
 type ResizeSide = 'left' | 'right';
 
 interface InternalNoteTarget {
@@ -8007,6 +8009,7 @@ function SettingsPage({
     icon: ReactNode;
   }> = [
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
+    { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
     { id: 'appearance', label: t('settingsAppearance'), icon: <Sun size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
@@ -8108,6 +8111,10 @@ function SettingsPage({
                 </section>
                 <WeatherLocationSettings locale={locale} />
               </div>
+            )}
+
+            {visibleSection === 'transcription' && (
+              <TranscriptionSettings locale={locale} />
             )}
           </div>
         </div>
@@ -8281,6 +8288,7 @@ function CaptureGuideDialog({
 }) {
   const [source, setSource] = useState('');
   const [draft, setDraft] = useState<CaptureDraft | null>(null);
+  const [transcriptionMode, setTranscriptionMode] = useState<'api' | 'local'>('api');
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -8313,6 +8321,7 @@ function CaptureGuideDialog({
           model: config.model,
           provider: config.provider,
           reasoningEffort: config.reasoningEffort,
+          transcriptionMode,
           input: clean,
           locale,
         }),
@@ -8385,9 +8394,35 @@ function CaptureGuideDialog({
                   autoFocus
                 />
               </label>
-              <div className="capture-prompt-example">
-                <p className="capture-prompt-copy">{t('capturePrompt')}</p>
-              </div>
+              <fieldset className="capture-transcription-choice">
+                <legend>{t('captureTranscriptionLabel')}</legend>
+                <label className={transcriptionMode === 'api' ? 'selected' : ''}>
+                  <input
+                    type="radio"
+                    name="capture-transcription-mode"
+                    value="api"
+                    checked={transcriptionMode === 'api'}
+                    onChange={() => setTranscriptionMode('api')}
+                  />
+                  <span className="capture-transcription-copy">
+                    <strong>{t('captureTranscriptionApi')}</strong>
+                    <small>{t('captureTranscriptionApiSub')}</small>
+                  </span>
+                </label>
+                <label className={transcriptionMode === 'local' ? 'selected' : ''}>
+                  <input
+                    type="radio"
+                    name="capture-transcription-mode"
+                    value="local"
+                    checked={transcriptionMode === 'local'}
+                    onChange={() => setTranscriptionMode('local')}
+                  />
+                  <span className="capture-transcription-copy">
+                    <strong>{t('captureTranscriptionLocal')}</strong>
+                    <small>{t('captureTranscriptionLocalSub')}</small>
+                  </span>
+                </label>
+              </fieldset>
             </>
           ) : (
             <div className="capture-draft">
