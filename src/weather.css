@@ -107,8 +107,9 @@
 }
 
 .weather-scene.is-night .weather-orb {
+  left: 34px;
   background: transparent;
-  box-shadow: inset -8px -3px 0 0 #adb7c5;
+  box-shadow: inset -8px -3px 0 0 #5f83aa;
 }
 
 .weather-cloud {
@@ -137,8 +138,8 @@
 .weather-cloud::after {
   right: 7px;
   bottom: 2px;
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 12px;
 }
 
 .weather-cloud-front {
@@ -654,7 +655,7 @@
 
 [data-theme='dark'] .weather-scene.is-night .weather-orb {
   background: transparent;
-  box-shadow: inset -8px -3px 0 0 #929cab;
+  box-shadow: inset -8px -3px 0 0 #85a9d1;
 }
 
 [data-theme='dark'] .weather-cloud {
