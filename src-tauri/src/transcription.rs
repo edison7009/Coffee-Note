@@ -347,7 +347,11 @@ pub async fn transcribe_media_url(
     url: &reqwest::Url,
     mode: &str,
     config: &super::TranscriptionSettingsConfig,
+    locale: &str,
 ) -> Result<String, String> {
+    if let Some(captions) = download_media_captions(url, locale).await? {
+        return Ok(captions);
+    }
     if mode == "local" {
         if config.active_runtime.trim().is_empty() {
             return Err("Choose a local transcription engine first".to_string());
@@ -442,6 +446,8 @@ pub fn supports_media_url(url: &reqwest::Url) -> bool {
     [
         "youtube.com",
         "youtu.be",
+        "bilibili.com",
+        "b23.tv",
         "tiktok.com",
         "douyin.com",
         "iesdouyin.com",
@@ -452,6 +458,151 @@ pub fn supports_media_url(url: &reqwest::Url) -> bool {
     ]
     .iter()
     .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
+}
+
+fn strip_caption_tags(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut inside_tag = false;
+    for character in value.chars() {
+        match character {
+            '<' => inside_tag = true,
+            '>' if inside_tag => inside_tag = false,
+            _ if !inside_tag => output.push(character),
+            _ => {}
+        }
+    }
+    output
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn parse_caption_text(contents: &str) -> String {
+    let mut lines = Vec::new();
+    for line in contents.trim_start_matches('\u{feff}').lines() {
+        let value = line.trim();
+        if value.is_empty()
+            || value.eq_ignore_ascii_case("WEBVTT")
+            || value.eq_ignore_ascii_case("NOTE")
+            || value.eq_ignore_ascii_case("STYLE")
+            || value.eq_ignore_ascii_case("REGION")
+            || value.contains("-->")
+            || value.chars().all(|character| character.is_ascii_digit())
+        {
+            continue;
+        }
+        let cleaned = strip_caption_tags(value);
+        if !cleaned.is_empty() && lines.last() != Some(&cleaned) {
+            lines.push(cleaned);
+        }
+    }
+    lines.join("\n")
+}
+
+fn caption_language_score(file_name: &str, locale: &str) -> u8 {
+    let name = file_name.to_ascii_lowercase();
+    let is_chinese = name.contains(".zh")
+        || name.contains("-zh")
+        || name.contains("_zh")
+        || name.contains(".chi")
+        || name.contains("ai-zh");
+    let is_english = name.contains(".en")
+        || name.contains("-en")
+        || name.contains("_en")
+        || name.contains(".eng");
+    if locale == "zh" {
+        if is_chinese {
+            100
+        } else if is_english {
+            20
+        } else {
+            40
+        }
+    } else if is_english {
+        100
+    } else if is_chinese {
+        20
+    } else {
+        40
+    }
+}
+
+async fn download_media_captions(
+    url: &reqwest::Url,
+    locale: &str,
+) -> Result<Option<String>, String> {
+    if !supports_media_url(url) {
+        return Ok(None);
+    }
+    let executable = ensure_media_fetcher().await?;
+    let directory =
+        std::env::temp_dir().join(format!("tiernote-captions-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Could not create caption workspace: {error}"))?;
+    let guard = TempMediaDir(directory.clone());
+    let template = directory.join("caption.%(ext)s");
+    let result = tokio::time::timeout(
+        Duration::from_secs(45),
+        Command::new(executable)
+            .arg("--no-playlist")
+            .arg("--quiet")
+            .arg("--no-warnings")
+            .arg("--skip-download")
+            .arg("--write-subs")
+            .arg("--write-auto-subs")
+            .arg("--sub-langs")
+            .arg("all")
+            .arg("--sub-format")
+            .arg("vtt/srt/best")
+            .arg("-o")
+            .arg(&template)
+            .arg(url.as_str())
+            .output(),
+    )
+    .await;
+    let Ok(Ok(output)) = result else {
+        drop(guard);
+        return Ok(None);
+    };
+    if !output.status.success() {
+        drop(guard);
+        return Ok(None);
+    }
+
+    let mut candidates = Vec::new();
+    let entries = fs::read_dir(&directory).map_err(|error| error.to_string())?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !matches!(extension.as_str(), "vtt" | "srt" | "ttml" | "srv3") {
+            continue;
+        }
+        let text = fs::read_to_string(&path).unwrap_or_default();
+        let parsed = parse_caption_text(&text);
+        if !parsed.is_empty() {
+            let score = caption_language_score(
+                path.file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default(),
+                locale,
+            );
+            candidates.push((score, parsed));
+        }
+    }
+    drop(guard);
+    Ok(candidates
+        .into_iter()
+        .max_by_key(|(score, text)| (*score, text.chars().count()))
+        .map(|(_, text)| text))
 }
 
 fn media_fetcher_spec() -> Result<ResourceSpec, String> {
@@ -1006,6 +1157,8 @@ mod tests {
     fn media_url_detection_only_accepts_supported_hosts() {
         for source in [
             "https://www.youtube.com/watch?v=example",
+            "https://www.bilibili.com/video/BVexample",
+            "https://b23.tv/example",
             "https://v.douyin.com/example",
             "https://www.tiktok.com/@tiernote/video/1",
             "https://www.xiaohongshu.com/explore/example",
@@ -1073,6 +1226,12 @@ mod tests {
             assert!(spec.expected_size > 0);
             assert!(spec.url.starts_with("https://"));
         }
+    }
+
+    #[test]
+    fn caption_parser_removes_cues_tags_and_duplicate_lines() {
+        let source = "WEBVTT\n\n00:00.000 --> 00:01.000\n<c>第一句</c>\n\n00:01.000 --> 00:02.000\n第一句\n第二句 &amp; 补充\n";
+        assert_eq!(parse_caption_text(source), "第一句\n第二句 & 补充");
     }
 
     fn mock_transcription_server(

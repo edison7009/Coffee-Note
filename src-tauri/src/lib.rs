@@ -2484,12 +2484,13 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
             let mode = request.transcription_mode.as_deref().unwrap_or("api");
             let config = load_transcription_config()?
                 .ok_or_else(|| "Configure audio transcription first".to_string())?;
-            let transcript = transcription::transcribe_media_url(&url, mode, &config).await?;
+            let transcript =
+                transcription::transcribe_media_url(&url, mode, &config, &request.locale).await?;
             if transcript.trim().is_empty() {
                 return Err("Audio transcription returned no text".to_string());
             }
             (
-                format!("Audio transcript:\n{}", transcript.trim()),
+                format!("Source transcript:\n{}", transcript.trim()),
                 Some(url.to_string()),
             )
         } else {

@@ -594,13 +594,15 @@ the CPU runtime, and macOS is intentionally shown as unavailable until a pinned
 runtime package is defined. Local input is decoded and converted to 16 kHz
 mono PCM WAV before the selected runtime and model are executed.
 
-The home capture flow now treats YouTube, TikTok, Douyin, Xiaohongshu, X, and
-their supported short-link hosts as media sources. It validates the selected
-hosted or local configuration first, downloads the best compatible audio into
-a temporary directory, transcribes it, and then sends the transcript through
-the existing note-organization model to produce editable Markdown. Ordinary
-web URLs retain the existing HTML extraction path. Direct local audio/video
-file selection is not implemented yet.
+The home capture flow now treats YouTube, Bilibili, TikTok, Douyin, Xiaohongshu,
+X, and their supported short-link hosts as media sources. It first asks the
+media source for public subtitles and cleans VTT/SRT-style cues, tags, and
+duplicate lines. If no usable subtitle is available, it validates the selected
+hosted or local configuration, downloads the best compatible audio into a
+temporary directory, transcribes it, and then sends the transcript through the
+existing note-organization model to produce editable Markdown. Ordinary web
+URLs retain the existing HTML extraction path. Direct local audio/video file
+selection is not implemented yet.
 
 ## Reference archive and next-work plan (2026-08-07)
 
