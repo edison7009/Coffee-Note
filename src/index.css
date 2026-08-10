@@ -6982,40 +6982,49 @@ textarea,
 
 .conversation-history-item > button:first-child,
 .conversation-history-item > button:first-child:hover:not(:disabled),
-.conversation-history-item.active > button:first-child {
-  display: flex;
-  width: 100%;
-  padding: 9px 42px 9px 9px;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-}
-
+.conversation-history-item.active > button:first-child,
 .conversation-history-rename {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 2px;
   width: 100%;
   min-height: 56px;
-  padding: 9px 42px 9px 9px;
+  padding: 9px 50px 9px 9px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
   box-sizing: border-box;
 }
 
-.conversation-history-rename input {
+.conversation-history-rename {
+  color: var(--ink);
+}
+
+.conversation-history-rename-title {
   width: 100%;
   min-width: 0;
+  margin: 0;
   padding: 0;
   overflow: hidden;
   color: var(--ink);
   background: transparent;
   border: 0;
   outline: 0;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  line-height: normal;
   text-overflow: ellipsis;
+  white-space: nowrap;
   caret-color: var(--ink);
+  animation: conversation-history-rename-in 160ms ease-out both;
+}
+
+@keyframes conversation-history-rename-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 [data-theme='dark'] .conversation-history-item:hover,

@@ -138,8 +138,9 @@
   selection-sensitive commands disabled when they have no applicable text, and read
   the clipboard only after the user explicitly invokes Paste.
 - Saved conversation rows expose a restrained right-click menu for rename, identity,
-  local-file access, and deletion. Rename happens inline without changing row height;
-  destructive hover uses semantic red, while all other actions remain neutral.
+  local-file access, and deletion. Rename fades into place inline without changing the
+  row height, surface, typography, or spacing; its editable title has no visible border.
+  Destructive hover uses semantic red, while all other actions remain neutral.
 - Remove redundant dashboard cards, helper copy, metrics decoration, and duplicated labels as each screen is migrated.
 - Prefer one clear action per region. Secondary actions use familiar icons from Lucide.
 

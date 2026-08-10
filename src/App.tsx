@@ -7004,6 +7004,7 @@ function RightRail({
   const [renamingConversationId, setRenamingConversationId] = useState<string | null>(null);
   const [conversationRenameValue, setConversationRenameValue] = useState('');
   const cancelConversationRenameRef = useRef(false);
+  const conversationRenameTitleRef = useRef<HTMLElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const favoriteItems = useMemo<FavoriteListItem[]>(() => {
     const items: FavoriteListItem[] = [];
@@ -7046,6 +7047,17 @@ function RightRail({
   }, [editingNote?.markdown, editingNote?.relativePath]);
 
   useEffect(() => {
+    if (!renamingConversationId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const title = conversationRenameTitleRef.current;
+      if (!title) return;
+      title.focus();
+      selectElementText(title);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [renamingConversationId]);
+
+  useEffect(() => {
     if (!editingNote) return;
     if (autosaveTimerRef.current) {
       window.clearTimeout(autosaveTimerRef.current);
@@ -7076,8 +7088,8 @@ function RightRail({
     setConversationRenameValue(conversation.title || (locale === 'zh' ? '新对话' : 'New conversation'));
     setRenamingConversationId(conversation.id);
   };
-  const finishConversationRename = async (conversation: ConversationSummary) => {
-    const nextTitle = conversationRenameValue.trim();
+  const finishConversationRename = async (conversation: ConversationSummary, value = conversationRenameValue) => {
+    const nextTitle = value.replace(/\s+/g, ' ').trim();
     setRenamingConversationId(null);
     if (!nextTitle || nextTitle === conversation.title) return;
     try {
@@ -7186,17 +7198,20 @@ function RightRail({
                     >
                       {isRenaming ? (
                         <div className="conversation-history-rename">
-                          <input
-                            autoFocus
-                            value={conversationRenameValue}
+                          <strong
+                            ref={conversationRenameTitleRef}
+                            className="conversation-history-rename-title"
+                            contentEditable
+                            suppressContentEditableWarning
+                            role="textbox"
+                            spellCheck={false}
                             aria-label={locale === 'zh' ? '对话名称' : 'Conversation name'}
-                            onChange={(event) => setConversationRenameValue(event.target.value)}
+                            onInput={(event) => setConversationRenameValue(event.currentTarget.textContent || '')}
                             onClick={(event) => event.stopPropagation()}
                             onContextMenu={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
                             }}
-                            onFocus={(event) => event.currentTarget.select()}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') {
                                 event.preventDefault();
@@ -7208,14 +7223,16 @@ function RightRail({
                                 setRenamingConversationId(null);
                               }
                             }}
-                            onBlur={() => {
+                            onBlur={(event) => {
                               if (cancelConversationRenameRef.current) {
                                 cancelConversationRenameRef.current = false;
                                 return;
                               }
-                              void finishConversationRename(conversation);
+                              void finishConversationRename(conversation, event.currentTarget.textContent || '');
                             }}
-                          />
+                          >
+                            {conversationRenameValue}
+                          </strong>
                           {conversationMeta}
                         </div>
                       ) : (
@@ -7229,10 +7246,8 @@ function RightRail({
                               : `${conversationTitle}, has an unread response`
                             : undefined}
                         >
-                        <span>
                           <strong>{conversationTitle}</strong>
                           {conversationMeta}
-                        </span>
                         </button>
                       )}
                       {!isRenaming && (isWorking ? (

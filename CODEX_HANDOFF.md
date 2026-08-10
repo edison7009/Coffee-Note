@@ -92,7 +92,9 @@ or temporary deployment credentials.
   conversation offers inline rename, copy conversation UUID, copy its local JSON
   path, reveal that file in the system file manager, and delete. Manual titles are
   persisted as custom titles and are not replaced by later automatic first-message
-  title updates. Rename/delete stay disabled while the single active agent is busy.
+  title updates. Inline rename fades in without changing the card surface, height,
+  typography, or spacing, and the editable title has no visible border.
+  Rename/delete stay disabled while the single active agent is busy.
 - The desktop app is moving to a calm, Codex-informed note-workspace style. This
   supersedes older instructions below that require a colorful dashboard shell or
   a blue-green gradient title bar.
