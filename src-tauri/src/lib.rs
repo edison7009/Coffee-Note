@@ -17,7 +17,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::Emitter;
-use tauri::Manager;
 
 use agent_loop::SharedSessionMap;
 
@@ -3277,8 +3276,42 @@ async fn agent_send_message(
     Ok("ok".to_string())
 }
 
+fn show_main_window(app: &tauri::AppHandle) {
+    use tauri::Manager;
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+fn configure_tray_menu(app: &tauri::AppHandle, locale: &str) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+
+    let (show_label, quit_label) = if locale == "en" {
+        ("Show App", "Quit")
+    } else {
+        ("显示应用", "退出")
+    };
+    let show_app = MenuItem::with_id(app, "show-app", show_label, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", quit_label, true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show_app, &quit])?;
+    let tray = app.tray_by_id("main").ok_or_else(|| {
+        tauri::Error::AssetNotFound("TierNote tray icon was not initialized".into())
+    })?;
+    tray.set_menu(Some(menu))
+}
+
+#[tauri::command]
+fn set_tray_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
+    configure_tray_menu(&app, &locale).map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
+
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -3286,15 +3319,36 @@ pub fn run() {
         // This must be the first plugin so a repeated launch exits before
         // another window or application state is initialized.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            show_main_window(app);
         }));
     }
 
     builder
+        .setup(|app| {
+            configure_tray_menu(&app.handle(), "zh")
+                .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)
+        })
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "show-app" => show_main_window(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|app, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(app);
+            }
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -3332,7 +3386,8 @@ pub fn run() {
             conversations::delete_conversation,
             memory::confirm_memory_suggestion,
             check_for_update,
-            download_and_install_update
+            download_and_install_update,
+            set_tray_locale
         ])
         .run(tauri::generate_context!())
         .expect("error while running TierNote");

@@ -10,6 +10,11 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/Square150x150Logo.png",
+      "showMenuOnLeftClick": false
+    },
     "windows": [
       {
         "label": "main",

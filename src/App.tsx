@@ -127,6 +127,7 @@ import {
   confirmMemorySuggestion,
   deleteNote,
   setNoteTier,
+  setTrayLocale,
   listDirectory,
   createFolder,
   createNote,
@@ -1206,6 +1207,10 @@ function App() {
 
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
+  }, [locale]);
+
+  useEffect(() => {
+    void setTrayLocale(locale).catch(() => undefined);
   }, [locale]);
 
   useEffect(() => {

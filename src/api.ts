@@ -21,6 +21,11 @@ import { normalizeModelCatalog } from './modelCatalog';
 
 export const isTauri = '__TAURI_INTERNALS__' in window;
 
+export async function setTrayLocale(locale: 'zh' | 'en'): Promise<void> {
+  if (!isTauri) return;
+  await invoke('set_tray_locale', { locale });
+}
+
 export async function openExternalUrl(url: string): Promise<void> {
   const parsed = new URL(url);
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
