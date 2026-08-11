@@ -7025,7 +7025,7 @@ function ChatComposer({
                     className="composer-skill-items"
                     role="menu"
                     aria-label={activeSkillGroup.label}
-                    style={{ top: `calc(8px + ${activeSkillGroupIndex * 36}px)` }}
+                    style={{ bottom: `calc(100% - ${42 + activeSkillGroupIndex * 36}px)` }}
                   >
                     {activeSkills.map((skill) => (
                       <button

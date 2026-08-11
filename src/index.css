@@ -2842,13 +2842,34 @@ html.tree-drag-active * {
   width: 260px;
   max-width: 32vw;
   min-width: 220px;
+  max-height: 440px;
   gap: 2px;
   padding: 9px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 42%, transparent) transparent;
   color: var(--ink);
   background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: 0 16px 36px rgb(0 0 0 / 22%);
+}
+
+.composer-skill-items::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.composer-skill-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.composer-skill-items::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
 }
 
 .composer-skill-item {
