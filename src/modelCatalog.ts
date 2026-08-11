@@ -6,7 +6,9 @@ import type {
   ReasoningEffort,
 } from './types';
 
-export const MODELS_DEV_LOGO_ROOT = 'https://models.dev/logos';
+// Provider logos are bundled with the app (public/providers/{id}.svg) and
+// served from the same origin as the UI; nothing loads from models.dev.
+const PROVIDER_LOGO_ROOT = '/providers';
 
 const OFFICIAL_ENDPOINTS: Record<string, string> = {
   openai: 'https://api.openai.com/v1',
@@ -126,7 +128,7 @@ export function defaultEndpointForProvider(provider: ModelCatalogProvider): stri
 }
 
 export function providerLogoUrl(providerId: string): string {
-  return `${MODELS_DEV_LOGO_ROOT}/${encodeURIComponent(providerId)}.svg`;
+  return `${PROVIDER_LOGO_ROOT}/${encodeURIComponent(providerId)}.svg`;
 }
 
 export function getCatalogModel(

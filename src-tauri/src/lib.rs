@@ -36,9 +36,6 @@ const WEBSITE_VERSION_API: &str = "https://note.coffeecli.com/version.json?platf
 const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://note.coffeecli.com/download/windows";
 const RELEASE_DOWNLOAD_PREFIX: &str =
     "https://github.com/edison7009/Coffee-Note/releases/download/";
-const MODELS_DEV_CATALOG_URL: &str = "https://models.dev/api.json";
-const MODEL_CATALOG_MAX_BYTES: usize = 24 * 1024 * 1024;
-const MODEL_CATALOG_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const TRANSCRIPTION_CONFIG_FILE: &str = "transcription.json";
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
 const TIER_ORDER_RELATIVE_PATH: &str = ".coffee-note/tier-order.json";
@@ -499,13 +496,6 @@ async fn check_transcription_config(
     })
 }
 
-fn model_catalog_cache_path() -> PathBuf {
-    model_config_path()
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("models-dev-catalog.json")
-}
-
 fn load_model_config_from(path: &Path) -> Result<Option<ModelSettings>, String> {
     if !path.is_file() {
         return Ok(None);
@@ -544,67 +534,12 @@ fn save_model_config(config: ModelSettings) -> Result<(), String> {
     save_model_config_to(&model_config_path(), &config)
 }
 
-fn read_cached_model_catalog(path: &Path) -> Result<Value, String> {
-    let contents = fs::read_to_string(path)
-        .map_err(|error| format!("Could not read cached model catalog: {error}"))?;
-    serde_json::from_str(&contents)
-        .map_err(|error| format!("Could not parse cached model catalog: {error}"))
-}
-
-fn model_catalog_cache_is_fresh(path: &Path) -> bool {
-    fs::metadata(path)
-        .and_then(|metadata| metadata.modified())
-        .and_then(|modified| modified.elapsed().map_err(std::io::Error::other))
-        .map(|age| age < MODEL_CATALOG_CACHE_TTL)
-        .unwrap_or(false)
-}
-
 #[tauri::command]
-async fn load_model_catalog(refresh: bool) -> Result<Value, String> {
-    let cache_path = model_catalog_cache_path();
-    if !refresh && model_catalog_cache_is_fresh(&cache_path) {
-        if let Ok(catalog) = read_cached_model_catalog(&cache_path) {
-            return Ok(catalog);
-        }
-    }
-
-    let fetched = async {
-        let response = reqwest::Client::new()
-            .get(MODELS_DEV_CATALOG_URL)
-            .send()
-            .await
-            .map_err(|error| format!("Could not reach models.dev: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("models.dev request failed: {error}"))?;
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|error| format!("Could not download the model catalog: {error}"))?;
-        if bytes.len() > MODEL_CATALOG_MAX_BYTES {
-            return Err("The models.dev catalog is unexpectedly large".to_string());
-        }
-        serde_json::from_slice::<Value>(&bytes)
-            .map_err(|error| format!("Could not parse the models.dev catalog: {error}"))
-    }
-    .await;
-
-    match fetched {
-        Ok(catalog) => {
-            if let Some(parent) = cache_path.parent() {
-                fs::create_dir_all(parent).map_err(|error| {
-                    format!("Could not create the model cache directory: {error}")
-                })?;
-            }
-            let contents = serde_json::to_vec(&catalog)
-                .map_err(|error| format!("Could not serialize the model catalog: {error}"))?;
-            fs::write(&cache_path, contents)
-                .map_err(|error| format!("Could not cache the model catalog: {error}"))?;
-            Ok(catalog)
-        }
-        Err(fetch_error) => read_cached_model_catalog(&cache_path).map_err(|cache_error| {
-            format!("{fetch_error}. No usable offline catalog is available: {cache_error}")
-        }),
-    }
+fn load_model_catalog(_refresh: bool) -> Result<Value, String> {
+    // The provider/model directory ships inside the app binary; there is no
+    // network request and nothing to refresh.
+    serde_json::from_str(include_str!("../../public/model-catalog.json"))
+        .map_err(|error| format!("Could not parse the bundled model catalog: {error}"))
 }
 
 const DEMO_NOTES: &[(&str, &str)] = &[

@@ -297,9 +297,12 @@ export async function onTranscriptionResourceProgress(
 }
 
 export async function loadModelCatalog(refresh = false): Promise<ModelCatalog> {
+  // The provider/model directory ships with the app; it never hits the
+  // network. The browser build imports the bundled catalog JSON directly,
+  // and the Tauri build reads the same bundled resource from the backend.
   if (!isTauri) {
-    const response = await fetch('https://models.dev/api.json', { cache: refresh ? 'reload' : 'default' });
-    if (!response.ok) throw new Error(`models.dev returned HTTP ${response.status}`);
+    const response = await fetch('/model-catalog.json');
+    if (!response.ok) throw new Error(`Could not load the bundled model catalog (HTTP ${response.status})`);
     return normalizeModelCatalog(await response.json());
   }
   return normalizeModelCatalog(await invoke<unknown>('load_model_catalog', { refresh }));

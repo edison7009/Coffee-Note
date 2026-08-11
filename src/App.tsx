@@ -7794,9 +7794,18 @@ function isCustomProviderId(providerId: string): boolean {
 }
 
 function ProviderMark({ providerId }: { providerId: string }) {
-  return isCustomProviderId(providerId)
-    ? <Box className="provider-mark provider-custom-mark" aria-hidden="true" />
-    : <img className="provider-mark" src={providerLogoUrl(providerId)} alt="" />;
+  const [failed, setFailed] = useState(false);
+  if (isCustomProviderId(providerId) || failed) {
+    return <Box className="provider-mark provider-custom-mark" aria-hidden="true" />;
+  }
+  return (
+    <img
+      className="provider-mark"
+      src={providerLogoUrl(providerId)}
+      alt=""
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 function ModelSettingsSection({

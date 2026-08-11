@@ -12,7 +12,8 @@ const streamSource = readFileSync(new URL('../src-tauri/src/llm_stream.rs', impo
 
 test('models.dev catalog and logos feed the provider settings workspace', () => {
   assert.match(apiSource, /loadModelCatalog/);
-  assert.match(catalogSource, /https:\/\/models\.dev\/logos/);
+  assert.match(catalogSource, /PROVIDER_LOGO_ROOT\s*=\s*'\/providers'/);
+  assert.doesNotMatch(catalogSource, /https:\/\/models\.dev/);
   assert.match(appSource, /function ModelSettingsSection/);
   assert.match(appSource, /Anthropic always uses its native Messages API protocol/);
   assert.doesNotMatch(appSource, /settings-protocol-switch|Use native Anthropic protocol/);
@@ -81,11 +82,12 @@ test('legacy seeded DeepSeek model never acts as a composer fallback', () => {
   assert.doesNotMatch(appSource, /deepseek-v4-flash/);
 });
 
-test('desktop catalog loading uses a bounded app-data cache', () => {
-  assert.match(rustSource, /MODELS_DEV_CATALOG_URL:\s*&str\s*=\s*"https:\/\/models\.dev\/api\.json"/);
-  assert.match(rustSource, /models-dev-catalog\.json/);
-  assert.match(rustSource, /MODEL_CATALOG_MAX_BYTES/);
-  assert.match(rustSource, /MODEL_CATALOG_CACHE_TTL/);
+test('desktop catalog loads the bundled local data, never models.dev', () => {
+  assert.match(rustSource, /include_str!\("\.\.\/\.\.\/public\/model-catalog\.json"\)/);
+  assert.doesNotMatch(rustSource, /MODELS_DEV_CATALOG_URL|models\.dev\/api\.json/);
+  assert.doesNotMatch(rustSource, /MODEL_CATALOG_MAX_BYTES|MODEL_CATALOG_CACHE_TTL|models-dev-catalog\.json/);
+  assert.match(apiSource, /fetch\('\/model-catalog\.json'\)/);
+  assert.doesNotMatch(apiSource, /models\.dev\/api\.json/);
 });
 
 test('composer selections reach the actual model request', () => {
