@@ -5021,8 +5021,8 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .favorite-item-icon {
-  color: #8ecfc2;
-  background: #29322f;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 [data-theme='dark'] .favorite-empty {
@@ -5102,9 +5102,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 [data-theme='dark'] .language-switch button.active,
 [data-theme='dark'] .theme-switch button.active,
 [data-theme='dark'] .currency-switch button.active {
-  color: #94d3c7;
-  background: #2a3531;
-  border-color: #506860;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 
 [data-theme='dark'] .settings-section > label,
@@ -5119,7 +5119,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .dialog-meta > button {
-  color: #78b8ab;
+  color: var(--accent);
 }
 
 [data-theme='dark'] .dialog-meta > button:hover {
@@ -5127,9 +5127,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .secondary-button:hover {
-  color: #90d0c3;
-  background: #29322f;
-  border-color: #4b5f59;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 
 @keyframes spin {
