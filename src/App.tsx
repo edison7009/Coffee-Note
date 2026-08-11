@@ -447,7 +447,7 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = fal
       thumbTravel = Math.max(0, trackHeight - thumbHeight);
       const thumbTop = maxScroll > 0 ? (element.scrollTop / maxScroll) * thumbTravel : 0;
       slider.style.height = `${Math.round(thumbHeight)}px`;
-      slider.style.transform = `translateY(${Math.round(thumbTop + insetY + 2)}px)`;
+      slider.style.transform = `translateY(${Math.round(thumbTop + 2)}px)`;
     });
   };
 
