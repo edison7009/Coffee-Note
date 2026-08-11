@@ -11,7 +11,8 @@ test('composer exposes the catalog-backed skill picker and selected skill pill',
   assert.match(appSource, /className="composer-skill-pill"/);
   assert.match(appSource, /onClick=\{\(\) => onSelectedSkillChange\(null\)\}/);
   assert.match(appSource, /className="composer-skill-items"/);
-  assert.doesNotMatch(appSource, /composer-skill-management|composer-skill-search|composer-skill-footer-action/);
+  assert.match(appSource, /className="composer-skill-management"/);
+  assert.doesNotMatch(appSource, /composer-skill-search|composer-skill-footer-action/);
 });
 
 test('skill categories reveal name and description entries on hover', () => {
@@ -25,11 +26,22 @@ test('skill categories reveal name and description entries on hover', () => {
   assert.match(cssSource, /\.composer\s*\{[^}]*padding:\s*4px 9px 9px;/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*left:\s*calc\(100% - 4px\)/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*width:\s*260px;[^}]*max-width:\s*32vw;/s);
-  assert.doesNotMatch(cssSource, /\.composer-skill-management|\.composer-skill-search|\.composer-skill-footer-action/);
+  assert.match(cssSource, /\.composer-skill-management\s*\{[^}]*border-top:\s*1px solid var\(--line\)/s);
+  assert.doesNotMatch(cssSource, /\.composer-skill-search|\.composer-skill-footer-action/);
   assert.match(cssSource, /\.composer-preview-controls\s*\{[^}]*margin-left:\s*auto;/s);
-  assert.doesNotMatch(cssSource, /\.composer-page-chip\s*\{[^}]*margin-left:\s*auto;/s);
+  assert.doesNotMatch(cssSource, /\.composer-context-pill\s*\{[^}]*margin-left:\s*auto;/s);
   assert.match(cssSource, /\.composer-skill-trigger,\s*\.composer-skill-pill\s*\{[^}]*height:\s*32px;/s);
-  assert.match(cssSource, /\.composer-skill-pill span\s*\{[^}]*line-height:\s*1;/s);
+  assert.match(cssSource, /\.composer-skill-pill\s*\{[^}]*height:\s*24px;/s);
+  assert.match(cssSource, /\.composer-skill-pill span\s*\{[^}]*display:\s*flex;[^}]*height:\s*16px;[^}]*align-items:\s*center;[^}]*line-height:\s*16px;/s);
+});
+
+test('composer skill management opens the Skills settings page', () => {
+  assert.match(appSource, /onOpenSkillSettings=\{\(\) => \{\s*setSettingsSection\('skills'\);\s*setSettingsOpen\(true\);/s);
+  assert.match(appSource, /className="composer-skill-management"[\s\S]*setSkillMenuOpen\(false\);\s*onOpenSkillSettings\(\);/);
+  assert.match(appSource, /locale === 'zh' \? '技能管理' : 'Manage skills'/);
+  assert.match(appSource, /skillMenuOpen && !selectedSkill && \(/);
+  assert.doesNotMatch(appSource, /skillMenuOpen && !selectedSkill && activeSkillGroup/);
+  assert.match(appSource, /\{activeSkillGroup && \(\s*<div\s*className="composer-skill-items"/s);
 });
 
 test('composer reads categories and skills from the shared catalog', () => {

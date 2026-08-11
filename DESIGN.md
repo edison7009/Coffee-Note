@@ -22,7 +22,6 @@
   both while hovering over a divider and throughout an active pane resize.
 - **Mood:** Serious, quiet, capable, and spacious. Coffee Note should feel like a professional work surface, not a personalized dashboard template.
 - **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
-- **References:** `references/pasture/` for a permissively licensed Tauri + React Codex client; `references/palot/` for sidebar and conversation-system organization only.
 
 ## Product Structure
 
@@ -104,8 +103,10 @@
 - On My Contexts (`我的设定`), use five direct-entry content cards with independent retrieval
   switches, all enabled by default. Cards have no selected state: their light
   surface remains `#f1f1f1` during hover and navigation, with a neutral dark-mode
-  counterpart. Reserve system blue for the enabled switch track; Add Material is
-  an action and has no retrieval switch.
+  counterpart. Enabled/context states use iOS blue (`#007aff`) in light mode and
+  egg-yolk yellow (`#e7be15`) in dark mode. Reuse that state color for the active
+  library multi-select control, selected-note checkmarks, and the removable note
+  context pill in the AI composer. Add Material is an action and has no retrieval switch.
 - Keep the composer in a stable bottom row when chat is active.
 - Render AI thinking and tool activity as compact, unframed disclosure rows rather
   than full-width cards. A running row uses a restrained left-to-right text shimmer;

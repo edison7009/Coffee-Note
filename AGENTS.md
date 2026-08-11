@@ -15,8 +15,9 @@ source of truth and does not apply to the separate public website.
 
 Project rules:
 
-- Treat the desktop app and `website/` as separate products sharing one brand,
-  while keeping both in this repository.
+- Treat the desktop app and the future public website as separate products sharing
+  one brand. The current `website/` directory intentionally keeps only the
+  Windows remote installer reference until the public site is rebuilt.
 - The desktop app must use its own product library. Never bind it to
   `C:\Life extension` or any developer-specific directory.
 - Preserve the bilingual starter library and run `npm run library:check` after
@@ -37,7 +38,8 @@ Project rules:
   tree. Never ship smaller text to fix a layout; enlarge the component instead.
 - Do not commit generated dependencies or build output (`node_modules/`,
   `dist/`, `src-tauri/target/`).
-- `website/` is deployed publicly from this repository with GitHub Pages.
-  Preserve its static Vite build and the root Pages workflow when publishing it.
+- Keep `website/install.ps1` and `website/version.json` usable as the remote
+  Windows install/update infrastructure. The remaining public website will be
+  rebuilt later.
 - Commit as `codex` (lowercase, the https://github.com/codex identity) in this
   repository; local `user.name` and `user.email` are already configured for it.

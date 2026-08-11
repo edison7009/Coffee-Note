@@ -14,7 +14,6 @@ const cargoVersion = cargoManifest.match(
 const websiteVersion = JSON.parse(
   readFileSync(new URL('../website/version.json', import.meta.url), 'utf8'),
 ).version;
-
 const versions = {
   'package.json': packageJson.version,
   'src-tauri/tauri.conf.json': tauriConfig.version,

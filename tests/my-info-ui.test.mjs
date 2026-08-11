@@ -51,9 +51,10 @@ test('agent requests include the enabled My Info section IDs', () => {
   assert.match(appSource, /view === 'file' && fileNoteSource === 'library' \? fileNotePath : undefined/);
 });
 
-test('enabled switches use the system blue state without hover decoration', () => {
+test('enabled switches use the themed state without hover decoration', () => {
   assert.match(css, /\.plan-retrieval-switch\[aria-checked='true'\][^{]*\{[^}]*background:\s*var\(--switch-on\);/s);
+  assert.match(css, /\.plan-retrieval-switch\[aria-checked='true'\] > span\s*\{[^}]*background:\s*var\(--accent-contrast\);/s);
   assert.match(css, /--switch-on:\s*#007aff;/);
-  assert.match(css, /\[data-theme='dark'\][^{]*\{[\s\S]*?--switch-on:\s*#0a84ff;/s);
+  assert.match(css, /\[data-theme='dark'\][^{]*\{[\s\S]*?--switch-on:\s*#e7be15;/s);
   assert.doesNotMatch(css, /\.plan-retrieval-switch:hover/);
 });

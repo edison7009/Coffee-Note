@@ -37,14 +37,14 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Run frontend tests
+        run: npm test
+
       - name: Check bilingual starter library
         run: npm run library:check
 
       - name: Check release version
         run: npm run release:check
-
-      - name: Check static website
-        run: npm run website:check
 
       - name: Install Linux build dependencies
         run: |

@@ -59,14 +59,15 @@ test('Home forecast is read-only and weather setup lives in Appearance', () => {
   assert.match(weather, /WEATHER_LOCATION_CHANGED_EVENT/);
 });
 
-test('Appearance settings use one compact group and a structured weather layout', () => {
+test('Appearance settings use one open group and a structured weather layout', () => {
   assert.match(app, /className="settings-appearance-group"/);
   assert.match(app, /settings-appearance-block settings-appearance-inline/);
   assert.match(settings, /className="settings-weather-header"/);
   assert.match(settings, /className="settings-weather-search-row"/);
   assert.doesNotMatch(settings, /weather-remove|weatherRemove|clearWeatherLocation/);
   assert.doesNotMatch(weather, /clearWeatherLocation/);
-  assert.match(css, /\.settings-appearance-block \+ \.settings-appearance-block\s*\{[^}]*border-top:/s);
+  assert.match(css, /\.settings-appearance-group\s*\{[^}]*gap:\s*48px/s);
+  assert.match(css, /\.settings-appearance-block \+ \.settings-appearance-block\s*\{[^}]*border-top:\s*0/s);
   assert.match(css, /\.settings-weather-header\s*\{[^}]*grid-template-columns:/s);
   assert.match(css, /\.settings-weather-search-row\s*\{[^}]*grid-template-columns:/s);
 });

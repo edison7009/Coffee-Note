@@ -18,6 +18,7 @@ import {
   House,
   Layers3,
   Library,
+  ListChecks,
   LoaderCircle,
   MessageCircleMore,
   Minus,
@@ -1124,6 +1125,7 @@ function App() {
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
   const [multiSelectActive, setMultiSelectActive] = useState(false);
   const [selectedContextNotes, setSelectedContextNotes] = useState<ContextNoteSelection[]>([]);
+  const [implicitContextDismissed, setImplicitContextDismissed] = useState(false);
   const libraryRootRef = useRef(library.root || normalizedKnowledgeRoot || '');
   const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const libraryGenerationRef = useRef(0);
@@ -1154,18 +1156,33 @@ function App() {
     }
     return undefined;
   }, [view, fileNoteTitle, selectedSupplement, selectedPerson, selectedStory, locale]);
+  useEffect(() => {
+    setImplicitContextDismissed(false);
+  }, [view, fileNotePath, selectedSupplement?.id, selectedPerson?.id, selectedStory?.id]);
+  const selectedContextPaths = useMemo(
+    () => selectedContextNotes.map((note) => note.path),
+    [selectedContextNotes],
+  );
+  const implicitContextPaths = useMemo(
+    () => [
+      selectedSupplement?.filePath,
+      selectedPerson?.filePath,
+      selectedStory?.filePath,
+      view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
+    ].filter(Boolean) as string[],
+    [fileNotePath, fileNoteSource, selectedPerson, selectedStory, selectedSupplement, view],
+  );
+  const implicitContextEnabled = Boolean(currentPageTitle) && !implicitContextDismissed;
   const composerContextLabel = useMemo(() => {
-    if (selectedContextNotes.length === 0) return currentPageTitle;
+    if (selectedContextNotes.length === 0) {
+      return implicitContextEnabled ? currentPageTitle : undefined;
+    }
     const firstTitle = selectedContextNotes[0].title;
     if (selectedContextNotes.length === 1) return firstTitle;
     return locale === 'zh'
       ? `${firstTitle}等${selectedContextNotes.length}篇`
       : `${firstTitle} and ${selectedContextNotes.length - 1} more`;
-  }, [currentPageTitle, locale, selectedContextNotes]);
-  const selectedContextPaths = useMemo(
-    () => selectedContextNotes.map((note) => note.path),
-    [selectedContextNotes],
-  );
+  }, [currentPageTitle, implicitContextEnabled, locale, selectedContextNotes]);
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const fileNoteTier = useMemo(
     () => (view === 'file' ? extractFrontmatterTier(noteMarkdown) : undefined),
@@ -1944,6 +1961,11 @@ function App() {
     setSelectedContextNotes([]);
   };
 
+  const dismissComposerContext = () => {
+    setImplicitContextDismissed(true);
+    if (selectedContextNotes.length > 0) cancelMultiSelect();
+  };
+
   const handleSwitchRoot = async () => {
     if (!isTauri) return;
     const selected = await chooseKnowledgeFolder();
@@ -2566,16 +2588,15 @@ function App() {
         skillId: selectedSkillId || undefined,
         contextPaths: selectedContextPaths.length > 0
           ? selectedContextPaths
-          : [
-              selectedSupplement?.filePath,
-              selectedPerson?.filePath,
-              selectedStory?.filePath,
-              view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
-            ].filter(Boolean) as string[],
-        noteSummary: selectedContextPaths.length > 0 ? undefined : noteSummary?.text,
+          : implicitContextEnabled ? implicitContextPaths : [],
+        noteSummary: selectedContextPaths.length > 0 || !implicitContextEnabled
+          ? undefined
+          : noteSummary?.text,
         enabledMyInfoSections: enabledMyInfoSections(myInfoRetrieval),
         includePriorities,
-        currentPage: selectedContextPaths.length > 0 ? undefined : currentPageTitle,
+        currentPage: selectedContextPaths.length > 0 || !implicitContextEnabled
+          ? undefined
+          : currentPageTitle,
         history: priorMessages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
           .slice(-8)
@@ -2990,6 +3011,7 @@ function App() {
           stopLabel={t('stopGenerating')}
           inputRef={chatComposerRef}
           currentPage={composerContextLabel}
+          onClearCurrentPage={dismissComposerContext}
           contextBytes={contextBytes}
           contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
           usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
@@ -2999,6 +3021,10 @@ function App() {
           skillCatalog={skillCatalog}
           selectedSkillId={selectedSkillId}
           onSelectedSkillChange={setSelectedSkillId}
+          onOpenSkillSettings={() => {
+            setSettingsSection('skills');
+            setSettingsOpen(true);
+          }}
           onModelChange={selectComposerModel}
           onReasoningEffortChange={selectReasoningEffort}
           currencyMode={currencyMode}
@@ -4725,7 +4751,7 @@ function LibraryTree({
           style={{ paddingLeft: 8 + depth * 14 }}
           data-tree-entry={entry.relativePath}
           data-tree-is-dir="true"
-          onPointerDown={(event) => beginTreePointerDrag(event, entry)}
+          onPointerDown={multiSelectActive ? undefined : (event) => beginTreePointerDrag(event, entry)}
         >
           <button
             type="button"
@@ -4780,20 +4806,25 @@ function LibraryTree({
         <div className="library-root-actions">
           <button
             type="button"
-            className={`library-multi-select-btn${multiSelectActive ? ' active' : ''}`}
-            onClick={multiSelectActive ? onCancelMultiSelect : onToggleMultiSelect}
-            aria-pressed={multiSelectActive}
-          >
-            {multiSelectActive ? t('cancelMultiSelect') : t('multiSelect')}
-          </button>
-          <button
-            type="button"
             className="library-switch-btn"
             onClick={() => void createQuickNote()}
             aria-label={locale === 'zh' ? '添加 Markdown 文件' : 'Add Markdown file'}
             disabled={quickNoteCreating}
           >
             <FilePlus2 size={17} />
+          </button>
+          <button
+            type="button"
+            className={`library-multi-select-btn${multiSelectActive ? ' active' : ''}`}
+            onClick={multiSelectActive ? onCancelMultiSelect : onToggleMultiSelect}
+            aria-pressed={multiSelectActive}
+            aria-label={
+              multiSelectActive
+                ? locale === 'zh' ? '取消多选' : 'Cancel multi-select'
+                : locale === 'zh' ? '多选文章' : 'Select multiple notes'
+            }
+          >
+            <ListChecks className="library-multi-select-icon" size={17} strokeWidth={1.9} />
           </button>
         </div>
       </div>
@@ -6616,6 +6647,7 @@ function ChatComposer({
   stopLabel,
   inputRef,
   currentPage,
+  onClearCurrentPage,
   contextBytes,
   contextMaxBytes,
   usage,
@@ -6625,6 +6657,7 @@ function ChatComposer({
   skillCatalog,
   selectedSkillId,
   onSelectedSkillChange,
+  onOpenSkillSettings,
   onModelChange,
   onReasoningEffortChange,
   currencyMode,
@@ -6638,6 +6671,7 @@ function ChatComposer({
   stopLabel: string;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   currentPage?: string;
+  onClearCurrentPage: () => void;
   contextBytes: number;
   contextMaxBytes: number;
   usage: ConversationUsage;
@@ -6647,6 +6681,7 @@ function ChatComposer({
   skillCatalog: SkillCatalog;
   selectedSkillId: string | null;
   onSelectedSkillChange: (skillId: string | null) => void;
+  onOpenSkillSettings: () => void;
   onModelChange: (providerKey: string, model: string) => void;
   onReasoningEffortChange: (effort: ReasoningEffort) => void;
   currencyMode: CurrencyMode;
@@ -6943,13 +6978,13 @@ function ChatComposer({
                 <Plus className="composer-skill-icon" size={20} strokeWidth={1.8} aria-hidden="true" />
               </button>
             )}
-            {skillMenuOpen && !selectedSkill && activeSkillGroup && (
+            {skillMenuOpen && !selectedSkill && (
               <div className="composer-skill-popover" role="menu">
                 <div className="composer-skill-groups">
                   {skillCatalog.categories.map((group) => (
                     <button
                       type="button"
-                      className={`composer-skill-group${activeSkillGroup.id === group.id ? ' active' : ''}`}
+                      className={`composer-skill-group${activeSkillGroup?.id === group.id ? ' active' : ''}`}
                       key={group.id}
                       role="menuitem"
                       onMouseEnter={() => {
@@ -6963,35 +6998,59 @@ function ChatComposer({
                       <ChevronRight size={15} />
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    className="composer-skill-management"
+                    role="menuitem"
+                    onClick={() => {
+                      setSkillMenuOpen(false);
+                      onOpenSkillSettings();
+                    }}
+                  >
+                    <span>{locale === 'zh' ? '技能管理' : 'Manage skills'}</span>
+                    <Settings size={15} strokeWidth={1.8} />
+                  </button>
                 </div>
-                <div
-                  className="composer-skill-items"
-                  role="menu"
-                  aria-label={activeSkillGroup.label}
-                  style={{ top: `calc(8px + ${activeSkillGroupIndex * 36}px)` }}
-                >
-                  {activeSkills.map((skill) => (
-                    <button
-                      type="button"
-                      className="composer-skill-item"
-                      role="menuitem"
-                      key={skill.id}
-                      onClick={() => chooseSkill(skill)}
-                    >
-                      <strong>{skill.title}</strong>
-                      <small>{skill.description}</small>
-                    </button>
-                  ))}
-                  {activeSkills.length === 0 && (
-                    <p className="composer-skill-empty">
-                      {locale === 'zh' ? '这个分类还没有技能。' : 'No skills in this category.'}
-                    </p>
-                  )}
-                </div>
+                {activeSkillGroup && (
+                  <div
+                    className="composer-skill-items"
+                    role="menu"
+                    aria-label={activeSkillGroup.label}
+                    style={{ top: `calc(8px + ${activeSkillGroupIndex * 36}px)` }}
+                  >
+                    {activeSkills.map((skill) => (
+                      <button
+                        type="button"
+                        className="composer-skill-item"
+                        role="menuitem"
+                        key={skill.id}
+                        onClick={() => chooseSkill(skill)}
+                      >
+                        <strong>{skill.title}</strong>
+                        <small>{skill.description}</small>
+                      </button>
+                    ))}
+                    {activeSkills.length === 0 && (
+                      <p className="composer-skill-empty">
+                        {locale === 'zh' ? '这个分类还没有技能。' : 'No skills in this category.'}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
-          {currentPage && <span className="composer-page-chip">{currentPage}</span>}
+          {currentPage && (
+            <button
+              type="button"
+              className="composer-context-pill"
+              onClick={onClearCurrentPage}
+              aria-label={locale === 'zh' ? `移除文章上下文 ${currentPage}` : `Remove note context ${currentPage}`}
+            >
+              <X size={13} strokeWidth={2.4} />
+              <span>{currentPage}</span>
+            </button>
+          )}
           <div className="composer-preview-controls" ref={composerControlsRef}>
             <div className="composer-preview-control">
               <button

@@ -151,10 +151,9 @@ or temporary deployment credentials.
   for ordinary controls and content drag-and-drop; text inputs keep the native
   I-beam. The two pane resizers are the sole resize-cursor exception: use
   `col-resize` on divider hover and throughout an active pane resize.
-- Local UI references are archived in ignored directories: `references/pasture/`
-  (Apache-2.0, Tauri + React, closest implementation reference) and
-  `references/palot/` (MIT, useful for sidebar and conversation organization).
-  Do not copy OpenAI trademarks or code extracted from the closed-source Codex app.
+- Do not keep cloned reference repositories, debugging screenshots, or temporary
+  research scripts in the project root. Re-fetch external sources when a focused
+  implementation task requires them, then remove them after use.
 
 ## Legacy source-product context
 
@@ -289,6 +288,15 @@ to the product template.
   CNY and USD use DeepSeek's official
   regional token prices directly rather than converting through an exchange
   rate. Persist the preference locally under `coffee-note:currency`.
+- The composer skill picker and Settings > Skills share one source-backed
+  catalog. Adding a skill plugin asks only for a Git repository URL and a Coffee
+  Note category; package names, descriptions, versions, and skill instructions
+  are read from the repository's manifest and `SKILL.md` files and are never
+  duplicated into editable app-owned copies. Repositories are cached once under
+  the current user's app-data `skill-sources/` directory for offline use and
+  updates. Selecting a skill reads its original `SKILL.md` and adds it only to
+  that AI request's prompt. Coffee Note does not execute third-party scripts,
+  hooks, runtimes, or MCP servers from these repositories.
 - Chat uses a minimal two-sided conversation layout: user messages are compact
   bubbles aligned to the right, while Coffee Note answers remain readable,
   unframed content aligned to the left. Do not show participant names or avatars;
@@ -434,58 +442,24 @@ to the product template.
   Rust applies the resulting localized-path allowlist to both question-aware
   Library Graph context and always-on memory injection. My Contexts cards are direct
   navigation entries with no selected-card state; their light neutral surface is
-  `#f1f1f1`, while the switch is the only blue state on the page.
-- A future night mode is desirable but not yet a release blocker.
+  `#f1f1f1`. Enabled/context states use iOS blue (`#007aff`) in light mode and
+  egg-yolk yellow (`#e7be15`) in dark mode. The same state color marks the active
+  library multi-select control, selected-note checkmarks, and the removable note
+  context pill in the AI composer.
 
 ## Website
 
-- Website source: `website/`
-- Primary product URL: `https://note.coffeecli.com/`.
-- The website is build-free HTML/CSS/JavaScript. For Cloudflare Pages, leave
-  the framework preset, build command, and root directory empty; set only the
-  build output directory to `website`. GitHub Pages publishes that same folder
-  from the main repository workflow as a mirror at
-  `https://edison7009.github.io/Coffee-Note/`.
-- `website/version.json` participates in `npm run release:check` and must match
-  all desktop version fields. `website/_worker.js` exposes release-aware
-  version and download routes, and the install scripts fall back to GitHub.
-- The desktop app and website are separate products in the same repository.
-  The former standalone website repository remains only as a migration backup.
-- Visual direction: dark teal, Renaissance scientific engraving, warm paper,
-  copper/brass lines, and a full-bleed Tree of Life hero image. It should feel
-  optimistic, healthy, literary, and scientific—not dense or
-  trypophobia-inducing.
-- Keep the hero image clean. The six content sections below it use a restrained
-  static analog-film treatment: one shared lightweight WebP grain texture,
-  section-specific exposure direction, muted teal/copper light leaks, and soft
-  edge fading. The overlays sit behind content, never animate, and must preserve
-  text contrast on desktop and mobile.
-- Website hero:
-  - Chinese: **延寿，是人类在 AI 时代最有价值的投资。**
-  - English: **Longevity is humanity’s most valuable investment in the age of AI.**
-- Website hero lead is one unified subtitle paragraph at one visual level:
-  **富豪花费百万美元借助科技延寿，而 Coffee Note 希望把生命之光同样带给普通家庭；以
-  Bryan Johnson 公开的延寿计划为蓝本，融入 AI 与科学依据，让普通人也能拥有富豪级的延寿策略。**
-  Do not render the Bryan Johnson sentence as a smaller note.
-- The hero installer uses text-only platform tabs with no underline indicator.
-  Its Chinese primary actions are **安装 Coffee Note** and **在 GitHub 上点星**;
-  English keeps **Install Coffee Note** and **Star on GitHub**. Align the
-  install label and release version by their text baselines.
-  Its macOS fallback note is the compact inline command: `macOS 首次需在「终端」
-  xattr -cr '/Applications/Coffee Note.app'`. Keep this installation area
-  comfortably readable: 12px platform tabs, 13px desktop command text, and a
-  14px macOS note; mobile may ellipsize the visible command while copying the
-  complete value.
-- The scrolling T1–T5 strip is bilingual; strategy names are the same enlarged
-  size as the T1–T5 labels.
-- Open manifesto section keeps **科学延寿，不应该是富豪专属。** on the
-  left and shows the bilingual desktop home screenshot on the right; do not
-  restore the former three-principle list there.
-- The following **人人都能看得懂的界面。** section shows the bilingual NAD+
-  knowledge-page screenshot instead of repeating the home screenshot.
-- Product-section title:
-  - Chinese: **AI + 科学的时代**
-  - English: **The age of AI + science**
+- The public website is intentionally paused for a clean rebuild. The `website/`
+  directory currently keeps only `install.ps1` and `version.json` as the Windows
+  remote-install/update infrastructure.
+- Remote usage: `irm https://note.coffeecli.com/install.ps1 | iex`. The script
+  first tries the website's version/download routes and falls back to the latest
+  GitHub Release asset, so it remains useful while the public site is offline or
+  being rebuilt.
+- Primary future product URL: `https://note.coffeecli.com/`. Recreate the public
+  site independently when its new direction is ready.
+- Do not reuse the removed website's structure, assets, copy, or visual direction
+  by default. Treat the future site as a fresh product-design task.
 
 ## Architecture and important paths
 
@@ -496,7 +470,8 @@ to the product template.
 - Architecture notes: `docs/ARCHITECTURE.md`.
 - Bilingual-library rules: `docs/BILINGUAL_LIBRARY.md`.
 - Cross-platform release workflow: `.github/workflows/release.yml`.
-- Website: build-free static HTML/CSS/JavaScript under `website/`.
+- Website: paused; only `website/install.ps1` and `website/version.json` are
+  retained until the rebuild.
 
 ## Restore development dependencies on a new machine
 
@@ -609,39 +584,7 @@ existing note-organization model to produce editable Markdown. Ordinary web
 URLs retain the existing HTML extraction path. Direct local audio/video file
 selection is not implemented yet.
 
-## Reference archive and next-work plan (2026-08-07)
-
-`references/` holds shallow clones of projects studied for Coffee Note. It is
-gitignored (never committed); on a new machine, re-clone as needed. A memory
-file with full analysis lives at `references/README.md`.
-
-Archived repos:
-
-- `markitdown/` — Microsoft's file → clean Markdown converter (PDF/Word/PPT/
-  Excel/HTML/images/audio/YouTube). Highest direct value: Coffee Note's
-  "paste material → AI structures and saves it" flow lacks this preprocessing
-  layer. MIT license.
-- `codebase-memory-mcp/` — tree-sitter → persistent code knowledge graph.
-  Architecture blueprint for Coffee Note's Library Graph over the Markdown
-  library (persistent registry, backlinks, structural queries). ~1.3 GB clone;
-  self-reported benchmarks (arXiv:2603.27277) — borrow design, not numbers.
-- `pi-llm-wiki/` — Karpathy-style LLM Wiki: four-layer model (immutable raw /
-  editable wiki pages / generated meta / config), ownership guardrails,
-  deterministic lint, agent working memory. Read `docs/architecture.md`.
-- `Agent-Reach/` — web-reading capability layer (Jina Reader for pages,
-  yt-dlp subtitles, RSS, gh CLI; per-channel primary/fallback routing +
-  `doctor` health checks). Directly relevant to the home capture flow
-  "paste a link → AI structures and saves a note". Borrow the zero-config
-  channels and self-healing routing; do NOT bundle its CLI installs or
-  login-cookie channels into the desktop product.
-- `DeepSeek-Reasonix/`, `ponytail/`, `code-review-graph/` — cache-hit
-  optimization, anti-over-engineering prompts, MD link-graph prototype.
-
-Not archived (analyzed, low/borrow-only): taste-skill (anti-slop prompt
-reference only),
-OpenMontage (cost transparency + self-review gates only).
-
-Next-work plan:
+## Next-work plan
 
 1. **Phase 1 — Finish import preprocessing**: media URL audio download and
    hosted/local transcription are implemented. Next, add direct local file
@@ -650,13 +593,13 @@ Next-work plan:
    Keep processing local by default, SSRF-safe, and free of login-cookie
    channels. Acceptance: selecting a local document or media file produces an
    editable Markdown note through the same capture dialog.
-2. **Phase 2 — Library Graph** (codebase-memory-mcp + pi-llm-wiki blueprints):
+2. **Phase 2 — Library Graph**:
    evolve `knowledge_map.rs` into a persistent registry + backlinks + orphan/
    broken-link lint + deterministic metadata rebuild after agent runs;
    measure token and tool-call savings.
-3. **Phase 3 — Cache hit rate and cost** (Reasonix) + prompt slimming
-   (ponytail): audit `agent_loop.rs` system prompt.
-4. **Phase 4 — Evidence-retrieval self-healing routing** (Agent-Reach pattern):
+3. **Phase 3 — Cache hit rate and cost**: audit and slim the
+   `agent_loop.rs` system prompt.
+4. **Phase 4 — Evidence-retrieval self-healing routing**:
    primary/fallback endpoints for Europe PMC / PubMed / ClinicalTrials with
    health checks and automatic degradation.
 
