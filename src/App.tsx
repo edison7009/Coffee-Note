@@ -6711,16 +6711,19 @@ function ChatComposer({
   const reasoningMotionTimersRef = useRef<number[]>([]);
   const [openComposerMenu, setOpenComposerMenu] = useState<'model' | 'reasoning' | null>(null);
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
-  const [activeSkillGroupId, setActiveSkillGroupId] = useState('copywriting');
+  const [activeSkillGroupId, setActiveSkillGroupId] = useState<string | null>(null);
   const composerControlsRef = useRef<HTMLDivElement>(null);
   const composerSkillRef = useRef<HTMLDivElement>(null);
   const selectedSkill = skillCatalog.skills.find((skill) => skill.id === selectedSkillId) ?? null;
-  const activeSkillGroup = skillCatalog.categories.find((group) => group.id === activeSkillGroupId)
-    || skillCatalog.categories[0];
-  const activeSkillGroupIndex = Math.max(
-    0,
-    skillCatalog.categories.findIndex((group) => group.id === activeSkillGroup?.id),
-  );
+  const activeSkillGroup = activeSkillGroupId
+    ? skillCatalog.categories.find((group) => group.id === activeSkillGroupId) ?? null
+    : null;
+  const activeSkillGroupIndex = activeSkillGroup
+    ? Math.max(
+        0,
+        skillCatalog.categories.findIndex((group) => group.id === activeSkillGroup.id),
+      )
+    : 0;
   const activeSkills = skillCatalog.skills.filter((skill) => skill.categoryId === activeSkillGroup?.id);
   const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitRate = cacheTokens > 0
@@ -6977,7 +6980,7 @@ function ChatComposer({
                 type="button"
                 className={`composer-skill-trigger${skillMenuOpen ? ' open' : ''}`}
                 onClick={() => {
-                  setActiveSkillGroupId(skillCatalog.categories[0]?.id ?? 'copywriting');
+                  setActiveSkillGroupId(null);
                   setSkillMenuOpen((current) => !current);
                 }}
                 aria-label={locale === 'zh' ? '选择技能' : 'Choose a skill'}

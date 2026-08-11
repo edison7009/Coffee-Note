@@ -2842,7 +2842,7 @@ html.tree-drag-active * {
   width: 260px;
   max-width: 32vw;
   min-width: 220px;
-  max-height: 440px;
+  max-height: 352px; /* exactly 6 skill items: 6*54 + 5*2 gap + 18 padding */
   gap: 2px;
   padding: 9px;
   overflow-y: auto;
@@ -2859,6 +2859,12 @@ html.tree-drag-active * {
 .composer-skill-items::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+
+.composer-skill-items::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .composer-skill-items::-webkit-scrollbar-track {
