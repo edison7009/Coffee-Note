@@ -4276,10 +4276,26 @@ html.tree-drag-active * {
 .capture-transcription-choice {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 12px;
   margin: 10px 0 0;
   padding: 0;
   border: 0;
+}
+
+.capture-transcription-hint {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.capture-transcription-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .capture-transcription-choice .capture-transcription-prefix {

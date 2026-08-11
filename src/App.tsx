@@ -8899,27 +8899,30 @@ function CaptureGuideDialog({
                 />
               </label>
               <fieldset className="capture-transcription-choice">
-                <span className="capture-transcription-prefix">{t('captureTranscriptionPrefix')}</span>
-                <label className={transcriptionMode === 'api' ? 'selected' : ''}>
-                  <input
-                    type="radio"
-                    name="capture-transcription-mode"
-                    value="api"
-                    checked={transcriptionMode === 'api'}
-                    onChange={() => setTranscriptionMode('api')}
-                  />
-                  <span>{t('captureTranscriptionApi')}</span>
-                </label>
-                <label className={transcriptionMode === 'local' ? 'selected' : ''}>
-                  <input
-                    type="radio"
-                    name="capture-transcription-mode"
-                    value="local"
-                    checked={transcriptionMode === 'local'}
-                    onChange={() => setTranscriptionMode('local')}
-                  />
-                  <span>{t('captureTranscriptionLocal')}</span>
-                </label>
+                <span className="capture-transcription-hint">{t('captureTranscriptionHint')}</span>
+                <span className="capture-transcription-options">
+                  <span className="capture-transcription-prefix">{t('captureTranscriptionPrefix')}</span>
+                  <label className={transcriptionMode === 'api' ? 'selected' : ''}>
+                    <input
+                      type="radio"
+                      name="capture-transcription-mode"
+                      value="api"
+                      checked={transcriptionMode === 'api'}
+                      onChange={() => setTranscriptionMode('api')}
+                    />
+                    <span>{t('captureTranscriptionApi')}</span>
+                  </label>
+                  <label className={transcriptionMode === 'local' ? 'selected' : ''}>
+                    <input
+                      type="radio"
+                      name="capture-transcription-mode"
+                      value="local"
+                      checked={transcriptionMode === 'local'}
+                      onChange={() => setTranscriptionMode('local')}
+                    />
+                    <span>{t('captureTranscriptionLocal')}</span>
+                  </label>
+                </span>
               </fieldset>
             </>
           ) : (
