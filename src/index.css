@@ -12,21 +12,21 @@
 :root {
   font-family:
     Inter, 'SF Pro Text', 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
-  color: #172b2c;
-  background: #edf2f1;
+  color: #2c2c2e;
+  background: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --ink: #172b2c;
-  --muted: #6b7c7d;
-  --line: #dfe7e5;
-  --blue: #2f6f9d;
-  --teal: #159f8d;
-  --soft-teal: #e6f4f0;
-  --paper: #fbfcfb;
-  --canvas: #f4f7f6;
+  --ink: #2c2c2e;
+  --muted: #77777b;
+  --line: rgba(60, 60, 67, 0.12);
+  --blue: #3a3b3d;
+  --teal: #3a3b3d;
+  --soft-teal: rgba(58, 59, 61, 0.07);
+  --paper: #ffffff;
+  --canvas: #ffffff;
   --sidebar-width: 248px;
   --right-rail-width: 326px;
-  --shadow: 0 18px 55px rgba(25, 52, 50, 0.12);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
   --display-serif:
     'Iowan Old Style', 'Palatino Linotype', 'Noto Serif SC', 'Source Han Serif SC',
     'Songti SC', STSong, Georgia, serif;
@@ -72,9 +72,9 @@ a:focus-visible {
   align-items: center;
   min-width: 0;
   overflow: visible;
-  color: #3f4744;
-  background: #f3f6f4;
-  border-bottom: 1px solid #dfe5e2;
+  color: var(--ink);
+  background: var(--sidebar-surface);
+  border-bottom: 1px solid var(--line);
   user-select: none;
 }
 
@@ -291,7 +291,7 @@ body.resizing-panels * {
 
 .brand small {
   margin-top: 1px;
-  color: #72908b;
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -370,7 +370,7 @@ body.resizing-panels * {
   width: 100%;
   height: 42px;
   padding: 0 10px;
-  color: #47605f;
+  color: var(--ink);
   background: transparent;
   border: 0;
   border-radius: 10px;
@@ -383,7 +383,7 @@ body.resizing-panels * {
 }
 
 .nav-button:hover {
-  background: #eff5f3;
+  background: var(--tertiary-surface);
 }
 
 .nav-button.active {
@@ -456,7 +456,7 @@ body.resizing-panels * {
   gap: 4px;
   height: 42px;
   padding: 0 7px;
-  color: #168477;
+  color: var(--accent);
   background: transparent;
   border: 0;
   border-radius: 0 10px 10px 0;
@@ -1127,7 +1127,7 @@ html.tree-drag-active * {
 }
 
 .action-card {
-  --shape-color: #67bca4;
+  --shape-color: #a2a3a7;
 }
 
 .action-card:nth-child(2) {
@@ -1139,8 +1139,8 @@ html.tree-drag-active * {
 }
 
 .action-card:hover {
-  border-color: #bdd7d1;
-  background: #fbfdfc;
+  border-color: var(--line);
+  background: var(--paper);
 }
 
 .action-copy {
@@ -1156,13 +1156,13 @@ html.tree-drag-active * {
 
 .action-copy small {
   margin-top: 3px;
-  color: #7f918e;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .action-card > svg {
-  color: #8ba09c;
+  color: color-mix(in srgb, var(--accent) 40%, var(--muted));
 }
 
 .section-heading {
@@ -1174,13 +1174,13 @@ html.tree-drag-active * {
 
 .section-heading p {
   margin: 0;
-  color: #899996;
+  color: var(--muted);
   font-size: 14.5px;
   line-height: 1.55;
 }
 
 .section-stat {
-  color: #95a5a2;
+  color: var(--muted);
   font-size: 12.5px;
   text-transform: uppercase;
 }
@@ -1196,7 +1196,7 @@ html.tree-drag-active * {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
   min-height: 72px;
-  border-bottom: 1px solid #e5ecea;
+  border-bottom: 1px solid var(--line);
 }
 
 .tier-row:last-child {
@@ -1234,7 +1234,7 @@ html.tree-drag-active * {
   flex-wrap: wrap;
   gap: 8px 34px;
   padding: 10px 22px;
-  background: #f9fbfa;
+  background: var(--paper);
 }
 
 .tier-items button {
@@ -1253,7 +1253,7 @@ html.tree-drag-active * {
 }
 
 .tier-empty {
-  color: #acb9b6;
+  color: var(--muted);
 }
 
 .people-view {
@@ -1295,7 +1295,7 @@ html.tree-drag-active * {
 
 .person-index {
   align-self: flex-start;
-  color: #8ca09c;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -3675,9 +3675,9 @@ html.tree-drag-active * {
   min-height: 38px;
   padding: 7px 9px;
   overflow: hidden;
-  color: #49635f;
-  background: white;
-  border: 1px solid #e3ebe8;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 9px;
   font-size: 13px;
   text-decoration: none;
@@ -3695,9 +3695,9 @@ html.tree-drag-active * {
   align-items: start;
   gap: 8px;
   padding: 9px;
-  color: #617673;
-  background: white;
-  border: 1px solid #e3ebe8;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 9px;
   font-size: 13px;
 }
@@ -3861,8 +3861,8 @@ html.tree-drag-active * {
   width: min(650px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
   overflow: hidden;
-  background: #fbfcfb;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 20px;
   box-shadow: var(--shadow);
   animation: dialog-in 180ms ease-out;
@@ -3952,9 +3952,9 @@ html.tree-drag-active * {
   justify-content: center;
   gap: 6px;
   min-height: 36px;
-  color: #637a76;
-  background: #f1f5f4;
-  border: 1px solid #dfe7e5;
+  color: var(--muted);
+  background: var(--secondary-surface);
+  border: 1px solid var(--line);
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
@@ -4139,7 +4139,7 @@ html.tree-drag-active * {
   min-height: 35px;
   padding: 8px 13px;
   color: white;
-  background: linear-gradient(145deg, #287a95, #159f8d);
+  background: var(--accent);
   border: 0;
   border-radius: 9px;
   font-size: 13px;
@@ -4167,7 +4167,7 @@ html.tree-drag-active * {
 .capture-field {
   display: grid;
   gap: 7px;
-  color: #526965;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 700;
 }
@@ -4175,9 +4175,9 @@ html.tree-drag-active * {
 .capture-field input,
 .capture-field textarea {
   width: 100%;
-  color: #233b38;
-  background: #f7f9f8;
-  border: 1px solid #dbe6e3;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 11px;
   outline: none;
   font: inherit;
@@ -4197,10 +4197,13 @@ html.tree-drag-active * {
 }
 
 .capture-field input:focus,
-.capture-field textarea:focus {
-  background: white;
-  border-color: #84bbb0;
-  box-shadow: 0 0 0 3px rgba(38, 143, 124, 0.09);
+.capture-field textarea:focus,
+.capture-field input:focus-visible,
+.capture-field textarea:focus-visible {
+  background: var(--paper);
+  border-color: color-mix(in srgb, var(--ink) 48%, var(--line));
+  box-shadow: none;
+  outline: none;
 }
 
 .capture-draft {
@@ -4217,7 +4220,7 @@ html.tree-drag-active * {
 .capture-source-url {
   margin: -4px 0 0;
   overflow: hidden;
-  color: #80918e;
+  color: var(--muted);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4246,9 +4249,9 @@ html.tree-drag-active * {
   gap: 11px;
   min-height: 45px;
   padding: 8px 11px;
-  color: #49605d;
-  background: #f5f8f7;
-  border: 1px solid #e3ebe8;
+  color: var(--ink);
+  background: var(--secondary-surface);
+  border: 1px solid var(--line);
   border-radius: 11px;
 }
 
@@ -4257,8 +4260,8 @@ html.tree-drag-active * {
   width: 27px;
   height: 27px;
   place-items: center;
-  color: white;
-  background: linear-gradient(145deg, #24778e, #159780);
+  color: var(--accent-contrast);
+  background: var(--accent);
   border-radius: 9px;
   font-size: 13px;
   font-weight: 800;
@@ -4280,7 +4283,7 @@ html.tree-drag-active * {
 
 .capture-transcription-choice legend {
   margin-bottom: 2px;
-  color: #526965;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 700;
 }
@@ -4515,7 +4518,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --ink: #e6e8e7;
   --muted: #9da29f;
   --line: #343735;
-  --soft-teal: #29332f;
+  --soft-teal: rgba(199, 199, 199, 0.11);
   --paper: #1e201f;
   --canvas: #181918;
   --shadow: 0 18px 55px rgba(0, 0, 0, 0.34);
@@ -4918,7 +4921,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .message.user .message-content {
-  background: #29332f;
+  background: var(--chat-user-bubble);
 }
 
 [data-theme='dark'] .message-content,
@@ -4951,9 +4954,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .health-week-day.active {
-  color: #f0f2f1;
-  background: #29332f;
-  border-color: #526a63;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 
 [data-theme='dark'] .health-field-icon {
@@ -4990,7 +4993,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 [data-theme='dark'] .favorite-toggle.active,
 [data-theme='dark'] .plan-shortcut-list button.active {
   color: var(--accent);
-  background: #29332f;
+  background: var(--accent-soft);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
@@ -5036,44 +5039,46 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 [data-theme='dark'] .settings-dialog,
 [data-theme='dark'] .capture-dialog {
-  color: #e0e3e1;
-  background: #202220;
-  border-color: #3d413e;
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line);
 }
 
 [data-theme='dark'] .settings-nav {
-  background: #1c1f1e;
+  background: var(--sidebar-surface);
 }
 
 [data-theme='dark'] .settings-nav button {
-  color: #aeb7b3;
+  color: var(--muted);
 }
 
 [data-theme='dark'] .settings-nav button.active {
-  color: #91d0c4;
-  background: #29332f;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 [data-theme='dark'] .settings-hint {
-  color: #939d99;
+  color: var(--muted);
 }
 
 [data-theme='dark'] .capture-field {
-  color: #aeb8b4;
+  color: var(--muted);
 }
 
 [data-theme='dark'] .capture-field input,
 [data-theme='dark'] .capture-field textarea {
-  color: #e0e3e1;
-  background: #282a29;
-  border-color: #3d423f;
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line);
 }
 
 [data-theme='dark'] .capture-field input:focus,
-[data-theme='dark'] .capture-field textarea:focus {
-  background: #2b2e2c;
-  border-color: #54776f;
-  box-shadow: 0 0 0 3px rgba(75, 150, 134, 0.1);
+[data-theme='dark'] .capture-field textarea:focus,
+[data-theme='dark'] .capture-field input:focus-visible,
+[data-theme='dark'] .capture-field textarea:focus-visible {
+  background: var(--paper);
+  border-color: color-mix(in srgb, var(--ink) 48%, var(--line));
+  box-shadow: none;
 }
 
 [data-theme='dark'] .capture-error {
@@ -7430,6 +7435,56 @@ textarea,
   border-color: color-mix(in srgb, var(--ink) 48%, var(--line));
   outline: none;
   box-shadow: none;
+}
+
+/* Capture dialog: fully monochrome, no inherited green/teal theme.
+   The base capture rules above still carry the old green palette, so
+   re-assert the neutral surface tokens here with higher specificity
+   (including the dark-mode variants the plain rules cannot override). */
+.capture-field {
+  color: var(--muted);
+}
+
+.capture-field input,
+.capture-field textarea,
+[data-theme='dark'] .capture-field input,
+[data-theme='dark'] .capture-field textarea {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.capture-field input:focus,
+.capture-field textarea:focus,
+[data-theme='dark'] .capture-field input:focus,
+[data-theme='dark'] .capture-field textarea:focus,
+.capture-field input:focus-visible,
+.capture-field textarea:focus-visible,
+[data-theme='dark'] .capture-field input:focus-visible,
+[data-theme='dark'] .capture-field textarea:focus-visible {
+  background: var(--paper);
+  border-color: color-mix(in srgb, var(--ink) 48%, var(--line));
+  box-shadow: none;
+  outline: none;
+}
+
+.capture-transcription-choice legend {
+  color: var(--muted);
+}
+
+.capture-guide-step {
+  color: var(--ink);
+  background: var(--secondary-surface);
+  border-color: var(--line);
+}
+
+.capture-guide-step > span {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.capture-source-url {
+  color: var(--muted);
 }
 
 /* Full-window settings workspace */
