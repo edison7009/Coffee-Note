@@ -1033,10 +1033,10 @@ html.tree-drag-active * {
   align-items: center;
   gap: 7px;
   margin-bottom: 10px;
-  color: var(--muted);
+  color: var(--accent);
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   line-height: 1.35;
 }
 
@@ -2213,20 +2213,21 @@ html.tree-drag-active * {
 }
 
 .chat-empty-wordmark {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: 0;
-  line-height: 1.2;
+  color: var(--accent);
+  font-family: 'Lora', ui-serif, Georgia, 'Times New Roman', serif;
+  font-size: 64px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }
 
 .chat-empty-features {
-  max-width: 460px;
+  max-width: 650px;
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.8;
   text-align: center;
 }
 
@@ -6134,9 +6135,13 @@ textarea,
 .chat-empty-wordmark,
 [data-theme='dark'] .chat-empty-wordmark {
   color: var(--ink);
-  font-size: 20px;
+  font-size: 42px;
   letter-spacing: 0;
-  line-height: 1.2;
+  line-height: 1;
+}
+
+[data-theme='dark'] .chat-empty-wordmark {
+  color: var(--ink);
 }
 
 .brand-update,
@@ -6319,9 +6324,9 @@ textarea,
 .hero-kicker,
 .page-kicker-row .hero-kicker {
   margin-bottom: 8px;
-  color: var(--muted);
+  color: var(--accent);
   font-size: 13px;
-  letter-spacing: 0;
+  letter-spacing: 0.11em;
 }
 
 .hero h1,
@@ -7251,7 +7256,7 @@ textarea,
 }
 
 .chat-empty-features {
-  opacity: 1;
+  opacity: 0.72;
 }
 
 .conversation-history-item {

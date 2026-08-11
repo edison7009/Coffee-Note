@@ -5329,7 +5329,7 @@ function HomeView({
         <div className="hero-copy">
           <div className="hero-kicker">
             <GreetingIcon size={15} />
-            {t('homeTagline')}
+            Your AI Second Brain for Knowledge & Ideas
           </div>
           <h1>{t(greetingKey)}</h1>
         </div>
@@ -5505,7 +5505,7 @@ function PeopleView({
           <PageBackButton locale={locale} onBack={onBack} />
           <div className="hero-kicker">
             <UsersRound size={15} />
-            {t('peopleTagline')}
+            PROTOCOL ATLAS
           </div>
         </div>
         <h1>{t('peopleTitle')}</h1>
@@ -5573,7 +5573,7 @@ function StoriesView({
           <PageBackButton locale={locale} onBack={onBack} />
           <div className="hero-kicker">
             <BookOpen size={15} />
-            {t('storiesTagline')}
+            LONGEVITY FIELD NOTES
           </div>
         </div>
         <h1>{t('storiesTitle')}</h1>
@@ -6186,7 +6186,14 @@ function ConversationView({
     <div className="page conversation-view" onContextMenu={openConversationTextMenu}>
       {messages.length === 0 && (
         <div className="chat-empty-state">
-          <p className="chat-empty-features">{translate(locale, 'chatEmptyHint')}</p>
+          <div className="chat-empty-heading">
+            <strong className="chat-empty-wordmark">Coffee Note</strong>
+          </div>
+          <p className="chat-empty-features">
+            {locale === 'zh'
+              ? 'DeepSeek 高效缓存引擎 · 双向记忆路由 · Library Graph · 自动压缩'
+              : 'DeepSeek cache optimization · bidirectional memory routing · Library Graph · automatic compaction'}
+          </p>
         </div>
       )}
       <div ref={messageListRef} className="message-list">
