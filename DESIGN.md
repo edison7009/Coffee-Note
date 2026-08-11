@@ -167,6 +167,10 @@
 - **Light:** ink `#2c2c2e`, muted `#77777b`, canvas `#ffffff`, sidebar `#f0f5f0`, grouped surface `#f7f7f5`, line `rgba(60, 60, 67, 0.12)`.
 - **Interaction:** graphite `#3a3b3d`; hover `#252628`; soft state `rgba(58, 59, 61, 0.07)`.
 - **Dark:** canvas `#1c1c1e`, sidebar `#242426`, ink and interaction `#f2f2f7` / `#d1d1d6`.
+- **Workspace content ink:** the center workspace and contextual rail reuse the
+  fixed interaction neutral (`#3a3b3d` in light mode and `#c7c7c7` in dark mode)
+  instead of introducing another color token. Keep the left navigation's existing
+  hierarchy unchanged.
 - **Semantic color:** Reserve red, amber, and green for errors, warnings, and success only. Do not use semantic colors as branding or decoration.
 - **Tier color:** T1-T5 use muted rose, amber, yellow, teal, and green. Color stays in the homepage tier strip, softly tinted label cells, the compact note priority button, and the menu's small tier swatches; it does not enter navigation, article content, or settings surfaces. The priority button keeps its tier-tinted background unchanged on hover/open. Menu hover and selection use one neutral background with no colored border or glow.
 

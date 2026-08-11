@@ -1,6 +1,6 @@
 # Coffee Note — portable Codex project memory
 
-Updated: 2026-08-07
+Updated: 2026-08-11
 
 This file preserves the decisions and working context needed to continue the
 project on another machine. It contains no API keys, private user parameters,
@@ -81,6 +81,11 @@ or temporary deployment credentials.
   with neutral ink; do not restore the inherited green/teal composer or bubble.
   Small estimated costs keep up to four decimals but trim meaningless trailing zeros
   (`0.0040` displays as `0.004`), while the no-request baseline remains `0.00`.
+- **Softer workspace text (2026-08-11):** The center workspace and right contextual
+  rail reuse the fixed interaction neutral as their scoped ink: `#3a3b3d` in light
+  mode and `#c7c7c7` in dark mode. The left navigation keeps its existing hierarchy.
+  Tier-note labels and chat content must follow the same scoped ink rather than
+  restoring brighter hard-coded colors.
 - **Auto-hiding scrollbars (2026-08-10):** Main content, settings, provider lists,
   and Markdown editors follow the Coffee-CLI pattern: native WebView scrollbars are
   fully hidden and a narrow real-DOM slider floats over the edge. The slider has no

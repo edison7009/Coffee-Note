@@ -1242,7 +1242,7 @@ html.tree-drag-active * {
   align-items: center;
   min-height: 46px;
   padding: 4px 0;
-  color: #304b48;
+  color: var(--ink);
   background: transparent;
   border: 0;
   font-size: 16px;
@@ -2252,7 +2252,7 @@ html.tree-drag-active * {
 
 .message-content {
   min-width: 0;
-  color: #405552;
+  color: var(--ink);
   font-size: 15px;
   line-height: 1.75;
 }
@@ -4833,7 +4833,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .tier-items button {
-  color: #d5d8d6;
+  color: var(--ink);
 }
 
 [data-theme='dark'] .person-card {
@@ -4919,7 +4919,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 [data-theme='dark'] .message-content,
 [data-theme='dark'] .message-content p {
-  color: #cbd0cd;
+  color: var(--ink);
 }
 
 [data-theme='dark'] .health-log {
@@ -6293,6 +6293,11 @@ textarea,
 [data-theme='dark'] .tree-child:hover,
 [data-theme='dark'] .tree-child.active {
   color: var(--accent);
+}
+
+.main-pane,
+.right-rail {
+  --ink: var(--accent);
 }
 
 .main-pane,
