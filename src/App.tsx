@@ -2015,22 +2015,7 @@ function App() {
       }
     }
     if (target.kind === 'file') {
-      const filePath = target.id;
-      setView('supplement');
-      setSelectedSupplement(null);
-      setSelectedPerson(null);
-      setSelectedStory(null);
-      setNoteLoading(true);
-      readNote(library.root, filePath)
-        .then((raw) => setNoteMarkdown(raw))
-        .catch(() =>
-          setNoteMarkdown(
-            locale === 'zh'
-              ? `# 无法打开\n\n找不到文件 \`${filePath}\`。`
-              : `# Cannot open\n\nFile \`${filePath}\` not found.`,
-          ),
-        )
-        .finally(() => setNoteLoading(false));
+      openFileNote(target.id);
       return;
     }
     setToast({
@@ -7075,7 +7060,7 @@ function RightRail({
             detail: t('people'),
           });
         }
-      } else {
+      } else if (favorite.kind === 'story') {
         const item = library.stories.find((candidate) => candidate.id === favorite.id);
         if (item) {
           items.push({
@@ -7084,6 +7069,29 @@ function RightRail({
             detail: t('stories'),
           });
         }
+      } else if (favorite.kind === 'file') {
+        const priority = library.priorities.find((candidate) => candidate.filePath === favorite.id);
+        const planSectionId = (
+          Object.keys(PLAN_SECTION_FILES) as Array<Exclude<PlanSection, 'log'>>
+        ).find((id) => getPlanSectionFile(id, locale) === favorite.id);
+        const planSection = planSectionId
+          ? getPlanSections(locale).find((section) => section.id === planSectionId)
+          : undefined;
+        const fileName = favorite.id
+          .split('/')
+          .pop()
+          ?.replace(/(?:\.en)?\.md$/i, '');
+        items.push({
+          target: favorite,
+          title: priority?.title || planSection?.title || fileName || favorite.id,
+          detail: priority
+            ? `${priority.tier} · ${locale === 'zh' ? '笔记' : 'Note'}`
+            : planSection
+              ? t('myPlan')
+              : locale === 'zh'
+                ? '笔记'
+                : 'Note',
+        });
       }
     }
     return items;
