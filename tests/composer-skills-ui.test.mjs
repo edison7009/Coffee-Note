@@ -23,7 +23,7 @@ test('skill categories reveal name and description entries on hover', () => {
   assert.match(cssSource, /\.composer-skill-popover\s*\{[^}]*bottom:\s*calc\(100% \+ 8px\)/s);
   assert.match(cssSource, /\.composer-skill-trigger\.open \.composer-skill-icon\s*\{[^}]*transform:\s*rotate\(45deg\)/s);
   assert.match(cssSource, /\.composer-skill-trigger\s*\{[^}]*height:\s*32px;/s);
-  assert.match(cssSource, /\.composer\s*\{[^}]*padding:\s*4px 9px 9px;/s);
+  assert.match(cssSource, /\.composer\s*\{[^}]*padding:\s*7px 9px 8px;/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*left:\s*calc\(100% - 4px\)/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*width:\s*260px;[^}]*max-width:\s*32vw;/s);
   assert.match(cssSource, /\.composer-skill-management\s*\{[^}]*border-top:\s*1px solid var\(--line\)/s);

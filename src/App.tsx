@@ -6836,9 +6836,9 @@ function ChatComposer({
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    const next = Math.min(el.scrollHeight, 138);
+    const next = Math.min(el.scrollHeight, 122);
     el.style.height = `${next}px`;
-    el.style.overflowY = el.scrollHeight > 138 ? 'auto' : 'hidden';
+    el.style.overflowY = el.scrollHeight > 122 ? 'auto' : 'hidden';
   }, [inputRef]);
 
   useLayoutEffect(() => {

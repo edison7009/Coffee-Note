@@ -2636,7 +2636,7 @@ html.tree-drag-active * {
   display: flex;
   flex-direction: column;
   min-height: 64px; /* one text line + one fixed tools line */
-  padding: 4px 9px 9px;
+  padding: 7px 9px 8px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--line);
   border-radius: 17px;
@@ -2650,15 +2650,16 @@ html.tree-drag-active * {
 
 .composer textarea {
   width: 100%;
-  max-height: 138px; /* 6 lines at 16px / 1.45 line-height; keep in sync with ChatComposer */
+  max-height: 122px; /* 6 lines at 14px / 1.45 line-height; keep in sync with ChatComposer */
   padding: 2px 3px 2px 7px;
+  margin-bottom: 6px;
   overflow-y: auto;
   resize: none;
   color: color-mix(in srgb, var(--ink) 82%, var(--paper));
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.45;
   scrollbar-width: none;
 }
@@ -2669,7 +2670,7 @@ html.tree-drag-active * {
 
 .composer textarea::placeholder {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.62;
 }
 
@@ -2679,6 +2680,7 @@ html.tree-drag-active * {
   justify-content: flex-end;
   gap: 8px;
   min-height: 32px;
+  margin-top: auto;
 }
 
 .composer-skill-control {

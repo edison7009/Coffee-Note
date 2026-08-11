@@ -8,6 +8,6 @@ const styles = await readFile(new URL('../src/index.css', import.meta.url), 'utf
 test('composer placeholder stays concise and visually quieter than entered text', () => {
   assert.match(i18n, /askPlaceholder: '写下想法，或让 AI 帮你整理…'/);
   assert.match(i18n, /askPlaceholder: 'Write a thought, or let AI organize it…'/);
-  assert.match(styles, /\.composer textarea\s*\{[^}]*font-size:\s*16px/s);
-  assert.match(styles, /\.composer textarea::placeholder\s*\{[^}]*font-size:\s*14px/s);
+  assert.match(styles, /\.composer textarea\s*\{[^}]*font-size:\s*14px/s);
+  assert.match(styles, /\.composer textarea::placeholder\s*\{[^}]*font-size:\s*13px/s);
 });
