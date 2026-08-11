@@ -404,7 +404,7 @@ function useStoredState<T>(key: string, initial: T): [T, (value: T) => void] {
   return [state, update];
 }
 
-function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = false): () => void {
+function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = false, insetY = 0): () => void {
   let hideTimer: number | null = null;
   let updateFrame: number | null = null;
   let maxScroll = 0;
@@ -438,16 +438,16 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = fal
       }
 
       rail.classList.remove('is-empty');
-      rail.style.top = `${Math.round(top)}px`;
+      rail.style.top = `${Math.round(top + insetY)}px`;
       rail.style.left = `${Math.round(Math.min(window.innerWidth - railWidth, rect.right - railWidth))}px`;
-      rail.style.height = `${Math.round(viewportHeight)}px`;
+      rail.style.height = `${Math.round(viewportHeight - insetY * 2)}px`;
 
-      const trackHeight = Math.max(0, viewportHeight - 4);
+      const trackHeight = Math.max(0, viewportHeight - insetY * 2 - 4);
       const thumbHeight = Math.max(28, trackHeight * (element.clientHeight / element.scrollHeight));
       thumbTravel = Math.max(0, trackHeight - thumbHeight);
       const thumbTop = maxScroll > 0 ? (element.scrollTop / maxScroll) * thumbTravel : 0;
       slider.style.height = `${Math.round(thumbHeight)}px`;
-      slider.style.transform = `translateY(${Math.round(thumbTop + 2)}px)`;
+      slider.style.transform = `translateY(${Math.round(thumbTop + insetY + 2)}px)`;
     });
   };
 
@@ -6839,7 +6839,7 @@ function ChatComposer({
   useEffect(() => {
     const element = composerSkillItemsRef.current;
     if (!activeSkillGroup || !element) return;
-    return bindAutoHideScrollbar(element, 450, true);
+    return bindAutoHideScrollbar(element, 450, true, 8);
   }, [activeSkillGroup]);
 
   // Must match the `.composer textarea` CSS max-height (6 lines at 1.45).

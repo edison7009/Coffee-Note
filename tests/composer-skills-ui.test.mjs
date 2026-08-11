@@ -27,9 +27,9 @@ test('skill categories reveal name and description entries on hover', () => {
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*left:\s*calc\(100% - 4px\)/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*width:\s*260px;[^}]*max-width:\s*32vw;/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*max-height:\s*352px;[^}]*overflow-y:\s*auto;/s);
-  assert.match(cssSource, /\.tier-scrollbar-slim\s*\{[^}]*width:\s*6px;/s);
-  assert.match(cssSource, /\.tier-scrollbar-slim \.tier-scrollbar-slider\s*\{[^}]*width:\s*3px;/s);
-  assert.match(appSource, /bindAutoHideScrollbar\(element, 450, true\)/);
+  assert.match(cssSource, /\.tier-scrollbar-slim\s*\{[^}]*width:\s*7px;/s);
+  assert.match(cssSource, /\.tier-scrollbar-slim \.tier-scrollbar-slider\s*\{[^}]*width:\s*4px;/s);
+  assert.match(appSource, /bindAutoHideScrollbar\(element, 450, true, 8\)/);
   assert.match(cssSource, /\.composer-skill-management\s*\{[^}]*border-top:\s*1px solid var\(--line\)/s);
   assert.doesNotMatch(cssSource, /\.composer-skill-search|\.composer-skill-footer-action/);
   assert.match(cssSource, /\.composer-preview-controls\s*\{[^}]*margin-left:\s*auto;/s);
