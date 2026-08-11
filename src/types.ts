@@ -62,6 +62,13 @@ export interface LibrarySnapshot {
 
 export type ModelProtocol = 'openai' | 'anthropic';
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type WebReaderProvider = 'direct' | 'firecrawl' | 'jina';
+
+export interface WebReaderSettings {
+  provider: WebReaderProvider;
+  baseUrl: string;
+  apiKey: string;
+}
 
 export interface ProviderConfig {
   providerId: string;
@@ -84,6 +91,7 @@ export interface ModelSettings {
   activeProvider: string;
   reasoningEffort: ReasoningEffort;
   providers: Record<string, ProviderConfig>;
+  webReader: WebReaderSettings;
 }
 
 export interface ModelCatalogCost {
@@ -202,6 +210,7 @@ export interface PrepareCaptureRequest {
   transcriptionMode?: 'api' | 'local';
   input: string;
   locale: Locale;
+  webReader: WebReaderSettings;
 }
 
 export type TranscriptionProtocol = 'openai-compatible' | 'deepgram' | 'assemblyai' | 'custom';
@@ -327,6 +336,7 @@ export interface AgentRequest {
   model: string;
   provider?: string;
   reasoningEffort?: ReasoningEffort;
+  webReader: WebReaderSettings;
   message: string;
   locale: Locale;
   knowledgeRoot: string;

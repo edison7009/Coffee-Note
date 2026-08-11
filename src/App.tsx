@@ -168,6 +168,8 @@ import type {
   PriorityNote,
   ProviderConfig,
   ReasoningEffort,
+  WebReaderProvider,
+  WebReaderSettings,
   SkillCatalog,
   SkillDefinition,
   Story,
@@ -2582,6 +2584,7 @@ function App() {
         model: modelConfig.model,
         provider: modelConfig.provider,
         reasoningEffort: modelConfig.reasoningEffort,
+        webReader: modelSettings.webReader,
         message: clean,
         locale,
         knowledgeRoot: library.root,
@@ -3084,6 +3087,7 @@ function App() {
         <CaptureGuideDialog
           locale={locale}
           config={modelConfig}
+          webReader={modelSettings.webReader}
           knowledgeRoot={library.root || normalizedKnowledgeRoot}
           onClose={() => setCaptureGuideOpen(false)}
           onSaved={finishCapture}
@@ -6226,6 +6230,11 @@ function ConversationView({
                 done: locale === 'zh' ? '已读取笔记' : 'Read note',
                 failed: locale === 'zh' ? '读取笔记失败' : 'Could not read note',
               },
+              web_fetch: {
+                running: locale === 'zh' ? '正在读取网页' : 'Fetching webpage',
+                done: locale === 'zh' ? '已读取网页' : 'Fetched webpage',
+                failed: locale === 'zh' ? '读取网页失败' : 'Could not fetch webpage',
+              },
             };
             const status = message.toolStatus || 'running';
             const fallbackName = (message.toolName || (locale === 'zh' ? '工具' : 'tool'))
@@ -8343,6 +8352,81 @@ function ModelSettingsSection({
   );
 }
 
+function WebReaderSettingsSection({
+  locale,
+  settings,
+  onChange,
+}: {
+  locale: Locale;
+  settings: WebReaderSettings;
+  onChange: (settings: WebReaderSettings) => void;
+}) {
+  const labels: Array<{ value: WebReaderProvider; zh: string; en: string }> = [
+    { value: 'direct', zh: '本地直读', en: 'Direct' },
+    { value: 'firecrawl', zh: 'Firecrawl', en: 'Firecrawl' },
+    { value: 'jina', zh: 'Jina Reader', en: 'Jina Reader' },
+  ];
+  const defaultEndpoint = (provider: WebReaderProvider) => provider === 'firecrawl'
+    ? 'https://api.firecrawl.dev'
+    : provider === 'jina' ? 'https://r.jina.ai' : '';
+  const selectProvider = (provider: WebReaderProvider) => {
+    const nextDefault = defaultEndpoint(provider);
+    const previousDefault = defaultEndpoint(settings.provider);
+    onChange({
+      ...settings,
+      provider,
+      baseUrl: !settings.baseUrl.trim() || settings.baseUrl === previousDefault
+        ? nextDefault
+        : settings.baseUrl,
+      apiKey: provider === 'direct' ? '' : settings.apiKey,
+    });
+  };
+  return (
+    <section className="settings-appearance-block settings-web-reader">
+      <div className="settings-section-heading">
+        <h2>{locale === 'zh' ? '网页读取' : 'Web reader'}</h2>
+        <p>{locale === 'zh'
+          ? 'Agent 读取链接时使用的 provider；远程读取失败会回退到本地直读。'
+          : 'Provider used when the Agent reads a link. Remote readers fall back to direct reading on failure.'}</p>
+      </div>
+      <div className="settings-reader-switch" role="group" aria-label={locale === 'zh' ? '网页读取 provider' : 'Web reader provider'}>
+        {labels.map((item) => (
+          <button
+            type="button"
+            key={item.value}
+            className={settings.provider === item.value ? 'active' : ''}
+            aria-pressed={settings.provider === item.value}
+            onClick={() => selectProvider(item.value)}
+          >
+            {locale === 'zh' ? item.zh : item.en}
+          </button>
+        ))}
+      </div>
+      {settings.provider !== 'direct' && (
+        <div className="settings-provider-fields settings-reader-fields">
+          <label>
+            {locale === 'zh' ? '服务地址' : 'Endpoint'}
+            <input
+              value={settings.baseUrl}
+              spellCheck={false}
+              onChange={(event) => onChange({ ...settings, baseUrl: event.target.value })}
+            />
+          </label>
+          <label>
+            {locale === 'zh' ? 'API 密钥' : 'API key'}
+            <input
+              type="password"
+              value={settings.apiKey}
+              spellCheck={false}
+              onChange={(event) => onChange({ ...settings, apiKey: event.target.value })}
+            />
+          </label>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SettingsPage({
   initialSection,
   locale,
@@ -8462,6 +8546,15 @@ function SettingsPage({
                   onCurrencyMode={onCurrencyMode}
                   onRefreshCatalog={onRefreshCatalog}
                   t={t}
+                />
+                <WebReaderSettingsSection
+                  locale={locale}
+                  settings={draft.webReader}
+                  onChange={(webReader) => {
+                    const next = { ...draft, webReader };
+                    setDraft(next);
+                    onChange(next);
+                  }}
                 />
               </>
             )}
@@ -8670,6 +8763,7 @@ function AddMaterialDialog({
 function CaptureGuideDialog({
   locale,
   config,
+  webReader,
   knowledgeRoot,
   onClose,
   onSaved,
@@ -8677,6 +8771,7 @@ function CaptureGuideDialog({
 }: {
   locale: Locale;
   config: ModelConfig;
+  webReader: WebReaderSettings;
   knowledgeRoot: string;
   onClose: () => void;
   onSaved: (path: string) => Promise<void>;
@@ -8717,6 +8812,7 @@ function CaptureGuideDialog({
           model: config.model,
           provider: config.provider,
           reasoningEffort: config.reasoningEffort,
+          webReader,
           transcriptionMode,
           input: clean,
           locale,

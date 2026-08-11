@@ -7640,6 +7640,37 @@ textarea,
   line-height: 1.5;
 }
 
+.settings-web-reader {
+  margin-top: 24px;
+}
+
+.settings-reader-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.settings-reader-switch button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.settings-reader-switch button.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.settings-reader-fields {
+  margin-top: 16px;
+}
+
 .settings-field-label {
   display: block;
   margin-bottom: 8px;

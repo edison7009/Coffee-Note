@@ -3,6 +3,8 @@ import type {
   ModelSettings,
   ProviderConfig,
   ReasoningEffort,
+  WebReaderProvider,
+  WebReaderSettings,
 } from './types';
 import { defaultProtocolForProvider } from './modelCatalog';
 
@@ -25,6 +27,34 @@ const REASONING_EFFORTS = new Set<ReasoningEffort>([
   'max',
 ]);
 
+const DEFAULT_WEB_READER: WebReaderSettings = {
+  provider: 'direct',
+  baseUrl: '',
+  apiKey: '',
+};
+
+const defaultWebReaderBaseUrl = (provider: WebReaderProvider): string => {
+  if (provider === 'firecrawl') return 'https://api.firecrawl.dev';
+  if (provider === 'jina') return 'https://r.jina.ai';
+  return '';
+};
+
+function readWebReaderSettings(value: unknown): WebReaderSettings {
+  if (!value || typeof value !== 'object') return { ...DEFAULT_WEB_READER };
+  const stored = value as Record<string, unknown>;
+  const provider: WebReaderProvider = stored.provider === 'firecrawl' || stored.provider === 'jina'
+    ? stored.provider
+    : 'direct';
+  const baseUrl = typeof stored.baseUrl === 'string' && stored.baseUrl.trim()
+    ? stored.baseUrl.trim()
+    : defaultWebReaderBaseUrl(provider);
+  return {
+    provider,
+    baseUrl,
+    apiKey: typeof stored.apiKey === 'string' ? stored.apiKey : '',
+  };
+}
+
 export function configuredProviderModels(
   provider: Pick<ProviderConfig, 'models'>,
 ): string[] {
@@ -40,6 +70,7 @@ export function createEmptyModelSettings(): ModelSettings {
     activeProvider: '',
     reasoningEffort: 'medium',
     providers: {},
+    webReader: { ...DEFAULT_WEB_READER },
   };
 }
 
@@ -180,6 +211,7 @@ export function normalizeModelSettings(value: unknown): ModelSettings {
       activeProvider: merged.activeProvider,
       reasoningEffort: readReasoningEffort(stored.reasoningEffort),
       providers: merged.providers,
+      webReader: readWebReaderSettings(stored.webReader),
     };
   }
 
@@ -191,6 +223,7 @@ export function normalizeModelSettings(value: unknown): ModelSettings {
     activeProvider: protocol,
     reasoningEffort: 'medium',
     providers: { [protocol]: config },
+    webReader: readWebReaderSettings(stored.webReader),
   };
 }
 

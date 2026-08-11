@@ -10,6 +10,7 @@ mod llm_stream;
 mod memory;
 mod skills;
 mod transcription;
+mod web_reader;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -208,6 +209,8 @@ struct PrepareCaptureRequest {
     transcription_mode: Option<String>,
     input: String,
     locale: String,
+    #[serde(default)]
+    web_reader: web_reader::WebReaderSettings,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -247,6 +250,8 @@ struct ModelSettings {
     reasoning_effort: String,
     #[serde(default)]
     providers: BTreeMap<String, ProviderModelConfig>,
+    #[serde(default)]
+    web_reader: web_reader::WebReaderSettings,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -313,6 +318,7 @@ fn normalize_model_provider(provider: &str) -> &'static str {
 }
 
 fn normalize_model_settings(mut settings: ModelSettings) -> ModelSettings {
+    settings.web_reader = settings.web_reader.normalized();
     for (key, provider) in &mut settings.providers {
         let provider_id = if provider.provider_id.trim().is_empty() {
             key.clone()
@@ -359,6 +365,7 @@ impl From<LegacyModelConfig> for ModelSettings {
             active_provider,
             reasoning_effort: default_reasoning_effort(),
             providers,
+            web_reader: web_reader::WebReaderSettings::default(),
         }
     }
 }
@@ -2498,8 +2505,8 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
                 Some(url.to_string()),
             )
         } else {
-            let material = fetch_capture_source(&url).await?;
-            (material, Some(url.to_string()))
+            let page = web_reader::read_url(&url, &request.web_reader).await?;
+            (page.content, Some(page.source_url))
         }
     } else {
         (input.to_string(), None)
@@ -3957,6 +3964,7 @@ mod tests {
             active_provider: "anthropic".to_string(),
             reasoning_effort: "high".to_string(),
             providers,
+            web_reader: web_reader::WebReaderSettings::default(),
         };
 
         save_model_config_to(&path, &config).expect("config should save");
@@ -3997,6 +4005,7 @@ mod tests {
             active_provider: "deepseek".to_string(),
             reasoning_effort: "medium".to_string(),
             providers,
+            web_reader: web_reader::WebReaderSettings::default(),
         });
 
         assert_eq!(normalized.providers["deepseek"].protocol, "openai");
@@ -4019,6 +4028,7 @@ mod tests {
             active_provider: "custom-example".to_string(),
             reasoning_effort: "medium".to_string(),
             providers: BTreeMap::from([("custom-example".to_string(), provider)]),
+            web_reader: web_reader::WebReaderSettings::default(),
         });
 
         assert_eq!(
@@ -4276,6 +4286,7 @@ mod tests {
             transcription_mode: None,
             input: "A 12-week creatine trial with 42 participants.".to_string(),
             locale: "en".to_string(),
+            web_reader: web_reader::WebReaderSettings::default(),
         }))
         .expect("capture should be prepared");
         server.join().expect("mock model should finish");
