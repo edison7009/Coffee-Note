@@ -8899,7 +8899,7 @@ function CaptureGuideDialog({
                 />
               </label>
               <fieldset className="capture-transcription-choice">
-                <legend>{t('captureTranscriptionLabel')}</legend>
+                <span className="capture-transcription-prefix">{t('captureTranscriptionPrefix')}</span>
                 <label className={transcriptionMode === 'api' ? 'selected' : ''}>
                   <input
                     type="radio"
@@ -8908,10 +8908,7 @@ function CaptureGuideDialog({
                     checked={transcriptionMode === 'api'}
                     onChange={() => setTranscriptionMode('api')}
                   />
-                  <span className="capture-transcription-copy">
-                    <strong>{t('captureTranscriptionApi')}</strong>
-                    <small>{t('captureTranscriptionApiSub')}</small>
-                  </span>
+                  <span>{t('captureTranscriptionApi')}</span>
                 </label>
                 <label className={transcriptionMode === 'local' ? 'selected' : ''}>
                   <input
@@ -8921,10 +8918,7 @@ function CaptureGuideDialog({
                     checked={transcriptionMode === 'local'}
                     onChange={() => setTranscriptionMode('local')}
                   />
-                  <span className="capture-transcription-copy">
-                    <strong>{t('captureTranscriptionLocal')}</strong>
-                    <small>{t('captureTranscriptionLocalSub')}</small>
-                  </span>
+                  <span>{t('captureTranscriptionLocal')}</span>
                 </label>
               </fieldset>
             </>

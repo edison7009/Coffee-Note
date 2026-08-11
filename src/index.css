@@ -3753,7 +3753,7 @@ html.tree-drag-active * {
   justify-content: space-between;
   gap: 18px;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid #e1e9e6;
+  border-bottom: 0;
 }
 
 .dialog-titlebar-main {
@@ -3862,7 +3862,7 @@ html.tree-drag-active * {
   max-height: calc(100vh - 48px);
   overflow: hidden;
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 20px;
   box-shadow: var(--shadow);
   animation: dialog-in 180ms ease-out;
@@ -4169,7 +4169,7 @@ html.tree-drag-active * {
   gap: 7px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .capture-field input,
@@ -4274,60 +4274,39 @@ html.tree-drag-active * {
 }
 
 .capture-transcription-choice {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 0;
   padding: 0;
   border: 0;
 }
 
-.capture-transcription-choice legend {
-  margin-bottom: 2px;
+.capture-transcription-choice .capture-transcription-prefix {
   color: var(--muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .capture-transcription-choice label {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
-  background: var(--secondary-surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  font-size: 13px;
   cursor: pointer;
 }
 
 .capture-transcription-choice label.selected {
   color: var(--ink);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
-  box-shadow: inset 3px 0 var(--accent);
 }
 
 .capture-transcription-choice input {
-  width: 16px;
-  height: 16px;
-  margin: 1px 0 0;
+  width: 12px;
+  height: 12px;
+  margin: 0;
   accent-color: var(--accent);
-}
-
-.capture-transcription-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.capture-transcription-copy strong {
-  color: inherit;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.capture-transcription-copy small {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .capture-guide-actions {
@@ -7003,7 +6982,7 @@ textarea,
 [data-theme='dark'] .capture-dialog {
   color: var(--ink);
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 14px;
 }
 
