@@ -415,7 +415,7 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = fal
 
   const rail = document.createElement('div');
   rail.className = slim ? 'tier-scrollbar tier-scrollbar-slim' : 'tier-scrollbar';
-  const railWidth = slim ? 6 : 10;
+  const railWidth = slim ? 7 : 10;
   rail.setAttribute('aria-hidden', 'true');
   const slider = document.createElement('div');
   slider.className = 'tier-scrollbar-slider';
