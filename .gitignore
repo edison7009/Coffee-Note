@@ -3,6 +3,7 @@ dist/
 src-tauri/target/
 tmp/
 references/
+docs/
 设计思路/
 .DS_Store
 Thumbs.db
