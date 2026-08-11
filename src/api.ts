@@ -9,6 +9,7 @@ import type {
   ChatRequest,
   ConversationRecord,
   ConversationSummary,
+  FileContent,
   LibrarySnapshot,
   MemoryItem,
   MemorySuggestion,
@@ -447,6 +448,37 @@ export async function chooseKnowledgeFolder(): Promise<string | null> {
   if (!isTauri) return null;
   const selected = await open({ directory: true, multiple: false });
   return typeof selected === 'string' ? selected : null;
+}
+
+export async function chooseImportFile(): Promise<string | null> {
+  if (!isTauri) return null;
+  const selected = await open({
+    multiple: false,
+    filters: [
+      {
+        name: 'Documents',
+        extensions: [
+          'txt', 'md', 'markdown', 'text', 'log', 'csv', 'tsv', 'json', 'yaml', 'yml',
+          'html', 'htm', 'docx', 'pptx', 'xlsx', 'pdf',
+          'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp',
+        ],
+      },
+    ],
+  });
+  return typeof selected === 'string' ? selected : null;
+}
+
+export async function readFileContent(path: string): Promise<FileContent> {
+  if (!isTauri) {
+    return {
+      kind: 'text',
+      text: `[Browser preview] Reading local files is not available outside the Tauri app.\nRequested: ${path}`,
+      imagePath: undefined,
+      label: path.split(/[\\/]/).pop() ?? path,
+      extension: (path.split('.').pop() ?? '').toLowerCase(),
+    };
+  }
+  return invoke<FileContent>('read_file_content', { path });
 }
 
 export async function saveCapture(request: CaptureRequest): Promise<string> {

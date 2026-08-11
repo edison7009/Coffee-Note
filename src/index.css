@@ -4172,6 +4172,33 @@ html.tree-drag-active * {
   font-weight: 500;
 }
 
+.capture-file-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  justify-self: start;
+  margin-top: 2px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.capture-file-button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--paper-2);
+}
+
+.capture-file-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .capture-field input,
 .capture-field textarea {
   width: 100%;

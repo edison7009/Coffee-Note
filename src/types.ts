@@ -259,6 +259,16 @@ export interface CaptureDraft {
   sourceUrl?: string;
 }
 
+export type FileContentKind = 'text' | 'transcript' | 'image' | 'unsupported';
+
+export interface FileContent {
+  kind: FileContentKind;
+  text: string;
+  imagePath?: string;
+  label: string;
+  extension: string;
+}
+
 export interface SkillCategory {
   id: string;
   label: string;

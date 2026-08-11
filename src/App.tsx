@@ -35,6 +35,7 @@ import {
   Presentation,
   Video,
   FileText,
+  FileUp,
   Folder,
   FolderPlus,
   Scissors,
@@ -116,6 +117,8 @@ import {
   readNote,
   writeNote,
   saveCapture,
+  chooseImportFile,
+  readFileContent,
   sendAgentMessage,
   listenAgentEvents,
   resetAgent,
@@ -8898,6 +8901,38 @@ function CaptureGuideDialog({
                   autoFocus
                 />
               </label>
+              <button
+                type="button"
+                className="capture-file-button"
+                onClick={async () => {
+                  const picked = await chooseImportFile();
+                  if (!picked) return;
+                  setError('');
+                  setBusy(true);
+                  try {
+                    const content = await readFileContent(picked);
+                    if (content.kind === 'image') {
+                      setSource(`[Image: ${content.label}]\n${content.imagePath ?? picked}`);
+                    } else if (content.kind === 'unsupported') {
+                      setError(
+                        `${t('captureFileUnsupported')} (${content.extension || 'unknown'})`,
+                      );
+                    } else {
+                      setSource(content.text);
+                    }
+                  } catch (fileError) {
+                    setError(
+                      `${t('captureFileReadFailed')}: ${String(fileError).replace(/^Error:\s*/i, '')}`,
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                disabled={busy || saving}
+              >
+                <FileUp size={16} />
+                {t('captureChooseFile')}
+              </button>
               <fieldset className="capture-transcription-choice">
                 <span className="capture-transcription-hint">{t('captureTranscriptionHint')}</span>
                 <span className="capture-transcription-options">

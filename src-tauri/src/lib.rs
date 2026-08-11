@@ -4,6 +4,7 @@ use tauri::State;
 mod agent_loop;
 mod agent_tools;
 mod conversations;
+mod file_reader;
 mod json_repair;
 mod knowledge_map;
 mod llm_stream;
@@ -1978,6 +1979,12 @@ fn yaml_string(value: &str) -> String {
 }
 
 #[tauri::command]
+fn read_file_content(path: String) -> Result<file_reader::FileContent, String> {
+    let file_path = std::path::PathBuf::from(&path);
+    file_reader::read_file_content(&file_path)
+}
+
+#[tauri::command]
 fn save_capture(request: CaptureRequest) -> Result<String, String> {
     let title = request.title.trim();
     let content = request.content.trim();
@@ -3569,6 +3576,7 @@ pub fn run() {
             paste_entry,
             prepare_capture,
             save_capture,
+            read_file_content,
             chat_completion,
             agent_send_message,
             agent_abort,
