@@ -87,10 +87,17 @@ pub fn read_file_content(path: &Path) -> Result<FileContent, String> {
             })
         }
         // ── Audio / video: transcription (existing pipeline) ──
+        // Transcribed asynchronously by the caller via
+        // `transcription::transcribe_local_media_file` — the sync reader
+        // reports the extension so the agent can route to it.
         "mp3" | "mp4" | "m4a" | "wav" | "flac" | "ogg" | "opus" | "aac" | "mov" | "mkv"
-        | "webm" | "avi" | "wmv" | "m4v" => Err(
-            "Audio/video files need transcription, which is not wired here yet.".to_string(),
-        ),
+        | "webm" | "avi" | "wmv" | "m4v" => Ok(FileContent {
+            kind: ContentKind::Transcript,
+            text: String::new(),
+            image_path: Some(path_string(path)),
+            label,
+            extension,
+        }),
         // ── Unknown ──
         _ => Ok(FileContent {
             kind: ContentKind::Unsupported,

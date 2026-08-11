@@ -1979,9 +1979,25 @@ fn yaml_string(value: &str) -> String {
 }
 
 #[tauri::command]
-fn read_file_content(path: String) -> Result<file_reader::FileContent, String> {
+async fn read_file_content(path: String) -> Result<file_reader::FileContent, String> {
     let file_path = std::path::PathBuf::from(&path);
-    file_reader::read_file_content(&file_path)
+    let content = file_reader::read_file_content(&file_path)?;
+    if content.kind == file_reader::ContentKind::Transcript {
+        // Audio/video: transcribe with the configured engine.
+        let mode = "api";
+        let config = load_transcription_config()?
+            .ok_or_else(|| "Configure audio transcription first".to_string())?;
+        let transcript =
+            transcription::transcribe_local_media_file(&file_path, mode, &config).await?;
+        return Ok(file_reader::FileContent {
+            kind: file_reader::ContentKind::Transcript,
+            text: format!("Source transcript:\n{}", transcript.trim()),
+            image_path: None,
+            label: content.label,
+            extension: content.extension,
+        });
+    }
+    Ok(content)
 }
 
 #[tauri::command]

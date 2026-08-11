@@ -267,7 +267,7 @@ pub async fn execute_tool(
         "read_note" => {
             exec_read_note_scoped(args, knowledge_root, excluded_prefixes, Some(my_info_root))
         }
-        "read_local_file" => exec_read_local_file(args),
+        "read_local_file" => exec_read_local_file(args).await,
         "web_fetch" => exec_web_fetch(args, web_reader).await,
         "suggest_memory" => ToolResult {
             success: true,
@@ -416,7 +416,7 @@ fn safe_read_path(root: &Path, relative: &str, extension: &str) -> Result<PathBu
 
 // ── read_local_file ──
 
-fn exec_read_local_file(args: &Value) -> ToolResult {
+async fn exec_read_local_file(args: &Value) -> ToolResult {
     let path = match args.pointer("/path").and_then(Value::as_str) {
         Some(p) if !p.trim().is_empty() => p.trim(),
         _ => {
@@ -433,8 +433,41 @@ fn exec_read_local_file(args: &Value) -> ToolResult {
     match crate::file_reader::read_file_content(&file_path) {
         Ok(content) => {
             let mut output = match content.kind {
-                crate::file_reader::ContentKind::Text | crate::file_reader::ContentKind::Transcript => {
+                crate::file_reader::ContentKind::Text => {
                     format!("File: {}\n\n{}", content.label, content.text)
+                }
+                crate::file_reader::ContentKind::Transcript => {
+                    let config = match crate::load_transcription_config() {
+                        Ok(Some(config)) => config,
+                        Ok(None) => {
+                            return ToolResult {
+                                success: false,
+                                output: "Configure audio transcription first".to_string(),
+                            }
+                        }
+                        Err(error) => {
+                            return ToolResult {
+                                success: false,
+                                output: format!("Could not load transcription config: {error}"),
+                            }
+                        }
+                    };
+                    let transcript = match crate::transcription::transcribe_local_media_file(
+                        &file_path,
+                        "api",
+                        &config,
+                    )
+                    .await
+                    {
+                        Ok(text) => text,
+                        Err(error) => {
+                            return ToolResult {
+                                success: false,
+                                output: format!("Could not transcribe the audio file: {error}"),
+                            }
+                        }
+                    };
+                    format!("Audio transcript:\n{}", transcript.trim())
                 }
                 crate::file_reader::ContentKind::Image => {
                     let image_path = content.image_path.as_deref().unwrap_or(path);
@@ -449,7 +482,7 @@ fn exec_read_local_file(args: &Value) -> ToolResult {
                         success: false,
                         output: format!(
                             "The file '{}' has an unsupported format (.{}). \
-                             Supported: .txt .md .html .docx .pptx .xlsx .pdf and images.",
+                             Supported: .txt .md .html .docx .pptx .xlsx .pdf, images, and audio/video.",
                             content.label, content.extension
                         ),
                     }
@@ -1102,7 +1135,9 @@ mod tests {
 
     #[test]
     fn read_local_file_rejects_missing_path_with_guidance() {
-        let result = exec_read_local_file(&json!({}));
+        let result = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(exec_read_local_file(&json!({})));
         assert!(!result.success);
         assert!(result.output.contains("Invalid read_local_file"));
         assert!(result.output.contains("Retry"));
@@ -1116,7 +1151,9 @@ mod tests {
         let path = dir.join("sample.txt");
         fs::write(&path, "hello from local file").unwrap();
         let path_str = path.to_string_lossy().into_owned();
-        let result = exec_read_local_file(&json!({"path": path_str}));
+        let result = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(exec_read_local_file(&json!({"path": path_str})));
         assert!(result.success, "{}", result.output);
         assert!(result.output.contains("hello from local file"));
         let _ = fs::remove_dir_all(&dir);
@@ -1124,7 +1161,9 @@ mod tests {
 
     #[test]
     fn read_local_file_reports_missing_file() {
-        let result = exec_read_local_file(&json!({"path": "C:/definitely/missing/report.pdf"}));
+        let result = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(exec_read_local_file(&json!({"path": "C:/definitely/missing/report.pdf"})));
         assert!(!result.success);
         assert!(result.output.contains("Could not read the local file"));
     }

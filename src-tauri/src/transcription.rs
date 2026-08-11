@@ -390,6 +390,47 @@ pub async fn transcribe_media_url(
     }
 }
 
+/// Transcribe a local audio/video file using the configured engine.
+///
+/// Unlike `transcribe_media_url`, the media is already on disk — no download
+/// step. The file is fed straight into the local runtime or uploaded to the
+/// configured speech-recognition API.
+pub async fn transcribe_local_media_file(
+    path: &std::path::Path,
+    mode: &str,
+    config: &super::TranscriptionSettingsConfig,
+) -> Result<String, String> {
+    if mode == "local" {
+        if config.active_runtime.trim().is_empty() {
+            return Err("Choose a local transcription engine first".to_string());
+        }
+        if config.active_model.trim().is_empty() {
+            return Err("Choose a local transcription model first".to_string());
+        }
+        runtime_executable(&config.active_runtime)?;
+        model_file(&config.active_model)?;
+        return transcribe_local(&config.active_runtime, &config.active_model, path).await;
+    }
+    let provider = config
+        .providers
+        .get(&config.active_provider)
+        .ok_or_else(|| "Configure a speech recognition service first".to_string())?;
+    if provider.api_key.trim().is_empty() {
+        return Err("Configure a speech recognition API key first".to_string());
+    }
+    if provider.endpoint.trim().is_empty() {
+        return Err("Configure a speech recognition API URL first".to_string());
+    }
+    if provider.model.trim().is_empty() {
+        return Err("Choose a speech recognition model first".to_string());
+    }
+    match provider.protocol.as_str() {
+        "deepgram" => transcribe_deepgram(provider, path).await,
+        "assemblyai" => transcribe_assemblyai(provider, path).await,
+        _ => transcribe_openai_compatible(provider, path).await,
+    }
+}
+
 #[derive(Clone, Copy)]
 enum ArchiveKind {
     None,
