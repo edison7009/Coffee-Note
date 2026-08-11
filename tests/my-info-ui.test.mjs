@@ -39,6 +39,12 @@ test('default My Contexts card titles use English title case', () => {
   assert.doesNotMatch(i18n, /addMaterial: 'Add material'/);
 });
 
+test('Key Records does not duplicate resume content in its description', () => {
+  assert.match(appSource, /'项目、经历与值得回看的资料'/);
+  assert.match(appSource, /'Projects, experiences, and useful reference'/);
+  assert.doesNotMatch(appSource, /'简历、项目、经历与值得回看的资料'|'Resumes, projects, experiences, and useful reference'/);
+});
+
 test('My Info cards open directly without a selected-card state', () => {
   assert.match(appSource, /className="plan-section-card"[\s\S]*?onClick=\{\(\) => onSection\(section\.id\)\}/s);
   assert.doesNotMatch(appSource, /plan-section-card \$\{section\.id === activeSection/);

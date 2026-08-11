@@ -8102,14 +8102,6 @@ textarea,
   color: #b44943;
 }
 
-.skills-count {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .skills-codex-mark {
   display: inline-flex;
   align-items: center;
@@ -8127,6 +8119,16 @@ textarea,
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skills-row-notice {
+  max-width: 240px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -53,6 +53,10 @@ export function SkillsSettings({
   const [updatingPluginId, setUpdatingPluginId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [actionNotice, setActionNotice] = useState('');
+  const [updatedPluginNotice, setUpdatedPluginNotice] = useState<{
+    pluginId: string;
+    message: string;
+  } | null>(null);
 
   const activeCategory = catalog.categories.find((category) => category.id === activeCategoryId)
     ?? catalog.categories[0];
@@ -78,6 +82,7 @@ export function SkillsSettings({
     setFormOpen(true);
     setActionError('');
     setActionNotice('');
+    setUpdatedPluginNotice(null);
   };
 
   const submitSource = async (event: FormEvent) => {
@@ -85,6 +90,7 @@ export function SkillsSettings({
     setSaving(true);
     setActionError('');
     setActionNotice('');
+    setUpdatedPluginNotice(null);
     try {
       const next = await addSkillSource(draft);
       onCatalogChange(next);
@@ -104,15 +110,17 @@ export function SkillsSettings({
     setUpdatingPluginId(plugin.id);
     setActionError('');
     setActionNotice('');
+    setUpdatedPluginNotice(null);
     try {
       const next = await updateSkillFromSource(plugin.id);
       onCatalogChange(next);
       const updated = next.plugins.find((item) => item.id === plugin.id);
-      setActionNotice(
-        locale === 'zh'
+      setUpdatedPluginNotice({
+        pluginId: plugin.id,
+        message: locale === 'zh'
           ? `「${updated?.name ?? plugin.name}」已更新${updated?.version ? `至 ${updated.version}` : ''}。`
           : `“${updated?.name ?? plugin.name}” is up to date${updated?.version ? ` at ${updated.version}` : ''}.`,
-      );
+      });
     } catch (nextError) {
       setActionError(String(nextError));
     } finally {
@@ -123,6 +131,7 @@ export function SkillsSettings({
   const removePlugin = async (plugin: SkillPlugin) => {
     setActionError('');
     setActionNotice('');
+    setUpdatedPluginNotice(null);
     try {
       onCatalogChange(await deleteSkillSource(plugin.id));
     } catch (nextError) {
@@ -335,13 +344,13 @@ export function SkillsSettings({
                 {plugin.version && <span className="skills-version">{plugin.version}</span>}
               </div>
               <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || plugin.description}</p>
-              {plugin.skillCount > 1 && (
-                <span className="skills-count">
-                  {locale === 'zh' ? `${plugin.skillCount} 个技能` : `${plugin.skillCount} skills`}
-                </span>
-              )}
             </div>
             <div className="skills-row-actions">
+              {updatedPluginNotice?.pluginId === plugin.id && (
+                <span className="skills-row-notice" role="status">
+                  {updatedPluginNotice.message}
+                </span>
+              )}
               <button
                 type="button"
                 disabled={updatingPluginId !== null}

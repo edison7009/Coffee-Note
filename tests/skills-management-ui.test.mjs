@@ -65,6 +65,14 @@ test('selected skill is loaded from its source and added to the request prompt',
 
 test('every plugin row exposes read-only metadata with update and delete actions', () => {
   assert.match(settingsSource, /updateSkillFromSource\(plugin\.id\)/);
+  assert.doesNotMatch(settingsSource, /className="skills-count"/);
+  assert.doesNotMatch(cssSource, /\.skills-count\s*\{/);
+  assert.match(settingsSource, /setUpdatedPluginNotice\(\{\s*pluginId: plugin\.id,/s);
+  assert.match(
+    settingsSource,
+    /className="skills-row-actions">\s*\{updatedPluginNotice\?\.pluginId === plugin\.id[\s\S]*className="skills-row-notice"[\s\S]*onClick=\{\(\) => void refreshPlugin\(plugin\)\}/,
+  );
+  assert.match(cssSource, /\.skills-row-notice\s*\{[^}]*text-overflow:\s*ellipsis;/s);
   assert.match(settingsSource, /className="skills-version"/);
   assert.match(settingsSource, /更新中…/);
   assert.match(settingsSource, /<RefreshCw/);

@@ -806,8 +806,8 @@ function getPlanSections(locale: Locale): Array<{
       title: locale === 'zh' ? '重要记录' : 'Key Records',
       description:
         locale === 'zh'
-          ? '简历、项目、经历与值得回看的资料'
-          : 'Resumes, projects, experiences, and useful reference',
+          ? '项目、经历与值得回看的资料'
+          : 'Projects, experiences, and useful reference',
       icon: <Archive size={17} />,
       accent: '#e5e5e7',
     },
