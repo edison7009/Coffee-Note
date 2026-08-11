@@ -26,8 +26,10 @@ test('skill categories reveal name and description entries on hover', () => {
   assert.match(cssSource, /\.composer\s*\{[^}]*padding:\s*7px 9px 8px;/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*left:\s*calc\(100% - 4px\)/s);
   assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*width:\s*260px;[^}]*max-width:\s*32vw;/s);
-  assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*max-height:\s*352px;[^}]*overflow-y:\s*auto;[^}]*scrollbar-width:\s*thin;/s);
-  assert.match(cssSource, /\.composer-skill-items::-webkit-scrollbar-button\s*\{[^}]*display:\s*none\s*!important;/s);
+  assert.match(cssSource, /\.composer-skill-items\s*\{[^}]*max-height:\s*352px;[^}]*overflow-y:\s*auto;/s);
+  assert.match(cssSource, /\.tier-scrollbar-slim\s*\{[^}]*width:\s*6px;/s);
+  assert.match(cssSource, /\.tier-scrollbar-slim \.tier-scrollbar-slider\s*\{[^}]*width:\s*3px;/s);
+  assert.match(appSource, /bindAutoHideScrollbar\(element, 450, true\)/);
   assert.match(cssSource, /\.composer-skill-management\s*\{[^}]*border-top:\s*1px solid var\(--line\)/s);
   assert.doesNotMatch(cssSource, /\.composer-skill-search|\.composer-skill-footer-action/);
   assert.match(cssSource, /\.composer-preview-controls\s*\{[^}]*margin-left:\s*auto;/s);
@@ -43,7 +45,7 @@ test('composer skill management opens the Skills settings page', () => {
   assert.match(appSource, /locale === 'zh' \? '技能管理' : 'Manage skills'/);
   assert.match(appSource, /skillMenuOpen && !selectedSkill && \(/);
   assert.doesNotMatch(appSource, /skillMenuOpen && !selectedSkill && activeSkillGroup/);
-  assert.match(appSource, /\{activeSkillGroup && \(\s*<div\s*className="composer-skill-items"/s);
+  assert.match(appSource, /\{activeSkillGroup && \(\s*<div\s*ref=\{composerSkillItemsRef\}[\s\S]*?className="composer-skill-items"/s);
 });
 
 test('composer reads categories and skills from the shared catalog', () => {

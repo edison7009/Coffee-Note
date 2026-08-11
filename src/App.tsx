@@ -404,7 +404,7 @@ function useStoredState<T>(key: string, initial: T): [T, (value: T) => void] {
   return [state, update];
 }
 
-function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450): () => void {
+function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = false): () => void {
   let hideTimer: number | null = null;
   let updateFrame: number | null = null;
   let maxScroll = 0;
@@ -414,7 +414,8 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450): () => voi
   element.classList.add('auto-hide-scrollbar');
 
   const rail = document.createElement('div');
-  rail.className = 'tier-scrollbar';
+  rail.className = slim ? 'tier-scrollbar tier-scrollbar-slim' : 'tier-scrollbar';
+  const railWidth = slim ? 6 : 10;
   rail.setAttribute('aria-hidden', 'true');
   const slider = document.createElement('div');
   slider.className = 'tier-scrollbar-slider';
@@ -438,7 +439,7 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450): () => voi
 
       rail.classList.remove('is-empty');
       rail.style.top = `${Math.round(top)}px`;
-      rail.style.left = `${Math.round(Math.min(window.innerWidth - 10, rect.right - 10))}px`;
+      rail.style.left = `${Math.round(Math.min(window.innerWidth - railWidth, rect.right - railWidth))}px`;
       rail.style.height = `${Math.round(viewportHeight)}px`;
 
       const trackHeight = Math.max(0, viewportHeight - 4);
@@ -6714,6 +6715,7 @@ function ChatComposer({
   const [activeSkillGroupId, setActiveSkillGroupId] = useState<string | null>(null);
   const composerControlsRef = useRef<HTMLDivElement>(null);
   const composerSkillRef = useRef<HTMLDivElement>(null);
+  const composerSkillItemsRef = useRef<HTMLDivElement>(null);
   const selectedSkill = skillCatalog.skills.find((skill) => skill.id === selectedSkillId) ?? null;
   const activeSkillGroup = activeSkillGroupId
     ? skillCatalog.categories.find((group) => group.id === activeSkillGroupId) ?? null
@@ -6833,6 +6835,12 @@ function ChatComposer({
       window.removeEventListener('keydown', closeOnEscape);
     };
   }, [skillMenuOpen]);
+
+  useEffect(() => {
+    const element = composerSkillItemsRef.current;
+    if (!activeSkillGroup || !element) return;
+    return bindAutoHideScrollbar(element, 450, true);
+  }, [activeSkillGroup]);
 
   // Must match the `.composer textarea` CSS max-height (6 lines at 1.45).
   const autosize = useCallback(() => {
@@ -7025,6 +7033,7 @@ function ChatComposer({
                 </div>
                 {activeSkillGroup && (
                   <div
+                    ref={composerSkillItemsRef}
                     className="composer-skill-items"
                     role="menu"
                     aria-label={activeSkillGroup.label}
