@@ -250,6 +250,46 @@ export interface CaptureDraft {
   sourceUrl?: string;
 }
 
+export interface SkillCategory {
+  id: string;
+  label: string;
+  fixed: boolean;
+}
+
+export interface SkillDefinition {
+  id: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  codexCompatible: boolean;
+  sourceId: string;
+  sourceUrl: string;
+  sourceVersion?: string;
+}
+
+export interface SkillPlugin {
+  id: string;
+  name: string;
+  description: string;
+  version?: string;
+  categoryId: string;
+  codexCompatible: boolean;
+  sourceUrl: string;
+  skillCount: number;
+  error?: string;
+}
+
+export interface SkillCatalog {
+  categories: SkillCategory[];
+  skills: SkillDefinition[];
+  plugins: SkillPlugin[];
+}
+
+export interface SkillSourceDraft {
+  sourceUrl: string;
+  categoryId: string;
+}
+
 export interface LlmUsage {
   promptTokens: number;
   completionTokens: number;
@@ -291,6 +331,7 @@ export interface AgentRequest {
   locale: Locale;
   knowledgeRoot: string;
   contextPaths: string[];
+  skillId?: string;
   noteSummary?: string;
   enabledMyInfoSections: string[];
   includePriorities: boolean;

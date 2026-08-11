@@ -15,6 +15,8 @@ import type {
   ModelCatalog,
   ModelSettings,
   PrepareCaptureRequest,
+  SkillCatalog,
+  SkillSourceDraft,
   TranscriptionCheckResult,
   TranscriptionSettingsConfig,
   TranscriptionResourceProgress,
@@ -27,6 +29,31 @@ import { readStorageValue, storageKey, writeStorageValue } from './storage';
 const MODEL_CONFIG_KEY = storageKey('model-config');
 const TRANSCRIPTION_CONFIG_KEY = storageKey('transcription-config');
 const CAPTURES_KEY = storageKey('captures');
+const SKILLS_KEY = storageKey('skill-sources-v2');
+
+const fallbackSkillCatalog: SkillCatalog = {
+  categories: [
+    { id: 'copywriting', label: '文案编写', fixed: true },
+    { id: 'ppt', label: '制作PPT', fixed: true },
+    { id: 'video', label: '制作视频', fixed: true },
+  ],
+  skills: [],
+  plugins: [],
+};
+
+function readFallbackSkillCatalog(): SkillCatalog {
+  try {
+    const stored = readStorageValue(SKILLS_KEY);
+    return stored ? JSON.parse(stored) as SkillCatalog : structuredClone(fallbackSkillCatalog);
+  } catch {
+    return structuredClone(fallbackSkillCatalog);
+  }
+}
+
+function writeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
+  writeStorageValue(SKILLS_KEY, JSON.stringify(catalog));
+  return catalog;
+}
 
 export const isTauri = '__TAURI_INTERNALS__' in window;
 
@@ -96,6 +123,114 @@ export async function persistModelConfig(config: ModelSettings): Promise<void> {
     return;
   }
   await invoke('save_model_config', { config });
+}
+
+export async function listSkills(): Promise<SkillCatalog> {
+  if (!isTauri) return readFallbackSkillCatalog();
+  return invoke<SkillCatalog>('list_skills');
+}
+
+export async function addSkillSource(draft: SkillSourceDraft): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const repositoryName = draft.sourceUrl
+      .trim()
+      .replace(/\/$/, '')
+      .split('/')
+      .at(-1)
+      ?.replace(/\.git$/i, '');
+    const title = repositoryName || 'Imported skill';
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || `skill-${crypto.randomUUID().slice(0, 8)}`;
+    let id = slug;
+    let suffix = 2;
+    while (catalog.plugins.some((plugin) => plugin.id === id)) id = `${slug}-${suffix++}`;
+    const sourceUrl = draft.sourceUrl.trim();
+    catalog.skills.push({
+      id,
+      title,
+      description: '从 Git 来源读取的技能。',
+      categoryId: draft.categoryId,
+      codexCompatible: true,
+      sourceId: id,
+      sourceUrl,
+      sourceVersion: 'preview',
+    });
+    catalog.plugins.push({
+      id,
+      name: title,
+      description: '从 Git 来源读取的技能插件。',
+      version: 'preview',
+      categoryId: draft.categoryId,
+      codexCompatible: true,
+      sourceUrl,
+      skillCount: 1,
+    });
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('add_skill_source', { draft });
+}
+
+export async function updateSkillFromSource(id: string): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const plugin = catalog.plugins.find((item) => item.id === id);
+    if (!plugin) throw new Error('Skill source not found');
+    plugin.version = 'preview';
+    catalog.skills
+      .filter((skill) => skill.sourceId === id)
+      .forEach((skill) => { skill.sourceVersion = 'preview'; });
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('update_skill_source', { id });
+}
+
+export async function deleteSkillSource(id: string): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    catalog.plugins = catalog.plugins.filter((plugin) => plugin.id !== id);
+    catalog.skills = catalog.skills.filter((skill) => skill.sourceId !== id);
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('delete_skill_source', { id });
+}
+
+export async function createSkillCategory(label: string): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    catalog.categories.push({
+      id: `custom-${crypto.randomUUID().slice(0, 8)}`,
+      label: label.trim(),
+      fixed: false,
+    });
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('create_skill_category', { label });
+}
+
+export async function renameSkillCategory(id: string, label: string): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const category = catalog.categories.find((item) => item.id === id && !item.fixed);
+    if (!category) throw new Error('Only custom categories can be renamed');
+    category.label = label.trim();
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('rename_skill_category', { id, label });
+}
+
+export async function deleteSkillCategory(id: string): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    if (catalog.plugins.some((plugin) => plugin.categoryId === id)) {
+      throw new Error('Move or delete the skill sources in this category first');
+    }
+    catalog.categories = catalog.categories.filter((category) => category.id !== id || category.fixed);
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('delete_skill_category', { id });
 }
 
 export async function loadLibrary(root: string | undefined, locale: 'zh' | 'en'): Promise<LibrarySnapshot> {

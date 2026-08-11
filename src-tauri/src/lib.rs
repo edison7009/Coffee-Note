@@ -8,6 +8,7 @@ mod json_repair;
 mod knowledge_map;
 mod llm_stream;
 mod memory;
+mod skills;
 mod transcription;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -3370,7 +3371,7 @@ async fn agent_reset(
 async fn agent_send_message(
     app: tauri::AppHandle,
     session_map: State<'_, SharedSessionMap>,
-    request: agent_loop::AgentRequest,
+    mut request: agent_loop::AgentRequest,
 ) -> Result<String, String> {
     if request.api_key.trim().is_empty() {
         return Err("An API key is required".to_string());
@@ -3378,6 +3379,11 @@ async fn agent_send_message(
     if request.base_url.trim().is_empty() || request.model.trim().is_empty() {
         return Err("API URL and model are required".to_string());
     }
+    request.skill_prompt = request
+        .skill_id
+        .as_deref()
+        .map(skills::load_skill_prompt)
+        .transpose()?;
     let research_context = if needs_live_research(&request.message) {
         let fake_req = ChatRequest {
             api_key: request.api_key.clone(),
@@ -3533,6 +3539,13 @@ pub fn run() {
             transcription::cancel_transcription_download,
             transcription::remove_transcription_resource,
             load_model_catalog,
+            skills::list_skills,
+            skills::add_skill_source,
+            skills::update_skill_source,
+            skills::delete_skill_source,
+            skills::create_skill_category,
+            skills::rename_skill_category,
+            skills::delete_skill_category,
             load_library,
             inspect_library_graph,
             move_tier_item,

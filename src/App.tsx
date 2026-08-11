@@ -105,6 +105,7 @@ import {
   isTauri,
   loadModelConfig,
   loadModelCatalog,
+  listSkills,
   loadLibrary,
   moveTierItem,
   onSelfUpdateProgress,
@@ -148,6 +149,7 @@ import { WeatherAmbient } from './home/WeatherAmbient';
 import { translate, type TranslationKey } from './i18n';
 import { WeatherLocationSettings } from './settings/WeatherLocationSettings';
 import { TranscriptionSettings } from './settings/TranscriptionSettings';
+import { SkillsSettings } from './settings/SkillsSettings';
 import type {
   AgentEvent,
   ChatMessage,
@@ -165,6 +167,8 @@ import type {
   PriorityNote,
   ProviderConfig,
   ReasoningEffort,
+  SkillCatalog,
+  SkillDefinition,
   Story,
   Supplement,
   View,
@@ -668,7 +672,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'transcription' | 'appearance';
+type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'appearance';
 type ResizeSide = 'left' | 'right';
 
 interface InternalNoteTarget {
@@ -687,6 +691,11 @@ interface FavoriteListItem {
   target: Omit<InternalNoteTarget, 'label'>;
   title: string;
   detail: string;
+}
+
+interface ContextNoteSelection {
+  path: string;
+  title: string;
 }
 
 interface NavigationLocation {
@@ -1031,6 +1040,10 @@ function App() {
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({});
   const [modelCatalogError, setModelCatalogError] = useState('');
   const [modelCatalogLoading, setModelCatalogLoading] = useState(true);
+  const [skillCatalog, setSkillCatalog] = useState<SkillCatalog>({ categories: [], skills: [], plugins: [] });
+  const [skillCatalogError, setSkillCatalogError] = useState('');
+  const [skillCatalogLoading, setSkillCatalogLoading] = useState(true);
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const modelConfigSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
@@ -1067,6 +1080,32 @@ function App() {
     void refreshModelCatalog().catch(() => undefined);
   }, [refreshModelCatalog]);
 
+  useEffect(() => {
+    let alive = true;
+    setSkillCatalogLoading(true);
+    listSkills()
+      .then((catalog) => {
+        if (!alive) return;
+        setSkillCatalog(catalog);
+        setSkillCatalogError('');
+      })
+      .catch((error) => {
+        if (alive) setSkillCatalogError(String(error).replace(/^Error:\s*/i, ''));
+      })
+      .finally(() => {
+        if (alive) setSkillCatalogLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedSkillId && !skillCatalog.skills.some((skill) => skill.id === selectedSkillId)) {
+      setSelectedSkillId(null);
+    }
+  }, [selectedSkillId, skillCatalog.skills]);
+
   const [library, setLibrary] = useState<LibrarySnapshot>(fallbackLibrary);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
   const [view, setView] = useState<View>('home');
@@ -1083,6 +1122,8 @@ function App() {
   );
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
+  const [multiSelectActive, setMultiSelectActive] = useState(false);
+  const [selectedContextNotes, setSelectedContextNotes] = useState<ContextNoteSelection[]>([]);
   const libraryRootRef = useRef(library.root || normalizedKnowledgeRoot || '');
   const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const libraryGenerationRef = useRef(0);
@@ -1113,6 +1154,18 @@ function App() {
     }
     return undefined;
   }, [view, fileNoteTitle, selectedSupplement, selectedPerson, selectedStory, locale]);
+  const composerContextLabel = useMemo(() => {
+    if (selectedContextNotes.length === 0) return currentPageTitle;
+    const firstTitle = selectedContextNotes[0].title;
+    if (selectedContextNotes.length === 1) return firstTitle;
+    return locale === 'zh'
+      ? `${firstTitle}等${selectedContextNotes.length}篇`
+      : `${firstTitle} and ${selectedContextNotes.length - 1} more`;
+  }, [currentPageTitle, locale, selectedContextNotes]);
+  const selectedContextPaths = useMemo(
+    () => selectedContextNotes.map((note) => note.path),
+    [selectedContextNotes],
+  );
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const fileNoteTier = useMemo(
     () => (view === 'file' ? extractFrontmatterTier(noteMarkdown) : undefined),
@@ -1872,6 +1925,25 @@ function App() {
     }
   };
 
+  const handleSidebarLibraryChanged = () => {
+    setMultiSelectActive(false);
+    setSelectedContextNotes([]);
+    handleLibraryChanged();
+  };
+
+  const toggleContextNote = (path: string, title: string) => {
+    setSelectedContextNotes((current) => {
+      const existing = current.findIndex((note) => note.path === path);
+      if (existing >= 0) return current.filter((note) => note.path !== path);
+      return [...current, { path, title }];
+    });
+  };
+
+  const cancelMultiSelect = () => {
+    setMultiSelectActive(false);
+    setSelectedContextNotes([]);
+  };
+
   const handleSwitchRoot = async () => {
     if (!isTauri) return;
     const selected = await chooseKnowledgeFolder();
@@ -1880,6 +1952,7 @@ function App() {
     libraryRootRef.current = selected;
     setLoadingLibrary(true);
     setKnowledgeRoot(selected);
+    cancelMultiSelect();
     navigate('home');
     setToast({
       message: `${t('switchedRoot')}${locale === 'zh' ? '：' : ': '}${selected}`,
@@ -2490,16 +2563,19 @@ function App() {
         message: clean,
         locale,
         knowledgeRoot: library.root,
-        contextPaths: [
-          selectedSupplement?.filePath,
-          selectedPerson?.filePath,
-          selectedStory?.filePath,
-          view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
-        ].filter(Boolean) as string[],
-        noteSummary: noteSummary?.text,
+        skillId: selectedSkillId || undefined,
+        contextPaths: selectedContextPaths.length > 0
+          ? selectedContextPaths
+          : [
+              selectedSupplement?.filePath,
+              selectedPerson?.filePath,
+              selectedStory?.filePath,
+              view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
+            ].filter(Boolean) as string[],
+        noteSummary: selectedContextPaths.length > 0 ? undefined : noteSummary?.text,
         enabledMyInfoSections: enabledMyInfoSections(myInfoRetrieval),
         includePriorities,
-        currentPage: currentPageTitle,
+        currentPage: selectedContextPaths.length > 0 ? undefined : currentPageTitle,
         history: priorMessages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
           .slice(-8)
@@ -2629,6 +2705,10 @@ function App() {
           catalog={modelCatalog}
           catalogLoading={modelCatalogLoading}
           catalogError={modelCatalogError}
+          skillCatalog={skillCatalog}
+          skillCatalogLoading={skillCatalogLoading}
+          skillCatalogError={skillCatalogError}
+          onSkillCatalogChange={setSkillCatalog}
           onRefreshCatalog={() => void refreshModelCatalog(true).catch(() => undefined)}
           onChange={saveModelConfig}
           onLocale={setLocale}
@@ -2647,11 +2727,16 @@ function App() {
         view={view}
         libraryRoot={normalizedKnowledgeRoot || library.root}
         activeFilePath={view === 'file' ? fileNotePath : null}
+        multiSelectActive={multiSelectActive}
+        selectedContextPaths={selectedContextPaths}
         onNavigate={navigate}
         onNewChat={handleNewChat}
         chatBusy={chatBusy}
         onOpenFile={openFileNote}
-        onLibraryChanged={handleLibraryChanged}
+        onToggleMultiSelect={() => setMultiSelectActive((current) => !current)}
+        onCancelMultiSelect={cancelMultiSelect}
+        onToggleContextNote={toggleContextNote}
+        onLibraryChanged={handleSidebarLibraryChanged}
         onSwitchRoot={handleSwitchRoot}
         refreshToken={treeRefresh}
         notify={(message) => setToast({ message, kind: 'status' })}
@@ -2904,13 +2989,16 @@ function App() {
           sendLabel={t('send')}
           stopLabel={t('stopGenerating')}
           inputRef={chatComposerRef}
-          currentPage={currentPageTitle}
+          currentPage={composerContextLabel}
           contextBytes={contextBytes}
           contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
           usage={usageByConversation[activeConversationId] || EMPTY_USAGE}
           modelConfig={modelConfig}
           modelSettings={modelSettings}
           modelCatalog={modelCatalog}
+          skillCatalog={skillCatalog}
+          selectedSkillId={selectedSkillId}
+          onSelectedSkillChange={setSelectedSkillId}
           onModelChange={selectComposerModel}
           onReasoningEffortChange={selectReasoningEffort}
           currencyMode={currencyMode}
@@ -3963,7 +4051,12 @@ function LibraryTree({
   locale,
   t,
   activeFilePath,
+  multiSelectActive,
+  selectedContextPaths,
   onOpenFile,
+  onToggleMultiSelect,
+  onCancelMultiSelect,
+  onToggleContextNote,
   onLibraryChanged,
   refreshToken,
   notify,
@@ -3972,7 +4065,12 @@ function LibraryTree({
   locale: Locale;
   t: (key: TranslationKey) => string;
   activeFilePath: string | null;
+  multiSelectActive: boolean;
+  selectedContextPaths: string[];
   onOpenFile: (relativePath: string) => void;
+  onToggleMultiSelect: () => void;
+  onCancelMultiSelect: () => void;
+  onToggleContextNote: (relativePath: string, title: string) => void;
   onLibraryChanged: () => void;
   refreshToken: number;
   notify: (message: string) => void;
@@ -4583,20 +4681,32 @@ function LibraryTree({
     const targetPosition = dropTarget?.relativePath === entry.relativePath
       ? dropTarget.position
       : null;
+    const selected = selectedContextPaths.includes(entry.relativePath);
+    const title = entry.name.replace(/(?:\.en)?\.md$/i, '');
     return (
       <button
         type="button"
         key={entry.relativePath}
-        className={`tree-child ${activeFilePath === entry.relativePath ? 'active' : ''} ${dragEntry?.relativePath === entry.relativePath ? 'is-dragging' : ''} ${targetPosition ? `drop-${targetPosition}` : ''}`}
+        className={`tree-child ${activeFilePath === entry.relativePath ? 'active' : ''} ${selected ? 'context-selected' : ''} ${dragEntry?.relativePath === entry.relativePath ? 'is-dragging' : ''} ${targetPosition ? `drop-${targetPosition}` : ''}`}
         style={{ paddingLeft: 8 + depth * 14 }}
         data-tree-entry={entry.relativePath}
         data-tree-is-dir="false"
-        onPointerDown={(event) => beginTreePointerDrag(event, entry)}
-        onClick={() => onOpenFile(entry.relativePath)}
+        aria-pressed={multiSelectActive ? selected : undefined}
+        onPointerDown={multiSelectActive ? undefined : (event) => beginTreePointerDrag(event, entry)}
+        onClick={() => {
+          if (multiSelectActive) {
+            onToggleContextNote(entry.relativePath, title);
+            return;
+          }
+          onOpenFile(entry.relativePath);
+        }}
         onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
       >
         {NOTE_ICONS[entry.icon || ''] || <FileText size={13} />}
-        <span>{entry.name.replace(/\.md$/i, '')}</span>
+        <span className="tree-child-label">{title}</span>
+        {multiSelectActive && selected && (
+          <Check className="tree-selection-check" size={15} strokeWidth={2.5} aria-hidden="true" />
+        )}
       </button>
     );
   };
@@ -4668,6 +4778,14 @@ function LibraryTree({
           <span>{t('treeRoot')}</span>
         </span>
         <div className="library-root-actions">
+          <button
+            type="button"
+            className={`library-multi-select-btn${multiSelectActive ? ' active' : ''}`}
+            onClick={multiSelectActive ? onCancelMultiSelect : onToggleMultiSelect}
+            aria-pressed={multiSelectActive}
+          >
+            {multiSelectActive ? t('cancelMultiSelect') : t('multiSelect')}
+          </button>
           <button
             type="button"
             className="library-switch-btn"
@@ -4751,10 +4869,15 @@ interface SidebarProps {
   view: View;
   libraryRoot: string;
   activeFilePath: string | null;
+  multiSelectActive: boolean;
+  selectedContextPaths: string[];
   onNavigate: (view: View) => void;
   onNewChat: () => void;
   chatBusy: boolean;
   onOpenFile: (relativePath: string) => void;
+  onToggleMultiSelect: () => void;
+  onCancelMultiSelect: () => void;
+  onToggleContextNote: (relativePath: string, title: string) => void;
   onLibraryChanged: () => void;
   onSwitchRoot: () => void;
   refreshToken: number;
@@ -4768,10 +4891,15 @@ function Sidebar({
   view,
   libraryRoot,
   activeFilePath,
+  multiSelectActive,
+  selectedContextPaths,
   onNavigate,
   onNewChat,
   chatBusy,
   onOpenFile,
+  onToggleMultiSelect,
+  onCancelMultiSelect,
+  onToggleContextNote,
   onLibraryChanged,
   onSwitchRoot,
   refreshToken,
@@ -4830,7 +4958,12 @@ function Sidebar({
             locale={locale}
             t={t}
             activeFilePath={activeFilePath}
+            multiSelectActive={multiSelectActive}
+            selectedContextPaths={selectedContextPaths}
             onOpenFile={onOpenFile}
+            onToggleMultiSelect={onToggleMultiSelect}
+            onCancelMultiSelect={onCancelMultiSelect}
+            onToggleContextNote={onToggleContextNote}
             onLibraryChanged={onLibraryChanged}
             refreshToken={refreshToken}
             notify={notify}
@@ -6489,6 +6622,9 @@ function ChatComposer({
   modelConfig,
   modelSettings,
   modelCatalog,
+  skillCatalog,
+  selectedSkillId,
+  onSelectedSkillChange,
   onModelChange,
   onReasoningEffortChange,
   currencyMode,
@@ -6508,6 +6644,9 @@ function ChatComposer({
   modelConfig: ModelConfig;
   modelSettings: ModelSettings;
   modelCatalog: ModelCatalog;
+  skillCatalog: SkillCatalog;
+  selectedSkillId: string | null;
+  onSelectedSkillChange: (skillId: string | null) => void;
   onModelChange: (providerKey: string, model: string) => void;
   onReasoningEffortChange: (effort: ReasoningEffort) => void;
   currencyMode: CurrencyMode;
@@ -6527,7 +6666,18 @@ function ChatComposer({
   const [reasoningDragPhase, setReasoningDragPhase] = useState<'idle' | 'slow' | 'catchup' | 'tracking'>('idle');
   const reasoningMotionTimersRef = useRef<number[]>([]);
   const [openComposerMenu, setOpenComposerMenu] = useState<'model' | 'reasoning' | null>(null);
+  const [skillMenuOpen, setSkillMenuOpen] = useState(false);
+  const [activeSkillGroupId, setActiveSkillGroupId] = useState('copywriting');
   const composerControlsRef = useRef<HTMLDivElement>(null);
+  const composerSkillRef = useRef<HTMLDivElement>(null);
+  const selectedSkill = skillCatalog.skills.find((skill) => skill.id === selectedSkillId) ?? null;
+  const activeSkillGroup = skillCatalog.categories.find((group) => group.id === activeSkillGroupId)
+    || skillCatalog.categories[0];
+  const activeSkillGroupIndex = Math.max(
+    0,
+    skillCatalog.categories.findIndex((group) => group.id === activeSkillGroup?.id),
+  );
+  const activeSkills = skillCatalog.skills.filter((skill) => skill.categoryId === activeSkillGroup?.id);
   const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitRate = cacheTokens > 0
     ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`
@@ -6616,6 +6766,26 @@ function ChatComposer({
       window.removeEventListener('keydown', closeOnEscape);
     };
   }, [openComposerMenu]);
+
+  useEffect(() => {
+    if (!skillMenuOpen) return;
+
+    const closeOnOutsidePress = (event: globalThis.PointerEvent) => {
+      if (!composerSkillRef.current?.contains(event.target as Node)) {
+        setSkillMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSkillMenuOpen(false);
+    };
+
+    window.addEventListener('pointerdown', closeOnOutsidePress);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsidePress);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [skillMenuOpen]);
 
   // Must match the `.composer textarea` CSS max-height (6 lines at 1.45).
   const autosize = useCallback(() => {
@@ -6723,6 +6893,11 @@ function ChatComposer({
     setTextMenu({ x: event.clientX, y: event.clientY });
   };
 
+  const chooseSkill = (skill: SkillDefinition) => {
+    onSelectedSkillChange(skill.id);
+    setSkillMenuOpen(false);
+  };
+
   return (
     <div className="composer-wrap">
       <form className="composer" onSubmit={submit}>
@@ -6742,6 +6917,80 @@ function ChatComposer({
           aria-label={placeholder}
         />
         <div className="composer-tools">
+          <div className="composer-skill-control" ref={composerSkillRef}>
+            {selectedSkill ? (
+              <button
+                type="button"
+                className="composer-skill-pill"
+                onClick={() => onSelectedSkillChange(null)}
+                aria-label={locale === 'zh' ? `关闭技能 ${selectedSkill.title}` : `Close skill ${selectedSkill.title}`}
+              >
+                <X size={13} strokeWidth={2.4} />
+                <span>{selectedSkill.title}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`composer-skill-trigger${skillMenuOpen ? ' open' : ''}`}
+                onClick={() => {
+                  setActiveSkillGroupId(skillCatalog.categories[0]?.id ?? 'copywriting');
+                  setSkillMenuOpen((current) => !current);
+                }}
+                aria-label={locale === 'zh' ? '选择技能' : 'Choose a skill'}
+                aria-expanded={skillMenuOpen}
+                aria-haspopup="menu"
+              >
+                <Plus className="composer-skill-icon" size={20} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            )}
+            {skillMenuOpen && !selectedSkill && activeSkillGroup && (
+              <div className="composer-skill-popover" role="menu">
+                <div className="composer-skill-groups">
+                  {skillCatalog.categories.map((group) => (
+                    <button
+                      type="button"
+                      className={`composer-skill-group${activeSkillGroup.id === group.id ? ' active' : ''}`}
+                      key={group.id}
+                      role="menuitem"
+                      onMouseEnter={() => {
+                        setActiveSkillGroupId(group.id);
+                      }}
+                      onFocus={() => {
+                        setActiveSkillGroupId(group.id);
+                      }}
+                    >
+                      <span>{locale === 'en' && group.id === 'copywriting' ? 'Copywriting' : locale === 'en' && group.id === 'ppt' ? 'Presentations' : locale === 'en' && group.id === 'video' ? 'Video' : group.label}</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  ))}
+                </div>
+                <div
+                  className="composer-skill-items"
+                  role="menu"
+                  aria-label={activeSkillGroup.label}
+                  style={{ top: `calc(8px + ${activeSkillGroupIndex * 36}px)` }}
+                >
+                  {activeSkills.map((skill) => (
+                    <button
+                      type="button"
+                      className="composer-skill-item"
+                      role="menuitem"
+                      key={skill.id}
+                      onClick={() => chooseSkill(skill)}
+                    >
+                      <strong>{skill.title}</strong>
+                      <small>{skill.description}</small>
+                    </button>
+                  ))}
+                  {activeSkills.length === 0 && (
+                    <p className="composer-skill-empty">
+                      {locale === 'zh' ? '这个分类还没有技能。' : 'No skills in this category.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           {currentPage && <span className="composer-page-chip">{currentPage}</span>}
           <div className="composer-preview-controls" ref={composerControlsRef}>
             <div className="composer-preview-control">
@@ -8042,6 +8291,10 @@ function SettingsPage({
   catalog,
   catalogLoading,
   catalogError,
+  skillCatalog,
+  skillCatalogLoading,
+  skillCatalogError,
+  onSkillCatalogChange,
   onRefreshCatalog,
   themeMode,
   currencyMode,
@@ -8058,6 +8311,10 @@ function SettingsPage({
   catalog: ModelCatalog;
   catalogLoading: boolean;
   catalogError: string;
+  skillCatalog: SkillCatalog;
+  skillCatalogLoading: boolean;
+  skillCatalogError: string;
+  onSkillCatalogChange: (catalog: SkillCatalog) => void;
   onRefreshCatalog: () => void;
   themeMode: ThemeMode;
   currencyMode: CurrencyMode;
@@ -8078,6 +8335,7 @@ function SettingsPage({
     icon: ReactNode;
   }> = [
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
+    { id: 'skills', label: locale === 'zh' ? '技能' : 'Skills', icon: <Sparkles size={18} strokeWidth={1.8} /> },
     { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
     { id: 'appearance', label: t('settingsAppearance'), icon: <Sun size={18} strokeWidth={1.8} /> },
   ];
@@ -8147,6 +8405,16 @@ function SettingsPage({
                   t={t}
                 />
               </>
+            )}
+
+            {visibleSection === 'skills' && (
+              <SkillsSettings
+                locale={locale}
+                catalog={skillCatalog}
+                loading={skillCatalogLoading}
+                error={skillCatalogError}
+                onCatalogChange={onSkillCatalogChange}
+              />
             )}
 
             {visibleSection === 'appearance' && (
