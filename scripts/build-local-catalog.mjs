@@ -100,20 +100,33 @@ function normalizeModel(modelId, raw) {
   };
 }
 
+function collectTomlFiles(dir) {
+  const files = [];
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return files;
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      files.push(...collectTomlFiles(full));
+    } else if (entry.endsWith('.toml')) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
 function readProvider(providerId, providerDir) {
   const providerFile = join(providerDir, 'provider.toml');
   const provider = parseToml(providerFile) ?? {};
   const modelsDir = join(providerDir, 'models');
   const models = {};
-  if (existsSync(modelsDir) && statSync(modelsDir).isDirectory()) {
-    for (const entry of readdirSync(modelsDir)) {
-      if (!entry.endsWith('.toml')) continue;
-      const modelId = basename(entry, '.toml');
-      const raw = parseToml(join(modelsDir, entry));
-      if (!raw) continue;
-      const normalized = normalizeModel(modelId, raw);
-      if (normalized) models[normalized.id] = normalized;
-    }
+  // Model lists are sometimes flat (models/gpt-5.toml) and sometimes nested
+  // per sub-provider (models/openai/gpt-5.toml), so collect recursively.
+  for (const modelFile of collectTomlFiles(modelsDir)) {
+    const modelId = basename(modelFile, '.toml');
+    const raw = parseToml(modelFile);
+    if (!raw) continue;
+    const normalized = normalizeModel(modelId, raw);
+    if (normalized) models[normalized.id] = normalized;
   }
   const id = typeof provider.id === 'string' ? provider.id : providerId;
   return {
