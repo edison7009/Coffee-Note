@@ -40,7 +40,7 @@ test('settings keeps model and appearance as separate navigation pages', () => {
 });
 
 test('settings entry sits in the title-bar menu and uses a text label', () => {
-  const menuStart = appSource.indexOf('<nav\n          ref={menuBarRef}');
+  const menuStart = appSource.indexOf('<nav');
   const menuEnd = appSource.indexOf('</nav>', menuStart);
   const titlebarMenu = appSource.slice(menuStart, menuEnd);
   assert.match(titlebarMenu, /className=\{`titlebar-settings-entry/);
