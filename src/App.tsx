@@ -192,6 +192,7 @@ import {
 import { defaultPaneSizes, normalizePaneSizes, type PaneSizes } from './paneSizes';
 import {
   enabledMyInfoSections,
+  MY_PRIORITIES_RETRIEVAL_KEY,
   MY_INFO_RETRIEVAL_KEY,
   parseMyInfoRetrieval,
   type MyInfoRetrievalState,
@@ -1019,7 +1020,10 @@ function App() {
   );
   const isManagedDefaultRoot = (root: string) => {
     const normalized = root.replace(/\\/g, '/').toLowerCase();
-    return normalized.endsWith('.coffee-note/演示笔记');
+    return (
+      normalized.endsWith('.coffee-note/我的笔记(演示)') ||
+      normalized.endsWith('.tiernote/演示笔记')
+    );
   };
   const normalizedKnowledgeRoot =
     knowledgeRoot && !isManagedDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
@@ -1072,6 +1076,10 @@ function App() {
   const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
   const [myInfoRetrieval, setMyInfoRetrieval] = useState<MyInfoRetrievalState>(() =>
     parseMyInfoRetrieval(readStorageValue(MY_INFO_RETRIEVAL_KEY)),
+  );
+  const [includePriorities, setIncludePriorities] = useStoredState<boolean>(
+    MY_PRIORITIES_RETRIEVAL_KEY,
+    true,
   );
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
@@ -2505,6 +2513,7 @@ function App() {
         ].filter(Boolean) as string[],
         noteSummary: noteSummary?.text,
         enabledMyInfoSections: enabledMyInfoSections(myInfoRetrieval),
+        includePriorities,
         currentPage: currentPageTitle,
         history: priorMessages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -2850,6 +2859,9 @@ function App() {
                   onSection={openPlanSection}
                   onToggleRetrieval={toggleMyInfoRetrieval}
                   onBack={goBack}
+                  onHome={() => navigate('home')}
+                  includePriorities={includePriorities}
+                  onTogglePriorities={() => setIncludePriorities(!includePriorities)}
                   onAdd={() => setAddMaterialOpen(true)}
                   t={t}
                 />
@@ -2957,8 +2969,11 @@ function App() {
         library={library}
         favorites={favorites}
         activePlanSection={activePlanSection}
+        myInfoRetrieval={myInfoRetrieval}
+        includePriorities={includePriorities}
         onFavoriteNavigate={openInternalNote}
         onPlanSection={openPlanSection}
+        onHome={() => navigate('home')}
         onResumeChat={() => navigate('ai')}
         onNewChat={handleNewChat}
         t={t}
@@ -6375,6 +6390,9 @@ function PlanView({
   onSection,
   onToggleRetrieval,
   onBack,
+  onHome,
+  includePriorities,
+  onTogglePriorities,
   onAdd,
   t,
 }: {
@@ -6383,6 +6401,9 @@ function PlanView({
   onSection: (section: PlanSection) => void;
   onToggleRetrieval: (section: MyInfoSectionId) => void;
   onBack: () => void;
+  onHome: () => void;
+  includePriorities: boolean;
+  onTogglePriorities: () => void;
   onAdd: () => void;
   t: (key: TranslationKey) => string;
 }) {
@@ -6399,6 +6420,36 @@ function PlanView({
       </section>
 
       <div className="plan-section-grid">
+        <div className="plan-section-card">
+          <button type="button" className="plan-section-open" onClick={onHome}>
+            <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
+              <Layers3 size={17} />
+            </span>
+            <span className="plan-section-copy">
+              <strong>{t('myPriorities')}</strong>
+              <small>{t('myPrioritiesSub')}</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="plan-retrieval-switch"
+            role="switch"
+            aria-checked={includePriorities}
+            aria-label={locale === 'zh' ? 'AI 检索我的优先级' : 'AI retrieval for My Priorities'}
+            onClick={onTogglePriorities}
+          >
+            <span />
+          </button>
+        </div>
+        <button type="button" className="plan-section-card plan-section-add" onClick={onAdd}>
+          <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
+            <FilePlus2 size={17} />
+          </span>
+          <span>
+            <strong>{t('addMaterial')}</strong>
+            <small>{t('addMaterialCreateSub')}</small>
+          </span>
+        </button>
         {sections.map((section) => (
           <div
             className="plan-section-card"
@@ -6433,15 +6484,6 @@ function PlanView({
             </button>
           </div>
         ))}
-        <button className="plan-section-card plan-section-add" onClick={onAdd} key="add">
-          <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
-            <FilePlus2 size={17} />
-          </span>
-          <span>
-            <strong>{t('addMaterial')}</strong>
-            <small>{t('addMaterialCreateSub')}</small>
-          </span>
-        </button>
       </div>
     </div>
   );
@@ -6954,8 +6996,11 @@ function RightRail({
   library,
   favorites,
   activePlanSection,
+  myInfoRetrieval,
+  includePriorities,
   onFavoriteNavigate,
   onPlanSection,
+  onHome,
   onResumeChat,
   onNewChat,
   onSelectConversation,
@@ -6982,8 +7027,11 @@ function RightRail({
   library: LibrarySnapshot;
   favorites: FavoriteReference[];
   activePlanSection: PlanSection;
+  myInfoRetrieval: MyInfoRetrievalState;
+  includePriorities: boolean;
   onFavoriteNavigate: (target: Omit<InternalNoteTarget, 'label'>) => void;
   onPlanSection: (section: PlanSection) => void;
+  onHome: () => void;
   onResumeChat: () => void;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
@@ -6995,7 +7043,8 @@ function RightRail({
   onRegisterEditorCommands: (controller: TextCommandController | null) => void;
   t: (key: TranslationKey) => string;
 }) {
-  const planSections = getPlanSections(locale);
+  const planSections = getPlanSections(locale).filter((section) => myInfoRetrieval[section.id]);
+  const shortcutCount = planSections.length + (includePriorities ? 1 : 0);
   const hasOpenContent = Boolean(supplement || person || story);
   const [editorDraft, setEditorDraft] = useState(editingNote?.markdown || '');
   const [editorSavedMarkdown, setEditorSavedMarkdown] = useState(editingNote?.markdown || '');
@@ -7321,9 +7370,24 @@ function RightRail({
             )}
 
             <div className="rail-section-title">
-              {t('myPlan')} <span>{planSections.length}</span>
+              {t('myPlan')} <span>{shortcutCount}</span>
             </div>
             <div className="plan-shortcut-list">
+              {includePriorities && (
+                <button
+                  className={view === 'home' ? 'active' : ''}
+                  onClick={onHome}
+                >
+                  <span className="plan-shortcut-icon" style={{ background: '#e5e5e7' }}>
+                    <Layers3 size={17} />
+                  </span>
+                  <span>
+                    <strong>{t('myPriorities')}</strong>
+                    <small>{t('myPrioritiesSub')}</small>
+                  </span>
+                  <ChevronRight size={15} />
+                </button>
+              )}
               {planSections.map((section) => (
                 <button
                   className={view === 'plan' && activePlanSection === section.id ? 'active' : ''}

@@ -3,22 +3,8 @@ locale: en
 translation_of: plans/lessons.md
 ---
 
-# My Lessons
+# My lessons
 
-## What to Avoid
+## Constraints and reminders
 
-- Approach:
-- Why it does not work:
-- Cost or warning signs:
-
-## Boundaries and Constraints
-
-- Real constraints:
-- Trigger conditions:
-- How to respond:
-
-## Review Log
-
-| Date | Event | Issue | Adjustment |
-|---|---|---|---|
-|  |  |  |  |
+Record mistakes not to repeat, real-world constraints, and things worth keeping in view.

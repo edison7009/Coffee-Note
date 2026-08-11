@@ -3,23 +3,8 @@ locale: en
 translation_of: plans/daily-routine.md
 ---
 
-# Daily Routine
+# Key records
 
-## Wake and Bedtime
+## Reusable information
 
-- Wake:
-- Bedtime:
-
-## Daily Schedule
-
-| Time | Activity |
-|---|---|
-|  |  |
-
-## Sleep Hygiene
-
--
-
-## Adjustment Log
-
--
+Keep projects, collaborators, preferences, references, and anything worth returning to.

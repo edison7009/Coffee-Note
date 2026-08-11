@@ -377,7 +377,7 @@ fn my_info_root() -> PathBuf {
 }
 
 fn default_knowledge_root() -> PathBuf {
-    coffee_note_home().join("演示笔记")
+    coffee_note_home().join("我的笔记(演示)")
 }
 
 fn model_config_path() -> PathBuf {
@@ -599,11 +599,20 @@ async fn load_model_catalog(refresh: bool) -> Result<Value, String> {
 }
 
 const DEMO_NOTES: &[(&str, &str)] = &[
-    ("力量训练.md", "dossiers/strength-training.md"),
-    ("有氧运动.md", "dossiers/aerobic-exercise.md"),
-    ("健康饮食.md", "dossiers/healthy-diet.md"),
-    ("肌酸.md", "dossiers/creatine.md"),
-    ("NAD+.md", "dossiers/nmn.md"),
+    ("准备面试.md", "dossiers/prepare-interview.md"),
+    ("慢跑20分.md", "dossiers/twenty-minute-jog.md"),
+    ("做份沙拉.md", "dossiers/make-salad.md"),
+    ("读小王子.md", "dossiers/read-little-prince.md"),
+    ("送妈妈礼物.md", "dossiers/call-family.md"),
+    ("去图书馆.md", "dossiers/clear-inbox.md"),
+    ("整理桌面.md", "dossiers/tidy-desk.md"),
+    ("学做意面.md", "dossiers/cook-pasta.md"),
+    ("周末旅行计划.md", "dossiers/watch-a-favorite-show.md"),
+    ("帮朋友P图.md", "dossiers/back-up-photos.md"),
+    ("练习演讲.md", "dossiers/practice-a-presentation.md"),
+    ("回复邮件.md", "dossiers/reply-to-an-important-email.md"),
+    ("写张明信片.md", "dossiers/write-a-postcard.md"),
+    ("试新咖啡.md", "dossiers/try-a-new-cafe.md"),
 ];
 
 const MY_INFO_PLAN_FILES: &[&str] = &[
@@ -676,15 +685,6 @@ fn initialize_starter_once(
 
 fn ensure_demo_library(root: &Path) -> Result<(), String> {
     initialize_starter_once(root, "demo", || {
-        fs::create_dir_all(root.join("catalog"))
-            .map_err(|error| format!("Could not create catalog directory: {error}"))?;
-        for (relative_path, content) in STARTER_FILES {
-            if *relative_path == "catalog/strategies.csv" {
-                let path = root.join(relative_path);
-                fs::write(&path, content)
-                    .map_err(|error| format!("Could not write demo catalog: {error}"))?;
-            }
-        }
         for (file_name, source_key) in DEMO_NOTES {
             let path = root.join(file_name);
             fs::write(&path, starter_content(source_key)?)
@@ -2509,10 +2509,10 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         "使用简体中文撰写笔记。"
     };
     let system_prompt = format!(
-        "You organize source material for Coffee Note, a scientific longevity knowledge library. \
-         Preserve factual nuance and clearly distinguish evidence from inference. Never invent a study, \
-         sample size, result, limitation, quotation, or source. If information is absent, say it is not \
-         stated. Do not diagnose or prescribe. {language_rule} Return JSON only with exactly two string \
+        "You organize source material for Coffee Note, a local-first Markdown knowledge library. \
+         Preserve factual nuance and clearly distinguish source material from inference. Never invent a \
+         fact, result, limitation, quotation, or source. If information is absent, say it is not stated. \
+         {language_rule} Return JSON only with exactly two string \
          fields: \"title\" and \"content\". The content must be clean Markdown and should include a concise \
          overview, key claims or findings, evidence limitations, and items that still need verification."
     );
@@ -3057,16 +3057,15 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         "使用简体中文回答。"
     };
     let system_prompt = format!(
-        "You are Coffee Note, a local-first scientific longevity assistant. \
+        "You are Coffee Note, a local-first note assistant. \
          The user's local notes are your primary memory. Use the supplied notes before general knowledge. \
          Cite the local note path in parentheses when a statement depends on it. \
-         Clearly separate the user's personal protocol from general information. \
-         Never invent a study, measurement, dose, or source. Preserve concise safety boundaries for \
-         medication interactions, allergies, pregnancy, and organ impairment when relevant. \
+         Clearly separate the user's recorded context from general information. \
+         Never invent a fact, measurement, or source. \
          When a LIVE SCIENTIFIC SEARCH snapshot is supplied, distinguish peer-reviewed publications, \
          registered trials, posted trial results, and non-peer-reviewed preprints. A trial registration \
          is not proof of efficacy. Do not imply the search is exhaustive. \
-         Do not diagnose or prescribe. {language_rule}"
+         {language_rule}"
     );
 
     let mut messages = vec![json!({ "role": "system", "content": system_prompt })];
@@ -4169,7 +4168,7 @@ mod tests {
 
     #[test]
     fn utf8_truncation_stays_on_character_boundaries() {
-        assert_eq!(truncate_utf8("科学延寿", 7), "科学…");
+        assert_eq!(truncate_utf8("本地笔记", 7), "本地…");
     }
 
     #[test]

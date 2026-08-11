@@ -293,6 +293,7 @@ export interface AgentRequest {
   contextPaths: string[];
   noteSummary?: string;
   enabledMyInfoSections: string[];
+  includePriorities: boolean;
   /** Title of the library note the user is viewing when sending, if any. */
   currentPage?: string;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;

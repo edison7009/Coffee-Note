@@ -331,7 +331,7 @@ export async function prepareCapture(request: PrepareCaptureRequest): Promise<Ca
       ? request.input.trim()
       : undefined;
     return {
-      title: request.locale === 'zh' ? '待核查的科学笔记' : 'Science note for verification',
+      title: request.locale === 'zh' ? '待整理的笔记' : 'Note to organize',
       content:
         request.locale === 'zh'
           ? `## 原始资料\n\n${request.input.trim()}\n\n## 待核查事项\n\n- 浏览器预览不会调用模型或抓取网页。`
@@ -346,8 +346,8 @@ export async function chatCompletion(request: ChatRequest): Promise<string> {
   if (!isTauri) {
     await new Promise((resolve) => setTimeout(resolve, 650));
     return request.locale === 'zh'
-      ? '当前浏览器预览已连接界面与本地示例数据。安装桌面版后，我会先检索你的个人方案与相关档案，再基于命中的笔记回答，并在右侧列出上下文。'
-      : 'This browser preview is wired to sample local data. In the desktop app, I first retrieve your personal protocol and related dossiers, answer from that context, and show what was used on the right.';
+      ? '当前浏览器预览已连接界面与本地示例数据。安装桌面版后，我会先检索相关笔记，再基于命中的本地内容回答。'
+      : 'This browser preview is wired to sample local data. In the desktop app, I first retrieve relevant notes and answer from the local context that matches your question.';
   }
   return invoke<string>('chat_completion', { request });
 }
