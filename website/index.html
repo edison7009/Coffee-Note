@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Coffee Note — The most affordable AI note tool</title>
+<title>Coffee Note — The most affordable AI note tool, deeply optimized for DeepSeek</title>
 <meta name="description" content="Coffee Note — local-first AI note tool. DeepSeek-optimized, short videos become notes, notes generate PPT and video.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -456,6 +456,7 @@
   // ===== i18n: single-page language switch (coffeecli.com pattern) =====
   const I18N = {
     en: {
+      docTitle: 'Coffee Note — The most affordable AI note tool, deeply optimized for DeepSeek',
       tagline: 'Your AI Second Brain for Knowledge & Ideas',
       heroTitle: 'The most affordable AI note tool<br>deeply optimized for <span class="deepseek">DeepSeek</span>',
       heroLead: 'DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save',
@@ -504,6 +505,7 @@
       footerRight: 'Coffee family products',
     },
     zh: {
+      docTitle: 'Coffee Note — 你最省钱的 AI 笔记工具，深度优化 DeepSeek',
       tagline: 'Your AI Second Brain for Knowledge & Ideas',
       heroTitle: '你最省钱的 AI 笔记工具<br>深度优化 <span class="deepseek">DeepSeek</span>',
       heroLead: 'DeepSeek 高效缓存 · 粘贴抖音/小红书/B站地址转文字 · 生成PPT或视频 · 越用越省钱',
@@ -565,6 +567,7 @@
 
   function renderI18N() {
     const dict = I18N[currentLang] || I18N.en;
+    if (dict.docTitle) document.title = dict.docTitle;
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.dataset.i18n;
       if (dict[key]) el.innerHTML = dict[key];
