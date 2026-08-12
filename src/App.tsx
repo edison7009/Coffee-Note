@@ -176,7 +176,6 @@ import type {
   SkillCatalog,
   SkillDefinition,
   Story,
-  Supplement,
   View,
 } from './types';
 import {
@@ -662,7 +661,7 @@ function getLinks(markdown: string): Array<{ label: string; url: string }> {
   return links.slice(0, 8);
 }
 
-type InternalNoteKind = 'supplement' | 'person' | 'story' | 'file';
+type InternalNoteKind = 'person' | 'story' | 'file';
 type PlanSection = 'supplements' | 'exercise' | 'experience' | 'lessons' | 'sleep' | 'log';
 
 const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
@@ -707,7 +706,6 @@ interface ContextNoteSelection {
 
 interface NavigationLocation {
   view: View;
-  supplementId?: string;
   personId?: string;
   storyId?: string;
   filePath?: string;
@@ -823,7 +821,7 @@ function getPlanSections(locale: Locale): Array<{
 function parseInternalNoteLink(href?: string): Omit<InternalNoteTarget, 'label'> | null {
   if (!href) return null;
   // Existing #/kind/id navigation links.
-  const nav = href.match(/^#\/(supplement|person|story)\/([^/?#]+)$/);
+  const nav = href.match(/^#\/(person|story)\/([^/?#]+)$/);
   if (nav) {
     return {
       kind: nav[1] as InternalNoteKind,
@@ -998,7 +996,6 @@ function linkInternalKeywords(
 function locationsMatch(left: NavigationLocation, right: NavigationLocation): boolean {
   return (
     left.view === right.view &&
-    left.supplementId === right.supplementId &&
     left.personId === right.personId &&
     left.storyId === right.storyId &&
     left.filePath === right.filePath
@@ -1116,7 +1113,6 @@ function App() {
   const [library, setLibrary] = useState<LibrarySnapshot>(fallbackLibrary);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
   const [view, setView] = useState<View>('home');
-  const [selectedSupplement, setSelectedSupplement] = useState<Supplement | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
@@ -1153,30 +1149,26 @@ function App() {
   }, [fileNotePath, locale]);
   const currentPageTitle = useMemo(() => {
     if (view === 'file') return fileNoteTitle || undefined;
-    if (view === 'supplement' && selectedSupplement) {
-      return locale === 'zh' ? selectedSupplement.nameZh : selectedSupplement.nameEn;
-    }
     if (view === 'person' && selectedPerson) return selectedPerson.name;
     if (view === 'story' && selectedStory) {
       return locale === 'zh' ? selectedStory.title : selectedStory.titleEn || selectedStory.title;
     }
     return undefined;
-  }, [view, fileNoteTitle, selectedSupplement, selectedPerson, selectedStory, locale]);
+  }, [view, fileNoteTitle, selectedPerson, selectedStory, locale]);
   useEffect(() => {
     setImplicitContextDismissed(false);
-  }, [view, fileNotePath, selectedSupplement?.id, selectedPerson?.id, selectedStory?.id]);
+  }, [view, fileNotePath, selectedPerson?.id, selectedStory?.id]);
   const selectedContextPaths = useMemo(
     () => selectedContextNotes.map((note) => note.path),
     [selectedContextNotes],
   );
   const implicitContextPaths = useMemo(
     () => [
-      selectedSupplement?.filePath,
       selectedPerson?.filePath,
       selectedStory?.filePath,
       view === 'file' && fileNoteSource === 'library' ? fileNotePath : undefined,
     ].filter(Boolean) as string[],
-    [fileNotePath, fileNoteSource, selectedPerson, selectedStory, selectedSupplement, view],
+    [fileNotePath, fileNoteSource, selectedPerson, selectedStory, view],
   );
   const implicitContextEnabled = Boolean(currentPageTitle) && !implicitContextDismissed;
   const composerContextLabel = useMemo(() => {
@@ -1327,7 +1319,6 @@ function App() {
 
   const getCurrentLocation = (): NavigationLocation => ({
     view,
-    supplementId: selectedSupplement?.id,
     personId: selectedPerson?.id,
     storyId: selectedStory?.id,
     filePath: fileNotePath || undefined,
@@ -1377,36 +1368,11 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const openSupplement = async (supplement: Supplement, remember = true) => {
-    if (remember) {
-      rememberCurrentLocation({ view: 'supplement', supplementId: supplement.id });
-    }
-    setSelectedSupplement(supplement);
-    setSelectedPerson(null);
-    setSelectedStory(null);
-    setView('supplement');
-    setNoteLoading(true);
-    try {
-      const markdown = supplement.filePath
-        ? await readNote(library.root, supplement.filePath)
-        : `# ${supplement.nameZh}\n\n${supplement.summary}`;
-      setNoteMarkdown(markdown);
-    } catch {
-      setNoteMarkdown(
-        fallbackMarkdown[supplement.filePath || ''] ||
-          `# ${supplement.nameZh}\n\n${supplement.summary}`,
-      );
-    } finally {
-      setNoteLoading(false);
-    }
-  };
-
   const openPerson = async (person: Person, remember = true) => {
     if (remember) {
       rememberCurrentLocation({ view: 'person', personId: person.id });
     }
     setSelectedPerson(person);
-    setSelectedSupplement(null);
     setSelectedStory(null);
     setView('person');
     setNoteLoading(true);
@@ -1429,7 +1395,6 @@ function App() {
       rememberCurrentLocation({ view: 'story', storyId: story.id });
     }
     setSelectedStory(story);
-    setSelectedSupplement(null);
     setSelectedPerson(null);
     setView('story');
     setNoteLoading(true);
@@ -1448,12 +1413,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (view === 'supplement' && selectedSupplement) {
-      const localized = library.supplements.find((item) => item.id === selectedSupplement.id);
-      if (localized && localized.filePath !== selectedSupplement.filePath) {
-        void openSupplement(localized, false);
-      }
-    } else if (view === 'person' && selectedPerson) {
+    if (view === 'person' && selectedPerson) {
       const localized = library.people.find((item) => item.id === selectedPerson.id);
       if (localized && localized.filePath !== selectedPerson.filePath) {
         void openPerson(localized, false);
@@ -1469,24 +1429,16 @@ function App() {
   const navigate = (nextView: View, remember = true) => {
     if (remember) rememberCurrentLocation({ view: nextView });
     setView(nextView);
-    if (nextView !== 'supplement') setSelectedSupplement(null);
     if (nextView !== 'person') setSelectedPerson(null);
     if (nextView !== 'story') setSelectedStory(null);
     if (nextView !== 'file') {
       setFileNotePath(null);
       setFileNoteSource('library');
     }
-    if (!['supplement', 'person', 'story', 'file'].includes(nextView)) setNoteMarkdown('');
+    if (!['person', 'story', 'file'].includes(nextView)) setNoteMarkdown('');
   };
 
   const restoreLocation = (location: NavigationLocation) => {
-    if (location.view === 'supplement' && location.supplementId) {
-      const supplement = library.supplements.find((item) => item.id === location.supplementId);
-      if (supplement) {
-        void openSupplement(supplement, false);
-        return;
-      }
-    }
     if (location.view === 'person' && location.personId) {
       const person = library.people.find((item) => item.id === location.personId);
       if (person) {
@@ -1529,22 +1481,21 @@ function App() {
 
   const noteRelativePath = useMemo(() => {
     if (view === 'file') return fileNotePath;
-    if (view === 'supplement') return selectedSupplement?.filePath || null;
     if (view === 'person') return selectedPerson?.filePath || null;
     if (view === 'story') return selectedStory?.filePath || null;
     return null;
-  }, [view, fileNotePath, selectedSupplement, selectedPerson, selectedStory]);
+  }, [view, fileNotePath, selectedPerson, selectedStory]);
   const noteRoot = useMemo(() => {
     if (view === 'file') {
       return fileNoteSource === 'myInfo' ? library.myInfoRoot : library.root;
     }
-    if (view === 'supplement' || view === 'person' || view === 'story') {
+    if (view === 'person' || view === 'story') {
       return library.root;
     }
     return '';
   }, [view, fileNoteSource, library.myInfoRoot, library.root]);
   const noteSummaryKey = useMemo(() => {
-    if (!['file', 'supplement', 'person', 'story'].includes(view)) return null;
+    if (!['file', 'person', 'story'].includes(view)) return null;
     const identity = noteRelativePath || currentPageTitle || view;
     const body = noteMarkdown.trim();
     if (!identity || !body) return null;
@@ -1700,9 +1651,6 @@ function App() {
     noteSummaryPreview,
   ]);
   const currentNoteTarget = useMemo<Omit<InternalNoteTarget, 'label'> | null>(() => {
-    if (view === 'supplement' && selectedSupplement) {
-      return { kind: 'supplement', id: selectedSupplement.id };
-    }
     if (view === 'person' && selectedPerson) {
       return { kind: 'person', id: selectedPerson.id };
     }
@@ -1713,7 +1661,7 @@ function App() {
       return { kind: 'file', id: fileNotePath };
     }
     return null;
-  }, [view, selectedSupplement, selectedPerson, selectedStory, fileNotePath]);
+  }, [view, selectedPerson, selectedStory, fileNotePath]);
 
   useEffect(() => {
     if (!railEditorTarget) return;
@@ -1727,7 +1675,7 @@ function App() {
       setActiveTextSurface('editor');
       return;
     }
-    if (noteRelativePath && ['supplement', 'person', 'story', 'file'].includes(view)) {
+    if (noteRelativePath && ['person', 'story', 'file'].includes(view)) {
       setActiveTextSurface('reader');
       return;
     }
@@ -1886,18 +1834,13 @@ function App() {
         if (generation !== libraryGenerationRef.current) return;
         setNoteMarkdown(markdown);
       } else {
-        if (selectedSupplement?.filePath === relativePath) {
-          setSelectedSupplement({ ...selectedSupplement, tier });
-        } else if (selectedPerson?.filePath === relativePath) {
+        if (selectedPerson?.filePath === relativePath) {
           setSelectedPerson({ ...selectedPerson, tier });
         } else if (selectedStory?.filePath === relativePath) {
           setSelectedStory({ ...selectedStory, tier });
         }
         setLibrary((current) => ({
           ...current,
-          supplements: current.supplements.map((item) =>
-            item.filePath === relativePath ? { ...item, tier } : item,
-          ),
           people: current.people.map((item) =>
             item.filePath === relativePath ? { ...item, tier } : item,
           ),
@@ -2018,7 +1961,6 @@ function App() {
     const source: 'library' | 'myInfo' =
       sourceOverride || (filePath.startsWith('plans/') ? 'myInfo' : 'library');
     setFileNoteSource(source);
-    setSelectedSupplement(null);
     setSelectedPerson(null);
     setSelectedStory(null);
     setNoteLoading(true);
@@ -2094,13 +2036,6 @@ function App() {
   };
 
   const openInternalNote = (target: Omit<InternalNoteTarget, 'label'>) => {
-    if (target.kind === 'supplement') {
-      const supplement = library.supplements.find((item) => item.id === target.id);
-      if (supplement) {
-        void openSupplement(supplement);
-        return;
-      }
-    }
     if (target.kind === 'person') {
       const person = library.people.find((item) => item.id === target.id);
       if (person) {
@@ -2685,9 +2620,6 @@ function App() {
       }
     };
 
-    for (const supplement of library.supplements) {
-      add('supplement', supplement.id, [supplement.nameZh, supplement.nameEn]);
-    }
     for (const person of library.people) {
       add('person', person.id, [person.name, person.nameZh]);
     }
@@ -2834,43 +2766,6 @@ function App() {
                   onAdd={() => setCaptureGuideOpen(true)}
                   onBack={goBack}
                   t={t}
-                />
-              )}
-              {view === 'supplement' && selectedSupplement && (
-                <NoteView
-                  title={locale === 'zh' ? selectedSupplement.nameZh : selectedSupplement.nameEn}
-                  tier={selectedSupplement.tier}
-                  markdown={noteMarkdown}
-                  loading={noteLoading}
-                  locale={locale}
-                  currentTarget={{ kind: 'supplement', id: selectedSupplement.id }}
-                  internalTargets={internalNoteTargets}
-                  onInternalNavigate={openInternalNote}
-                  favorite={isFavorite({ kind: 'supplement', id: selectedSupplement.id })}
-                  onToggleFavorite={() =>
-                    toggleFavorite({ kind: 'supplement', id: selectedSupplement.id })
-                  }
-                  onBack={goBack}
-                  summary={noteSummary}
-                  notePath={noteRelativePath}
-                  isEditing={railEditorTarget?.relativePath === noteRelativePath}
-                  onToggleEdit={() =>
-                    noteRelativePath &&
-                    handleToggleRailEdit({
-                      relativePath: noteRelativePath,
-                      title: locale === 'zh' ? selectedSupplement.nameZh : selectedSupplement.nameEn,
-                      markdown: noteMarkdown,
-                    })
-                  }
-                  onDeleteNote={handleDeleteNote}
-                  onSetTier={(nextTier) =>
-                    selectedSupplement.filePath &&
-                    handleSetTier(selectedSupplement.filePath, nextTier)
-                  }
-                  onActivateReaderCommands={() => setActiveTextSurface('reader')}
-                  onRegisterReaderCommands={(controller) => {
-                    readerTextCommandsRef.current = controller;
-                  }}
                 />
               )}
               {view === 'person' && selectedPerson && (
@@ -3068,7 +2963,6 @@ function App() {
         onRegisterEditorCommands={(controller) => {
           editorTextCommandsRef.current = controller;
         }}
-        supplement={selectedSupplement}
         person={selectedPerson}
         story={selectedStory}
         references={references}
@@ -7306,7 +7200,6 @@ function RightRail({
   activeConversationId,
   unreadConversationIds,
   chatBusy,
-  supplement,
   person,
   story,
   references,
@@ -7337,7 +7230,6 @@ function RightRail({
   activeConversationId: string;
   unreadConversationIds: string[];
   chatBusy: boolean;
-  supplement: Supplement | null;
   person: Person | null;
   story: Story | null;
   references: Array<{ label: string; url: string }>;
@@ -7362,7 +7254,7 @@ function RightRail({
 }) {
   const planSections = getPlanSections(locale).filter((section) => myInfoRetrieval[section.id]);
   const shortcutCount = planSections.length + (includePriorities ? 1 : 0);
-  const hasOpenContent = Boolean(supplement || person || story);
+  const hasOpenContent = Boolean(person || story);
   const [editorDraft, setEditorDraft] = useState(editingNote?.markdown || '');
   const [editorSavedMarkdown, setEditorSavedMarkdown] = useState(editingNote?.markdown || '');
   const [conversationMenu, setConversationMenu] = useState<ConversationContextMenuState | null>(null);
@@ -7374,16 +7266,7 @@ function RightRail({
   const favoriteItems = useMemo<FavoriteListItem[]>(() => {
     const items: FavoriteListItem[] = [];
     for (const favorite of favorites) {
-      if (favorite.kind === 'supplement') {
-        const item = library.supplements.find((candidate) => candidate.id === favorite.id);
-        if (item) {
-          items.push({
-            target: favorite,
-            title: locale === 'zh' ? item.nameZh : item.nameEn,
-            detail: `${item.tier} · ${item.category}`,
-          });
-        }
-      } else if (favorite.kind === 'person') {
+      if (favorite.kind === 'person') {
         const item = library.people.find((candidate) => candidate.id === favorite.id);
         if (item) {
           items.push({
@@ -7514,12 +7397,7 @@ function RightRail({
             <h3>
               {aiActive
                 ? indexedSourceCountLabel
-                : (supplement
-                    ? locale === 'zh'
-                      ? supplement.nameZh
-                      : supplement.nameEn
-                    : null) ||
-                  (person
+                : (person
                     ? locale === 'zh'
                       ? person.nameZh || person.name
                       : person.name
@@ -7689,9 +7567,7 @@ function RightRail({
                     key={`${item.target.kind}:${item.target.id}`}
                   >
                     <span className="favorite-item-icon">
-                      {item.target.kind === 'supplement' ? (
-                        <Dumbbell size={17} />
-                      ) : item.target.kind === 'person' ? (
+                      {item.target.kind === 'person' ? (
                         <UserRound size={17} />
                       ) : (
                         <BookOpen size={17} />

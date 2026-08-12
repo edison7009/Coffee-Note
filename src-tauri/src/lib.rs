@@ -45,18 +45,6 @@ include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Supplement {
-    id: String,
-    name_zh: String,
-    name_en: String,
-    category: String,
-    tier: String,
-    summary: String,
-    file_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct PriorityNote {
     id: String,
     title: String,
@@ -108,7 +96,6 @@ struct LibrarySnapshot {
     my_info_root: String,
     connected: bool,
     priorities: Vec<PriorityNote>,
-    supplements: Vec<Supplement>,
     people: Vec<Person>,
     stories: Vec<Story>,
     note_count: usize,
@@ -1155,114 +1142,6 @@ fn truncate_utf8(value: &str, max_bytes: usize) -> String {
     format!("{}…", &value[..end])
 }
 
-fn localized_category(category: &str, locale: &str) -> String {
-    if locale != "en" {
-        return category.to_string();
-    }
-    match category {
-        "运动" => "Exercise",
-        "饮食" => "Diet",
-        "运动营养" => "Sports nutrition",
-        "肠道" => "Gut health",
-        "脂肪酸" => "Fatty acids",
-        "维生素" => "Vitamins",
-        "矿物质" => "Minerals",
-        "线粒体" => "Mitochondria",
-        "NAD 相关" => "NAD-related",
-        "细胞稳态" => "Cellular homeostasis",
-        "抗氧化" => "Antioxidants",
-        "代谢" => "Metabolic health",
-        "前沿生物技术" => "Frontier biotechnology",
-        _ => category,
-    }
-    .to_string()
-}
-
-fn load_supplements(root: &Path, locale: &str) -> Vec<Supplement> {
-    let strategies_path = root.join("catalog").join("strategies.csv");
-    let catalog_path = if strategies_path.is_file() {
-        strategies_path
-    } else {
-        root.join("catalog").join("supplements.csv")
-    };
-    let Ok(catalog) = fs::read_to_string(catalog_path) else {
-        return Vec::new();
-    };
-
-    let supported_ids = [
-        "strength-training",
-        "aerobic-exercise",
-        "healthy-diet",
-        "quality-protein",
-        "creatine",
-        "soluble-fiber",
-        "omega3",
-        "vitamin-d3",
-        "magnesium",
-        "vitamin-c",
-        "coq10",
-        "nmn",
-        "spermidine",
-        "ergothioneine",
-        "pqq",
-        "ca-akg",
-        "partial-reprogramming",
-    ];
-    let mut supplements = Vec::new();
-    for line in catalog.lines().skip(1) {
-        let fields = split_csv_line(line);
-        if fields.len() < 9 {
-            continue;
-        }
-        let id = fields[0].clone();
-        if !supported_ids.contains(&id.as_str()) {
-            continue;
-        }
-
-        let mut dossier_path =
-            localized_note_path(&root.join("dossiers").join(format!("{id}.md")), locale);
-        if !dossier_path.exists() {
-            let flat_path = root.join(format!("{}.md", fields[1].trim()));
-            if flat_path.exists() {
-                dossier_path = flat_path;
-            }
-        }
-        let dossier_content = fs::read_to_string(&dossier_path).ok();
-        let dossier_summary = dossier_content
-            .as_deref()
-            .map(extract_summary)
-            .unwrap_or_default();
-        let summary = if dossier_summary.is_empty() {
-            fields[8].clone()
-        } else {
-            dossier_summary
-        };
-        let frontmatter_tier = dossier_content
-            .as_deref()
-            .and_then(|content| extract_frontmatter_value(content, "tier"));
-
-        supplements.push(Supplement {
-            id,
-            name_zh: fields[1].clone(),
-            name_en: fields[2].clone(),
-            category: localized_category(&fields[3], locale),
-            tier: frontmatter_tier.unwrap_or_else(|| {
-                if fields[6].is_empty() {
-                    "pending".to_string()
-                } else {
-                    fields[6].clone()
-                }
-            }),
-            summary,
-            file_path: dossier_path
-                .exists()
-                .then_some(relative_note_path(root, &dossier_path)),
-        });
-    }
-
-    supplements
-}
-
 fn load_people(root: &Path, locale: &str) -> Vec<Person> {
     let specs = [
         (
@@ -1438,11 +1317,6 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
     } else {
         Vec::new()
     };
-    let supplements = if connected {
-        load_supplements(&root, &locale)
-    } else {
-        Vec::new()
-    };
     let people = if connected {
         load_people(&root, &locale)
     } else {
@@ -1464,7 +1338,6 @@ fn load_library(root: Option<String>, locale: Option<String>) -> Result<LibraryS
         my_info_root: path_string(&my_info_root()),
         connected,
         priorities,
-        supplements,
         people,
         stories,
         note_count,

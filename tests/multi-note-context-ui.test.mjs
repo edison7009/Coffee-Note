@@ -36,7 +36,7 @@ test('article context uses a removable pill and clearing it changes the next req
   assert.match(appSource, /onClick=\{onClearCurrentPage\}/);
   assert.match(appSource, /<X size=\{13\} strokeWidth=\{2\.4\} \/>/);
   assert.match(appSource, /const dismissComposerContext = \(\) => \{\s*setImplicitContextDismissed\(true\);\s*if \(selectedContextNotes\.length > 0\) cancelMultiSelect\(\);/s);
-  assert.match(appSource, /setImplicitContextDismissed\(false\);\s*\}, \[view, fileNotePath, selectedSupplement\?\.id, selectedPerson\?\.id, selectedStory\?\.id\]\);/s);
+  assert.match(appSource, /setImplicitContextDismissed\(false\);\s*\}, \[view, fileNotePath, selectedPerson\?\.id, selectedStory\?\.id\]\);/s);
   assert.match(cssSource, /\.composer-context-pill\s*\{[^}]*height:\s*24px;[^}]*max-width:\s*min\(270px, 32vw\);[^}]*padding:\s*0 10px 0 8px;[^}]*color:\s*var\(--switch-on\);[^}]*background:\s*color-mix\(in srgb, var\(--switch-on\) 11%, transparent\);[^}]*border:\s*0;[^}]*font-weight:\s*400;/s);
   assert.doesNotMatch(cssSource, /\.composer-context-pill\s*\{[^}]*box-shadow:/s);
   assert.match(cssSource, /\.composer-context-pill:hover\s*\{[^}]*color:\s*var\(--switch-on\);[^}]*background:\s*color-mix\(in srgb, var\(--switch-on\) 17%, transparent\);/s);

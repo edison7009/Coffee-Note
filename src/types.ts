@@ -2,7 +2,6 @@ export type Locale = 'zh' | 'en';
 export type View =
   | 'home'
   | 'ai'
-  | 'supplement'
   | 'people'
   | 'person'
   | 'stories'
@@ -10,16 +9,6 @@ export type View =
   | 'plan'
   | 'file'
   | 'log';
-
-export interface Supplement {
-  id: string;
-  nameZh: string;
-  nameEn: string;
-  category: string;
-  tier: string;
-  summary: string;
-  filePath?: string;
-}
 
 export interface PriorityNote {
   id: string;
@@ -54,7 +43,6 @@ export interface LibrarySnapshot {
   myInfoRoot: string;
   connected: boolean;
   priorities: PriorityNote[];
-  supplements: Supplement[];
   people: Person[];
   stories: Story[];
   noteCount: number;
