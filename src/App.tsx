@@ -8870,7 +8870,7 @@ function CaptureGuideDialog({
                   className="capture-file-pill-clear"
                   onClick={() => setSelectedFile(null)}
                   disabled={busy || saving}
-                  aria-label={t('captureFileClear') ?? '清除'}
+                  aria-label="Remove file"
                 >
                   <X size={12} />
                 </button>
