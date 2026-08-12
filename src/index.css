@@ -550,10 +550,10 @@ body.resizing-panels * {
   background: transparent;
 }
 
-.nav-divider {
-  height: 1px;
-  margin: 10px 6px 6px;
-  background: var(--line);
+/* Library tree sits right under the primary nav buttons (divider removed);
+   a modest top margin keeps the two sections breathing without a line. */
+.library-tree {
+  margin-top: 10px;
 }
 
 .nav-tree-group {
@@ -983,8 +983,6 @@ html.tree-drag-active * {
   min-width: 0;
   overflow: hidden;
   background: var(--paper);
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
   border-radius: 14px 0 0;
 }
 
@@ -3292,6 +3290,7 @@ html.tree-drag-active * {
 }
 
 .right-rail {
+  position: relative;
   z-index: 2;
   display: grid;
   grid-row: 2;
@@ -3299,48 +3298,53 @@ html.tree-drag-active * {
   min-width: 0;
   overflow: hidden;
   background: var(--paper);
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+}
+
+/* The rail's white background stays square and connected with the main pane
+   (one continuous surface, corners untouched). Only this inner frame is
+   rounded, drawn 5px inside the panel's edges on all four sides. */
+.right-rail::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  z-index: 1;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  pointer-events: none;
 }
 
 .rail-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
-  justify-content: space-between;
   min-width: 0;
   min-height: 82px;
   padding: 16px 17px;
-  border-bottom: 1px solid var(--line);
 }
 
-.rail-header > div {
-  min-width: 0;
-}
-
-.rail-kicker {
+.rail-count {
+  flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #879995;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.rail-header h3 {
-  margin: 7px 0 0;
-  overflow: hidden;
-  font-family:
-    Inter, 'SF Pro Display', 'Segoe UI Variable Display', 'Segoe UI', 'Noto Sans SC',
-    'Microsoft YaHei', system-ui, sans-serif;
-  font-size: 18px;
+.rail-count strong {
+  color: var(--ink);
   font-weight: 650;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
-  text-rendering: geometricPrecision;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The rail header splits into two equal halves — "新对话" centers in the left
+   half, "索引数: X" centers in the right half. */
+.rail-header > button,
+.rail-header > .rail-count {
+  justify-self: center;
+  justify-content: center;
 }
 
 .rail-resume-chat {
@@ -3348,12 +3352,11 @@ html.tree-drag-active * {
   align-items: center;
   gap: 5px;
   flex: 0 0 auto;
-  margin-left: 12px;
-  padding: 6px 10px;
+  margin-left: 0;
+  padding: 0;
   color: var(--accent);
-  background: var(--soft-teal);
+  background: transparent;
   border: 0;
-  border-radius: 9px;
   font-size: 13px;
   font-weight: 650;
   white-space: nowrap;
@@ -3361,7 +3364,8 @@ html.tree-drag-active * {
 }
 
 .rail-resume-chat:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+  color: var(--accent-hover);
+  background: transparent;
 }
 
 .rail-resume-chat:disabled {
@@ -4678,7 +4682,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 [data-theme='dark'] .markdown-body strong,
 [data-theme='dark'] .plan-section-grid strong,
 [data-theme='dark'] .plan-focus strong,
-[data-theme='dark'] .rail-header h3,
 [data-theme='dark'] .context-summary strong,
 [data-theme='dark'] .plan-shortcut-list strong,
 [data-theme='dark'] .related-list strong {
@@ -4693,11 +4696,11 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 [data-theme='dark'] .rail-resume-chat {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: transparent;
 }
 
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: transparent;
 }
 
 [data-theme='dark'] .person-card::after,
@@ -5642,12 +5645,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   white-space: nowrap;
 }
 
-.conversation-history-meta time {
-  flex: 0 0 auto;
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-}
-
 .conversation-history-delete {
   display: inline-flex;
   align-items: center;
@@ -6145,11 +6142,6 @@ textarea,
   border-top-color: transparent;
 }
 
-.nav-divider {
-  margin: 9px 7px 5px;
-  background: var(--line);
-}
-
 .tree-chevron {
   transition: none;
 }
@@ -6642,43 +6634,25 @@ textarea,
 }
 
 .rail-header {
-  min-height: 68px;
-  padding: 13px 15px;
+  min-height: 58px;
+  padding: 10px 15px;
   border-color: var(--line);
-}
-
-.rail-kicker,
-[data-theme='dark'] .rail-kicker {
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: none;
-}
-
-.rail-header h3,
-[data-theme='dark'] .rail-header h3 {
-  margin-top: 4px;
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 18px;
-  font-weight: 650;
 }
 
 .rail-resume-chat,
 [data-theme='dark'] .rail-resume-chat {
   color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 7px;
+  background: transparent;
 }
 
 .rail-resume-chat:hover:not(:disabled),
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
   color: var(--accent-hover);
-  background: var(--accent-soft);
+  background: transparent;
 }
 
 .rail-scroll {
-  padding: 12px;
+  padding: 6px 12px 12px;
 }
 
 .rail-scroll-editor {

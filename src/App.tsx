@@ -14,7 +14,6 @@ import {
   Github,
   Globe2,
   Hash,
-  History,
   House,
   Layers3,
   Library,
@@ -727,16 +726,21 @@ function shiftKey(key: string, delta: number): string {
   return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate());
 }
 
-function formatConversationTime(timestamp: number, locale: Locale): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(date);
+function formatRelativeTime(timestamp: number, locale: Locale): string {
+  const then = new Date(timestamp);
+  if (Number.isNaN(then.getTime())) return '';
+  const diffMs = Date.now() - then.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return locale === 'zh' ? '刚刚' : 'just now';
+  if (minutes < 60) return locale === 'zh' ? `${minutes} 分钟前` : `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return locale === 'zh' ? `${hours} 小时前` : `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return locale === 'zh' ? `${days} 天前` : `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return locale === 'zh' ? `${months} 个月前` : `${months} mo ago`;
+  const years = Math.floor(months / 12);
+  return locale === 'zh' ? `${years} 年前` : `${years} yr ago`;
 }
 
 function entryHasContent(entry: HealthDayEntry | undefined): boolean {
@@ -4794,8 +4798,6 @@ function Sidebar({
             onClick={() => onNavigate('plan')}
           />
 
-          <div className="nav-divider" />
-
           <LibraryTree
             root={libraryRoot}
             locale={locale}
@@ -7135,6 +7137,15 @@ function RightRail({
     setEditorSavedMarkdown(editingNote?.markdown || '');
   }, [editingNote?.markdown, editingNote?.relativePath]);
 
+  // Re-render once a minute while the conversation list is visible so the
+  // relative timestamps ("x 分钟前") stay fresh without a full app tick.
+  const [, setConversationClock] = useState(0);
+  useEffect(() => {
+    if (!aiActive || editingNote) return;
+    const timer = window.setInterval(() => setConversationClock((tick) => tick + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [aiActive, editingNote]);
+
   useEffect(() => {
     if (!renamingConversationId) return;
     const frame = window.requestAnimationFrame(() => {
@@ -7189,21 +7200,10 @@ function RightRail({
   };
   const indexedSourceCount = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US')
     .format(library.noteCount);
-  const indexedSourceCountLabel = locale === 'zh'
-    ? `${indexedSourceCount} 篇`
-    : `${indexedSourceCount} ${library.noteCount === 1 ? 'item' : 'items'}`;
-
   return (
     <aside className={`right-rail${editingNote ? ' right-rail-editing' : ''}`}>
       {aiActive && !editingNote && (
         <div className="rail-header">
-          <div>
-            <span className="rail-kicker">
-              <History size={15} />
-              {t('recentContexts')}
-            </span>
-            <h3>{indexedSourceCountLabel}</h3>
-          </div>
           <button
             type="button"
             className="rail-resume-chat"
@@ -7213,15 +7213,16 @@ function RightRail({
             <Plus size={15} />
             {t('newChat')}
           </button>
+          <div className="rail-count">
+            <span>{locale === 'zh' ? '索引数:' : 'Index:'}</span>
+            <strong>{indexedSourceCount}</strong>
+          </div>
         </div>
       )}
 
       <div className={`rail-scroll${editingNote ? ' rail-scroll-editor' : ''}`}>
         {aiActive ? (
           <>
-            <div className="rail-section-title">
-              {locale === 'zh' ? '历史对话' : 'Conversations'} <span>{conversations.length}</span>
-            </div>
             <div className="conversation-history-list">
               {conversations.length ? (
                 conversations.map((conversation) => {
@@ -7232,9 +7233,8 @@ function RightRail({
                   const conversationMeta = (
                     <small className="conversation-history-meta">
                       <span>
-                        {conversation.messageCount}{locale === 'zh' ? ' 条消息' : ' messages'} · {Math.max(1, Math.round(conversation.estimatedContextBytes / 1024))} KB
+                        {conversation.messageCount}{locale === 'zh' ? ' 条消息' : ' messages'} · {formatRelativeTime(conversation.updatedAt, locale)}
                       </span>
-                      <time>{formatConversationTime(conversation.updatedAt, locale)}</time>
                     </small>
                   );
                   return (
