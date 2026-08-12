@@ -4197,19 +4197,54 @@ html.tree-drag-active * {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.capture-file-button:hover:not(:disabled) {
-  color: var(--accent);
-  background: white;
-  border-color: var(--accent-border);
+  cursor: default;
 }
 
 .capture-file-button:disabled {
   opacity: 0.55;
+}
+
+/* Selected file pill: file name + extension + clear (x) button */
+.capture-file-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  min-width: 0;
+  max-width: 260px;
+  padding: 6px 8px 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--secondary-surface);
+  color: var(--muted);
+  font-size: 13px;
   cursor: default;
+}
+
+.capture-file-pill-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.capture-file-pill-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.capture-file-pill-clear:disabled {
+  opacity: 0.55;
 }
 
 .capture-field input,

@@ -8843,7 +8843,7 @@ function CaptureGuideDialog({
           )}
 
           <div className="capture-guide-actions">
-            {!draft && (
+            {!draft && !selectedFile && (
               <button
                 type="button"
                 className="capture-file-button"
@@ -8854,11 +8854,27 @@ function CaptureGuideDialog({
                   setError('');
                 }}
                 disabled={busy || saving}
-                title={selectedFile ?? undefined}
               >
                 <FileUp size={16} />
-                {selectedFile ? selectedFile : t('captureChooseFile')}
+                {t('captureChooseFile')}
               </button>
+            )}
+            {!draft && selectedFile && (
+              <span className="capture-file-pill" title={selectedFile}>
+                <FileUp size={14} />
+                <span className="capture-file-pill-name">
+                  {selectedFile.split(/[\\/]/).pop()}
+                </span>
+                <button
+                  type="button"
+                  className="capture-file-pill-clear"
+                  onClick={() => setSelectedFile(null)}
+                  disabled={busy || saving}
+                  aria-label={t('captureFileClear') ?? '清除'}
+                >
+                  <X size={12} />
+                </button>
+              </span>
             )}
             <button
               className="secondary-button"
