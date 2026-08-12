@@ -148,7 +148,10 @@
   .copy-btn {
     background: transparent; border: 1px solid var(--line); border-radius: 6px;
     color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
-    padding: 5px 10px; transition: all 0.15s;
+    /* fixed width so "复制"/"已复制"/"Copy"/"Copied" never change button size */
+    width: 58px; height: 28px; padding: 0; text-align: center;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: color 0.15s, border-color 0.15s;
   }
   .copy-btn:hover { color: var(--brand); border-color: var(--brand); }
   .copy-btn.copied { color: var(--brand); border-color: var(--brand); }
