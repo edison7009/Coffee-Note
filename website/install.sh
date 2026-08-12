@@ -85,9 +85,18 @@ if [ "$OS" = "Darwin" ]; then
   fi
   ditto "$APP" "/Applications/Coffee Note.app"
   hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+
+  # Strip com.apple.quarantine that curl-downloaded files inherit. On
+  # Apple Silicon macOS 14+, Gatekeeper silently refuses to launch
+  # adhoc-signed apps that still carry quarantine. Remove the xattr so
+  # LaunchServices trusts this binary (same as EchoBird).
+  xattr -dr com.apple.quarantine "/Applications/Coffee Note.app" 2>/dev/null || true
+
   echo ""
   echo "  ${GREEN}Coffee Note v$LATEST_VERSION is installed.${RESET}"
-  echo "  First launch: right-click Coffee Note in /Applications and choose Open."
+  echo "  Launch it from /Applications or Spotlight."
+  echo "  macOS first launch: if it won't open, run in Terminal:"
+  echo "    xattr -cr '/Applications/Coffee Note.app'"
 else
   echo "  Opening the downloaded package..." "${GRAY}"
   # Linux: the asset is a deb/rpm/AppImage; hand it to the user's tooling.
