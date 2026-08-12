@@ -40,13 +40,6 @@
   }
   ::selection { background: var(--brand-soft); }
 
-  /* ===== Dot field ===== */
-  #dot-field {
-    position: fixed; inset: 0; z-index: 0;
-    pointer-events: none; width: 100%; height: 100%;
-  }
-  @media (prefers-reduced-motion: reduce) { #dot-field { opacity: 0.5; } }
-
   /* ===== Nav — Coffee CLI style, no overlay bar ===== */
   .nav {
     display: flex; align-items: center; justify-content: space-between;
@@ -269,9 +262,6 @@
 </style>
 </head>
 <body>
-
-<!-- Dot field -->
-<canvas id="dot-field" aria-hidden="true"></canvas>
 
 <!-- ===== Nav ===== -->
 <nav class="nav">
@@ -657,84 +647,6 @@
     });
   }, { threshold: 0.15 });
   document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
-
-  // Dot field — drifting grid + mouse morph into + - 0 1 glyphs
-  (function () {
-    const canvas = document.getElementById('dot-field');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const root = document.documentElement;
-    const SPACING = 32, BASE_SIZE = 2.0, REPEL_RADIUS = 130, REPEL_FORCE = 26, LERP = 0.18;
-    const DRIFT_SPEED = 0.22, BREATH_FREQ = 0.0014, BREATH_SIZE_AMP = 0.35, BREATH_ALPHA_LO = 0.65, BREATH_ALPHA_HI = 1.0, MORPH_THRESHOLD = 0.55, GLYPH_PX = 12;
-    const GLYPHS = [
-      { draw: (c) => { c.beginPath(); c.moveTo(40,18); c.lineTo(40,62); c.moveTo(18,40); c.lineTo(62,40); c.stroke(); } },
-      { draw: (c) => { c.beginPath(); c.moveTo(18,40); c.lineTo(62,40); c.stroke(); } },
-      { draw: (c) => { c.beginPath(); c.moveTo(40,14); c.lineTo(58,40); c.lineTo(40,66); c.lineTo(22,40); c.closePath(); c.stroke(); } },
-      { draw: (c) => { c.beginPath(); c.moveTo(34,22); c.lineTo(46,22); c.lineTo(46,58); c.lineTo(34,54); c.stroke(); } },
-    ];
-    let cells = [], trackLength = 0, dpr = Math.max(1, window.devicePixelRatio || 1), viewW = 0, viewH = 0;
-    let mx = -9999, my = -9999, lastMoveTs = 0, lastScrollTs = 0;
-    function resize() {
-      viewW = window.innerWidth; viewH = window.innerHeight;
-      dpr = Math.max(1, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(viewW * dpr); canvas.height = Math.floor(viewH * dpr);
-      canvas.style.width = viewW + 'px'; canvas.style.height = viewH + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const nRows = Math.ceil((viewH + 2 * SPACING) / SPACING);
-      trackLength = nRows * SPACING; cells = [];
-      for (let row = 0; row < nRows; row++) {
-        const y = -SPACING + row * SPACING;
-        for (let x = SPACING / 2; x < viewW; x += SPACING) {
-          cells.push({ x, y, dispX: 0, dispY: 0, bp: Math.random() * Math.PI * 2, glyph: GLYPHS[Math.floor(Math.random() * GLYPHS.length)] });
-        }
-      }
-    }
-    resize(); window.addEventListener('resize', resize);
-    document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; lastMoveTs = performance.now(); }, { passive: true });
-    document.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
-    document.addEventListener('scroll', () => { lastScrollTs = performance.now(); }, { passive: true });
-    const token = (n) => getComputedStyle(root).getPropertyValue(n).trim();
-    function parseRGBA(s) { const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/); if (!m) return [0,0,0,1]; return [+m[1],+m[2],+m[3],m[4]?+m[4]:1]; }
-    function mix(a,b,t){return[Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t),a[3]+(b[3]-a[3])*t];}
-    function wa(r,m){return`rgba(${r[0]},${r[1]},${r[2]},${(r[3]*m).toFixed(3)})`;}
-    let lastFrameTs = performance.now();
-    function frame() {
-      const now = performance.now(), dt = Math.min(48, now - lastFrameTs); lastFrameTs = now;
-      const dtScale = dt / 16.667;
-      const colB = parseRGBA(token('--dot-color') || 'rgba(0,0,0,0.16)');
-      const colH = parseRGBA(token('--dot-hot') || 'rgba(196,149,106,0.9)');
-      ctx.clearRect(0, 0, viewW, viewH); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      for (const c of cells) {
-        c.y += DRIFT_SPEED * dtScale; if (c.y > trackLength - SPACING) c.y -= trackLength;
-        let hot = 0, dx2 = 0, dy2 = 0; const dx = mx - c.x, dy = my - c.y, d2 = dx*dx + dy*dy;
-        if (d2 < REPEL_RADIUS * REPEL_RADIUS) { const dist = Math.sqrt(d2) || 0.0001, f = 1 - dist/REPEL_RADIUS; hot = f*f; dx2 = -(dx/dist)*hot*REPEL_FORCE; dy2 = -(dy/dist)*hot*REPEL_FORCE; }
-        c.dispX += (dx2 - c.dispX) * LERP; c.dispY += (dy2 - c.dispY) * LERP;
-        const fx = c.x + c.dispX, fy = c.y + c.dispY;
-        const b = (Math.sin(now * BREATH_FREQ + c.bp) + 1) * 0.5;
-        const sizeR = BASE_SIZE + (b - 0.5) * 2 * BREATH_SIZE_AMP;
-        const bA = BREATH_ALPHA_LO + b * (BREATH_ALPHA_HI - BREATH_ALPHA_LO);
-        const morph = Math.max(0, Math.min(1, hot / MORPH_THRESHOLD));
-        const use = morph > 0.02 ? mix(colB, colH, hot) : colB;
-        const cA = (1 - morph) * bA;
-        if (cA > 0.02) { ctx.fillStyle = wa(use, cA); ctx.beginPath(); ctx.arc(fx, fy, sizeR, 0, Math.PI * 2); ctx.fill(); }
-        if (morph > 0.05) {
-          const gs = GLYPH_PX / 80;
-          ctx.save(); ctx.translate(fx, fy); ctx.scale(gs, gs); ctx.translate(-40, -40);
-          ctx.strokeStyle = wa(use, morph); ctx.lineWidth = 9; ctx.lineCap = 'round';
-          c.glyph.draw(ctx); ctx.restore();
-        }
-      }
-      const idle = (now - lastMoveTs) > 1200 && (now - lastScrollTs) > 1200 && mx < 0;
-      if (idle) { setTimeout(() => requestAnimationFrame(frame), 16); } else { requestAnimationFrame(frame); }
-    }
-    function paintStatic() {
-      const col = token('--dot-color') || 'rgba(0,0,0,0.16)';
-      ctx.clearRect(0, 0, viewW, viewH); ctx.fillStyle = col;
-      for (const c of cells) { ctx.beginPath(); ctx.arc(c.x, c.y, BASE_SIZE, 0, Math.PI * 2); ctx.fill(); }
-    }
-    if (reduce) paintStatic(); else requestAnimationFrame(frame);
-  })();
 </script>
 </body>
 </html>
