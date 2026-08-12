@@ -1,0 +1,55 @@
+name: Bump version on release publish
+
+# Fires when the maintainer clicks "Publish release" on a draft release
+# (drafts are created by .github/workflows/release.yml after each tag push).
+# That click is the final "ship to users" confirmation: this bumps every
+# version file to the released tag so the next release starts from a
+# consistent state. Until the release is published, version files keep the
+# previous version — giving a window to finalize changelog notes.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump all version files
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -e
+          VERSION="${TAG#v}"
+          echo "Bumping version files to $VERSION"
+
+          # package.json (source of truth for the release tag check)
+          sed -i "s/\"version\": \"[0-9]*\.[0-9]*\.[0-9]*\"/\"version\": \"$VERSION\"/" package.json
+          # src-tauri/tauri.conf.json
+          sed -i "s/\"version\": \"[0-9]*\.[0-9]*\.[0-9]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          # src-tauri/Cargo.toml
+          sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          # src-tauri/Cargo.lock (the coffee-note package entry)
+          sed -i "0,/^name = \"coffee-note\"/{/^name = \"coffee-note\"/{n; s/version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$VERSION\"/}}" src-tauri/Cargo.lock
+          # website/version.json (drives the installer's update check)
+          echo "{\"version\": \"$VERSION\"}" > website/version.json
+
+          if git diff --quiet; then
+            echo "All version files already at $VERSION — nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock website/version.json
+          git commit -m "chore: bump version to $VERSION"
+          git push origin main
