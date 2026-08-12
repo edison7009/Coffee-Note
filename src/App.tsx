@@ -1087,7 +1087,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (selectedSkillId && !skillCatalog.skills.some((skill) => skill.id === selectedSkillId)) {
+    if (selectedSkillId && !skillCatalog.skills.some((skill) => skill.id === selectedSkillId && skill.enabled)) {
       setSelectedSkillId(null);
     }
   }, [selectedSkillId, skillCatalog.skills]);
@@ -6519,7 +6519,9 @@ function ChatComposer({
         skillCatalog.categories.findIndex((group) => group.id === activeSkillGroup.id),
       )
     : 0;
-  const activeSkills = skillCatalog.skills.filter((skill) => skill.categoryId === activeSkillGroup?.id);
+  const activeSkills = skillCatalog.skills.filter(
+    (skill) => skill.categoryId === activeSkillGroup?.id && skill.enabled,
+  );
   const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
   const cacheHitRate = cacheTokens > 0
     ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`

@@ -272,6 +272,7 @@ export interface SkillDefinition {
   sourceId: string;
   sourceUrl: string;
   sourceVersion?: string;
+  enabled: boolean;
 }
 
 export interface SkillPlugin {
@@ -284,6 +285,7 @@ export interface SkillPlugin {
   sourceUrl: string;
   skillCount: number;
   error?: string;
+  enabled: boolean;
 }
 
 export interface SkillCatalog {

@@ -45,7 +45,17 @@ const fallbackSkillCatalog: SkillCatalog = {
 function readFallbackSkillCatalog(): SkillCatalog {
   try {
     const stored = readStorageValue(SKILLS_KEY);
-    return stored ? JSON.parse(stored) as SkillCatalog : structuredClone(fallbackSkillCatalog);
+    if (!stored) return structuredClone(fallbackSkillCatalog);
+    const catalog = JSON.parse(stored) as SkillCatalog;
+    catalog.plugins = (catalog.plugins ?? []).map((plugin) => ({
+      ...plugin,
+      enabled: plugin.enabled !== false,
+    }));
+    catalog.skills = (catalog.skills ?? []).map((skill) => ({
+      ...skill,
+      enabled: skill.enabled !== false,
+    }));
+    return catalog;
   } catch {
     return structuredClone(fallbackSkillCatalog);
   }
@@ -158,6 +168,7 @@ export async function addSkillSource(draft: SkillSourceDraft): Promise<SkillCata
       sourceId: id,
       sourceUrl,
       sourceVersion: 'preview',
+      enabled: true,
     });
     catalog.plugins.push({
       id,
@@ -168,6 +179,7 @@ export async function addSkillSource(draft: SkillSourceDraft): Promise<SkillCata
       codexCompatible: true,
       sourceUrl,
       skillCount: 1,
+      enabled: true,
     });
     return writeFallbackSkillCatalog(catalog);
   }
@@ -196,6 +208,34 @@ export async function deleteSkillSource(id: string): Promise<SkillCatalog> {
     return writeFallbackSkillCatalog(catalog);
   }
   return invoke<SkillCatalog>('delete_skill_source', { id });
+}
+
+export async function moveSkillSource(id: string, categoryId: string): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const plugin = catalog.plugins.find((item) => item.id === id);
+    if (!plugin) throw new Error('Skill source not found');
+    plugin.categoryId = categoryId;
+    catalog.skills
+      .filter((skill) => skill.sourceId === id)
+      .forEach((skill) => { skill.categoryId = categoryId; });
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('move_skill_source', { id, categoryId });
+}
+
+export async function setSkillSourceEnabled(id: string, enabled: boolean): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const plugin = catalog.plugins.find((item) => item.id === id);
+    if (!plugin) throw new Error('Skill source not found');
+    plugin.enabled = enabled;
+    catalog.skills
+      .filter((skill) => skill.sourceId === id)
+      .forEach((skill) => { skill.enabled = enabled; });
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('set_skill_source_enabled', { id, enabled });
 }
 
 export async function createSkillCategory(label: string): Promise<SkillCatalog> {

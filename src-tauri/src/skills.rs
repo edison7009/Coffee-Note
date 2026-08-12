@@ -37,6 +37,7 @@ pub struct SkillDefinition {
     source_id: String,
     source_url: String,
     source_version: Option<String>,
+    enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,6 +52,7 @@ pub struct SkillPlugin {
     source_url: String,
     skill_count: usize,
     error: Option<String>,
+    enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -68,6 +70,10 @@ pub struct SkillSourceDraft {
     category_id: String,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SkillSourceMeta {
@@ -75,6 +81,8 @@ struct SkillSourceMeta {
     category_id: String,
     #[serde(default)]
     order: u32,
+    #[serde(default = "default_true")]
+    enabled: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -197,6 +205,7 @@ fn load_index() -> Result<SkillIndex, String> {
                     source_url: source_url.to_string(),
                     category_id,
                     order,
+                    enabled: true,
                 },
             );
         }
@@ -624,6 +633,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                             source_id: source_id.clone(),
                             source_url: meta.source_url.clone(),
                             source_version: package.version.clone(),
+                            enabled: meta.enabled,
                         }),
                 );
                 plugins.push(SkillPlugin {
@@ -636,6 +646,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                     source_url: meta.source_url.clone(),
                     skill_count: package.skills.len(),
                     error: None,
+                    enabled: meta.enabled,
                 });
             }
             Err(error) => plugins.push(SkillPlugin {
@@ -648,6 +659,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                 source_url: meta.source_url.clone(),
                 skill_count: 0,
                 error: Some(error),
+                enabled: meta.enabled,
             }),
         }
     }
@@ -694,6 +706,7 @@ fn add_skill_source_blocking(draft: SkillSourceDraft) -> Result<SkillCatalog, St
             source_url: draft.source_url,
             category_id: draft.category_id,
             order: next_source_order(&index),
+            enabled: true,
         },
     );
     save_index(&index)?;
@@ -735,6 +748,34 @@ pub fn delete_skill_source(id: String) -> Result<SkillCatalog, String> {
         fs::remove_dir_all(directory)
             .map_err(|error| format!("Could not delete the skill source cache: {error}"))?;
     }
+    save_index(&index)?;
+    Ok(catalog_from_index(&index))
+}
+
+#[tauri::command]
+pub fn move_skill_source(id: String, category_id: String) -> Result<SkillCatalog, String> {
+    let category_id = category_id.trim().to_string();
+    let mut index = ensure_store()?;
+    if !category_exists(&index, &category_id) {
+        return Err("The selected skill category does not exist".to_string());
+    }
+    let source = index
+        .sources
+        .get_mut(&id)
+        .ok_or_else(|| "Skill source not found".to_string())?;
+    source.category_id = category_id;
+    save_index(&index)?;
+    Ok(catalog_from_index(&index))
+}
+
+#[tauri::command]
+pub fn set_skill_source_enabled(id: String, enabled: bool) -> Result<SkillCatalog, String> {
+    let mut index = ensure_store()?;
+    let source = index
+        .sources
+        .get_mut(&id)
+        .ok_or_else(|| "Skill source not found".to_string())?;
+    source.enabled = enabled;
     save_index(&index)?;
     Ok(catalog_from_index(&index))
 }
@@ -816,6 +857,9 @@ pub fn delete_skill_category(id: String) -> Result<SkillCatalog, String> {
 pub fn load_skill_prompt(id: &str) -> Result<String, String> {
     let index = ensure_store()?;
     for (source_id, meta) in &index.sources {
+        if !meta.enabled {
+            continue;
+        }
         let root = source_dir(source_id)?;
         let Ok(package) = discover_package(&root, &meta.source_url) else {
             continue;

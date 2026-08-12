@@ -5,7 +5,9 @@ import {
   createSkillCategory,
   deleteSkillCategory,
   deleteSkillSource,
+  moveSkillSource,
   renameSkillCategory,
+  setSkillSourceEnabled,
   updateSkillFromSource,
 } from '../api';
 import { SettingsSelect } from './SettingsSelect';
@@ -57,6 +59,8 @@ export function SkillsSettings({
     pluginId: string;
     message: string;
   } | null>(null);
+  const [editingPluginId, setEditingPluginId] = useState<string | null>(null);
+  const [editCategoryId, setEditCategoryId] = useState('');
 
   const activeCategory = catalog.categories.find((category) => category.id === activeCategoryId)
     ?? catalog.categories[0];
@@ -80,6 +84,8 @@ export function SkillsSettings({
   const startAddSource = () => {
     setDraft({ ...EMPTY_DRAFT, categoryId: activeCategory?.id ?? 'copywriting' });
     setFormOpen(true);
+    setEditingPluginId(null);
+    setEditCategoryId('');
     setActionError('');
     setActionNotice('');
     setUpdatedPluginNotice(null);
@@ -139,6 +145,17 @@ export function SkillsSettings({
     }
   };
 
+  const togglePluginEnabled = async (plugin: SkillPlugin) => {
+    setActionError('');
+    setActionNotice('');
+    setUpdatedPluginNotice(null);
+    try {
+      onCatalogChange(await setSkillSourceEnabled(plugin.id, !plugin.enabled));
+    } catch (nextError) {
+      setActionError(String(nextError));
+    }
+  };
+
   const submitCategory = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -174,6 +191,43 @@ export function SkillsSettings({
           ? '请先移除该分类中的技能插件。'
           : String(nextError),
       );
+    }
+  };
+
+  const startEditPlugin = (plugin: SkillPlugin) => {
+    setFormOpen(false);
+    setCategoryMode(null);
+    setEditingPluginId(plugin.id);
+    setEditCategoryId(plugin.categoryId);
+    setActionError('');
+    setActionNotice('');
+    setUpdatedPluginNotice(null);
+  };
+
+  const cancelEditPlugin = () => {
+    setEditingPluginId(null);
+    setEditCategoryId('');
+    setActionError('');
+  };
+
+  const submitEditPlugin = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingPluginId) return;
+    setSaving(true);
+    setActionError('');
+    setActionNotice('');
+    setUpdatedPluginNotice(null);
+    try {
+      const next = await moveSkillSource(editingPluginId, editCategoryId);
+      onCatalogChange(next);
+      setActiveCategoryId(editCategoryId);
+      setEditingPluginId(null);
+      setEditCategoryId('');
+      setActionNotice(locale === 'zh' ? '技能插件已更新。' : 'Skill plugin updated.');
+    } catch (nextError) {
+      setActionError(String(nextError));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -219,6 +273,8 @@ export function SkillsSettings({
               setCategoryMode('create');
               setCategoryDraft('');
               setActionError('');
+              setEditingPluginId(null);
+              setEditCategoryId('');
             }}
           >
             <Plus size={16} />
@@ -232,6 +288,8 @@ export function SkillsSettings({
               onClick={() => {
                 setCategoryMode('rename');
                 setCategoryDraft(activeCategory.label);
+                setEditingPluginId(null);
+                setEditCategoryId('');
               }}
             >
               <Pencil size={15} />
@@ -332,48 +390,116 @@ export function SkillsSettings({
             <Sparkles size={20} />
             <span>{locale === 'zh' ? '这个分类还没有技能插件。' : 'There are no skill plugins in this category.'}</span>
           </div>
-        ) : visiblePlugins.map((plugin) => (
-          <div className="skills-row" key={plugin.id}>
-            <div className="skills-row-icon" aria-hidden="true">
-              <Sparkles size={17} strokeWidth={1.8} />
-            </div>
-            <div className="skills-row-copy">
-              <div>
-                <strong>{plugin.name}</strong>
-                {plugin.codexCompatible && <span className="skills-codex-mark"><Box size={13} />Codex</span>}
-                {plugin.version && <span className="skills-version">{plugin.version}</span>}
+        ) : visiblePlugins.map((plugin) => {
+          const isEditing = editingPluginId === plugin.id;
+          return (
+            <div className="skills-row-wrap" key={plugin.id}>
+              <div className={`skills-row${plugin.enabled ? '' : ' is-disabled'}`}>
+                <div className="skills-row-icon" aria-hidden="true">
+                  <Sparkles size={17} strokeWidth={1.8} />
+                </div>
+                <div className="skills-row-copy">
+                  <div>
+                    <strong>{plugin.name}</strong>
+                    {plugin.codexCompatible && <span className="skills-codex-mark"><Box size={13} />Codex</span>}
+                    {plugin.version && <span className="skills-version">{plugin.version}</span>}
+                  </div>
+                  <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || plugin.description}</p>
+                </div>
+                <div className="skills-row-actions">
+                  {updatedPluginNotice?.pluginId === plugin.id && (
+                    <span className="skills-row-notice" role="status">
+                      {updatedPluginNotice.message}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="skills-row-enabled"
+                    role="switch"
+                    aria-checked={plugin.enabled}
+                    aria-label={locale === 'zh'
+                      ? `${plugin.enabled ? '停用' : '启用'}插件 ${plugin.name}`
+                      : `${plugin.enabled ? 'Disable' : 'Enable'} plugin ${plugin.name}`}
+                    onClick={() => void togglePluginEnabled(plugin)}
+                  >
+                    <span aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updatingPluginId !== null}
+                    aria-label={locale === 'zh' ? `编辑插件 ${plugin.name}` : `Edit plugin ${plugin.name}`}
+                    onClick={() => startEditPlugin(plugin)}
+                  >
+                    <Pencil size={15} />
+                    {locale === 'zh' ? '编辑' : 'Edit'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updatingPluginId !== null}
+                    aria-label={locale === 'zh' ? `更新插件 ${plugin.name}` : `Update plugin ${plugin.name}`}
+                    onClick={() => void refreshPlugin(plugin)}
+                  >
+                    <RefreshCw className={updatingPluginId === plugin.id ? 'is-spinning' : ''} size={15} />
+                    {updatingPluginId === plugin.id
+                      ? (locale === 'zh' ? '更新中…' : 'Updating…')
+                      : (locale === 'zh' ? '更新' : 'Update')}
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    aria-label={locale === 'zh' ? `移除插件 ${plugin.name}` : `Remove plugin ${plugin.name}`}
+                    onClick={() => void removePlugin(plugin)}
+                  >
+                    <Trash2 size={15} />
+                    {locale === 'zh' ? '删除' : 'Delete'}
+                  </button>
+                </div>
               </div>
-              <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || plugin.description}</p>
-            </div>
-            <div className="skills-row-actions">
-              {updatedPluginNotice?.pluginId === plugin.id && (
-                <span className="skills-row-notice" role="status">
-                  {updatedPluginNotice.message}
-                </span>
+              {isEditing && (
+                <form className="skills-editor skills-edit-form" onSubmit={submitEditPlugin}>
+                  <div className="skills-editor-heading">
+                    <strong>
+                      {locale === 'zh'
+                        ? `编辑技能插件「${plugin.name}」`
+                        : `Edit skill plugin “${plugin.name}”`}
+                    </strong>
+                    <button type="button" aria-label={locale === 'zh' ? '关闭编辑' : 'Close'} onClick={cancelEditPlugin}>
+                      <X size={17} />
+                    </button>
+                  </div>
+                  <div className="skills-source-grid">
+                    <label>
+                      <span>{locale === 'zh' ? 'Git 仓库地址' : 'Git repository URL'}</span>
+                      <input readOnly value={plugin.sourceUrl} spellCheck={false} />
+                    </label>
+                    <label>
+                      <span>{locale === 'zh' ? '分类' : 'Category'}</span>
+                      <SettingsSelect
+                        value={editCategoryId}
+                        options={catalog.categories.map((category) => ({
+                          value: category.id,
+                          label: categoryLabel(category.id, category.label, locale),
+                        }))}
+                        onChange={setEditCategoryId}
+                        ariaLabel={locale === 'zh' ? '选择技能分类' : 'Choose skill category'}
+                      />
+                    </label>
+                  </div>
+                  <div className="skills-editor-footer">
+                    <div>
+                      <button type="button" className="secondary" onClick={cancelEditPlugin}>
+                        {locale === 'zh' ? '取消' : 'Cancel'}
+                      </button>
+                      <button type="submit" className="primary" disabled={saving}>
+                        {saving ? (locale === 'zh' ? '保存中…' : 'Saving…') : (locale === 'zh' ? '保存' : 'Save')}
+                      </button>
+                    </div>
+                  </div>
+                </form>
               )}
-              <button
-                type="button"
-                disabled={updatingPluginId !== null}
-                aria-label={locale === 'zh' ? `更新插件 ${plugin.name}` : `Update plugin ${plugin.name}`}
-                onClick={() => void refreshPlugin(plugin)}
-              >
-                <RefreshCw className={updatingPluginId === plugin.id ? 'is-spinning' : ''} size={15} />
-                {updatingPluginId === plugin.id
-                  ? (locale === 'zh' ? '更新中…' : 'Updating…')
-                  : (locale === 'zh' ? '更新' : 'Update')}
-              </button>
-              <button
-                type="button"
-                className="danger"
-                aria-label={locale === 'zh' ? `移除插件 ${plugin.name}` : `Remove plugin ${plugin.name}`}
-                onClick={() => void removePlugin(plugin)}
-              >
-                <Trash2 size={15} />
-                {locale === 'zh' ? '删除' : 'Delete'}
-              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -7869,6 +7869,15 @@ textarea,
   border-color: color-mix(in srgb, var(--ink) 42%, var(--line));
 }
 
+.skills-editor input[readonly] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.skills-edit-form {
+  margin: 8px 0 16px;
+}
+
 .skills-source-note {
   margin: -2px 0 0;
   color: var(--muted);
@@ -8030,6 +8039,51 @@ textarea,
 
 .skills-row-actions .is-spinning {
   animation: spin 0.9s linear infinite;
+}
+
+.skills-row-actions button.skills-row-enabled {
+  position: relative;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 20px;
+  min-height: 0;
+  margin-right: 4px;
+  padding: 0;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+  border: 0;
+  border-radius: 10px;
+  cursor: default;
+}
+
+.skills-row-actions button.skills-row-enabled > span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 120ms ease-out;
+}
+
+.skills-row-actions button.skills-row-enabled[aria-checked='true'] {
+  background: var(--switch-on);
+}
+
+.skills-row-actions button.skills-row-enabled[aria-checked='true'] > span {
+  background: var(--accent-contrast);
+  transform: translateX(12px);
+}
+
+.skills-row-actions button.skills-row-enabled:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--switch-on) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.skills-row.is-disabled .skills-row-icon,
+.skills-row.is-disabled .skills-row-copy {
+  opacity: 0.5;
 }
 
 .skills-empty {
