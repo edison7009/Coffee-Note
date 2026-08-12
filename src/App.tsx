@@ -5168,12 +5168,6 @@ function HomeView({
       </section>
 
       <section className="tier-section" aria-label={t('evidenceMap')}>
-        <div className="section-heading">
-          <div>
-            <p>{t('evidenceMapSub')}</p>
-          </div>
-          <span className="section-stat">{library.priorities.length} items</span>
-        </div>
         <div className="tier-map" ref={tierMapRef}>
           {tiered.map(({ tier, notes }) => {
             const insertAt =
@@ -5248,6 +5242,7 @@ function HomeView({
             );
           })}
         </div>
+        <p className="tier-hint">{t('evidenceMapSub')}</p>
       </section>
     </div>
   );

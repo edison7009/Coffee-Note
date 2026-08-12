@@ -1028,8 +1028,8 @@ html.tree-drag-active * {
 }
 
 .home-view {
-  --home-section-gap: 24px;
-  padding-top: 20px;
+  --home-section-gap: 40px;
+  padding-top: 24px;
 }
 
 .hero,
@@ -1178,31 +1178,20 @@ html.tree-drag-active * {
   color: color-mix(in srgb, var(--accent) 40%, var(--muted));
 }
 
-.section-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: var(--home-section-gap);
-}
-
-.section-heading p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14.5px;
-  line-height: 1.55;
-}
-
-.section-stat {
-  color: var(--muted);
-  font-size: 12.5px;
-  text-transform: uppercase;
-}
-
 .tier-map {
   overflow: hidden;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+
+.tier-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: right;
+  opacity: 0.72;
 }
 
 .tier-row {
@@ -6214,13 +6203,13 @@ textarea,
 }
 
 .home-view {
-  --home-section-gap: 20px;
-  padding-top: 24px;
+  --home-section-gap: 40px;
+  padding-top: 28px;
 }
 
 .hero-kicker,
 .page-kicker-row .hero-kicker {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   color: var(--accent);
   font-size: 13px;
   letter-spacing: 0.11em;
@@ -6346,22 +6335,6 @@ textarea,
 .action-card > svg {
   color: color-mix(in srgb, var(--shape-color) 52%, var(--ink));
 }
-
-.section-heading {
-  margin-bottom: 14px;
-}
-
-.section-heading p,
-.section-stat,
-[data-theme='dark'] .section-heading p,
-[data-theme='dark'] .section-stat {
-  color: var(--muted);
-}
-
-.section-stat {
-  text-transform: none;
-}
-
 .tier-items button,
 [data-theme='dark'] .tier-items button {
   cursor: default;
