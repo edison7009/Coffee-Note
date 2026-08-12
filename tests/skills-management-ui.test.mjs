@@ -26,7 +26,7 @@ test('plugin source form only asks for Git address and category', () => {
   assert.match(settingsSource, /<SettingsSelect/);
   assert.doesNotMatch(settingsSource, /<select/);
   assert.doesNotMatch(settingsSource, /draft\.(title|description|instructions|version)/);
-  assert.doesNotMatch(settingsSource, /编辑技能|Edit skill/);
+  assert.match(settingsSource, /编辑技能插件|Edit skill plugin/);
   assert.doesNotMatch(settingsSource, /modal-backdrop|aria-modal|title=|window\.confirm|plugin-dialog|askConfirmation/);
   assert.match(settingsSource, /安装技能后，可以完成更复杂、更具挑战的任务。/);
   assert.match(settingsSource, /Coffee Note 仅兼容 Codex 插件市场的技能安装方式。/);

@@ -50,7 +50,7 @@ test('composer skill management opens the Skills settings page', () => {
 
 test('composer reads categories and skills from the shared catalog', () => {
   assert.match(appSource, /skillCatalog\.categories\.map\(\(group\)/);
-  assert.match(appSource, /skillCatalog\.skills\.filter\(\(skill\) => skill\.categoryId === activeSkillGroup\?\.id\)/);
+  assert.match(appSource, /skillCatalog\.skills\.filter\(\s*\(skill\) => skill\.categoryId === activeSkillGroup\?\.id\s*&&\s*skill\.enabled,\s*\)/s);
   assert.match(appSource, /skillId: selectedSkillId \|\| undefined/);
   assert.doesNotMatch(appSource, /expert-manager|cloudstudio-deploy/);
 });
