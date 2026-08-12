@@ -8569,8 +8569,7 @@ function CaptureGuideDialog({
               </button>
             )}
             {!draft && selectedFile && (
-              <span className="capture-file-pill" title={selectedFile}>
-                <FileUp size={14} />
+              <span className="capture-file-pill">
                 <span className="capture-file-pill-name">
                   {selectedFile.split(/[\\/]/).pop()}
                 </span>

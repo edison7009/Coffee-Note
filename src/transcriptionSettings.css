@@ -231,10 +231,7 @@
 }
 
 .transcription-provider-select {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  position: relative;
   min-width: 0;
 }
 
@@ -242,25 +239,42 @@
   min-width: 0;
 }
 
+/* The external-link button floats just left of the chevron (which stays at the
+   far right, its usual spot) so every form box keeps the same width. */
+.transcription-provider-select .transcription-select-trigger {
+  padding-right: 16px;
+}
+
 .transcription-website-action {
+  position: absolute;
+  top: 50%;
+  right: 42px;
+  transform: translateY(-50%);
   display: grid;
-  width: 40px;
-  min-height: 40px;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
   padding: 0;
   place-items: center;
   color: var(--muted);
   background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
 }
 
 .transcription-website-action:hover {
   color: var(--ink);
   background: var(--tertiary-surface);
+  border-color: var(--line);
 }
 
 .transcription-api-form input:focus,
-.transcription-api-form select:focus,
+.transcription-api-form select:focus {
+  border-color: color-mix(in srgb, var(--ink) 42%, var(--line));
+  box-shadow: none;
+  outline: none;
+}
+
 .transcription-select-trigger:focus-visible {
   border-color: color-mix(in srgb, var(--ink) 42%, var(--line));
   box-shadow: none;
@@ -531,10 +545,6 @@
   .transcription-api-form label {
     grid-template-columns: 1fr;
     gap: 6px;
-  }
-
-  .transcription-provider-select {
-    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .transcription-api-footer {
