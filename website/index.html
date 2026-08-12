@@ -156,7 +156,11 @@
   .copy-btn:hover { color: var(--brand); border-color: var(--brand); }
   .copy-btn.copied { color: var(--brand); border-color: var(--brand); }
 
-  /* cn-mirrors: hidden unless Chinese locale */
+  /* cn-mirrors: hidden unless Chinese locale.
+     The `[hidden]` selector wins over `.mirror-downloads { display: flex }`
+     (specificity 0,2,0 vs 0,1,0), so the row stays hidden in non-Chinese
+     locales — same fix as coffeecli's .cn-mirrors[hidden]. */
+  .mirror-downloads[hidden] { display: none; }
   .mirror-downloads {
     margin-top: 18px; margin-bottom: 40px; font-size: 13px; color: var(--muted);
     display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
