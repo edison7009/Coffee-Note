@@ -36,6 +36,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "Coffee Team",
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "Local-first notes organized with a clear tier system.",
