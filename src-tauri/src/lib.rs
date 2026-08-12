@@ -3057,9 +3057,23 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
     emit("checking", 0);
     let result = async {
         let client = release_client()?;
+        // Prefer the website download endpoint, but fall back to the GitHub
+        // release asset if it returns an HTML page (e.g. a static-host SPA
+        // fallback for /download/windows) instead of a real installer.
         let website_download = client.get(WEBSITE_WINDOWS_DOWNLOAD).send().await;
+        let website_html = website_download.as_ref().map_or(false, |response| {
+            response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|content_type| content_type.contains("text/html"))
+        });
         let (mut response, expected_asset_size) = match website_download {
-            Ok(response) if response.status().is_success() => (response, 0),
+            Ok(response)
+                if response.status().is_success() && !website_html =>
+            {
+                (response, 0)
+            }
             _ => {
                 let release = latest_release(&client).await?;
                 let asset = release
