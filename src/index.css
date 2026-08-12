@@ -151,9 +151,16 @@ a:focus-visible {
   z-index: 12;
   width: 8px;
   padding: 0;
-  cursor: col-resize;
+  /* Custom col-resize cursor: dark on light backgrounds (system col-resize
+     renders as a pure-white arrow in some WebView/theme combos and is
+     invisible on white panes). */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M7 3 L1 12 L7 21 M17 3 L23 12 L17 21' fill='none' stroke='%23333333' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, col-resize;
   touch-action: none;
   user-select: none;
+}
+
+:root[data-theme='dark'] .pane-resizer {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M7 3 L1 12 L7 21 M17 3 L23 12 L17 21' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, col-resize;
 }
 
 .pane-resizer-left {
