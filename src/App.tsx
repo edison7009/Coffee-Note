@@ -686,17 +686,6 @@ interface InternalNoteTarget {
   label: string;
 }
 
-interface FavoriteReference {
-  kind: InternalNoteKind;
-  id: string;
-  addedAt: number;
-}
-
-interface FavoriteListItem {
-  target: Omit<InternalNoteTarget, 'label'>;
-  title: string;
-  detail: string;
-}
 
 interface ContextNoteSelection {
   path: string;
@@ -710,8 +699,6 @@ interface NavigationLocation {
   filePath?: string;
 }
 
-const FAVORITES_SEED_FLAG = storageKey('favorites-seeded:v2');
-const DEFAULT_FAVORITES: FavoriteReference[] = [];
 
 type HealthLogField = 'exercise' | 'diet' | 'body';
 
@@ -1003,7 +990,7 @@ function locationsMatch(left: NavigationLocation, right: NavigationLocation): bo
 
 type ToastState = {
   message: string;
-  kind: 'status' | 'favorite-added' | 'favorite-removed';
+  kind: 'status';
 };
 
 function App() {
@@ -1022,10 +1009,6 @@ function App() {
   );
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const normalizedPaneSizes = normalizePaneSizes(paneSizes, viewportWidth);
-  const [favorites, setFavorites] = useStoredState<FavoriteReference[]>(
-    storageKey('favorites'),
-    [],
-  );
   const [knowledgeRoot, setKnowledgeRoot] = useStoredState(
     storageKey('knowledge-root:v2'),
     '',
@@ -1221,26 +1204,6 @@ function App() {
   const contentScrollRef = useAutoHideScrollbar<HTMLDivElement>();
   const navigationHistoryRef = useRef(createNavigationHistory<NavigationLocation>());
   const [, setNavigationHistoryVersion] = useState(0);
-
-  useEffect(() => {
-    let seeded = false;
-    try {
-      seeded = readStorageValue(FAVORITES_SEED_FLAG) === '1';
-    } catch {
-      seeded = false;
-    }
-    if (!seeded) {
-      if (favorites.length === 0) {
-        setFavorites(DEFAULT_FAVORITES);
-      }
-      try {
-        writeStorageValue(FAVORITES_SEED_FLAG, '1');
-      } catch {
-        // ignore unavailable storage
-      }
-    }
-    // Seed the default favorite once on first launch; never overwrite later edits.
-  }, []);
 
   const t = (key: TranslationKey) => translate(locale, key);
   const modelConfig = getActiveModelConfig(modelSettings);
@@ -1795,13 +1758,6 @@ function App() {
     try {
       await deleteNote(root, relativePath);
       if (generation !== libraryGenerationRef.current) return;
-      if (target) {
-        setFavorites(
-          favorites.filter(
-            (favorite) => favorite.kind !== target.kind || favorite.id !== target.id,
-          ),
-        );
-      }
       setToast({ message: t('noteDeleted'), kind: 'status' });
       goBack();
       const snapshot = await loadLibrary(root || undefined, locale);
@@ -2057,24 +2013,6 @@ function App() {
       message: locale === 'zh' ? '没有找到对应的本地文章' : 'The linked local note was not found',
       kind: 'status',
     });
-  };
-
-  const isFavorite = (target: Omit<InternalNoteTarget, 'label'>) =>
-    favorites.some((favorite) => favorite.kind === target.kind && favorite.id === target.id);
-
-  const toggleFavorite = (target: Omit<InternalNoteTarget, 'label'>) => {
-    if (isFavorite(target)) {
-      setFavorites(
-        favorites.filter(
-          (favorite) => favorite.kind !== target.kind || favorite.id !== target.id,
-        ),
-      );
-      setToast({ message: t('favoriteRemoved'), kind: 'favorite-removed' });
-      return;
-    }
-
-    setFavorites([{ ...target, addedAt: Date.now() }, ...favorites]);
-    setToast({ message: t('favoriteAdded'), kind: 'favorite-added' });
   };
 
   const finishCapture = async (path: string) => {
@@ -2628,13 +2566,14 @@ function App() {
     return targets;
   }, [library]);
 
+  const rightRailOpen = view === 'ai' || railEditorTarget !== null;
   return (
     <div
-      className={`app-shell ${settingsOpen ? 'settings-mode' : ''} ${isMacOSPlatform ? 'platform-macos-shell' : 'platform-custom-shell'} ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''}`}
+      className={`app-shell ${settingsOpen ? 'settings-mode' : ''} ${isMacOSPlatform ? 'platform-macos-shell' : 'platform-custom-shell'} ${resizingPane ? `panel-resizing panel-resizing-${resizingPane}` : ''} ${rightRailOpen ? '' : 'right-rail-collapsed'}`}
       style={
         {
           '--sidebar-width': `${normalizedPaneSizes.left}px`,
-          '--right-rail-width': `${normalizedPaneSizes.right}px`,
+          '--right-rail-width': rightRailOpen ? `${normalizedPaneSizes.right}px` : '0px',
         } as React.CSSProperties
       }
     >
@@ -2777,10 +2716,6 @@ function App() {
                   currentTarget={{ kind: 'person', id: selectedPerson.id }}
                   internalTargets={internalNoteTargets}
                   onInternalNavigate={openInternalNote}
-                  favorite={isFavorite({ kind: 'person', id: selectedPerson.id })}
-                  onToggleFavorite={() =>
-                    toggleFavorite({ kind: 'person', id: selectedPerson.id })
-                  }
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
@@ -2815,10 +2750,6 @@ function App() {
                   currentTarget={{ kind: 'story', id: selectedStory.id }}
                   internalTargets={internalNoteTargets}
                   onInternalNavigate={openInternalNote}
-                  favorite={isFavorite({ kind: 'story', id: selectedStory.id })}
-                  onToggleFavorite={() =>
-                    toggleFavorite({ kind: 'story', id: selectedStory.id })
-                  }
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
@@ -2868,8 +2799,6 @@ function App() {
                   currentTarget={{ kind: 'file', id: fileNotePath }}
                   internalTargets={internalNoteTargets}
                   onInternalNavigate={openInternalNote}
-                  favorite={isFavorite({ kind: 'file', id: fileNotePath })}
-                  onToggleFavorite={() => toggleFavorite({ kind: 'file', id: fileNotePath })}
                   onBack={goBack}
                   summary={noteSummary}
                   notePath={noteRelativePath}
@@ -2946,7 +2875,6 @@ function App() {
 
       <RightRail
         locale={locale}
-        view={view}
         aiActive={view === 'ai'}
         editingNote={railEditorTarget}
         conversations={conversationSummaries}
@@ -2962,18 +2890,7 @@ function App() {
         onRegisterEditorCommands={(controller) => {
           editorTextCommandsRef.current = controller;
         }}
-        person={selectedPerson}
-        story={selectedStory}
-        references={references}
         library={library}
-        favorites={favorites}
-        activePlanSection={activePlanSection}
-        myInfoRetrieval={myInfoRetrieval}
-        includePriorities={includePriorities}
-        onFavoriteNavigate={openInternalNote}
-        onPlanSection={openPlanSection}
-        onHome={() => navigate('home')}
-        onResumeChat={() => navigate('ai')}
         onNewChat={handleNewChat}
         t={t}
       />
@@ -3003,13 +2920,7 @@ function App() {
 
       {toast && (
         <div className={`toast ${toast.kind}`} role="status" aria-live="polite">
-          {toast.kind === 'favorite-added' ? (
-            <Star size={17} fill="currentColor" />
-          ) : toast.kind === 'favorite-removed' ? (
-            <Star size={17} />
-          ) : (
-            <Check size={17} />
-          )}
+          <Check size={17} />
           <span>{toast.message}</span>
         </div>
       )}
@@ -5676,8 +5587,6 @@ function NoteView({
   currentTarget,
   internalTargets,
   onInternalNavigate,
-  favorite,
-  onToggleFavorite,
   onBack,
   notePath,
   isEditing,
@@ -5696,8 +5605,6 @@ function NoteView({
   currentTarget: Omit<InternalNoteTarget, 'label'>;
   internalTargets: InternalNoteTarget[];
   onInternalNavigate: (target: Omit<InternalNoteTarget, 'label'>) => void;
-  favorite: boolean;
-  onToggleFavorite: () => void;
   onBack: () => void;
   notePath: string | null;
   isEditing: boolean;
@@ -5897,16 +5804,6 @@ function NoteView({
             </button>
           </div>
           <div className="note-actions note-actions-secondary">
-            <button
-              type="button"
-              className={`note-action ${favorite ? 'active' : ''}`}
-              aria-label={translate(locale, favorite ? 'removeFavorite' : 'addFavorite')}
-              aria-pressed={favorite}
-              onClick={onToggleFavorite}
-              >
-              <Star size={14} fill={favorite ? 'currentColor' : 'none'} />
-              <span>{translate(locale, 'favorites')}</span>
-            </button>
             <button
               type="button"
               className="note-action danger"
@@ -7192,25 +7089,13 @@ function DialogHeader({
 
 function RightRail({
   locale,
-  view,
   aiActive,
   editingNote,
   conversations,
   activeConversationId,
   unreadConversationIds,
   chatBusy,
-  person,
-  story,
-  references,
   library,
-  favorites,
-  activePlanSection,
-  myInfoRetrieval,
-  includePriorities,
-  onFavoriteNavigate,
-  onPlanSection,
-  onHome,
-  onResumeChat,
   onNewChat,
   onSelectConversation,
   onRenameConversation,
@@ -7222,25 +7107,13 @@ function RightRail({
   t,
 }: {
   locale: Locale;
-  view: View;
   aiActive: boolean;
   editingNote: RailEditorTarget | null;
   conversations: ConversationSummary[];
   activeConversationId: string;
   unreadConversationIds: string[];
   chatBusy: boolean;
-  person: Person | null;
-  story: Story | null;
-  references: Array<{ label: string; url: string }>;
   library: LibrarySnapshot;
-  favorites: FavoriteReference[];
-  activePlanSection: PlanSection;
-  myInfoRetrieval: MyInfoRetrievalState;
-  includePriorities: boolean;
-  onFavoriteNavigate: (target: Omit<InternalNoteTarget, 'label'>) => void;
-  onPlanSection: (section: PlanSection) => void;
-  onHome: () => void;
-  onResumeChat: () => void;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onRenameConversation: (id: string, title: string) => Promise<void>;
@@ -7251,9 +7124,6 @@ function RightRail({
   onRegisterEditorCommands: (controller: TextCommandController | null) => void;
   t: (key: TranslationKey) => string;
 }) {
-  const planSections = getPlanSections(locale).filter((section) => myInfoRetrieval[section.id]);
-  const shortcutCount = planSections.length + (includePriorities ? 1 : 0);
-  const hasOpenContent = Boolean(person || story);
   const [editorDraft, setEditorDraft] = useState(editingNote?.markdown || '');
   const [editorSavedMarkdown, setEditorSavedMarkdown] = useState(editingNote?.markdown || '');
   const [conversationMenu, setConversationMenu] = useState<ConversationContextMenuState | null>(null);
@@ -7262,54 +7132,6 @@ function RightRail({
   const cancelConversationRenameRef = useRef(false);
   const conversationRenameTitleRef = useRef<HTMLElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
-  const favoriteItems = useMemo<FavoriteListItem[]>(() => {
-    const items: FavoriteListItem[] = [];
-    for (const favorite of favorites) {
-      if (favorite.kind === 'person') {
-        const item = library.people.find((candidate) => candidate.id === favorite.id);
-        if (item) {
-          items.push({
-            target: favorite,
-            title: locale === 'zh' ? item.nameZh || item.name : item.name,
-            detail: t('people'),
-          });
-        }
-      } else if (favorite.kind === 'story') {
-        const item = library.stories.find((candidate) => candidate.id === favorite.id);
-        if (item) {
-          items.push({
-            target: favorite,
-            title: locale === 'zh' ? item.title : item.titleEn || item.title,
-            detail: t('stories'),
-          });
-        }
-      } else if (favorite.kind === 'file') {
-        const priority = library.priorities.find((candidate) => candidate.filePath === favorite.id);
-        const planSectionId = (
-          Object.keys(PLAN_SECTION_FILES) as Array<Exclude<PlanSection, 'log'>>
-        ).find((id) => getPlanSectionFile(id, locale) === favorite.id);
-        const planSection = planSectionId
-          ? getPlanSections(locale).find((section) => section.id === planSectionId)
-          : undefined;
-        const fileName = favorite.id
-          .split('/')
-          .pop()
-          ?.replace(/(?:\.en)?\.md$/i, '');
-        items.push({
-          target: favorite,
-          title: priority?.title || planSection?.title || fileName || favorite.id,
-          detail: priority
-            ? `${priority.tier} · ${locale === 'zh' ? '笔记' : 'Note'}`
-            : planSection
-              ? t('myPlan')
-              : locale === 'zh'
-                ? '笔记'
-                : 'Note',
-        });
-      }
-    }
-    return items;
-  }, [favorites, library, locale, t]);
 
   useEffect(() => {
     setEditorDraft(editingNote?.markdown || '');
@@ -7376,51 +7198,24 @@ function RightRail({
 
   return (
     <aside className={`right-rail${editingNote ? ' right-rail-editing' : ''}`}>
-      {!editingNote && (
+      {aiActive && !editingNote && (
         <div className="rail-header">
           <div>
             <span className="rail-kicker">
-              {aiActive ? (
-                <History size={15} />
-              ) : hasOpenContent ? (
-                <Library size={15} />
-              ) : (
-                <Sparkles size={15} />
-              )}
-              {aiActive
-                ? t('recentContexts')
-                : hasOpenContent
-                  ? t('reading')
-                  : t('workspace')}
+              <History size={15} />
+              {t('recentContexts')}
             </span>
-            <h3>
-              {aiActive
-                ? indexedSourceCountLabel
-                : (person
-                    ? locale === 'zh'
-                      ? person.nameZh || person.name
-                      : person.name
-                    : null) ||
-                  (story ? (locale === 'zh' ? story.title : story.titleEn || story.title) : null) ||
-                  t('favoritesAndPlan')}
-            </h3>
+            <h3>{indexedSourceCountLabel}</h3>
           </div>
-          {aiActive ? (
-            <button
-              type="button"
-              className="rail-resume-chat"
-              onClick={onNewChat}
-              disabled={chatBusy}
-            >
-              <Plus size={15} />
-              {t('newChat')}
-            </button>
-          ) : conversations.length > 0 ? (
-            <button type="button" className="rail-resume-chat" onClick={onResumeChat}>
-              <MessageCircleMore size={14} />
-              {t('backToChat')}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="rail-resume-chat"
+            onClick={onNewChat}
+            disabled={chatBusy}
+          >
+            <Plus size={15} />
+            {t('newChat')}
+          </button>
         </div>
       )}
 
@@ -7552,93 +7347,7 @@ function RightRail({
               onRegisterCommands={onRegisterEditorCommands}
             />
           </section>
-        ) : (
-          <>
-            <div className="rail-section-title">
-              {t('favorites')} {favoriteItems.length ? <span>{favoriteItems.length}</span> : null}
-            </div>
-            {favoriteItems.length ? (
-              <div className="favorite-list">
-                {favoriteItems.map((item) => (
-                  <button
-                    type="button"
-                    onClick={() => onFavoriteNavigate(item.target)}
-                    key={`${item.target.kind}:${item.target.id}`}
-                  >
-                    <span className="favorite-item-icon">
-                      {item.target.kind === 'person' ? (
-                        <UserRound size={17} />
-                      ) : (
-                        <BookOpen size={17} />
-                      )}
-                    </span>
-                    <span>
-                      <strong>{item.title}</strong>
-                      <small>{item.detail}</small>
-                    </span>
-                    <ChevronRight size={15} />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="favorite-inline-empty">{t('favoriteHint')}</p>
-            )}
-
-            <div className="rail-section-title">
-              {t('myPlan')} <span>{shortcutCount}</span>
-            </div>
-            <div className="plan-shortcut-list">
-              {includePriorities && (
-                <button
-                  className={view === 'home' ? 'active' : ''}
-                  onClick={onHome}
-                >
-                  <span className="plan-shortcut-icon" style={{ background: '#e5e5e7' }}>
-                    <Layers3 size={17} />
-                  </span>
-                  <span>
-                    <strong>{t('myPriorities')}</strong>
-                    <small>{t('myPrioritiesSub')}</small>
-                  </span>
-                  <ChevronRight size={15} />
-                </button>
-              )}
-              {planSections.map((section) => (
-                <button
-                  className={view === 'plan' && activePlanSection === section.id ? 'active' : ''}
-                  onClick={() => onPlanSection(section.id)}
-                  key={section.id}
-                >
-                  <span className="plan-shortcut-icon" style={{ background: section.accent }}>
-                    {section.icon}
-                  </span>
-                  <span>
-                    <strong>{section.title}</strong>
-                    <small>{section.description}</small>
-                  </span>
-                  <ChevronRight size={15} />
-                </button>
-              ))}
-            </div>
-
-            {references.length > 0 && (
-              <>
-                <div className="rail-section-title">
-                  {t('sources')} <span>{references.length}</span>
-                </div>
-                <div className="source-list">
-                  {references.map((reference) => (
-                    <AppLink href={reference.url} key={reference.url}>
-                      <Globe2 size={15} />
-                      <span>{reference.label}</span>
-                      <ArrowRight size={14} />
-                    </AppLink>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        )}
+        ) : null}
       </div>
 
       {conversationMenu && (

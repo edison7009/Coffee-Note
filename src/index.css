@@ -142,6 +142,19 @@ a:focus-visible {
   width: 100vw;
   height: 100vh;
   background: var(--sidebar-surface);
+  /* Animate the right rail collapse/expand (Chromium interpolates the 3rd
+     column width; the middle 1fr column reflows accordingly). */
+  transition: grid-template-columns 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* No transition while the user is dragging a pane (would jank). */
+.app-shell.panel-resizing {
+  transition: none;
+}
+
+/* Right rail collapsed: hide its resizer entirely. */
+.app-shell.right-rail-collapsed .pane-resizer-right {
+  display: none;
 }
 
 .pane-resizer {
@@ -3367,26 +3380,6 @@ html.tree-drag-active * {
   cursor: default;
 }
 
-.favorite-toggle {
-  display: grid;
-  width: 31px;
-  height: 31px;
-  flex: 0 0 auto;
-  padding: 0;
-  place-items: center;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-radius: 9px;
-  cursor: default;
-}
-
-.favorite-toggle:hover,
-.favorite-toggle.active {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
 .rail-scroll {
   min-width: 0;
   padding: 15px;
@@ -3464,102 +3457,9 @@ html.tree-drag-active * {
   gap: 7px;
 }
 
-.favorite-inline-empty {
-  margin: 0 2px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.5;
-}
-
 .plan-shortcut-list {
   display: grid;
   gap: 7px;
-}
-
-.favorite-list {
-  display: grid;
-  gap: 7px;
-}
-
-.favorite-list button {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 57px;
-  padding: 9px 10px;
-  overflow: hidden;
-  color: #29433f;
-  background: white;
-  border: 1px solid #e0e9e6;
-  border-radius: 11px;
-  text-align: left;
-  cursor: default;
-}
-
-.favorite-list button > span:nth-child(2) {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.favorite-list strong {
-  overflow: hidden;
-  font-size: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.favorite-list small {
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.favorite-list > button > svg {
-  color: var(--muted);
-}
-
-.favorite-item-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  color: #24776e;
-  background: #e7f3f0;
-  border-radius: 9px;
-}
-
-.favorite-empty {
-  display: grid;
-  min-height: 230px;
-  padding: 32px 18px;
-  place-items: center;
-  align-content: center;
-  color: #8a9c98;
-  text-align: center;
-}
-
-.favorite-empty svg {
-  margin-bottom: 12px;
-  color: #58a99d;
-}
-
-.favorite-empty strong {
-  color: #45605c;
-  font-size: 15px;
-}
-
-.favorite-empty span {
-  max-width: 190px;
-  margin-top: 6px;
-  font-size: 13px;
-  line-height: 1.55;
 }
 
 .plan-shortcut-list button {
@@ -4562,10 +4462,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   color: var(--accent);
 }
 
-.toast.favorite-added svg {
-  color: #d89b27;
-}
-
 [data-theme='dark'] .toast {
   color: #eef0ef;
   background: rgba(38, 40, 39, 0.9);
@@ -4711,36 +4607,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   stroke: #78c8b5;
 }
 
-[data-theme='dark'] .brand small,
-[data-theme='dark'] .nav-count,
-[data-theme='dark'] .tree-chevron,
-[data-theme='dark'] .tree-child small,
-[data-theme='dark'] .section-heading p,
-[data-theme='dark'] .section-stat,
-[data-theme='dark'] .page-intro p,
-[data-theme='dark'] .hero p,
-[data-theme='dark'] .action-copy small,
-[data-theme='dark'] .person-copy small,
-[data-theme='dark'] .person-copy .person-zh,
-[data-theme='dark'] .story-copy small,
-[data-theme='dark'] .story-copy > span,
-[data-theme='dark'] .plan-section-grid small,
-[data-theme='dark'] .plan-focus small,
-[data-theme='dark'] .plan-focus p,
-[data-theme='dark'] .rail-kicker,
-[data-theme='dark'] .rail-section-title,
-[data-theme='dark'] .rail-section-title span,
-[data-theme='dark'] .favorite-inline-empty,
-[data-theme='dark'] .favorite-inline-empty,
-[data-theme='dark'] .favorite-list small,
-[data-theme='dark'] .plan-shortcut-list small,
-[data-theme='dark'] .related-list small,
-[data-theme='dark'] .composer-metrics,
-[data-theme='dark'] .dialog-titlebar-copy p,
-[data-theme='dark'] .dialog-meta > span {
-  color: #929794;
-}
-
 [data-theme='dark'] .composer-metrics b {
   color: color-mix(in srgb, var(--muted) 70%, var(--paper));
 }
@@ -4828,23 +4694,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 [data-theme='dark'] .plan-shortcut-list strong,
 [data-theme='dark'] .related-list strong {
   color: var(--ink);
-}
-
-[data-theme='dark'] .action-card,
-[data-theme='dark'] .story-add-card,
-[data-theme='dark'] .plan-section-grid > .plan-section-card,
-[data-theme='dark'] .composer,
-[data-theme='dark'] .favorite-list button,
-[data-theme='dark'] .plan-shortcut-list button,
-[data-theme='dark'] .related-list button,
-[data-theme='dark'] .source-list a,
-[data-theme='dark'] .rail-message,
-[data-theme='dark'] .field-row input,
-[data-theme='dark'] .full-field input,
-[data-theme='dark'] .folder-picker {
-  color: #d9dcda;
-  background: #242624;
-  border-color: #3a3d3b;
 }
 
 [data-theme='dark'] .action-card:hover,
@@ -5047,19 +4896,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   color: #858a87;
 }
 
-[data-theme='dark'] .favorite-toggle {
-  color: #aab0ad;
-  background: transparent;
-}
-
-[data-theme='dark'] .favorite-toggle:hover,
-[data-theme='dark'] .favorite-toggle.active,
-[data-theme='dark'] .plan-shortcut-list button.active {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-}
-
 [data-theme='dark'] .note-action {
   color: var(--muted);
 }
@@ -5081,19 +4917,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 [data-theme='dark'] .page-back {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
-}
-
-[data-theme='dark'] .favorite-item-icon {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-[data-theme='dark'] .favorite-empty {
-  color: #8b918e;
-}
-
-[data-theme='dark'] .favorite-empty strong {
-  color: #c6cac8;
 }
 
 [data-theme='dark'] .modal-backdrop {
@@ -5276,6 +5099,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 @media (max-width: 1120px) {
   .app-shell {
     grid-template-columns: 226px minmax(540px, 1fr) 0;
+    transition: none;
   }
 
   .pane-resizer {
@@ -6923,77 +6747,11 @@ textarea,
   text-transform: none;
 }
 
-.plan-shortcut-list,
-.favorite-list,
-.related-list,
-.source-list {
-  gap: 3px;
-}
-
-.plan-shortcut-list button,
-.favorite-list button,
-.related-list button,
-.source-list a,
-[data-theme='dark'] .plan-shortcut-list button,
-[data-theme='dark'] .favorite-list button,
-[data-theme='dark'] .related-list button,
-[data-theme='dark'] .source-list a {
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 7px;
-}
-
-.plan-shortcut-list button,
-.favorite-list button {
-  min-height: 54px;
-  padding: 7px 8px;
-}
-
-.plan-shortcut-list button:hover,
-.favorite-list button:hover,
-.related-list button:hover,
-.source-list a:hover,
-[data-theme='dark'] .plan-shortcut-list button:hover,
-[data-theme='dark'] .favorite-list button:hover,
-[data-theme='dark'] .related-list button:hover,
-[data-theme='dark'] .source-list a:hover {
-  background: var(--tertiary-surface);
-  border-color: transparent;
-  box-shadow: none;
-}
-
 .plan-shortcut-list button.active,
 [data-theme='dark'] .plan-shortcut-list button.active {
   color: var(--accent);
   background: var(--accent-soft);
   border-color: transparent;
-}
-
-.plan-shortcut-icon,
-.favorite-item-icon,
-[data-theme='dark'] .plan-shortcut-icon,
-[data-theme='dark'] .favorite-item-icon {
-  width: 30px;
-  height: 30px;
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
-  border-radius: 7px;
-}
-
-.plan-shortcut-list strong,
-.favorite-list strong,
-[data-theme='dark'] .plan-shortcut-list strong,
-[data-theme='dark'] .favorite-list strong {
-  color: var(--ink);
-  font-size: 14px;
-}
-
-.plan-shortcut-list small,
-.favorite-list small,
-[data-theme='dark'] .plan-shortcut-list small,
-[data-theme='dark'] .favorite-list small {
-  color: var(--muted);
 }
 
 .composer,
@@ -7226,29 +6984,6 @@ textarea,
   color: var(--accent);
 }
 
-/* Page icons stay as simple symbols; selection belongs to the row or card. */
-.plan-section-icon,
-.plan-focus-icon,
-.plan-shortcut-icon,
-.favorite-item-icon,
-.health-field-icon,
-.story-add-icon,
-.context-icon,
-.dialog-titlebar-icon,
-.dialog-titlebar-blue .dialog-titlebar-icon,
-[data-theme='dark'] .plan-section-icon,
-[data-theme='dark'] .plan-focus-icon,
-[data-theme='dark'] .plan-shortcut-icon,
-[data-theme='dark'] .favorite-item-icon,
-[data-theme='dark'] .health-field-icon,
-[data-theme='dark'] .story-add-icon,
-[data-theme='dark'] .context-icon,
-[data-theme='dark'] .dialog-titlebar-icon,
-[data-theme='dark'] .dialog-titlebar-blue .dialog-titlebar-icon {
-  background: transparent !important;
-  border-radius: 0;
-}
-
 .plan-section-icon,
 .plan-focus-icon {
   width: 30px;
@@ -7259,18 +6994,6 @@ textarea,
 .plan-focus-icon svg {
   width: 22px;
   height: 22px;
-}
-
-.plan-shortcut-icon,
-.favorite-item-icon {
-  width: 26px;
-  height: 30px;
-}
-
-.plan-shortcut-icon svg,
-.favorite-item-icon svg {
-  width: 20px;
-  height: 20px;
 }
 
 .health-field-icon {
