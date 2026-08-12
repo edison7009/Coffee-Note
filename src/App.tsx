@@ -118,7 +118,6 @@ import {
   writeNote,
   saveCapture,
   chooseImportFile,
-  readFileContent,
   sendAgentMessage,
   listenAgentEvents,
   resetAgent,
@@ -8678,6 +8677,7 @@ function CaptureGuideDialog({
   t: (key: TranslationKey) => string;
 }) {
   const [source, setSource] = useState('');
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [draft, setDraft] = useState<CaptureDraft | null>(null);
   const [transcriptionMode, setTranscriptionMode] = useState<'api' | 'local'>('api');
   const [busy, setBusy] = useState(false);
@@ -8685,7 +8685,7 @@ function CaptureGuideDialog({
   const [error, setError] = useState('');
 
   const organize = async () => {
-    const clean = source.trim();
+    const clean = (selectedFile ?? source).trim();
     if (!clean) {
       setError(t('captureInputRequired'));
       return;
@@ -8786,38 +8786,6 @@ function CaptureGuideDialog({
                   autoFocus
                 />
               </label>
-              <button
-                type="button"
-                className="capture-file-button"
-                onClick={async () => {
-                  const picked = await chooseImportFile();
-                  if (!picked) return;
-                  setError('');
-                  setBusy(true);
-                  try {
-                    const content = await readFileContent(picked);
-                    if (content.kind === 'image') {
-                      setSource(`[Image: ${content.label}]\n${content.imagePath ?? picked}`);
-                    } else if (content.kind === 'unsupported') {
-                      setError(
-                        `${t('captureFileUnsupported')} (${content.extension || 'unknown'})`,
-                      );
-                    } else {
-                      setSource(content.text);
-                    }
-                  } catch (fileError) {
-                    setError(
-                      `${t('captureFileReadFailed')}: ${String(fileError).replace(/^Error:\s*/i, '')}`,
-                    );
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                disabled={busy || saving}
-              >
-                <FileUp size={16} />
-                {t('captureChooseFile')}
-              </button>
               <fieldset className="capture-transcription-choice">
                 <span className="capture-transcription-hint">{t('captureTranscriptionHint')}</span>
                 <span className="capture-transcription-options">
@@ -8875,6 +8843,23 @@ function CaptureGuideDialog({
           )}
 
           <div className="capture-guide-actions">
+            {!draft && (
+              <button
+                type="button"
+                className="capture-file-button"
+                onClick={async () => {
+                  const picked = await chooseImportFile();
+                  if (!picked) return;
+                  setSelectedFile(picked);
+                  setError('');
+                }}
+                disabled={busy || saving}
+                title={selectedFile ?? undefined}
+              >
+                <FileUp size={16} />
+                {selectedFile ? selectedFile : t('captureChooseFile')}
+              </button>
+            )}
             <button
               className="secondary-button"
               onClick={draft ? () => setDraft(null) : onClose}
@@ -8885,7 +8870,7 @@ function CaptureGuideDialog({
             <button
               className="primary-button"
               onClick={draft ? save : organize}
-              disabled={busy || saving || (!draft && !source.trim())}
+              disabled={busy || saving || (!draft && !source.trim() && !selectedFile)}
             >
               {busy || saving ? (
                 <LoaderCircle className="spinning" size={16} />

@@ -4183,22 +4183,28 @@ html.tree-drag-active * {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  justify-self: start;
-  margin-top: 2px;
-  padding: 7px 12px;
+  margin-right: auto;
+  min-width: 0;
+  max-width: 260px;
+  padding: 8px 13px;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-  color: var(--ink);
+  border-radius: 9px;
+  background: var(--secondary-surface);
+  color: var(--muted);
   font: inherit;
   font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .capture-file-button:hover:not(:disabled) {
-  border-color: var(--line-strong);
-  background: var(--paper-2);
+  color: var(--accent);
+  background: white;
+  border-color: var(--accent-border);
 }
 
 .capture-file-button:disabled {

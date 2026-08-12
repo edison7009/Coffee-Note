@@ -2317,10 +2317,29 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         return Err("The source material is too large".to_string());
     }
 
+    // Local file path: read the file's content via the file reader (the
+    // agent otherwise only sees the path string, not the file's material).
+    let file_path = std::path::Path::new(input);
+    let local_file = file_path.is_file();
     let parsed_url = reqwest::Url::parse(input)
         .ok()
         .filter(|url| matches!(url.scheme(), "http" | "https"));
-    let (source_material, source_url) = if let Some(url) = parsed_url {
+    let (source_material, source_url) = if local_file {
+        let content = file_reader::read_file_content(file_path)?;
+        let material = match content.kind {
+            file_reader::ContentKind::Text | file_reader::ContentKind::Transcript => content.text,
+            file_reader::ContentKind::Image => {
+                format!("[Image file: {}]\n{}", content.label, content.image_path.unwrap_or_default())
+            }
+            file_reader::ContentKind::Unsupported => {
+                return Err(format!(
+                    "The file '{}' has an unsupported format (.{}).",
+                    content.label, content.extension
+                ))
+            }
+        };
+        (material, None)
+    } else if let Some(url) = parsed_url {
         validate_public_url(&url)?;
         if transcription::supports_media_url(&url) {
             let mode = request.transcription_mode.as_deref().unwrap_or("api");
