@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coffee Note — The most affordable AI note tool, deeply optimized for DeepSeek</title>
 <meta name="description" content="Coffee Note — local-first AI note tool. DeepSeek-optimized, short videos become notes, notes generate PPT and video.">
+<link rel="icon" type="image/png" href="brand/app-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -130,6 +131,8 @@
   .hero-shot {
     border-radius: 14px; border: 1px solid var(--line);
     background: var(--card); overflow: hidden; box-shadow: var(--shadow);
+    /* keep breathing room above the screenshot when cn-mirrors is hidden */
+    margin-top: 40px;
   }
   .hero-shot img { display: block; width: 100%; height: auto; }
 
@@ -162,7 +165,7 @@
      locales — same fix as coffeecli's .cn-mirrors[hidden]. */
   .mirror-downloads[hidden] { display: none; }
   .mirror-downloads {
-    margin-top: 18px; margin-bottom: 40px; font-size: 13px; color: var(--muted);
+    margin-top: 18px; font-size: 13px; color: var(--muted);
     display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
     font-family: var(--font-mono);
   }
