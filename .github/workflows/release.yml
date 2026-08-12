@@ -211,7 +211,7 @@ jobs:
                 *_amd64.deb)                NEW="Coffee.Note_${VERSION}_Linux_x64.deb" ;;
                 *.x86_64.rpm)               NEW="Coffee.Note_${VERSION}_Linux_x64.rpm" ;;
                 *_arm64.deb)                NEW="Coffee.Note_${VERSION}_Linux_arm64.deb" ;;
-                *_arm64.rpm)                NEW="Coffee.Note_${VERSION}_Linux_arm64.rpm" ;;
+                *.aarch64.rpm)              NEW="Coffee.Note_${VERSION}_Linux_arm64.rpm" ;;
                 *_amd64.AppImage|*_x86_64.AppImage)
                                               NEW="Coffee.Note_${VERSION}_Linux_x64.AppImage" ;;
                 *)                          NEW="" ;;
