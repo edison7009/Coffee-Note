@@ -1,7 +1,7 @@
 {
   "name": "coffee-note",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.0.1",
   "description": "A local-first note system with tier-based organization and AI assistance.",
   "type": "module",
   "scripts": {
