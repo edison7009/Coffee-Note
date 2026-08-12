@@ -41,6 +41,16 @@ case "$OS" in
     ;;
 esac
 
+# GitHub asset filename to fall back to if the website /download Worker is
+# not deployed and returns an HTML page instead of the installer.
+FALLBACK_PATTERN=""
+case "$PLATFORM" in
+  darwin-aarch64) FALLBACK_PATTERN="macOS_arm64.dmg" ;;
+  darwin-x64)     FALLBACK_PATTERN="macOS_x64.dmg" ;;
+  linux-x64)      FALLBACK_PATTERN="Linux_x64.AppImage" ;;
+  linux-aarch64)  FALLBACK_PATTERN="Linux_arm64.deb" ;;
+esac
+
 LATEST_VERSION=""
 DOWNLOAD_URL=""
 # Primary source: the static version.json on the site.
@@ -70,6 +80,22 @@ if [ ! -s "$TMP_FILE" ]; then
   echo ""
   echo "  ${RED}The downloaded file is empty.${RESET}"
   exit 1
+fi
+
+# If the website returned its HTML page instead of the installer (the
+# /download Worker route is not deployed yet), retry from GitHub directly.
+if [ -n "$FALLBACK_PATTERN" ] && head -c 1 "$TMP_FILE" 2>/dev/null | grep -q '<'; then
+  echo "  Website download unavailable, trying GitHub directly..." "${GRAY}"
+  GH_RELEASE="$(curl -fsSL --max-time 15 "https://api.github.com/repos/edison7009/Coffee-Note/releases/latest" 2>/dev/null || true)"
+  GH_URL="$(printf '%s' "$GH_RELEASE" | grep -o '"browser_download_url":[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' | grep "$FALLBACK_PATTERN" | head -1)"
+  if [ -n "$GH_URL" ]; then
+    LATEST_VERSION="$(printf '%s' "$GH_RELEASE" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | sed 's/^v//')"
+    curl -fsSL --max-time 300 "$GH_URL" -o "$TMP_FILE" || {
+      echo ""
+      echo "  ${RED}Download failed. Please check your network and try again.${RESET}"
+      exit 1
+    }
+  fi
 fi
 
 if [ "$OS" = "Darwin" ]; then

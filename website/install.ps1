@@ -60,10 +60,37 @@ if ($installedVersion) {
 }
 
 $installerPath = Join-Path ([IO.Path]::GetTempPath()) "Coffee-Note-$latestVersion-setup.exe"
+
+# Download to a file and make sure it is a real Windows installer (starts
+# with the "MZ" PE magic), not an HTML fallback page served by the static
+# site when the /download Worker route is not deployed yet.
+function Save-Installer([string]$Url, [string]$OutFile) {
+  Invoke-WebRequest $Url -Headers $headers -OutFile $OutFile -UseBasicParsing
+  $stream = [System.IO.File]::OpenRead($OutFile)
+  try {
+    if ($stream.Length -lt 2) { throw "The installer download is empty." }
+    $magic = @($stream.ReadByte(), $stream.ReadByte())
+    if ($magic[0] -ne 0x4D -or $magic[1] -ne 0x5A) {
+      throw "The download returned a web page instead of the installer."
+    }
+  } finally { $stream.Dispose() }
+}
+
 try {
   Write-Host "  Downloading..." -ForegroundColor Gray
-  Invoke-WebRequest $downloadUrl -Headers $headers -OutFile $installerPath -UseBasicParsing
-  if ((Get-Item -LiteralPath $installerPath).Length -eq 0) { throw "The installer download is empty." }
+  try {
+    Save-Installer -Url $downloadUrl -OutFile $installerPath
+  } catch {
+    # The website download returned HTML or failed (Worker not deployed /
+    # CI still building). Retry straight from the GitHub Release asset.
+    Write-Host "  Website download unavailable, trying GitHub directly..." -ForegroundColor Gray
+    $release = Invoke-RestMethod "https://api.github.com/repos/$repository/releases/latest" -Headers $headers -TimeoutSec 15
+    $asset = $release.assets | Where-Object { $_.name -like "*_Windows_x64-setup.exe" } | Select-Object -First 1
+    if (-not $asset) { throw "The latest release has no Windows installer." }
+    $latestVersion = $release.tag_name -replace '^v',''
+    $installerPath = Join-Path ([IO.Path]::GetTempPath()) "Coffee-Note-$latestVersion-setup.exe"
+    Save-Installer -Url $asset.browser_download_url -OutFile $installerPath
+  }
   Write-Host "  Starting setup..." -ForegroundColor Gray
   Start-Process -FilePath $installerPath -Wait
   Write-Host ""
