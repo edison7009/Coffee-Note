@@ -234,12 +234,12 @@ body.resizing-panels * {
 
 .sidebar-scroll {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   min-height: 0;
   padding: 19px 14px 22px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   scrollbar-width: none;
 }
 
@@ -398,9 +398,10 @@ body.resizing-panels * {
 }
 
 .primary-nav {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
   gap: 4px;
   min-width: 0;
 }
@@ -583,6 +584,10 @@ body.resizing-panels * {
 /* Library tree sits right under the primary nav buttons (divider removed);
    a modest top margin keeps the two sections breathing without a line. */
 .library-tree {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
   margin-top: 10px;
 }
 
@@ -678,6 +683,7 @@ body.resizing-panels * {
 }
 
 .library-root-row {
+  flex: 0 0 auto;
   position: relative;
   display: flex;
   align-items: center;
@@ -686,6 +692,18 @@ body.resizing-panels * {
   width: 100%;
   padding: 4px 6px 4px 8px;
   border-radius: 6px;
+}
+
+.library-tree-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.library-tree-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .library-root-label {

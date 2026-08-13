@@ -5100,17 +5100,19 @@ function LibraryTree({
           </button>
         </div>
       </div>
-      <div className="tree-children">
-        {renderEditRow('', 0)}
-        {orderedEntries(
-          '',
-          (entriesByDir[''] || []).filter(
-            (entry) => !entry.isDir || !HIDDEN_ROOT_FOLDERS.has(entry.name),
-          ),
-        )
-          .map((entry) =>
-            entry.isDir ? renderFolder(entry, 0) : renderFile(entry, 0),
-          )}
+      <div className="library-tree-scroll">
+        <div className="tree-children">
+          {renderEditRow('', 0)}
+          {orderedEntries(
+            '',
+            (entriesByDir[''] || []).filter(
+              (entry) => !entry.isDir || !HIDDEN_ROOT_FOLDERS.has(entry.name),
+            ),
+          )
+            .map((entry) =>
+              entry.isDir ? renderFolder(entry, 0) : renderFile(entry, 0),
+            )}
+        </div>
       </div>
       {ctxMenu && (
         <ContextMenu menu={ctxMenu} onClose={closeMenu} actions={ctxActions} t={t} />
