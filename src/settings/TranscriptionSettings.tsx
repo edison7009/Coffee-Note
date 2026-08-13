@@ -450,7 +450,7 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
         </div>
         <div className="transcription-component-actions">
           {active && state === 'installed' && (
-            <span className="transcription-active-state"><Check size={14} />{locale === 'zh' ? '使用中' : 'In use'}</span>
+            <span className="transcription-active-state">{locale === 'zh' ? '使用中' : 'In use'}</span>
           )}
           {!active && state === 'installed' && (
             <button type="button" className="transcription-text-action" onClick={() => kind === 'runtime' ? setActiveRuntime(item.id) : setActiveModel(item.id)}>
