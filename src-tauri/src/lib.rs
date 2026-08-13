@@ -1987,6 +1987,33 @@ fn validate_public_url(url: &reqwest::Url) -> Result<(), String> {
     Ok(())
 }
 
+fn find_capture_url(input: &str) -> Option<&str> {
+    let lower = input.to_ascii_lowercase();
+    for scheme in ["https://", "http://"] {
+        let Some(start) = lower.find(scheme) else {
+            continue;
+        };
+        let rest = &input[start..];
+        let end = rest
+            .find(|character: char| {
+                character.is_whitespace()
+                    || "，。！？；：、\"'<>()[]（）【】{}".contains(character)
+            })
+            .unwrap_or(rest.len());
+        let candidate = rest[..end].trim_end_matches(|character: char| {
+            matches!(
+                character,
+                ',' | '.' | ';' | ':' | '，' | '。' | '！' | '？' | '；' | '：'
+                    | '、' | ')' | ']' | '}' | '>' | '"' | '\'' | '…'
+            )
+        });
+        if !candidate.is_empty() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
 fn blocked_capture_address(address: std::net::IpAddr) -> bool {
     match address {
         std::net::IpAddr::V4(address) => {
@@ -2321,9 +2348,13 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
     // agent otherwise only sees the path string, not the file's material).
     let file_path = std::path::Path::new(input);
     let local_file = file_path.is_file();
-    let parsed_url = reqwest::Url::parse(input)
-        .ok()
-        .filter(|url| matches!(url.scheme(), "http" | "https"));
+    let parsed_url = if local_file {
+        None
+    } else {
+        find_capture_url(input)
+            .and_then(|candidate| reqwest::Url::parse(candidate).ok())
+            .filter(|url| matches!(url.scheme(), "http" | "https"))
+    };
     let (source_material, source_url) = if local_file {
         let content = file_reader::read_file_content(file_path)?;
         let material = match content.kind {
@@ -4054,6 +4085,16 @@ mod tests {
         assert_eq!(slugify("Vitamin D / 2026 Update"), "vitamin-d-2026-update");
         assert_eq!(slugify("维生素 D 更新"), "d");
         assert_eq!(slugify("纯中文标题"), "capture");
+    }
+
+    #[test]
+    fn capture_input_extracts_share_text_urls() {
+        let share_text = "0.79 复制打开抖音，看看【张博士的抗衰笔记的作品】K衰补剂阶段表，补剂不是智商税，关键要吃对 https://v.douyin.com/TJfE5AIvBso/ K@j.Ch lcn:/ 11/21 :7pm";
+        assert_eq!(
+            find_capture_url(share_text),
+            Some("https://v.douyin.com/TJfE5AIvBso/")
+        );
+        assert_eq!(find_capture_url("没有链接的普通文字"), None);
     }
 
     #[test]
