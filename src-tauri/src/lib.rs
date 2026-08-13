@@ -416,6 +416,10 @@ fn load_transcription_config() -> Result<Option<TranscriptionSettingsConfig>, St
     load_transcription_config_from(&transcription_config_path())
 }
 
+pub(crate) fn load_transcription_config_for_agent() -> Result<Option<TranscriptionSettingsConfig>, String> {
+    load_transcription_config_from(&transcription_config_path())
+}
+
 #[tauri::command]
 fn save_transcription_config(config: TranscriptionSettingsConfig) -> Result<(), String> {
     save_transcription_config_to(&transcription_config_path(), &config)
@@ -1960,7 +1964,7 @@ fn anthropic_messages_endpoint(base_url: &str) -> String {
     }
 }
 
-fn validate_public_url(url: &reqwest::Url) -> Result<(), String> {
+pub(crate) fn validate_public_url(url: &reqwest::Url) -> Result<(), String> {
     if !matches!(url.scheme(), "http" | "https") {
         return Err("Only public HTTP and HTTPS links are supported".to_string());
     }

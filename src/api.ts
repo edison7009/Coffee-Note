@@ -37,8 +37,20 @@ const fallbackSkillCatalog: SkillCatalog = {
     { id: 'copywriting', label: '文案编写', fixed: true },
     { id: 'ppt', label: '制作PPT', fixed: true },
     { id: 'video', label: '制作视频', fixed: true },
+    { id: 'media', label: '媒体转文字', fixed: true },
   ],
-  skills: [],
+  skills: [
+    {
+      id: 'coffee-note-media-transcribe',
+      title: '媒体转文字',
+      description: '把视频或音频链接、本地媒体文件转成文字，并整理成笔记。',
+      categoryId: 'media',
+      codexCompatible: true,
+      sourceId: 'builtin',
+      sourceUrl: '',
+      enabled: true,
+    },
+  ],
   plugins: [],
 };
 

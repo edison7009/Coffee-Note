@@ -16,7 +16,16 @@ const INDEX_FILE: &str = "skills.json";
 const INDEX_VERSION: u8 = 2;
 const MAX_SKILL_BYTES: u64 = 128 * 1024;
 const MAX_SKILLS_PER_SOURCE: usize = 64;
-const FIXED_CATEGORY_IDS: [&str; 3] = ["copywriting", "ppt", "video"];
+const FIXED_CATEGORY_IDS: [&str; 4] = ["copywriting", "ppt", "video", "media"];
+const BUILTIN_MEDIA_SKILL_ID: &str = "coffee-note-media-transcribe";
+const BUILTIN_MEDIA_SKILL_PROMPT: &str = "\
+你是 Coffee Note 的“媒体转文字”内置技能。\n\
+\n\
+当用户粘贴抖音、TikTok、Bilibili、YouTube、小红书、X/Twitter 等媒体链接，或给出本地音频/视频文件路径时：\n\
+1. 先从用户输入中提取媒体链接或文件路径；\n\
+2. 调用 transcribe_media 工具获取文字稿；\n\
+3. 把文字稿整理成清晰的 Markdown 笔记，按需使用 save_note；\n\
+4. 不要虚构视频中没有的内容，不把标题观点当作医学结论，保留原始来源 URL。";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -144,6 +153,11 @@ fn fixed_categories() -> Vec<SkillCategory> {
         SkillCategory {
             id: "video".into(),
             label: "制作视频".into(),
+            fixed: true,
+        },
+        SkillCategory {
+            id: "media".into(),
+            label: "媒体转文字".into(),
             fixed: true,
         },
     ]
@@ -612,7 +626,17 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
             .then_with(|| left.0.cmp(right.0))
     });
 
-    let mut skills = Vec::new();
+    let mut skills = vec![SkillDefinition {
+        id: BUILTIN_MEDIA_SKILL_ID.into(),
+        title: "媒体转文字".into(),
+        description: "把视频或音频链接、本地媒体文件转成文字，并整理成笔记。".into(),
+        category_id: "media".into(),
+        codex_compatible: true,
+        source_id: "builtin".into(),
+        source_url: String::new(),
+        source_version: None,
+        enabled: true,
+    }];
     let mut plugins = Vec::new();
     for (source_id, meta) in sources {
         let root = skills_sources_root().join(source_id);
@@ -855,6 +879,9 @@ pub fn delete_skill_category(id: String) -> Result<SkillCatalog, String> {
 }
 
 pub fn load_skill_prompt(id: &str) -> Result<String, String> {
+    if id == BUILTIN_MEDIA_SKILL_ID {
+        return Ok(BUILTIN_MEDIA_SKILL_PROMPT.to_string());
+    }
     let index = ensure_store()?;
     for (source_id, meta) in &index.sources {
         if !meta.enabled {
@@ -898,7 +925,12 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(
             ids,
-            HashSet::from(["copywriting".into(), "ppt".into(), "video".into()])
+            HashSet::from([
+                "copywriting".into(),
+                "ppt".into(),
+                "video".into(),
+                "media".into(),
+            ])
         );
     }
 

@@ -111,7 +111,6 @@ import {
   moveTierItem,
   onSelfUpdateProgress,
   openExternalUrl,
-  prepareCapture,
   persistModelConfig,
   readNote,
   writeNote,
@@ -154,7 +153,6 @@ import { SkillsSettings } from './settings/SkillsSettings';
 import type {
   AgentEvent,
   ChatMessage,
-  CaptureDraft,
   ConversationSummary,
   LibrarySnapshot,
   Locale,
@@ -212,6 +210,7 @@ import {
 
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://note.coffeecli.com/';
+const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
 const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 
@@ -645,32 +644,6 @@ function sanitizeConversationMessages(messages: readonly ChatMessage[]): ChatMes
         : { ...message, content: withoutReasoning.trimStart() };
     })
     .filter((message) => message.role !== 'assistant' || message.content.trim().length > 0);
-}
-
-function buildCaptureChatMessage(draft: CaptureDraft, locale: Locale): string {
-  const sourceLine = draft.sourceUrl
-    ? `${locale === 'zh' ? '来源' : 'Source'}：${draft.sourceUrl}\n\n`
-    : '';
-
-  if (locale === 'zh') {
-    return [
-      draft.title,
-      '',
-      '我已导入下面这份资料。请直接进入对话，先确认我的目标，再继续帮我处理或给出下一步。',
-      '',
-      sourceLine,
-      draft.content,
-    ].join('\n');
-  }
-
-  return [
-    draft.title,
-    '',
-    'I just imported the material below. Please move straight into the conversation, confirm what I am trying to accomplish, and then continue helping me or suggest the next step.',
-    '',
-    sourceLine,
-    draft.content,
-  ].join('\n');
 }
 
 function getLinks(markdown: string): Array<{ label: string; url: string }> {
@@ -2479,15 +2452,17 @@ function App() {
     });
   };
 
-  const startCaptureConversation = async (draft: CaptureDraft) => {
+  const startCaptureConversation = async (
+    input: string,
+    transcriptionMode: 'api' | 'local',
+  ) => {
     if (chatBusy) return;
 
     if (activeConversationId) {
       await persistConversationMessages(activeConversationId, chatMessages);
     }
 
-    const conversationTitle =
-      draft.title.trim() || (locale === 'zh' ? '新对话' : 'New conversation');
+    const conversationTitle = locale === 'zh' ? '媒体转文字' : 'Media to text';
     const summary = await createConversation(conversationTitle);
     setConversationSummaries((current) => [
       summary,
@@ -2497,9 +2472,12 @@ function App() {
     setActiveConversationId(summary.id);
     setChatMessages([]);
     setCaptureGuideOpen(false);
+    setSelectedSkillId(BUILTIN_MEDIA_SKILL_ID);
 
-    const initialMessage = buildCaptureChatMessage(draft, locale);
-    await startAgentTurn(summary.id, initialMessage, []);
+    const initialMessage = locale === 'zh'
+      ? `请把下面这段分享文案里的媒体链接转成文字，并整理成笔记。使用${transcriptionMode === 'local' ? '本地' : '语音'}模型。\n\n${input.trim()}`
+      : `Please transcribe the media link in the share text below and organize it into a note. Use the ${transcriptionMode === 'local' ? 'local' : 'cloud'} speech model.\n\n${input.trim()}`;
+    await startAgentTurn(summary.id, initialMessage, [], BUILTIN_MEDIA_SKILL_ID);
   };
 
   const ensureConversation = async () => {
@@ -2882,6 +2860,7 @@ function App() {
     conversationId: string,
     question: string,
     priorMessages: ChatMessage[],
+    skillIdOverride?: string | null,
   ) => {
     const clean = question.trim();
     if (!clean) return;
@@ -2932,7 +2911,7 @@ function App() {
         message: clean,
         locale,
         knowledgeRoot: library.root,
-        skillId: selectedSkillId || undefined,
+        skillId: skillIdOverride ?? (selectedSkillId || undefined),
         contextPaths: selectedContextPaths.length > 0
           ? selectedContextPaths
           : implicitContextEnabled ? implicitContextPaths : [],
@@ -3379,9 +3358,8 @@ function App() {
         <CaptureGuideDialog
           locale={locale}
           config={modelConfig}
-          webReader={modelSettings.webReader}
           onClose={() => setCaptureGuideOpen(false)}
-          onOrganizeToChat={startCaptureConversation}
+          onSendToChat={startCaptureConversation}
           t={t}
         />
       )}
@@ -7279,7 +7257,7 @@ function ChatComposer({
                         setActiveSkillGroupId(group.id);
                       }}
                     >
-                      <span>{locale === 'en' && group.id === 'copywriting' ? 'Copywriting' : locale === 'en' && group.id === 'ppt' ? 'Presentations' : locale === 'en' && group.id === 'video' ? 'Video' : group.label}</span>
+                      <span>{locale === 'en' && group.id === 'copywriting' ? 'Copywriting' : locale === 'en' && group.id === 'ppt' ? 'Presentations' : locale === 'en' && group.id === 'video' ? 'Video' : locale === 'en' && group.id === 'media' ? 'Media to text' : group.label}</span>
                       <ChevronRight size={15} />
                     </button>
                   ))}
@@ -8872,16 +8850,14 @@ function AddMaterialDialog({
 function CaptureGuideDialog({
   locale,
   config,
-  webReader,
   onClose,
-  onOrganizeToChat,
+  onSendToChat,
   t,
 }: {
   locale: Locale;
   config: ModelConfig;
-  webReader: WebReaderSettings;
   onClose: () => void;
-  onOrganizeToChat: (draft: CaptureDraft) => Promise<void>;
+  onSendToChat: (input: string, transcriptionMode: 'api' | 'local') => Promise<void>;
   t: (key: TranslationKey) => string;
 }) {
   const [source, setSource] = useState('');
@@ -8890,7 +8866,7 @@ function CaptureGuideDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const organize = async () => {
+  const send = async () => {
     const clean = (selectedFile ?? source).trim();
     if (!clean) {
       setError(t('captureInputRequired'));
@@ -8911,18 +8887,7 @@ function CaptureGuideDialog({
     setBusy(true);
     setError('');
     try {
-      const draft = await prepareCapture({
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        model: config.model,
-        provider: config.provider,
-        reasoningEffort: config.reasoningEffort,
-        webReader,
-        transcriptionMode,
-        input: clean,
-        locale,
-      });
-      await onOrganizeToChat(draft);
+      await onSendToChat(clean, transcriptionMode);
     } catch (requestError) {
       setError(
         `${t('capturePrepareFailed')}: ${String(requestError).replace(/^Error:\s*/i, '')}`,
@@ -9036,7 +9001,7 @@ function CaptureGuideDialog({
             </button>
             <button
               className="primary-button"
-              onClick={organize}
+              onClick={send}
               disabled={busy || (!source.trim() && !selectedFile)}
             >
               {busy ? (
