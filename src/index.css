@@ -7783,7 +7783,7 @@ textarea,
   min-height: 36px;
   padding: 7px 10px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   outline: 0;
@@ -7868,7 +7868,7 @@ textarea,
   min-height: 40px;
   padding: 9px 11px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   outline: 0;

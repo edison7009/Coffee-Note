@@ -128,9 +128,9 @@
   min-height: 40px;
   padding: 8px 10px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 7px;
   outline: 0;
   font-size: 14px;
 }
@@ -149,9 +149,9 @@
   min-height: 40px;
   padding: 8px 12px 8px 13px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 7px;
   font-size: 14px;
   text-align: left;
 }
@@ -187,7 +187,7 @@
   padding: 5px;
   overflow-y: auto;
   color: var(--ink);
-  background: color-mix(in srgb, var(--paper) 97%, transparent);
+  background: color-mix(in srgb, var(--secondary-surface) 97%, transparent);
   border: 1px solid var(--line);
   border-radius: 7px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
@@ -264,7 +264,7 @@
 
 .transcription-website-action:hover {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
   border-color: var(--line);
 }
 
