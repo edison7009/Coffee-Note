@@ -6607,7 +6607,7 @@ textarea,
 }
 
 .rail-scroll {
-  padding: 0 12px 12px;
+  padding: 0 17px 12px;
 }
 
 .rail-scroll-editor {
@@ -6963,7 +6963,7 @@ textarea,
   overflow: hidden;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: 14px;
   transition: background-color 120ms ease;
 }
 
@@ -6984,7 +6984,7 @@ textarea,
   gap: 2px;
   width: 100%;
   min-height: 56px;
-  padding: 9px 50px 9px 9px;
+  padding: 10px 50px 10px 14px;
   border: 0;
   border-radius: inherit;
   background: transparent;
