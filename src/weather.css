@@ -625,7 +625,6 @@
   min-height: 38px;
   margin-top: 0;
   padding: 0 16px;
-  background: var(--paper);
 }
 
 @media (max-width: 720px) {

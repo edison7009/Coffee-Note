@@ -604,8 +604,7 @@ body.resizing-panels * {
   background: transparent;
 }
 
-/* Library tree sits right under the primary nav buttons (divider removed);
-   a modest top margin keeps the two sections breathing without a line. */
+/* Library tree follows the primary nav buttons with a quiet section break. */
 .library-tree {
   display: flex;
   /* Keep a short library compact; shrink only when the sidebar runs out of room. */
@@ -613,6 +612,12 @@ body.resizing-panels * {
   flex-direction: column;
   min-height: 0;
   margin-top: 2px;
+}
+
+.nav-section-divider {
+  height: 1px;
+  margin: 6px 10px 4px;
+  background: var(--line);
 }
 
 .nav-tree-group {

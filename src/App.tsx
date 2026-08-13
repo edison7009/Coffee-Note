@@ -5280,6 +5280,8 @@ function Sidebar({
             onClick={() => onNavigate('plan')}
           />
 
+          <div className="nav-section-divider" aria-hidden="true" />
+
           <LibraryTree
             root={libraryRoot}
             locale={locale}
