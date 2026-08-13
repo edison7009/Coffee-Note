@@ -608,7 +608,8 @@ body.resizing-panels * {
    a modest top margin keeps the two sections breathing without a line. */
 .library-tree {
   display: flex;
-  flex: 1;
+  /* Keep a short library compact; shrink only when the sidebar runs out of room. */
+  flex: 0 1 auto;
   flex-direction: column;
   min-height: 0;
   margin-top: 2px;
@@ -1948,9 +1949,13 @@ html.tree-drag-active * {
 
 .rail-editor-shell {
   display: grid;
-  height: 100%;
+  height: calc(100% - 10px);
   min-width: 0;
   min-height: 0;
+  /* Keep the editor inside the inset rounded frame of the contextual rail. */
+  margin: 5px;
+  overflow: hidden;
+  border-radius: 9px;
 }
 
 .rail-editor-shell .markdown-editor {
@@ -1971,7 +1976,7 @@ html.tree-drag-active * {
 }
 
 .rail-editor-shell .markdown-editor .cm-content {
-  padding: 10px 12px 12px 14px;
+  padding: 16px 18px 18px;
 }
 
 .rail-editor-shell .markdown-editor .cm-gutters {
