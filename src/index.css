@@ -3399,18 +3399,18 @@ html.tree-drag-active * {
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
-  color: #000000;
+  color: #4c4c50;
   background: var(--sidebar-surface);
   border: 0;
   border-radius: 14px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 650;
   white-space: nowrap;
   cursor: default;
 }
 
 .rail-resume-chat:hover:not(:disabled) {
-  color: #000000;
+  color: #4c4c50;
   background: var(--sidebar-surface);
 }
 
@@ -5648,7 +5648,12 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 .conversation-history-item strong {
+  color: #4c4c50;
   font-size: 13px;
+}
+
+[data-theme='dark'] .conversation-history-item strong {
+  color: #b3b7b5;
 }
 
 .conversation-history-item small {
@@ -6667,13 +6672,13 @@ textarea,
 
 .rail-resume-chat,
 [data-theme='dark'] .rail-resume-chat {
-  color: #000000;
+  color: #b3b7b5;
   background: var(--sidebar-surface);
 }
 
 .rail-resume-chat:hover:not(:disabled),
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  color: #000000;
+  color: #b3b7b5;
   background: var(--sidebar-surface);
 }
 
