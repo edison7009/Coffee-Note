@@ -3094,6 +3094,10 @@ function App() {
         onToggleContextNote={toggleContextNote}
         onLibraryChanged={handleSidebarLibraryChanged}
         onSwitchRoot={handleSwitchRoot}
+        onSettings={() => {
+          setSettingsSection('appearance');
+          setSettingsOpen(true);
+        }}
         refreshToken={treeRefresh}
         notify={(message) => setToast({ message, kind: 'status' })}
         t={t}
@@ -5179,6 +5183,7 @@ interface SidebarProps {
   onToggleContextNote: (relativePath: string, title: string) => void;
   onLibraryChanged: () => void;
   onSwitchRoot: () => void;
+  onSettings: () => void;
   refreshToken: number;
   notify: (message: string) => void;
   t: (key: TranslationKey) => string;
@@ -5201,6 +5206,7 @@ function Sidebar({
   onToggleContextNote,
   onLibraryChanged,
   onSwitchRoot,
+  onSettings,
   refreshToken,
   notify,
   t,
@@ -5266,6 +5272,17 @@ function Sidebar({
             notify={notify}
           />
         </nav>
+      </div>
+      <div className="sidebar-footer">
+        <button
+          type="button"
+          className="sidebar-settings-entry"
+          onClick={onSettings}
+          aria-label={t('settings')}
+        >
+          <span>{t('settings')}</span>
+          <Settings2 size={17} strokeWidth={1.8} />
+        </button>
       </div>
     </aside>
   );

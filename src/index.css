@@ -224,6 +224,8 @@ body.resizing-panels * {
 .sidebar {
   z-index: 3;
   grid-row: 2;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   overflow: hidden;
   background: transparent;
@@ -231,8 +233,9 @@ body.resizing-panels * {
 }
 
 .sidebar-scroll {
+  flex: 1;
   width: 100%;
-  height: 100%;
+  min-height: 0;
   padding: 19px 14px 22px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -246,6 +249,33 @@ body.resizing-panels * {
 
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.sidebar-footer {
+  flex: 0 0 auto;
+  padding: 10px 14px 14px;
+}
+
+.sidebar-settings-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: default;
+}
+
+.sidebar-settings-entry:hover {
+  color: var(--ink);
+  background: var(--tertiary-surface);
 }
 
 .brand {
