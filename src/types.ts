@@ -276,6 +276,52 @@ export interface SkillDefinition {
   builtin?: boolean;
 }
 
+export interface WeixinMessageSettings {
+  enabled: boolean;
+  accountId: string;
+  token: string;
+  baseUrl: string;
+  allowedUserId: string;
+  syncBuf: string;
+}
+
+export interface TelegramMessageSettings {
+  enabled: boolean;
+  botToken: string;
+  botName: string;
+  allowedUserId: string;
+  pairingCode: string;
+  updateOffset: number;
+}
+
+export interface MessageSettingsConfig {
+  knowledgeRoot: string;
+  locale: Locale;
+  transcriptionMode: 'api' | 'local';
+  weixin: WeixinMessageSettings;
+  telegram: TelegramMessageSettings;
+}
+
+export interface MessageChannelStatus {
+  weixin: 'disconnected' | 'waiting_scan' | 'connecting' | 'connected' | 'error';
+  telegram: 'disconnected' | 'waiting_pairing' | 'connecting' | 'connected' | 'error';
+  weixinError: string;
+  telegramError: string;
+  activeJobs: number;
+}
+
+export interface WeixinLoginStart {
+  sessionId: string;
+  qrCodeUrl: string;
+}
+
+export interface WeixinLoginPoll {
+  status: string;
+  connected: boolean;
+  needsVerifyCode: boolean;
+  message: string;
+}
+
 export interface SkillPlugin {
   id: string;
   name: string;

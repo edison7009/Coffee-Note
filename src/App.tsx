@@ -122,6 +122,10 @@ import {
   loadConversation,
   renameConversation,
   getConversationFilePath,
+  updateMessageContext,
+  getMessageChannelStatus,
+  listenMessageChannelStatus,
+  listenMessageCaptureSaved,
   saveConversationUi,
   createConversation,
   deleteConversation,
@@ -149,6 +153,8 @@ import { translate, type TranslationKey } from './i18n';
 import { WeatherLocationSettings } from './settings/WeatherLocationSettings';
 import { TranscriptionSettings } from './settings/TranscriptionSettings';
 import { SkillsSettings } from './settings/SkillsSettings';
+import { MessageSettings } from './settings/MessageSettings';
+import './settings/MessageSettings.css';
 import type {
   AgentEvent,
   ChatMessage,
@@ -157,6 +163,7 @@ import type {
   Locale,
   LlmUsage,
   MemorySuggestion,
+  MessageChannelStatus,
   ModelCatalog,
   ModelCatalogModel,
   ModelConfig,
@@ -1447,6 +1454,13 @@ function App() {
   const normalizedKnowledgeRoot =
     knowledgeRoot && !isManagedDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
   const [modelSettings, setModelSettings] = useState<ModelSettings>(createEmptyModelSettings);
+  const [messageChannelStatus, setMessageChannelStatus] = useState<MessageChannelStatus>({
+    weixin: 'disconnected',
+    telegram: 'disconnected',
+    weixinError: '',
+    telegramError: '',
+    activeJobs: 0,
+  });
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({});
   const [modelCatalogError, setModelCatalogError] = useState('');
   const [modelCatalogLoading, setModelCatalogLoading] = useState(true);
@@ -1772,6 +1786,34 @@ function App() {
       alive = false;
     };
   }, [normalizedKnowledgeRoot, locale]);
+
+  useEffect(() => {
+    const root = library.root;
+    if (!isTauri || !root) return;
+    void updateMessageContext(root, locale).catch((error) => {
+      console.error('Could not update the message channel context.', error);
+    });
+  }, [library.root, locale]);
+
+  useEffect(() => {
+    if (!isTauri) return undefined;
+    let unlistenStatus = () => {};
+    let unlistenSaved = () => {};
+    const refreshStatus = () => {
+      void getMessageChannelStatus().then(setMessageChannelStatus).catch(() => undefined);
+    };
+    refreshStatus();
+    void listenMessageChannelStatus(refreshStatus).then((stop) => { unlistenStatus = stop; });
+    void listenMessageCaptureSaved(() => {
+      setTreeRefresh((current) => current + 1);
+      const root = libraryRootRef.current || library.root;
+      void loadLibrary(root || undefined, locale).then(setLibrary).catch(() => undefined);
+    }).then((stop) => { unlistenSaved = stop; });
+    return () => {
+      unlistenStatus();
+      unlistenSaved();
+    };
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -3092,6 +3134,7 @@ function App() {
           setSettingsSection('messages');
           setSettingsOpen(true);
         }}
+        messageChannelStatus={messageChannelStatus}
         refreshToken={treeRefresh}
         notify={(message) => setToast({ message, kind: 'status' })}
         t={t}
@@ -5201,6 +5244,7 @@ interface SidebarProps {
   onSearchLibrary: () => void;
   onSettings: () => void;
   onOpenMessages: () => void;
+  messageChannelStatus: MessageChannelStatus;
   refreshToken: number;
   notify: (message: string) => void;
   t: (key: TranslationKey) => string;
@@ -5225,6 +5269,7 @@ function Sidebar({
   onSearchLibrary,
   onSettings,
   onOpenMessages,
+  messageChannelStatus,
   refreshToken,
   notify,
   t,
@@ -5305,7 +5350,15 @@ function Sidebar({
       </div>
       <div className="sidebar-footer">
         <button type="button" className="sidebar-status" onClick={onOpenMessages}>
-          {locale === 'zh' ? '尚未连接微信' : 'No Message'}
+          {messageChannelStatus.activeJobs > 0
+            ? locale === 'zh' ? '正在整理手机资料' : 'Processing mobile capture'
+            : messageChannelStatus.weixin === 'connected' && messageChannelStatus.telegram === 'connected'
+              ? locale === 'zh' ? '微信 · Telegram 已连接' : 'Weixin · Telegram connected'
+              : messageChannelStatus.weixin === 'connected'
+                ? locale === 'zh' ? '微信已连接' : 'Weixin connected'
+                : messageChannelStatus.telegram === 'connected'
+                  ? 'Telegram connected'
+                  : locale === 'zh' ? '尚未连接消息渠道' : 'No channel connected'}
         </button>
         <UpdateButton locale={locale} />
         <button
@@ -9137,7 +9190,7 @@ function SettingsPage({
             )}
 
             {visibleSection === 'messages' && (
-              <div className="settings-messages-placeholder" />
+              <MessageSettings locale={locale} />
             )}
           </div>
         </div>

@@ -22,6 +22,11 @@ import type {
   TranscriptionSettingsConfig,
   TranscriptionResourceProgress,
   TranscriptionResourceStatus,
+  MessageSettingsConfig,
+  MessageChannelStatus,
+  WeixinLoginStart,
+  WeixinLoginPoll,
+  Locale,
 } from './types';
 import { normalizeModelSettings } from './modelSettings';
 import { normalizeModelCatalog } from './modelCatalog';
@@ -282,6 +287,66 @@ export async function setSkillSourceEnabled(id: string, enabled: boolean): Promi
     return writeFallbackSkillCatalog(catalog);
   }
   return invoke<SkillCatalog>('set_skill_source_enabled', { id, enabled });
+}
+
+export async function loadMessageSettings(): Promise<MessageSettingsConfig | null> {
+  if (!isTauri) return null;
+  return invoke<MessageSettingsConfig>('load_message_settings');
+}
+
+export async function getMessageChannelStatus(): Promise<MessageChannelStatus> {
+  if (!isTauri) {
+    return {
+      weixin: 'disconnected',
+      telegram: 'disconnected',
+      weixinError: '',
+      telegramError: '',
+      activeJobs: 0,
+    };
+  }
+  return invoke<MessageChannelStatus>('message_channel_status');
+}
+
+export async function updateMessageContext(
+  knowledgeRoot: string,
+  locale: Locale,
+  transcriptionMode?: 'api' | 'local',
+): Promise<void> {
+  if (!isTauri) return;
+  await invoke('update_message_context', { knowledgeRoot, locale, transcriptionMode });
+}
+
+export async function startWeixinLogin(): Promise<WeixinLoginStart> {
+  return invoke<WeixinLoginStart>('start_weixin_login');
+}
+
+export async function pollWeixinLogin(
+  sessionId: string,
+  verifyCode?: string,
+): Promise<WeixinLoginPoll> {
+  return invoke<WeixinLoginPoll>('poll_weixin_login', { sessionId, verifyCode });
+}
+
+export async function disconnectWeixin(): Promise<void> {
+  await invoke('disconnect_weixin');
+}
+
+export async function connectTelegram(botToken: string): Promise<MessageSettingsConfig> {
+  return invoke<MessageSettingsConfig>('connect_telegram', { botToken });
+}
+
+export async function disconnectTelegram(): Promise<void> {
+  await invoke('disconnect_telegram');
+}
+
+export async function listenMessageChannelStatus(handler: () => void): Promise<() => void> {
+  if (!isTauri) return () => {};
+  return listen('message-channel-status', handler);
+}
+
+export async function listenMessageCaptureSaved(handler: () => void): Promise<() => void> {
+  if (!isTauri) return () => {};
+  return listen('message-capture-saved', handler);
 }
 
 export async function setBuiltinSkillEnabled(enabled: boolean): Promise<SkillCatalog> {

@@ -3,6 +3,7 @@ use tauri::State;
 
 mod agent_loop;
 mod agent_tools;
+mod channels;
 mod conversations;
 mod file_reader;
 mod json_repair;
@@ -3365,8 +3366,10 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            configure_tray_menu(&app.handle(), "zh")
-                .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)
+            configure_tray_menu(app.handle(), "zh")
+                .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)?;
+            channels::start_configured_channels(app.handle());
+            Ok(())
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show-app" => show_main_window(app),
@@ -3393,11 +3396,20 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(agent_loop::create_session_map())
+        .manage(channels::ChannelRuntime::default())
         .invoke_handler(tauri::generate_handler![
             load_model_config,
             save_model_config,
             load_transcription_config,
             save_transcription_config,
+            channels::load_message_settings,
+            channels::message_channel_status,
+            channels::update_message_context,
+            channels::start_weixin_login,
+            channels::poll_weixin_login,
+            channels::disconnect_weixin,
+            channels::connect_telegram,
+            channels::disconnect_telegram,
             check_transcription_config,
             transcription::list_transcription_resources,
             transcription::download_transcription_resource,

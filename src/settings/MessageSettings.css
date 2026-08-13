@@ -1,0 +1,262 @@
+.message-settings {
+  width: min(1120px, 100%);
+  color: var(--text-primary);
+}
+
+.message-settings-heading {
+  position: relative;
+  padding-right: 180px;
+  margin-bottom: 26px;
+}
+
+.message-settings-summary {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.message-settings-error {
+  margin-bottom: 16px;
+  color: var(--danger, #b84a4a);
+  font-size: 13px;
+}
+
+.message-channel-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 22px 0;
+}
+
+.message-channel-row + .message-channel-row {
+  border-top: 1px solid var(--border-soft);
+}
+
+.message-channel-mark {
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+
+.message-channel-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.message-channel-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+}
+
+.message-channel-title strong {
+  font-size: 16px;
+}
+
+.message-channel-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.message-channel-state.state-connected {
+  color: #278b55;
+}
+
+[data-theme='dark'] .message-channel-state.state-connected {
+  color: #79c99a;
+}
+
+.message-channel-state.state-error {
+  color: var(--danger, #b84a4a);
+}
+
+.message-channel-copy > p,
+.message-channel-copy > small {
+  display: block;
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.message-channel-copy > .weixin-terms-note {
+  margin-top: 9px;
+  opacity: 0.82;
+}
+
+.message-channel-action button,
+.message-inline-form button,
+.telegram-pairing button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--selected-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.message-channel-action button:hover,
+.message-inline-form button:hover:not(:disabled),
+.telegram-pairing button:hover {
+  background: var(--hover-surface);
+}
+
+.message-channel-action .message-disconnect {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.message-channel-action button:disabled,
+.message-inline-form button:disabled {
+  opacity: 0.5;
+}
+
+.message-inline-form {
+  display: flex;
+  gap: 8px;
+  max-width: 560px;
+  margin-top: 14px;
+}
+
+.message-inline-form input {
+  min-width: 0;
+  flex: 1;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  background: var(--control-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.message-inline-form input:focus {
+  border-color: var(--focus-border);
+}
+
+.message-inline-form input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.weixin-connect-flow {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.weixin-connect-flow img {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+}
+
+.weixin-connect-flow strong {
+  font-size: 14px;
+}
+
+.weixin-connect-flow p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.telegram-pairing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.telegram-pairing button {
+  background: var(--control-surface);
+}
+
+.telegram-pairing code {
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.message-settings-footnote {
+  margin: 28px 0 0 58px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.message-processing-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 12px 0 0 58px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.message-processing-mode strong {
+  font-size: 14px;
+}
+
+.message-processing-mode p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.message-mode-switch {
+  display: flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--control-surface);
+}
+
+.message-mode-switch button {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+}
+
+.message-mode-switch button.active {
+  background: var(--selected-surface);
+  color: var(--text-primary);
+}
+
+@media (max-width: 760px) {
+  .message-settings-heading { padding-right: 0; }
+  .message-settings-summary { position: static; display: block; margin-top: 8px; }
+  .message-channel-row { grid-template-columns: 42px minmax(0, 1fr); }
+  .message-channel-action { grid-column: 2; }
+  .weixin-connect-flow { grid-template-columns: 1fr; }
+  .message-settings-footnote { margin-left: 0; }
+  .message-processing-mode { align-items: flex-start; flex-direction: column; margin-left: 0; }
+}

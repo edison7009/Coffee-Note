@@ -539,6 +539,7 @@ dependencies = [
 name = "coffee-note"
 version = "0.0.7"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "dirs",
  "flate2",
