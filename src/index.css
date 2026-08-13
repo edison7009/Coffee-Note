@@ -3340,7 +3340,7 @@ html.tree-drag-active * {
 }
 
 /* The rail header splits into two equal halves — "新对话" centers in the left
-   half, "索引数: X" centers in the right half. */
+   half, "文档数: X" centers in the right half. */
 .rail-header > button,
 .rail-header > .rail-count {
   justify-self: center;

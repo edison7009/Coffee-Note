@@ -7665,7 +7665,7 @@ function RightRail({
             {t('newChat')}
           </button>
           <div className="rail-count">
-            <span>{locale === 'zh' ? '索引数:' : 'Index:'}</span>
+            <span>{locale === 'zh' ? '文档数:' : 'Documents:'}</span>
             <strong>{indexedSourceCount}</strong>
           </div>
         </div>
