@@ -675,7 +675,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'appearance';
+type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'appearance' | 'messages';
 type ResizeSide = 'left' | 'right';
 type SurfaceSchemeId =
   | 'openscience'
@@ -5276,6 +5276,9 @@ function Sidebar({
         </nav>
       </div>
       <div className="sidebar-footer">
+        <span className="sidebar-status">
+          {locale === 'zh' ? '尚未连接微信' : 'Not connected to WeChat'}
+        </span>
         <button
           type="button"
           className="sidebar-settings-entry"
@@ -8554,6 +8557,7 @@ function SettingsPage({
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
     { id: 'skills', label: locale === 'zh' ? '技能' : 'Skills', icon: <Sparkles size={18} strokeWidth={1.8} /> },
     { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
+    { id: 'messages', label: locale === 'zh' ? '消息' : 'Message', icon: <MessageCircleMore size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
     ?? settingsSections[0];
@@ -8704,6 +8708,10 @@ function SettingsPage({
 
             {visibleSection === 'transcription' && (
               <TranscriptionSettings locale={locale} />
+            )}
+
+            {visibleSection === 'messages' && (
+              <div className="settings-messages-placeholder" />
             )}
           </div>
         </div>

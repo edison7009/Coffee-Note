@@ -254,8 +254,15 @@ body.resizing-panels * {
 .sidebar-footer {
   flex: 0 0 auto;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   padding: 2px 12px 4px;
+}
+
+.sidebar-status {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .sidebar-settings-entry {
