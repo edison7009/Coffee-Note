@@ -8593,7 +8593,7 @@ textarea,
 
 .settings-model-list > button.settings-model-row:hover,
 .settings-model-list > button.settings-model-row.selected {
-  background: var(--tertiary-surface);
+  background: transparent;
 }
 
 .settings-model-check {

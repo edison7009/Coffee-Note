@@ -371,7 +371,7 @@
 }
 
 .transcription-component-row.is-active {
-  background: var(--tertiary-surface);
+  background: transparent;
 }
 
 .transcription-component-mark {
