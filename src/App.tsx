@@ -5283,7 +5283,7 @@ function Sidebar({
       </div>
       <div className="sidebar-footer">
         <button type="button" className="sidebar-status" onClick={onOpenMessages}>
-          {locale === 'zh' ? '尚未连接微信' : 'Not connected to WeChat'}
+          {locale === 'zh' ? '尚未连接微信' : 'No Message'}
         </button>
         <button
           type="button"
