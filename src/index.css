@@ -4167,26 +4167,6 @@ html.tree-drag-active * {
   outline: none;
 }
 
-.capture-draft {
-  display: grid;
-  gap: 14px;
-}
-
-.capture-field .capture-draft-content {
-  min-height: 300px;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  font-size: 13px;
-}
-
-.capture-source-url {
-  margin: -4px 0 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .capture-error {
   margin: 12px 0 0;
   padding: 9px 11px;
@@ -7214,10 +7194,6 @@ textarea,
 .capture-guide-step > span {
   color: var(--accent-contrast);
   background: var(--accent);
-}
-
-.capture-source-url {
-  color: var(--muted);
 }
 
 /* Full-window settings workspace */

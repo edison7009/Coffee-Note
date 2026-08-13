@@ -115,7 +115,6 @@ import {
   persistModelConfig,
   readNote,
   writeNote,
-  saveCapture,
   chooseImportFile,
   sendAgentMessage,
   listenAgentEvents,
@@ -646,6 +645,32 @@ function sanitizeConversationMessages(messages: readonly ChatMessage[]): ChatMes
         : { ...message, content: withoutReasoning.trimStart() };
     })
     .filter((message) => message.role !== 'assistant' || message.content.trim().length > 0);
+}
+
+function buildCaptureChatMessage(draft: CaptureDraft, locale: Locale): string {
+  const sourceLine = draft.sourceUrl
+    ? `${locale === 'zh' ? '来源' : 'Source'}：${draft.sourceUrl}\n\n`
+    : '';
+
+  if (locale === 'zh') {
+    return [
+      draft.title,
+      '',
+      '我已导入下面这份资料。请直接进入对话，先确认我的目标，再继续帮我处理或给出下一步。',
+      '',
+      sourceLine,
+      draft.content,
+    ].join('\n');
+  }
+
+  return [
+    draft.title,
+    '',
+    'I just imported the material below. Please move straight into the conversation, confirm what I am trying to accomplish, and then continue helping me or suggest the next step.',
+    '',
+    sourceLine,
+    draft.content,
+  ].join('\n');
 }
 
 function getLinks(markdown: string): Array<{ label: string; url: string }> {
@@ -2019,25 +2044,27 @@ function App() {
     });
   };
 
-  const finishCapture = async (path: string) => {
-    setCaptureGuideOpen(false);
-    const root = libraryRootRef.current;
-    const generation = libraryGenerationRef.current;
-    try {
-      const snapshot = await loadLibrary(root || undefined, locale);
-      if (generation === libraryGenerationRef.current) {
-        setLibrary(snapshot);
-      }
-    } catch {
-      // The note is already saved; a later library refresh can recover the updated count.
+  const startCaptureConversation = async (draft: CaptureDraft) => {
+    if (chatBusy) return;
+
+    if (activeConversationId) {
+      await persistConversationMessages(activeConversationId, chatMessages);
     }
-    setToast({
-      message:
-        locale === 'zh'
-          ? `已保存到本地收件箱：${path}`
-          : `Saved to the local inbox: ${path}`,
-      kind: 'status',
-    });
+
+    const conversationTitle =
+      draft.title.trim() || (locale === 'zh' ? '新对话' : 'New conversation');
+    const summary = await createConversation(conversationTitle);
+    setConversationSummaries((current) => [
+      summary,
+      ...current.filter((item) => item.id !== summary.id),
+    ]);
+    conversationSaveSnapshotRef.current = { id: summary.id, json: '[]' };
+    setActiveConversationId(summary.id);
+    setChatMessages([]);
+    setCaptureGuideOpen(false);
+
+    const initialMessage = buildCaptureChatMessage(draft, locale);
+    await startAgentTurn(summary.id, initialMessage, []);
   };
 
   const ensureConversation = async () => {
@@ -2416,11 +2443,14 @@ function App() {
     };
   }, [locale]);
 
-  const handleSend = async (question: string) => {
+  const startAgentTurn = async (
+    conversationId: string,
+    question: string,
+    priorMessages: ChatMessage[],
+  ) => {
     const clean = question.trim();
-    if (!clean || chatBusy) return;
+    if (!clean) return;
 
-    const conversationId = await ensureConversation();
     setUnreadConversationIds((current) =>
       current.includes(conversationId)
         ? current.filter((id) => id !== conversationId)
@@ -2432,7 +2462,6 @@ function App() {
       content: clean,
       createdAt: Date.now(),
     };
-    const priorMessages = chatMessages;
     setChatMessages((current) => [...current, userMessage]);
     if (view !== 'ai') setView('ai');
     setChatBusy(true);
@@ -2503,6 +2532,14 @@ function App() {
       ]);
       setChatBusy(false);
     }
+  };
+
+  const handleSend = async (question: string) => {
+    const clean = question.trim();
+    if (!clean || chatBusy) return;
+
+    const conversationId = await ensureConversation();
+    await startAgentTurn(conversationId, clean, chatMessages);
   };
 
   const handleNewChat = async () => {
@@ -2906,9 +2943,8 @@ function App() {
           locale={locale}
           config={modelConfig}
           webReader={modelSettings.webReader}
-          knowledgeRoot={library.root || normalizedKnowledgeRoot}
           onClose={() => setCaptureGuideOpen(false)}
-          onSaved={finishCapture}
+          onOrganizeToChat={startCaptureConversation}
           t={t}
         />
       )}
@@ -8369,25 +8405,21 @@ function CaptureGuideDialog({
   locale,
   config,
   webReader,
-  knowledgeRoot,
   onClose,
-  onSaved,
+  onOrganizeToChat,
   t,
 }: {
   locale: Locale;
   config: ModelConfig;
   webReader: WebReaderSettings;
-  knowledgeRoot: string;
   onClose: () => void;
-  onSaved: (path: string) => Promise<void>;
+  onOrganizeToChat: (draft: CaptureDraft) => Promise<void>;
   t: (key: TranslationKey) => string;
 }) {
   const [source, setSource] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [draft, setDraft] = useState<CaptureDraft | null>(null);
   const [transcriptionMode, setTranscriptionMode] = useState<'api' | 'local'>('api');
   const [busy, setBusy] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const organize = async () => {
@@ -8411,53 +8443,24 @@ function CaptureGuideDialog({
     setBusy(true);
     setError('');
     try {
-      setDraft(
-        await prepareCapture({
-          apiKey: config.apiKey,
-          baseUrl: config.baseUrl,
-          model: config.model,
-          provider: config.provider,
-          reasoningEffort: config.reasoningEffort,
-          webReader,
-          transcriptionMode,
-          input: clean,
-          locale,
-        }),
-      );
+      const draft = await prepareCapture({
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        model: config.model,
+        provider: config.provider,
+        reasoningEffort: config.reasoningEffort,
+        webReader,
+        transcriptionMode,
+        input: clean,
+        locale,
+      });
+      await onOrganizeToChat(draft);
     } catch (requestError) {
       setError(
         `${t('capturePrepareFailed')}: ${String(requestError).replace(/^Error:\s*/i, '')}`,
       );
     } finally {
       setBusy(false);
-    }
-  };
-
-  const save = async () => {
-    if (!draft || saving) return;
-    if (!knowledgeRoot) {
-      setError(t('captureNeedsLibrary'));
-      return;
-    }
-    if (!draft.title.trim() || !draft.content.trim()) {
-      setError(t('captureDraftRequired'));
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-    try {
-      const path = await saveCapture({
-        knowledgeRoot,
-        title: draft.title,
-        content: draft.content,
-        sourceUrl: draft.sourceUrl,
-        locale,
-      });
-      await onSaved(path);
-    } catch (saveError) {
-      setError(`${t('captureSaveFailed')}: ${String(saveError).replace(/^Error:\s*/i, '')}`);
-      setSaving(false);
     }
   };
 
@@ -8480,67 +8483,42 @@ function CaptureGuideDialog({
         />
 
         <div className="capture-guide">
-          {!draft ? (
-            <>
-              <label className="capture-field">
-                <span>{t('captureInputLabel')}</span>
-                <textarea
-                  value={source}
-                  onChange={(event) => setSource(event.target.value)}
-                  placeholder={t('captureInputPlaceholder')}
-                  maxLength={180000}
-                  autoFocus
-                />
-              </label>
-              <fieldset className="capture-transcription-choice">
-                <span className="capture-transcription-hint">{t('captureTranscriptionHint')}</span>
-                <span className="capture-transcription-options">
-                  <span className="capture-transcription-prefix">{t('captureTranscriptionPrefix')}</span>
-                  <label className={transcriptionMode === 'api' ? 'selected' : ''}>
-                    <input
-                      type="radio"
-                      name="capture-transcription-mode"
-                      value="api"
-                      checked={transcriptionMode === 'api'}
-                      onChange={() => setTranscriptionMode('api')}
-                    />
-                    <span>{t('captureTranscriptionApi')}</span>
-                  </label>
-                  <label className={transcriptionMode === 'local' ? 'selected' : ''}>
-                    <input
-                      type="radio"
-                      name="capture-transcription-mode"
-                      value="local"
-                      checked={transcriptionMode === 'local'}
-                      onChange={() => setTranscriptionMode('local')}
-                    />
-                    <span>{t('captureTranscriptionLocal')}</span>
-                  </label>
-                </span>
-              </fieldset>
-            </>
-          ) : (
-            <div className="capture-draft">
-              <label className="capture-field">
-                <span>{t('captureDraftTitle')}</span>
+          <label className="capture-field">
+            <span>{t('captureInputLabel')}</span>
+            <textarea
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+              placeholder={t('captureInputPlaceholder')}
+              maxLength={180000}
+              autoFocus
+            />
+          </label>
+          <fieldset className="capture-transcription-choice">
+            <span className="capture-transcription-hint">{t('captureTranscriptionHint')}</span>
+            <span className="capture-transcription-options">
+              <span className="capture-transcription-prefix">{t('captureTranscriptionPrefix')}</span>
+              <label className={transcriptionMode === 'api' ? 'selected' : ''}>
                 <input
-                  value={draft.title}
-                  onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-                  maxLength={180}
+                  type="radio"
+                  name="capture-transcription-mode"
+                  value="api"
+                  checked={transcriptionMode === 'api'}
+                  onChange={() => setTranscriptionMode('api')}
                 />
+                <span>{t('captureTranscriptionApi')}</span>
               </label>
-              <label className="capture-field">
-                <span>{t('captureDraftContent')}</span>
-                <textarea
-                  className="capture-draft-content"
-                  value={draft.content}
-                  onChange={(event) => setDraft({ ...draft, content: event.target.value })}
-                  maxLength={120000}
+              <label className={transcriptionMode === 'local' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="capture-transcription-mode"
+                  value="local"
+                  checked={transcriptionMode === 'local'}
+                  onChange={() => setTranscriptionMode('local')}
                 />
+                <span>{t('captureTranscriptionLocal')}</span>
               </label>
-              {draft.sourceUrl && <p className="capture-source-url">{draft.sourceUrl}</p>}
-            </div>
-          )}
+            </span>
+          </fieldset>
 
           {error && (
             <p className="capture-error" role="alert">
@@ -8549,7 +8527,7 @@ function CaptureGuideDialog({
           )}
 
           <div className="capture-guide-actions">
-            {!draft && !selectedFile && (
+            {!selectedFile && (
               <button
                 type="button"
                 className="capture-file-button"
@@ -8559,13 +8537,13 @@ function CaptureGuideDialog({
                   setSelectedFile(picked);
                   setError('');
                 }}
-                disabled={busy || saving}
+                disabled={busy}
               >
                 <FileUp size={16} />
                 {t('captureChooseFile')}
               </button>
             )}
-            {!draft && selectedFile && (
+            {selectedFile && (
               <span className="capture-file-pill">
                 <span className="capture-file-pill-name">
                   {selectedFile.split(/[\\/]/).pop()}
@@ -8574,7 +8552,7 @@ function CaptureGuideDialog({
                   type="button"
                   className="capture-file-pill-clear"
                   onClick={() => setSelectedFile(null)}
-                  disabled={busy || saving}
+                  disabled={busy}
                   aria-label="Remove file"
                 >
                   <X size={12} />
@@ -8583,30 +8561,22 @@ function CaptureGuideDialog({
             )}
             <button
               className="secondary-button"
-              onClick={draft ? () => setDraft(null) : onClose}
-              disabled={busy || saving}
+              onClick={onClose}
+              disabled={busy}
             >
-              {draft ? t('captureBack') : t('notNow')}
+              {t('notNow')}
             </button>
             <button
               className="primary-button"
-              onClick={draft ? save : organize}
-              disabled={busy || saving || (!draft && !source.trim() && !selectedFile)}
+              onClick={organize}
+              disabled={busy || (!source.trim() && !selectedFile)}
             >
-              {busy || saving ? (
+              {busy ? (
                 <LoaderCircle className="spinning" size={16} />
-              ) : draft ? (
-                <Check size={16} />
               ) : (
                 <Sparkles size={16} />
               )}
-              {busy
-                ? t('capturePreparing')
-                : saving
-                  ? t('captureSaving')
-                  : draft
-                    ? t('captureConfirmSave')
-                    : t('capturePrepare')}
+              {busy ? t('capturePreparing') : t('capturePrepare')}
             </button>
           </div>
         </div>
