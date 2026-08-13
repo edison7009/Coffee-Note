@@ -8,7 +8,6 @@ import {
   Gauge,
   HardDrive,
   Server,
-  Trash2,
   X,
   Zap,
 } from 'lucide-react';
@@ -21,7 +20,6 @@ import {
   onTranscriptionResourceProgress,
   openExternalUrl,
   persistTranscriptionConfig,
-  removeTranscriptionResource,
 } from '../api';
 import type { Locale, TranscriptionProviderConfig, TranscriptionSettingsConfig } from '../types';
 import '../transcriptionSettings.css';
@@ -410,17 +408,6 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
     void cancelTranscriptionDownload(kind, item.id);
   };
 
-  const removeComponent = (item: DownloadableComponent, kind: 'runtime' | 'model') => {
-    void removeTranscriptionResource(kind, item.id).then(() => {
-      const setStates = kind === 'runtime' ? setRuntimeStates : setModelStates;
-      setStates((states) => ({ ...states, [item.id]: 'available' }));
-      if (kind === 'runtime' && activeRuntime === item.id) setActiveRuntime('');
-      if (kind === 'model' && activeModel === item.id) setActiveModel(null);
-    }).catch((error) => {
-      setResourceErrors((errors) => ({ ...errors, [`${kind}:${item.id}`]: String(error).replace(/^Error:\s*/i, '') }));
-    });
-  };
-
   const renderRows = (items: DownloadableComponent[], kind: 'runtime' | 'model') => items.map((item) => {
     const state = (kind === 'runtime' ? runtimeStates : modelStates)[item.id];
     const active = kind === 'runtime' ? activeRuntime === item.id : activeModel === item.id;
@@ -465,11 +452,6 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
           {state === 'downloading' && (
             <button type="button" className="transcription-icon-action" aria-label={locale === 'zh' ? `取消下载${item.name.zh}` : `Cancel ${item.name.en} download`} onClick={() => cancelDownload(item, kind)}>
               <X size={16} />
-            </button>
-          )}
-          {state === 'installed' && !item.included && (
-            <button type="button" className="transcription-icon-action" aria-label={locale === 'zh' ? `删除${item.name.zh}` : `Remove ${item.name.en}`} onClick={() => removeComponent(item, kind)}>
-              <Trash2 size={15} />
             </button>
           )}
         </div>
