@@ -49,7 +49,7 @@ test('My Info cards open directly without a selected-card state', () => {
   assert.match(appSource, /className="plan-section-card"[\s\S]*?onClick=\{\(\) => onSection\(section\.id\)\}/s);
   assert.doesNotMatch(appSource, /plan-section-card \$\{section\.id === activeSection/);
   assert.doesNotMatch(css, /\.plan-section-card\.active/);
-  assert.match(css, /\.plan-section-grid > \.plan-section-card\s*\{[^}]*background:\s*var\(--secondary-surface\);/s);
+  assert.match(css, /\.plan-section-grid > \.plan-section-card\s*\{[^}]*background:\s*var\(--control-surface\);/s);
 });
 
 test('agent requests include the enabled My Info section IDs', () => {

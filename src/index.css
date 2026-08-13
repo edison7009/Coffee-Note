@@ -4335,7 +4335,7 @@ html.tree-drag-active * {
 
 .secondary-button:hover {
   color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--control-hover);
   border-color: var(--accent-border);
 }
 
@@ -6459,7 +6459,7 @@ textarea,
 .plan-section-grid > .plan-section-card {
   min-height: 70px;
   color: var(--ink);
-  background: var(--secondary-surface);
+  background: var(--control-surface);
   border: 1px solid transparent;
   border-radius: 9px;
 }
@@ -7043,7 +7043,7 @@ textarea,
 .conversation-history-item.active,
 .conversation-history-item.working,
 .conversation-history-item.unread {
-  background: var(--accent-soft);
+  background: var(--control-hover);
 }
 
 .conversation-history-item > button:first-child,
@@ -7320,7 +7320,7 @@ textarea,
 .settings-page .settings-nav button:hover,
 [data-theme='dark'] .settings-page .settings-nav button:hover {
   color: var(--ink);
-  background: var(--accent-soft);
+  background: var(--control-hover);
 }
 
 .settings-page .settings-nav button.active,
@@ -7507,7 +7507,7 @@ textarea,
 [data-theme='dark'] .settings-page .currency-switch button {
   min-height: 40px;
   color: var(--muted);
-  background: var(--secondary-surface);
+  background: var(--control-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   font-size: 14px;
@@ -7519,7 +7519,7 @@ textarea,
 .settings-page .theme-switch button:hover,
 .settings-page .currency-switch button:hover {
   color: var(--ink);
-  background: var(--accent-soft);
+  background: var(--control-hover);
 }
 
 .settings-page .provider-grid button.active,
