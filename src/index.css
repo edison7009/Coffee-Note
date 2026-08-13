@@ -255,21 +255,21 @@ body.resizing-panels * {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: 6px;
+  padding: 3px 10px;
 }
 
 .sidebar-status {
   flex: 1;
   display: flex;
   align-items: center;
-  height: 36px;
-  padding: 0 9px;
+  height: 28px;
+  padding: 0 8px;
   color: #4c4c50;
   background: transparent;
   border: 0;
   border-radius: 7px;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 560;
   cursor: default;
 }
@@ -284,8 +284,8 @@ body.resizing-panels * {
 
 .sidebar-settings-entry {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   align-items: center;
   place-items: center;
