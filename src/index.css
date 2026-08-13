@@ -4334,7 +4334,7 @@ html.tree-drag-active * {
 
 .secondary-button:hover {
   color: var(--accent);
-  background: white;
+  background: var(--accent-soft);
   border-color: var(--accent-border);
 }
 
