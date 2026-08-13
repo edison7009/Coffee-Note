@@ -255,25 +255,27 @@ body.resizing-panels * {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 6px 12px;
 }
 
 .sidebar-status {
+  flex: 1;
   display: flex;
   align-items: center;
-  height: 30px;
-  color: var(--muted);
-  padding: 0;
+  height: 36px;
+  padding: 0 9px;
+  color: var(--ink);
   background: transparent;
   border: 0;
-  font-size: 14px;
-  font-weight: 550;
+  border-radius: 7px;
+  font-size: 15px;
+  font-weight: 560;
   cursor: default;
 }
 
 .sidebar-status:hover {
-  color: var(--ink);
+  background: var(--tertiary-surface);
 }
 
 .sidebar-settings-entry {
