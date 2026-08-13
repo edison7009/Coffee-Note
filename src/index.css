@@ -265,7 +265,7 @@ body.resizing-panels * {
   align-items: center;
   height: 28px;
   padding: 0 8px;
-  color: #4c4c50;
+  color: var(--nav-text);
   background: transparent;
   border: 0;
   border-radius: 7px;
@@ -279,7 +279,7 @@ body.resizing-panels * {
 }
 
 [data-theme='dark'] .sidebar-status {
-  color: #b3b7b5;
+  color: var(--nav-text);
 }
 
 .sidebar-settings-entry {
@@ -3400,7 +3400,7 @@ html.tree-drag-active * {
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
-  color: #4c4c50;
+  color: var(--nav-text);
   background: var(--sidebar-surface);
   border: 0;
   border-radius: 14px;
@@ -3411,7 +3411,7 @@ html.tree-drag-active * {
 }
 
 .rail-resume-chat:hover:not(:disabled) {
-  color: #4c4c50;
+  color: var(--nav-text);
   background: var(--sidebar-surface);
 }
 
@@ -4722,12 +4722,13 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .rail-resume-chat {
-  color: var(--accent);
-  background: transparent;
+  color: var(--nav-text);
+  background: var(--sidebar-surface);
 }
 
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  background: transparent;
+  color: var(--nav-text);
+  background: var(--sidebar-surface);
 }
 
 [data-theme='dark'] .person-card::after,
@@ -5649,12 +5650,12 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 .conversation-history-item strong {
-  color: #4c4c50;
+  color: var(--nav-text);
   font-size: 13px;
 }
 
 [data-theme='dark'] .conversation-history-item strong {
-  color: #b3b7b5;
+  color: var(--nav-text);
 }
 
 .conversation-history-item small {
@@ -5705,6 +5706,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 :root {
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable',
     'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --nav-text: #4c4c50;
+  --control-surface: var(--secondary-surface);
+  --control-hover: var(--accent-soft);
   --accent: #3a3b3d;
   --accent-hover: #252628;
   --accent-soft: rgba(58, 59, 61, 0.07);
@@ -5734,6 +5738,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 :root[data-theme='dark'] {
+  --nav-text: #b3b7b5;
+  --control-surface: var(--secondary-surface);
+  --control-hover: var(--accent-soft);
   --ink: #e4e4e4;
   --body-ink: #c5c5c5;
   --strong-ink: #f1f1f1;
@@ -6092,7 +6099,7 @@ textarea,
   height: 36px;
   gap: 9px;
   padding-inline: 9px;
-  color: #4c4c50;
+  color: var(--nav-text);
   border-radius: 7px;
   font-size: 15px;
   font-weight: 560;
@@ -6669,33 +6676,6 @@ textarea,
   min-height: 0;
   padding: 16px 17px;
   border-color: var(--line);
-}
-
-.rail-resume-chat,
-[data-theme='dark'] .rail-resume-chat {
-  background: var(--sidebar-surface);
-}
-
-.rail-resume-chat {
-  color: #4c4c50;
-}
-
-[data-theme='dark'] .rail-resume-chat {
-  color: #b3b7b5;
-  background: var(--sidebar-surface);
-}
-
-.rail-resume-chat:hover:not(:disabled),
-[data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  background: var(--sidebar-surface);
-}
-
-.rail-resume-chat:hover:not(:disabled) {
-  color: #4c4c50;
-}
-
-[data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  color: #b3b7b5;
 }
 
 .rail-scroll {
