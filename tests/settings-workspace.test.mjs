@@ -32,7 +32,7 @@ test('settings keeps model and appearance as separate navigation pages', () => {
   assert.match(appSource, /id:\s*'model'/);
   assert.match(appSource, /id: 'model', label: t\('settingsModel'\), icon: <Box size=\{18\}/);
   assert.match(appSource, /id:\s*'appearance'/);
-  assert.match(appSource, /id: 'appearance', label: t\('settingsAppearance'\), icon: <Sun size=\{18\}/);
+  assert.match(appSource, /id: 'appearance', label: t\('settingsAppearance'\), icon: <Settings2 size=\{18\}/);
   assert.doesNotMatch(appSource, /id:\s*'library'/);
   assert.match(appSource, /className="settings-back"/);
   assert.doesNotMatch(appSource, /className="settings-sidebar-heading"/);

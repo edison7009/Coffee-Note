@@ -47,6 +47,7 @@ import {
   Archive,
   Settings,
   ShieldAlert,
+  Settings2,
   Square,
   Sparkles,
   Star,
@@ -1590,7 +1591,7 @@ function App() {
   const editorTextCommandsRef = useRef<TextCommandController | null>(null);
   const readerTextCommandsRef = useRef<TextCommandController | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('model');
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('appearance');
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [treeRefresh, setTreeRefresh] = useState(0);
@@ -3043,7 +3044,7 @@ function App() {
         onHelp={() => void openExternalUrl(PRODUCT_WEBSITE)}
         onFeedback={() => void openExternalUrl(FEEDBACK_URL)}
         onSettings={() => {
-          setSettingsSection('model');
+          setSettingsSection('appearance');
           setSettingsOpen(true);
         }}
         settingsActive={settingsOpen}
@@ -8537,10 +8538,10 @@ function SettingsPage({
     label: string;
     icon: ReactNode;
   }> = [
+    { id: 'appearance', label: t('settingsAppearance'), icon: <Settings2 size={18} strokeWidth={1.8} /> },
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
     { id: 'skills', label: locale === 'zh' ? '技能' : 'Skills', icon: <Sparkles size={18} strokeWidth={1.8} /> },
     { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
-    { id: 'appearance', label: t('settingsAppearance'), icon: <Sun size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
     ?? settingsSections[0];
