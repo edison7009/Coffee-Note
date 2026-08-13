@@ -7315,13 +7315,13 @@ textarea,
 .settings-page .settings-nav button:hover,
 [data-theme='dark'] .settings-page .settings-nav button:hover {
   color: var(--ink);
-  background: var(--accent-soft);
+  background: var(--tertiary-surface);
 }
 
 .settings-page .settings-nav button.active,
 [data-theme='dark'] .settings-page .settings-nav button.active {
-  color: var(--ink);
-  background: var(--tertiary-surface);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .settings-sidebar-footer {
