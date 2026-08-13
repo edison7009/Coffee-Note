@@ -7042,7 +7042,7 @@ textarea,
 .conversation-history-item.active,
 .conversation-history-item.working,
 .conversation-history-item.unread {
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .conversation-history-item > button:first-child,
@@ -7099,7 +7099,7 @@ textarea,
 [data-theme='dark'] .conversation-history-item > button:first-child:hover:not(:disabled),
 [data-theme='dark'] .conversation-history-item.active > button:first-child {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 [data-theme='dark'] .message.user .message-content {
@@ -7109,7 +7109,7 @@ textarea,
 
 .message.user .message-content {
   color: var(--ink);
-  background: var(--chat-user-bubble);
+  background: var(--tertiary-surface);
   border-radius: 14px;
 }
 
