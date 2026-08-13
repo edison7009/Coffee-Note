@@ -46,8 +46,22 @@ test('home row action uses the existing compact neutral icon treatment', () => {
 });
 
 test('sidebar footer fades the navigation into the fixed status area', () => {
-  assert.match(css, /\.sidebar-footer\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;/s);
+  assert.match(css, /\.sidebar-footer\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;[^}]*padding:\s*3px 10px 10px;/s);
   assert.match(css, /\.sidebar-footer::before\s*\{[^}]*bottom:\s*100%;[^}]*height:\s*28px;[^}]*linear-gradient\(to bottom, transparent, var\(--sidebar-surface\)\)/s);
+});
+
+test('available update action sits between message status and settings in the sidebar footer', () => {
+  const footer = appSource.match(/<div className="sidebar-footer">([\s\S]*?)<\/div>/s)?.[1];
+  assert.ok(footer, 'sidebar footer markup should exist');
+  assert.match(
+    footer,
+    /className="sidebar-status"[\s\S]*?<UpdateButton locale=\{locale\} \/>[\s\S]*?className="sidebar-settings-entry"/s,
+  );
+  assert.doesNotMatch(
+    appSource,
+    /<div className="window-controls">\s*<UpdateButton locale=\{locale\} \/>/s,
+  );
+  assert.match(css, /\.sidebar-update\s*\{[^}]*width:\s*28px;[^}]*height:\s*28px;/s);
 });
 
 test('library section divider has comfortable vertical breathing room', () => {

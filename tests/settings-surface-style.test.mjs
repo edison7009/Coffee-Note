@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const settingsStyles = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const transcriptionStyles = await readFile(new URL('../src/transcriptionSettings.css', import.meta.url), 'utf8');
 const appearanceStyles = await readFile(new URL('../src/weather.css', import.meta.url), 'utf8');
 
@@ -32,6 +33,21 @@ test('transcription settings keep controls but remove nested page cards', () => 
   assert.doesNotMatch(componentList, /border:\s*1px solid/);
 });
 
+test('transcription API inputs use the shared surface and regular placeholder weight', () => {
+  assert.match(
+    transcriptionStyles,
+    /\.transcription-api-form input,[\s\S]*?\.transcription-api-form select\s*\{[^}]*background:\s*var\(--control-surface\);[^}]*font-weight:\s*400;/s,
+  );
+  assert.match(
+    transcriptionStyles,
+    /\.transcription-api-form input::placeholder\s*\{[^}]*font-weight:\s*400;[^}]*opacity:\s*0\.58;/s,
+  );
+  assert.match(
+    transcriptionStyles,
+    /\.transcription-api-form input:-webkit-autofill[\s\S]*?\{[^}]*box-shadow:\s*0 0 0 1000px var\(--control-surface\) inset;/s,
+  );
+});
+
 test('appearance settings are one continuous unframed surface', () => {
   const group = rule(appearanceStyles, '\\.settings-appearance-group');
 
@@ -41,6 +57,28 @@ test('appearance settings are one continuous unframed surface', () => {
   assert.match(group, /border:\s*0/);
   assert.match(group, /border-radius:\s*0/);
   assert.match(appearanceStyles, /\.settings-appearance-block \+ \.settings-appearance-block\s*\{[^}]*border-top:\s*0/s);
+});
+
+test('appearance color scheme uses the shared selected background', () => {
+  const selected = rule(
+    settingsStyles,
+    "\\.surface-scheme-card\\.active,\\s*\\[data-theme='dark'\\] \\.surface-scheme-card\\.active",
+  );
+
+  assert.match(selected, /background:\s*var\(--accent-soft\)/);
+  assert.doesNotMatch(selected, /background:\s*(?:#fff(?:fff)?|white|var\(--paper\))/i);
+});
+
+test('appearance color schemes use compact side-by-side swatches', () => {
+  const preview = rule(settingsStyles, '\\.surface-scheme-preview');
+
+  assert.match(preview, /width:\s*48px/);
+  assert.match(preview, /height:\s*32px/);
+  assert.match(preview, /border-radius:\s*4px/);
+  assert.match(
+    appSource,
+    /linear-gradient\(90deg, \$\{scheme\.light\.canvas\} 0 50%, \$\{scheme\.dark\.canvas\} 50% 100%\)/,
+  );
 });
 
 test('all settings pages share the model page content width', () => {

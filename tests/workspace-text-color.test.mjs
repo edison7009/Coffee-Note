@@ -14,3 +14,31 @@ test('main and contextual rail use a softer content ink than the navigation shel
   assert.match(css, /\.message-content\s*\{[^}]*color:\s*var\(--ink\);/s);
   assert.match(css, /\[data-theme='dark'\] \.message-content,[\s\S]*?color:\s*var\(--ink\);/s);
 });
+
+test('tier list dark surfaces remain transparent to the selected color scheme', () => {
+  assert.match(
+    css,
+    /\.tier-map,\s*\[data-theme='dark'\] \.tier-map\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--secondary-surface\) 88%, transparent\);[^}]*border:\s*0;/s,
+  );
+  assert.match(
+    css,
+    /\.tier-items,\s*\[data-theme='dark'\] \.tier-items\s*\{[^}]*background:\s*transparent;/s,
+  );
+  assert.match(
+    css,
+    /\[data-theme='dark'\] \.tier-label\s*\{[^}]*var\(--tier-color\) 17%, var\(--paper\)/s,
+  );
+  assert.doesNotMatch(css, /\[data-theme='dark'\] \.tier-(?:map|row|label|items)\s*\{[^}]*(?:#1c1e1d|#252725|#363937|#383b39|rgba\(31, 33, 32)/s);
+});
+
+test('home entry cards and tier list use borderless color-block surfaces', () => {
+  assert.match(css, /\.start-cards\s*\{[^}]*gap:\s*16px;/s);
+  assert.match(
+    css,
+    /\.action-card,\s*\[data-theme='dark'\] \.action-card\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--shape-color\) 10%, var\(--paper\)\);[^}]*border:\s*0;[^}]*box-shadow:\s*none;/s,
+  );
+  assert.match(
+    css,
+    /\.tier-row,\s*\[data-theme='dark'\] \.tier-row\s*\{[^}]*border-bottom:\s*0;/s,
+  );
+});

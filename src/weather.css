@@ -447,7 +447,7 @@
   min-height: 38px;
   padding-left: 10px;
   color: var(--muted);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
 }

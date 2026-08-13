@@ -53,6 +53,19 @@ test('settings navigation rail stays compact', () => {
   assert.match(styles, /\.settings-sidebar-footer button\s*\{[^}]*white-space:\s*nowrap;/s);
 });
 
+test('settings footer stacks feedback above the product version', () => {
+  assert.match(
+    appSource,
+    /<div className="settings-sidebar-footer">[\s\S]*?FEEDBACK_URL[\s\S]*?Coffee Note · v\{APP_VERSION\}/s,
+  );
+  assert.match(
+    styles,
+    /\.settings-sidebar-footer\s*\{[^}]*align-items:\s*stretch;[^}]*flex-direction:\s*column;/s,
+  );
+  assert.match(styles, /\.settings-sidebar-footer button\s*\{[^}]*width:\s*100%;/s);
+  assert.match(styles, /\.settings-sidebar\s*\{[^}]*padding:\s*12px 8px 10px;/s);
+});
+
 test('custom provider entry keeps a stable row height while editing', () => {
   assert.match(styles, /\.settings-add-provider\s*\{[^}]*height:\s*36px;/s);
   assert.match(styles, /\.settings-custom-provider-form\s*\{[^}]*height:\s*36px;/s);
@@ -86,6 +99,21 @@ test('provider model lists fully expand without an inner scroller or result cap'
   const modelListRule = styles.match(/\.settings-model-list\s*\{([^}]*)\}/)?.[1] || '';
   assert.doesNotMatch(modelListRule, /max-height|overflow-y|scrollbar/);
   assert.doesNotMatch(appSource, /\.slice\(0,\s*100\)/);
+});
+
+test('title-bar menu entries share stable vertical centering', () => {
+  assert.match(
+    styles,
+    /\.titlebar-menu-group\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*height:\s*100%;/s,
+  );
+  assert.match(
+    styles,
+    /\.titlebar-menu-group > button,\s*\.titlebar-settings-entry\s*\{[^}]*margin:\s*0;/s,
+  );
+  assert.doesNotMatch(
+    styles,
+    /\.titlebar-menu-group > button,\s*\.titlebar-settings-entry\s*\{[^}]*margin-top:/s,
+  );
 });
 
 test('model settings do not expose the legacy web reader provider panel', () => {

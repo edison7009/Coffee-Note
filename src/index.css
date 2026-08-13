@@ -113,20 +113,6 @@ a:focus-visible {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.window-controls .titlebar-update {
-  width: 42px;
-  color: var(--accent);
-}
-
-.window-controls .titlebar-update:hover:not(:disabled) {
-  color: var(--ink);
-  background: rgba(32, 36, 34, 0.07);
-}
-
-.window-controls .titlebar-update:disabled {
-  cursor: default;
-}
-
 .app-titlebar.platform-macos .titlebar-drag-area {
   padding-left: 0;
 }
@@ -264,7 +250,7 @@ body.resizing-panels * {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 3px 10px 10px;
 }
 
 /* The footer sits over the scrollable navigation. Fade the last tree rows into
@@ -314,6 +300,29 @@ body.resizing-panels * {
   background: transparent;
   border: 0;
   border-radius: 8px;
+  cursor: default;
+}
+
+.sidebar-update {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: var(--accent);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: default;
+}
+
+.sidebar-update:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+
+.sidebar-update:disabled {
   cursor: default;
 }
 
@@ -1277,7 +1286,7 @@ html.tree-drag-active * {
 
 .tier-map {
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.78);
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
   border: 1px solid var(--line);
   border-radius: 10px;
 }
@@ -1309,7 +1318,7 @@ html.tree-drag-active * {
   justify-content: center;
   flex-direction: column;
   overflow: hidden;
-  background: color-mix(in srgb, var(--tier-color) 18%, white);
+  background: color-mix(in srgb, var(--tier-color) 18%, var(--paper));
 }
 
 .tier-label::before {
@@ -1333,7 +1342,7 @@ html.tree-drag-active * {
   flex-wrap: wrap;
   gap: 8px 34px;
   padding: 10px 22px;
-  background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
 }
 
 .tier-items button {
@@ -4945,20 +4954,20 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 [data-theme='dark'] .tier-map {
-  background: rgba(31, 33, 32, 0.96);
-  border-color: #383b39;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  border-color: var(--line);
 }
 
 [data-theme='dark'] .tier-row {
-  border-color: #363937;
+  border-color: var(--line);
 }
 
 [data-theme='dark'] .tier-label {
-  background: color-mix(in srgb, var(--tier-color) 17%, #252725);
+  background: color-mix(in srgb, var(--tier-color) 17%, var(--paper));
 }
 
 [data-theme='dark'] .tier-items {
-  background: #1c1e1d;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
 }
 
 [data-theme='dark'] .tier-items button {
@@ -6093,13 +6102,15 @@ textarea,
 
 .titlebar-menu-group {
   position: relative;
+  display: flex;
+  align-items: center;
   height: 100%;
 }
 
 .titlebar-menu-group > button,
 .titlebar-settings-entry {
   min-width: 44px;
-  margin-top: 3px;
+  margin: 0;
   padding: 0 8px;
   font-size: 13px;
   font-weight: 500;
@@ -6473,7 +6484,7 @@ textarea,
 }
 
 .start-cards {
-  gap: 8px;
+  gap: 16px;
 }
 
 .action-card {
@@ -6500,29 +6511,41 @@ textarea,
   min-height: 78px;
   padding: 14px 14px 14px 15px;
   color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--shape-color) 10%, var(--paper));
+  border: 0;
   border-radius: 10px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
+  box-shadow: none;
 }
 
 [data-theme='dark'] .action-card {
-  background: var(--secondary-surface);
-  border-color: var(--line);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--shape-color) 12%, var(--secondary-surface));
 }
 
 .action-card:hover,
 [data-theme='dark'] .action-card:hover {
   color: var(--ink);
-  background: var(--paper);
-  border-color: color-mix(in srgb, var(--ink) 18%, var(--line));
+  background: color-mix(in srgb, var(--shape-color) 15%, var(--paper));
   transform: none;
 }
 
 [data-theme='dark'] .action-card:hover {
-  background: var(--secondary-surface);
-  border-color: color-mix(in srgb, var(--ink) 22%, var(--line));
+  background: color-mix(in srgb, var(--shape-color) 17%, var(--secondary-surface));
+}
+
+.tier-map,
+[data-theme='dark'] .tier-map {
+  background: color-mix(in srgb, var(--secondary-surface) 88%, transparent);
+  border: 0;
+}
+
+.tier-row,
+[data-theme='dark'] .tier-row {
+  border-bottom: 0;
+}
+
+.tier-items,
+[data-theme='dark'] .tier-items {
+  background: transparent;
 }
 
 .action-card::before,
@@ -7450,7 +7473,7 @@ textarea,
   display: flex;
   min-width: 0;
   min-height: 0;
-  padding: 12px 8px 16px;
+  padding: 12px 8px 10px;
   flex-direction: column;
 }
 
@@ -7521,19 +7544,20 @@ textarea,
 
 .settings-sidebar-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  align-items: stretch;
+  gap: 2px;
   margin-top: auto;
   padding: 0 2px;
+  flex-direction: column;
 }
 
 .settings-sidebar-footer button {
   gap: 5px;
-  flex: 0 0 auto;
+  flex: 0 0 34px;
+  width: 100%;
   min-height: 34px;
   min-width: 0;
-  padding: 0 5px;
+  padding: 0 8px;
   color: var(--muted);
   background: transparent;
   border: 0;
@@ -7714,10 +7738,15 @@ textarea,
   color: var(--muted);
 }
 
-.surface-scheme-card:hover,
-.surface-scheme-card.active {
+.surface-scheme-card:hover {
   color: var(--ink);
   background: var(--tertiary-surface);
+}
+
+.surface-scheme-card.active,
+[data-theme='dark'] .surface-scheme-card.active {
+  color: var(--ink);
+  background: var(--accent-soft);
 }
 
 .surface-scheme-preview {

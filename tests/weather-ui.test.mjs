@@ -101,3 +101,11 @@ test('weather search uses one stable outer focus border', () => {
   assert.match(css, /\.weather-search input:focus,[^{]*\.weather-search input:focus-visible\s*\{[^}]*outline:\s*none;/s);
   assert.doesNotMatch(css, /\.weather-panel input:focus-visible/);
 });
+
+test('weather city search shares the settings input surface', () => {
+  assert.match(
+    css,
+    /\.weather-search\s*\{[^}]*background:\s*var\(--secondary-surface\);/s,
+  );
+  assert.match(css, /\.weather-search input\s*\{[^}]*background:\s*transparent;/s);
+});

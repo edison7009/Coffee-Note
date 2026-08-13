@@ -3791,7 +3791,6 @@ function AppTitlebar({
       <div className="titlebar-drag-area" data-tauri-drag-region />
 
       <div className="window-controls">
-        <UpdateButton locale={locale} />
         {!isMacOSPlatform && (
           <>
             <button
@@ -3883,7 +3882,7 @@ function UpdateButton({ locale }: { locale: Locale }) {
   return (
     <button
       type="button"
-      className={`titlebar-update ${installingUpdate ? 'installing' : ''}`}
+      className={`sidebar-update ${installingUpdate ? 'installing' : ''}`}
       onClick={() => void handleUpdate()}
       aria-label={
         locale === 'zh'
@@ -5282,6 +5281,7 @@ function Sidebar({
         <button type="button" className="sidebar-status" onClick={onOpenMessages}>
           {locale === 'zh' ? '尚未连接微信' : 'No Message'}
         </button>
+        <UpdateButton locale={locale} />
         <button
           type="button"
           className="sidebar-settings-entry"
@@ -8775,12 +8775,12 @@ function SettingsPage({
         </nav>
 
         <div className="settings-sidebar-footer">
-          <button type="button" onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}>
-            Coffee Note · v{APP_VERSION}
-          </button>
           <button type="button" onClick={() => void openExternalUrl(FEEDBACK_URL)}>
             <Github size={15} strokeWidth={1.8} />
             {t('feedback')}
+          </button>
+          <button type="button" onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}>
+            Coffee Note · v{APP_VERSION}
           </button>
         </div>
       </aside>
