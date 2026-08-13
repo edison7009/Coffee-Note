@@ -5687,9 +5687,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --strong-ink: #f1f1f1;
   --muted: #969696;
   --line: rgba(255, 255, 255, 0.1);
-  --paper: #191919;
-  --canvas: #191919;
-  --sidebar-surface: #202120;
+  --paper: #181818;
+  --canvas: #181818;
+  --sidebar-surface: #1F221F;
   --secondary-surface: #242424;
   --tertiary-surface: #2c2c2c;
   --composer-surface: #242424;
@@ -7486,6 +7486,50 @@ textarea,
   color: var(--ink);
   background: var(--tertiary-surface);
   border-color: color-mix(in srgb, var(--ink) 28%, var(--line));
+}
+
+.surface-scheme-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.surface-scheme-card {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 76px;
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.surface-scheme-card:hover,
+.surface-scheme-card.active {
+  color: var(--ink);
+  background: var(--tertiary-surface);
+}
+
+.surface-scheme-preview {
+  width: 48px;
+  height: 32px;
+  border-radius: 4px;
+}
+
+.surface-scheme-option-label {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.surface-scheme-card:hover .surface-scheme-option-label,
+.surface-scheme-card.active .surface-scheme-option-label {
+  color: var(--ink);
 }
 
 .settings-page .field-row {

@@ -703,6 +703,412 @@ type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
 type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'appearance';
 type ResizeSide = 'left' | 'right';
+type SurfaceSchemeId =
+  | 'openscience'
+  | 'openscience-1'
+  | 'aura'
+  | 'ayu'
+  | 'carbonfox'
+  | 'catppuccin'
+  | 'dracula'
+  | 'gruvbox'
+  | 'monokai'
+  | 'nightowl'
+  | 'nord'
+  | 'onedarkpro'
+  | 'shadesofpurple'
+  | 'solarized'
+  | 'tokyonight'
+  | 'vesper';
+
+interface SurfaceSchemeVariant {
+  shell: string;
+  canvas: string;
+  secondary: string;
+  tertiary: string;
+  composer: string;
+  bubble: string;
+  accentContrast: string;
+}
+
+interface SurfaceScheme {
+  id: SurfaceSchemeId;
+  labelZh: string;
+  labelEn: string;
+  light: SurfaceSchemeVariant;
+  dark: SurfaceSchemeVariant;
+}
+
+const SURFACE_SCHEMES: SurfaceScheme[] = [
+  {
+    id: 'openscience',
+    labelZh: '燕麦',
+    labelEn: 'Oat',
+    light: {
+      shell: '#EFE9DF',
+      canvas: '#F7F4ED',
+      secondary: '#FBF9F4',
+      tertiary: '#FFFDF8',
+      composer: '#FBF9F4',
+      bubble: '#FFFDF8',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#202120',
+      canvas: '#1C1D1C',
+      secondary: '#181918',
+      tertiary: '#141514',
+      composer: '#181918',
+      bubble: '#141514',
+      accentContrast: '#1C1D1C',
+    },
+  },
+  {
+    id: 'openscience-1',
+    labelZh: '雾灰',
+    labelEn: 'Mist',
+    light: {
+      shell: '#F2F2F2',
+      canvas: '#F8F7F7',
+      secondary: '#FFFFFF',
+      tertiary: '#FCFCFC',
+      composer: '#FFFFFF',
+      bubble: '#FCFCFC',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#1C1717',
+      canvas: '#151313',
+      secondary: '#151313',
+      tertiary: '#191515',
+      composer: '#151313',
+      bubble: '#191515',
+      accentContrast: '#151313',
+    },
+  },
+  {
+    id: 'aura',
+    labelZh: '薰衣草',
+    labelEn: 'Lavender',
+    light: {
+      shell: '#EFE8FC',
+      canvas: '#F5F0FF',
+      secondary: '#FAF7FF',
+      tertiary: '#FDFCFF',
+      composer: '#FAF7FF',
+      bubble: '#FDFCFF',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#1A1921',
+      canvas: '#15141B',
+      secondary: '#121118',
+      tertiary: '#0F0E14',
+      composer: '#121118',
+      bubble: '#0F0E14',
+      accentContrast: '#15141B',
+    },
+  },
+  {
+    id: 'ayu',
+    labelZh: '松灰',
+    labelEn: 'Pine',
+    light: {
+      shell: '#FCF9F3',
+      canvas: '#FDFAF4',
+      secondary: '#FBF8F2',
+      tertiary: '#FAF7F1',
+      composer: '#FBF8F2',
+      bubble: '#FAF7F1',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#18222C',
+      canvas: '#0F1419',
+      secondary: '#0B1015',
+      tertiary: '#080C10',
+      composer: '#0B1015',
+      bubble: '#080C10',
+      accentContrast: '#0F1419',
+    },
+  },
+  {
+    id: 'carbonfox',
+    labelZh: '碳黑',
+    labelEn: 'Carbon',
+    light: {
+      shell: '#F4F4F4',
+      canvas: '#FFFFFF',
+      secondary: '#E8E8E8',
+      tertiary: '#DCDCDC',
+      composer: '#E8E8E8',
+      bubble: '#DCDCDC',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#262626',
+      canvas: '#161616',
+      secondary: '#0D0D0D',
+      tertiary: '#000000',
+      composer: '#0D0D0D',
+      bubble: '#000000',
+      accentContrast: '#161616',
+    },
+  },
+  {
+    id: 'catppuccin',
+    labelZh: '拿铁',
+    labelEn: 'Latte',
+    light: {
+      shell: '#F2D8D4',
+      canvas: '#F5E0DC',
+      secondary: '#F9E8E4',
+      tertiary: '#FDEEEE',
+      composer: '#F9E8E4',
+      bubble: '#FDEEEE',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#211F31',
+      canvas: '#1E1E2E',
+      secondary: '#1C1C29',
+      tertiary: '#191926',
+      composer: '#1C1C29',
+      bubble: '#191926',
+      accentContrast: '#1E1E2E',
+    },
+  },
+  {
+    id: 'dracula',
+    labelZh: '夜紫',
+    labelEn: 'Night violet',
+    light: {
+      shell: '#F1F2ED',
+      canvas: '#F8F8F2',
+      secondary: '#F6F6F1',
+      tertiary: '#F2F2EC',
+      composer: '#F6F6F1',
+      bubble: '#F2F2EC',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#181926',
+      canvas: '#14151F',
+      secondary: '#161722',
+      tertiary: '#191A26',
+      composer: '#161722',
+      bubble: '#191A26',
+      accentContrast: '#14151F',
+    },
+  },
+  {
+    id: 'gruvbox',
+    labelZh: '奶油',
+    labelEn: 'Cream',
+    light: {
+      shell: '#F2E5BC',
+      canvas: '#FBF1C7',
+      secondary: '#F9F5D7',
+      tertiary: '#FDF9E8',
+      composer: '#F9F5D7',
+      bubble: '#FDF9E8',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#32302F',
+      canvas: '#282828',
+      secondary: '#1D2021',
+      tertiary: '#141617',
+      composer: '#1D2021',
+      bubble: '#141617',
+      accentContrast: '#282828',
+    },
+  },
+  {
+    id: 'monokai',
+    labelZh: '芥末',
+    labelEn: 'Mustard',
+    light: {
+      shell: '#F8F2E6',
+      canvas: '#FDF8EC',
+      secondary: '#FBF5E8',
+      tertiary: '#F7EFDD',
+      composer: '#FBF5E8',
+      bubble: '#F7EFDD',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#27281F',
+      canvas: '#23241E',
+      secondary: '#25261F',
+      tertiary: '#292A23',
+      composer: '#25261F',
+      bubble: '#292A23',
+      accentContrast: '#23241E',
+    },
+  },
+  {
+    id: 'nightowl',
+    labelZh: '深海',
+    labelEn: 'Deep sea',
+    light: {
+      shell: '#F0F0F0',
+      canvas: '#FBFBFB',
+      secondary: '#FFFFFF',
+      tertiary: '#FFFFFF',
+      composer: '#FFFFFF',
+      bubble: '#FFFFFF',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#0B253A',
+      canvas: '#011627',
+      secondary: '#001122',
+      tertiary: '#000C17',
+      composer: '#001122',
+      bubble: '#000C17',
+      accentContrast: '#011627',
+    },
+  },
+  {
+    id: 'nord',
+    labelZh: '冰川',
+    labelEn: 'Glacier',
+    light: {
+      shell: '#E4E8F0',
+      canvas: '#ECEFF4',
+      secondary: '#F1F3F8',
+      tertiary: '#F6F8FC',
+      composer: '#F1F3F8',
+      bubble: '#F6F8FC',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#222938',
+      canvas: '#1F2430',
+      secondary: '#1C202A',
+      tertiary: '#181C24',
+      composer: '#1C202A',
+      bubble: '#181C24',
+      accentContrast: '#1F2430',
+    },
+  },
+  {
+    id: 'onedarkpro',
+    labelZh: '蓝石墨',
+    labelEn: 'Blue graphite',
+    light: {
+      shell: '#EEF0F4',
+      canvas: '#F5F6F8',
+      secondary: '#FAFBFC',
+      tertiary: '#FFFFFF',
+      composer: '#FAFBFC',
+      bubble: '#FFFFFF',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#212631',
+      canvas: '#1E222A',
+      secondary: '#1B1F27',
+      tertiary: '#171B23',
+      composer: '#1B1F27',
+      bubble: '#171B23',
+      accentContrast: '#1E222A',
+    },
+  },
+  {
+    id: 'shadesofpurple',
+    labelZh: '葡萄紫',
+    labelEn: 'Grape',
+    light: {
+      shell: '#F2E2FF',
+      canvas: '#F7EBFF',
+      secondary: '#FBF2FF',
+      tertiary: '#FFF7FF',
+      composer: '#FBF2FF',
+      bubble: '#FFF7FF',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#1F1434',
+      canvas: '#1A102B',
+      secondary: '#1C122F',
+      tertiary: '#170E26',
+      composer: '#1C122F',
+      bubble: '#170E26',
+      accentContrast: '#1A102B',
+    },
+  },
+  {
+    id: 'solarized',
+    labelZh: '青灰',
+    labelEn: 'Teal gray',
+    light: {
+      shell: '#F6EFDA',
+      canvas: '#FDF6E3',
+      secondary: '#FAF3DC',
+      tertiary: '#F6EDD4',
+      composer: '#FAF3DC',
+      bubble: '#F6EDD4',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#022733',
+      canvas: '#001F27',
+      secondary: '#01222B',
+      tertiary: '#032830',
+      composer: '#01222B',
+      bubble: '#032830',
+      accentContrast: '#001F27',
+    },
+  },
+  {
+    id: 'tokyonight',
+    labelZh: '东京蓝',
+    labelEn: 'Tokyo blue',
+    light: {
+      shell: '#DEE0EA',
+      canvas: '#E1E2E7',
+      secondary: '#E5E6EE',
+      tertiary: '#E9EAF1',
+      composer: '#E5E6EE',
+      bubble: '#E9EAF1',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#111428',
+      canvas: '#0F111A',
+      secondary: '#101324',
+      tertiary: '#13172A',
+      composer: '#101324',
+      bubble: '#13172A',
+      accentContrast: '#0F111A',
+    },
+  },
+  {
+    id: 'vesper',
+    labelZh: '墨黑',
+    labelEn: 'Ink',
+    light: {
+      shell: '#F8F8F8',
+      canvas: '#FFFFFF',
+      secondary: '#F0F0F0',
+      tertiary: '#E8E8E8',
+      composer: '#F0F0F0',
+      bubble: '#E8E8E8',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#141414',
+      canvas: '#101010',
+      secondary: '#0C0C0C',
+      tertiary: '#080808',
+      composer: '#0C0C0C',
+      bubble: '#080808',
+      accentContrast: '#101010',
+    },
+  },
+];
 
 interface InternalNoteTarget {
   kind: InternalNoteKind;
@@ -1028,6 +1434,10 @@ function App() {
     storageKey('theme'),
     'system',
   );
+  const [surfaceScheme, setSurfaceScheme] = useStoredState<SurfaceSchemeId>(
+    storageKey('surface-scheme:v1'),
+    'openscience',
+  );
   const [currencyMode, setCurrencyMode] = useStoredState<CurrencyMode>(
     storageKey('currency'),
     'auto',
@@ -1271,6 +1681,31 @@ function App() {
     systemTheme.addEventListener('change', applyTheme);
     return () => systemTheme.removeEventListener('change', applyTheme);
   }, [themeMode]);
+
+  useEffect(() => {
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySurface = () => {
+      const resolvedTheme =
+        themeMode === 'system' ? (systemTheme.matches ? 'dark' : 'light') : themeMode;
+      const scheme =
+        SURFACE_SCHEMES.find((item) => item.id === surfaceScheme) ?? SURFACE_SCHEMES[0];
+      const variant = resolvedTheme === 'dark' ? scheme.dark : scheme.light;
+      const root = document.documentElement;
+
+      root.style.setProperty('--sidebar-surface', variant.shell);
+      root.style.setProperty('--paper', variant.canvas);
+      root.style.setProperty('--canvas', variant.canvas);
+      root.style.setProperty('--secondary-surface', variant.secondary);
+      root.style.setProperty('--tertiary-surface', variant.tertiary);
+      root.style.setProperty('--composer-surface', variant.composer);
+      root.style.setProperty('--chat-user-bubble', variant.bubble);
+      root.style.setProperty('--accent-contrast', variant.accentContrast);
+    };
+
+    applySurface();
+    systemTheme.addEventListener('change', applySurface);
+    return () => systemTheme.removeEventListener('change', applySurface);
+  }, [surfaceScheme, themeMode]);
 
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
@@ -2653,6 +3088,8 @@ function App() {
           onLocale={setLocale}
           themeMode={themeMode}
           onThemeMode={setThemeMode}
+          surfaceScheme={surfaceScheme}
+          onSurfaceScheme={setSurfaceScheme}
           currencyMode={currencyMode}
           onCurrencyMode={setCurrencyMode}
           onClose={() => setSettingsOpen(false)}
@@ -8081,10 +8518,12 @@ function SettingsPage({
   onSkillCatalogChange,
   onRefreshCatalog,
   themeMode,
+  surfaceScheme,
   currencyMode,
   onChange,
   onLocale,
   onThemeMode,
+  onSurfaceScheme,
   onCurrencyMode,
   onClose,
   t,
@@ -8101,10 +8540,12 @@ function SettingsPage({
   onSkillCatalogChange: (catalog: SkillCatalog) => void;
   onRefreshCatalog: () => void;
   themeMode: ThemeMode;
+  surfaceScheme: SurfaceSchemeId;
   currencyMode: CurrencyMode;
   onChange: (config: ModelSettings) => void;
   onLocale: (locale: Locale) => void;
   onThemeMode: (themeMode: ThemeMode) => void;
+  onSurfaceScheme: (surfaceScheme: SurfaceSchemeId) => void;
   onCurrencyMode: (currencyMode: CurrencyMode) => void;
   onClose: () => void;
   t: (key: TranslationKey) => string;
@@ -8227,6 +8668,33 @@ function SettingsPage({
                     <button type="button" className={themeMode === 'dark' ? 'active' : ''} onClick={() => onThemeMode('dark')}>
                       <Moon size={15} />{t('themeDark')}
                     </button>
+                  </div>
+                </section>
+                <section className="settings-appearance-block settings-appearance-inline">
+                  <div className="settings-section-heading">
+                    <h2>{t('surfaceScheme')}</h2>
+                    <p>{t('surfaceSchemeSub')}</p>
+                  </div>
+                  <div className="surface-scheme-picker">
+                    {SURFACE_SCHEMES.map((scheme) => (
+                      <button
+                        type="button"
+                        className={`surface-scheme-card${surfaceScheme === scheme.id ? ' active' : ''}`}
+                        key={scheme.id}
+                        onClick={() => onSurfaceScheme(scheme.id)}
+                        aria-pressed={surfaceScheme === scheme.id}
+                      >
+                        <span
+                          className="surface-scheme-preview"
+                          style={{
+                            background: `linear-gradient(90deg, ${scheme.light.canvas} 0 50%, ${scheme.dark.canvas} 50% 100%)`,
+                          }}
+                        />
+                        <span className="surface-scheme-option-label">
+                          {locale === 'zh' ? scheme.labelZh : scheme.labelEn}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </section>
                 <section className="settings-appearance-block settings-appearance-inline">
