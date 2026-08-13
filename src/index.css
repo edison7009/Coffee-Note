@@ -265,7 +265,7 @@ body.resizing-panels * {
   align-items: center;
   height: 36px;
   padding: 0 9px;
-  color: var(--ink);
+  color: #4c4c50;
   background: transparent;
   border: 0;
   border-radius: 7px;
@@ -275,7 +275,11 @@ body.resizing-panels * {
 }
 
 .sidebar-status:hover {
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  background: var(--accent-soft);
+}
+
+[data-theme='dark'] .sidebar-status {
+  color: #b3b7b5;
 }
 
 .sidebar-settings-entry {
@@ -6098,7 +6102,7 @@ textarea,
 [data-theme='dark'] .nav-home-row:hover,
 .nav-home-row:has(button:focus-visible),
 [data-theme='dark'] .nav-home-row:has(button:focus-visible) {
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .nav-button.active,
@@ -7315,7 +7319,7 @@ textarea,
 .settings-page .settings-nav button:hover,
 [data-theme='dark'] .settings-page .settings-nav button:hover {
   color: var(--ink);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  background: var(--accent-soft);
 }
 
 .settings-page .settings-nav button.active,
