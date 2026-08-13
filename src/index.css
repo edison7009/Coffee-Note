@@ -253,29 +253,28 @@ body.resizing-panels * {
 
 .sidebar-footer {
   flex: 0 0 auto;
-  padding: 6px 14px 10px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 14px 8px;
 }
 
 .sidebar-settings-entry {
-  display: flex;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-height: 34px;
-  padding: 0 10px;
+  place-items: center;
   color: var(--muted);
   background: transparent;
   border: 0;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 550;
   cursor: default;
 }
 
 .sidebar-settings-entry:hover {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: transparent;
 }
 
 .brand {
