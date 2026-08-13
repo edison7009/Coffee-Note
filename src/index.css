@@ -3383,7 +3383,10 @@ html.tree-drag-active * {
 .right-rail::after {
   content: '';
   position: absolute;
-  inset: 5px;
+  /* The rail shares its left edge with the main workspace; keep the inset
+     only on the top, right, and bottom so the workspace scrollbar does not
+     appear separated from the contextual frame. */
+  inset: 5px 5px 5px 0;
   z-index: 1;
   border: 1px solid var(--line);
   border-radius: 14px;

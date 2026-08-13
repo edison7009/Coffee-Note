@@ -497,6 +497,21 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = fal
   document.addEventListener('scroll', updatePosition, true);
   const resizeObserver = new ResizeObserver(updatePosition);
   resizeObserver.observe(element);
+  const observeContentChildren = () => {
+    Array.from(element.children).forEach((child) => resizeObserver.observe(child));
+  };
+  observeContentChildren();
+  // The scroll container keeps the same box while AI messages are appended or
+  // streamed into it, so also watch child mutations and direct content size.
+  const mutationObserver = new MutationObserver(() => {
+    observeContentChildren();
+    reveal();
+  });
+  mutationObserver.observe(element, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
   updatePosition();
 
   return () => {
@@ -515,6 +530,7 @@ function bindAutoHideScrollbar(element: HTMLElement, hideDelay = 450, slim = fal
     document.removeEventListener('pointerup', handleDragEnd);
     document.removeEventListener('pointercancel', handleDragEnd);
     resizeObserver.disconnect();
+    mutationObserver.disconnect();
     rail.remove();
     element.classList.remove('auto-hide-scrollbar');
   };
@@ -7610,6 +7626,7 @@ function RightRail({
   const cancelConversationRenameRef = useRef(false);
   const conversationRenameTitleRef = useRef<HTMLElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+  const railScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setEditorDraft(editingNote?.markdown || '');
@@ -7657,6 +7674,12 @@ function RightRail({
     };
   }, [editingNote, editorDraft, editorSavedMarkdown, onAutosaveEditingNote]);
 
+  useEffect(() => {
+    const element = railScrollRef.current;
+    if (!element || !aiActive || editingNote) return;
+    return bindAutoHideScrollbar(element, 450, false, 5);
+  }, [aiActive, editingNote]);
+
   const changeEditorDraft = (content: string) => {
     setEditorDraft(content);
     onPreviewEditingNote(content);
@@ -7693,7 +7716,10 @@ function RightRail({
         </div>
       )}
 
-      <div className={`rail-scroll${editingNote ? ' rail-scroll-editor' : ''}`}>
+      <div
+        ref={railScrollRef}
+        className={`rail-scroll${editingNote ? ' rail-scroll-editor' : ''}`}
+      >
         {aiActive ? (
           <>
             <div className="conversation-history-list">
