@@ -3399,8 +3399,8 @@ html.tree-drag-active * {
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
-  color: var(--ink);
-  background: var(--tertiary-surface);
+  color: var(--accent-contrast);
+  background: var(--accent);
   border: 0;
   border-radius: 14px;
   font-size: 13px;
@@ -3410,8 +3410,8 @@ html.tree-drag-active * {
 }
 
 .rail-resume-chat:hover:not(:disabled) {
-  color: var(--accent-hover);
-  background: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent-hover);
 }
 
 .rail-resume-chat:disabled {
@@ -6667,14 +6667,14 @@ textarea,
 
 .rail-resume-chat,
 [data-theme='dark'] .rail-resume-chat {
-  color: var(--ink);
-  background: var(--tertiary-surface);
+  color: var(--accent-contrast);
+  background: var(--accent);
 }
 
 .rail-resume-chat:hover:not(:disabled),
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--secondary-surface);
+  color: var(--accent-contrast);
+  background: var(--accent-hover);
 }
 
 .rail-scroll {
@@ -7109,7 +7109,7 @@ textarea,
 
 .message.user .message-content {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--chat-user-bubble);
   border-radius: 14px;
 }
 
