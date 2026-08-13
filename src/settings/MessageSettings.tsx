@@ -11,8 +11,9 @@ import {
   loadMessageSettings,
   pollWeixinLogin,
   startWeixinLogin,
-  updateMessageContext,
+  updateMessageTranscriptionMode,
 } from '../api';
+import { translate } from '../i18n';
 import type {
   Locale,
   MessageChannelStatus,
@@ -144,6 +145,20 @@ export function MessageSettings({ locale }: { locale: Locale }) {
 
   const pairingCode = settings?.telegram.pairingCode || '';
   const connectedCount = Number(status.weixin === 'connected') + Number(status.telegram === 'connected');
+  const speechModeLabel = translate(locale, 'captureTranscriptionPrefix').replace(/[：:\s]+$/, '');
+
+  const selectTranscriptionMode = async (transcriptionMode: 'api' | 'local') => {
+    const previousMode = settings?.transcriptionMode || 'api';
+    setError('');
+    setSettings((current) => current ? { ...current, transcriptionMode } : current);
+    try {
+      await updateMessageTranscriptionMode(transcriptionMode);
+      await refresh();
+    } catch (reason) {
+      setSettings((current) => current ? { ...current, transcriptionMode: previousMode } : current);
+      setError(String(reason));
+    }
+  };
 
   return (
     <div className="message-settings">
@@ -279,29 +294,25 @@ export function MessageSettings({ locale }: { locale: Locale }) {
 
       <section className="message-processing-mode">
         <div>
-          <strong>{locale === 'zh' ? '媒体转文案方式' : 'Media transcription'}</strong>
-          <p>{locale === 'zh' ? '两个消息渠道共用此方式，具体服务在“媒体转文案”设置中配置。' : 'Both channels use this mode. Configure the service under Media Transcription.'}</p>
+          <strong>{speechModeLabel}</strong>
+          <p>{locale === 'zh' ? '两个消息渠道共用此默认方式，具体服务在“音频转文案”设置中配置。' : 'Both channels use this default. Configure the service under Audio to text.'}</p>
         </div>
         <div className="message-mode-switch">
           <button
             type="button"
             className={settings?.transcriptionMode !== 'local' ? 'active' : ''}
-            onClick={() => {
-              if (!settings?.knowledgeRoot) return;
-              void updateMessageContext(settings.knowledgeRoot, locale, 'api').then(refresh);
-            }}
+            aria-pressed={settings?.transcriptionMode !== 'local'}
+            onClick={() => void selectTranscriptionMode('api')}
           >
-            {locale === 'zh' ? '云端服务' : 'Cloud service'}
+            {translate(locale, 'captureTranscriptionApi')}
           </button>
           <button
             type="button"
             className={settings?.transcriptionMode === 'local' ? 'active' : ''}
-            onClick={() => {
-              if (!settings?.knowledgeRoot) return;
-              void updateMessageContext(settings.knowledgeRoot, locale, 'local').then(refresh);
-            }}
+            aria-pressed={settings?.transcriptionMode === 'local'}
+            onClick={() => void selectTranscriptionMode('local')}
           >
-            {locale === 'zh' ? '本地模型' : 'Local model'}
+            {translate(locale, 'captureTranscriptionLocal')}
           </button>
         </div>
       </section>

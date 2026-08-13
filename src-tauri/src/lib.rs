@@ -3405,6 +3405,7 @@ pub fn run() {
             channels::load_message_settings,
             channels::message_channel_status,
             channels::update_message_context,
+            channels::update_message_transcription_mode,
             channels::start_weixin_login,
             channels::poll_weixin_login,
             channels::disconnect_weixin,

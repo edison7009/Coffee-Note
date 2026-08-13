@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const apiSource = await readFile(new URL('../src/api.ts', import.meta.url), 'utf8');
+const i18nSource = await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8');
+const globalStyles = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const settingsSource = await readFile(new URL('../src/settings/MessageSettings.tsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../src/settings/MessageSettings.css', import.meta.url), 'utf8');
 const rustSource = await readFile(new URL('../src-tauri/src/channels.rs', import.meta.url), 'utf8');
@@ -52,6 +54,25 @@ test('message credentials live behind Tauri commands and inputs share desktop ru
   assert.doesNotMatch(settingsSource, /title=/);
   assert.match(styles, /background:\s*var\(--control-surface\)/);
   assert.match(styles, /font-size:\s*14px/);
+  assert.match(styles, /\.message-inline-form input:focus-visible[\s\S]*outline:\s*none;[\s\S]*box-shadow:\s*none;/);
+  assert.doesNotMatch(styles, /--focus-border/);
+  assert.match(globalStyles, /input\[type='password'\][\s\S]*textarea[\s\S]*:focus-visible[\s\S]*outline:\s*none;[\s\S]*box-shadow:\s*none;/);
+});
+
+test('message speech recognition mode matches capture copy and saves independently', () => {
+  assert.match(settingsSource, /captureTranscriptionPrefix/);
+  assert.match(settingsSource, /captureTranscriptionApi/);
+  assert.match(settingsSource, /captureTranscriptionLocal/);
+  assert.match(i18nSource, /captureTranscriptionPrefix:\s*'语音识别方式：'/);
+  assert.match(i18nSource, /captureTranscriptionApi:\s*'语音模型'/);
+  assert.match(i18nSource, /captureTranscriptionLocal:\s*'本地语音模型'/);
+  assert.doesNotMatch(settingsSource, /云端服务/);
+  assert.match(apiSource, /invoke\('update_message_transcription_mode', \{ transcriptionMode \}\)/);
+  assert.match(rustSource, /pub fn update_message_transcription_mode/);
+  assert.doesNotMatch(settingsSource, /if \(!settings\?\.knowledgeRoot\) return/);
+  assert.doesNotMatch(styles, /--selected-surface/);
+  assert.match(styles, /\.message-mode-switch button\.active[\s\S]*background:\s*var\(--tertiary-surface\)/);
+  assert.doesNotMatch(settingsSource, /message-mode-check/);
 });
 
 test('sidebar status reflects the two real channels', () => {

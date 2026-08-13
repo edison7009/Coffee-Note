@@ -397,11 +397,7 @@ pub fn message_channel_status(runtime: State<'_, ChannelRuntime>) -> ChannelStat
 }
 
 #[tauri::command]
-pub fn update_message_context(
-    knowledge_root: String,
-    locale: String,
-    transcription_mode: Option<String>,
-) -> Result<(), String> {
+pub fn update_message_context(knowledge_root: String, locale: String) -> Result<(), String> {
     let root = PathBuf::from(knowledge_root.trim());
     if !root.is_dir() {
         return Err("Choose a valid knowledge directory first".to_string());
@@ -411,15 +407,17 @@ pub fn update_message_context(
     mutate_settings(|settings| {
         settings.knowledge_root = normalized_root;
         settings.locale = normalized_locale;
-        if let Some(transcription_mode) = transcription_mode {
-            settings.transcription_mode = if transcription_mode == "local" {
-                "local"
-            } else {
-                "api"
-            }
-            .to_string();
-        }
     })
+}
+
+#[tauri::command]
+pub fn update_message_transcription_mode(transcription_mode: String) -> Result<(), String> {
+    let normalized_mode = match transcription_mode.as_str() {
+        "api" => "api",
+        "local" => "local",
+        _ => return Err("Choose a valid speech recognition mode".to_string()),
+    };
+    mutate_settings(|settings| settings.transcription_mode = normalized_mode.to_string())
 }
 
 fn client_version() -> u32 {

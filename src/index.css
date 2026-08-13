@@ -57,11 +57,25 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
 a:focus-visible {
   outline: 2px solid rgba(21, 159, 141, 0.55);
   outline-offset: 2px;
+}
+
+:where(
+  input:not([type]),
+  input[type='text'],
+  input[type='password'],
+  input[type='search'],
+  input[type='email'],
+  input[type='url'],
+  input[type='tel'],
+  input[type='number'],
+  textarea
+):focus-visible {
+  border-color: color-mix(in srgb, var(--ink) 48%, var(--line));
+  outline: none;
+  box-shadow: none;
 }
 
 .app-titlebar {
@@ -2866,6 +2880,7 @@ html.tree-drag-active * {
   --reasoning-track-fill: rgba(44, 44, 46, 0.15);
   --reasoning-track-empty: rgba(44, 44, 46, 0.07);
   position: sticky;
+  container-type: inline-size;
   bottom: 0;
   z-index: 2;
   display: grid;
@@ -3841,42 +3856,69 @@ html.tree-drag-active * {
 .composer-metrics {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: 0.95fr 1.3fr 0.9fr 0.85fr 0.9fr;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
+  justify-content: center;
+  column-gap: 0;
+  row-gap: 2px;
   width: 100%;
   min-height: 25px;
-  padding: 0;
-  overflow-x: auto;
+  padding: 3px 10px 4px;
   color: #71847f;
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.4;
   pointer-events: none;
-  scrollbar-width: none;
+  text-align: center;
+}
+
+@container (max-width: 520px) {
+  .composer-metrics {
+    display: grid;
+    grid-template-columns: max-content max-content;
+  }
+
+  .composer-metric-token-group {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
+  .composer-metric-token-group::before,
+  .composer-metric-token-group + .composer-metric-group::before {
+    display: none;
+  }
+}
+
+.composer-metric-group {
+  display: inline-flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  gap: 3px;
   white-space: nowrap;
 }
 
-.composer-metrics::-webkit-scrollbar {
-  display: none;
+.composer-metric-group + .composer-metric-group::before {
+  content: '|';
+  margin: 0 8px;
+  color: color-mix(in srgb, var(--muted) 42%, transparent);
+  font-weight: 400;
 }
 
-.composer-metrics span {
+.composer-metric-token-group > span {
   display: inline-flex;
   align-items: baseline;
-  justify-content: center;
-  gap: 2px;
-  min-width: 112px;
-  padding: 4px 12px 3px;
+  gap: 3px;
 }
 
-.composer-metrics b {
+.composer-metric-token-group i {
+  color: color-mix(in srgb, var(--muted) 62%, transparent);
+  font-style: normal;
+}
+
+.composer-metric-group b {
   color: var(--muted);
   font-weight: 500;
-}
-
-.composer-metrics b::after {
-  content: '：';
 }
 
 .dialog-titlebar {
@@ -5973,8 +6015,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
 a:focus-visible {
   outline-color: var(--accent-border);
 }

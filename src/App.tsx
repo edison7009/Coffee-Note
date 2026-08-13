@@ -8059,19 +8059,21 @@ function ChatComposer({
         />
       )}
       <div className="composer-metrics" aria-label={locale === 'zh' ? 'AI 用量统计' : 'AI usage'}>
-        <span>
-          <b>{locale === 'zh' ? '累计命中' : 'Total cache'}</b>{cacheHitRate}
+        <span className="composer-metric-group">
+          {numberFormat.format(usage.requestCount)} {locale === 'zh' ? '次请求' : usage.requestCount === 1 ? 'request' : 'requests'}
         </span>
-        <span>
-          <b>{locale === 'zh' ? '消耗 Tokens' : 'Tokens'}</b>{numberFormat.format(usage.totalTokens)}
+        <span className="composer-metric-group">
+          <b>{locale === 'zh' ? '缓存命中' : 'Cache hit'}</b>{cacheHitRate}
         </span>
-        <span>
-          <b>{locale === 'zh' ? '请求次数' : 'Requests'}</b>{numberFormat.format(usage.requestCount)}
+        <span className="composer-metric-group composer-metric-token-group">
+          <span><b>{locale === 'zh' ? '输入' : 'Input'}</b>{formatCompactTokens(usage.promptTokens)}</span>
+          <i aria-hidden="true">·</i>
+          <span><b>{locale === 'zh' ? '输出' : 'Output'}</b>{formatCompactTokens(usage.completionTokens)}</span>
         </span>
-        <span>
+        <span className="composer-metric-group">
           <b>{locale === 'zh' ? '上下文' : 'Context'}</b>{contextPercent}
         </span>
-        <span>
+        <span className="composer-metric-group">
           <b>{locale === 'zh' ? '费用' : 'Cost'}</b>{costLabel}
         </span>
       </div>

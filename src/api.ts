@@ -310,10 +310,16 @@ export async function getMessageChannelStatus(): Promise<MessageChannelStatus> {
 export async function updateMessageContext(
   knowledgeRoot: string,
   locale: Locale,
-  transcriptionMode?: 'api' | 'local',
 ): Promise<void> {
   if (!isTauri) return;
-  await invoke('update_message_context', { knowledgeRoot, locale, transcriptionMode });
+  await invoke('update_message_context', { knowledgeRoot, locale });
+}
+
+export async function updateMessageTranscriptionMode(
+  transcriptionMode: 'api' | 'local',
+): Promise<void> {
+  if (!isTauri) return;
+  await invoke('update_message_transcription_mode', { transcriptionMode });
 }
 
 export async function startWeixinLogin(): Promise<WeixinLoginStart> {
