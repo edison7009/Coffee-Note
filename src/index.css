@@ -256,13 +256,13 @@ body.resizing-panels * {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 12px 4px;
+  padding: 6px 12px;
 }
 
 .sidebar-status {
   display: flex;
   align-items: center;
-  height: 34px;
+  height: 30px;
   color: var(--muted);
   padding: 0;
   background: transparent;
@@ -278,8 +278,8 @@ body.resizing-panels * {
 
 .sidebar-settings-entry {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   align-items: center;
   place-items: center;
@@ -6002,7 +6002,7 @@ textarea,
 }
 
 .sidebar-scroll {
-  padding: 14px 12px 6px;
+  padding: 14px 12px 0;
 }
 
 .brand {
