@@ -6850,7 +6850,7 @@ function PlanView({
       <div className="plan-section-grid">
         <div className="plan-section-card">
           <button type="button" className="plan-section-open" onClick={onHome}>
-            <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
+            <span className="plan-section-icon" style={{ background: 'var(--tertiary-surface)' }}>
               <Layers3 size={17} />
             </span>
             <span className="plan-section-copy">
@@ -6870,7 +6870,7 @@ function PlanView({
           </button>
         </div>
         <button type="button" className="plan-section-card plan-section-add" onClick={onAdd}>
-          <span className="plan-section-icon" style={{ background: '#e5e5e7' }}>
+          <span className="plan-section-icon" style={{ background: 'var(--tertiary-surface)' }}>
             <FilePlus2 size={17} />
           </span>
           <span>

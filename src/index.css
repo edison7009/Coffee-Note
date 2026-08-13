@@ -6446,13 +6446,13 @@ textarea,
 .plan-section-grid > .plan-section-card {
   min-height: 70px;
   color: var(--ink);
-  background: #f1f1f1;
+  background: var(--secondary-surface);
   border: 1px solid transparent;
   border-radius: 9px;
 }
 
 .plan-section-grid > .plan-section-card:hover {
-  background: #f1f1f1;
+  background: var(--secondary-surface);
 }
 
 [data-theme='dark'] .plan-section-grid > .plan-section-card,
