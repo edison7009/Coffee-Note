@@ -275,7 +275,7 @@ body.resizing-panels * {
 }
 
 .sidebar-status:hover {
-  background: var(--tertiary-surface);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .sidebar-settings-entry {
@@ -446,7 +446,7 @@ body.resizing-panels * {
 }
 
 .nav-button:hover {
-  background: var(--tertiary-surface);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .nav-button.active {
@@ -482,7 +482,7 @@ body.resizing-panels * {
 }
 
 .nav-chat-row:hover {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .nav-chat-row.active {
@@ -490,7 +490,7 @@ body.resizing-panels * {
 }
 
 .nav-chat-row:has(button:focus-visible) {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .nav-chat-row.active:has(button:focus-visible) {
@@ -555,7 +555,7 @@ body.resizing-panels * {
 
 .nav-home-row:hover,
 .nav-home-row:has(button:focus-visible) {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .nav-home-row.active,
@@ -7315,7 +7315,7 @@ textarea,
 .settings-page .settings-nav button:hover,
 [data-theme='dark'] .settings-page .settings-nav button:hover {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .settings-page .settings-nav button.active,
