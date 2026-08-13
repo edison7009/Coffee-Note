@@ -1,11 +1,8 @@
 name: Bump version on release publish
 
-# Fires when the maintainer clicks "Publish release" on a draft release
-# (drafts are created by .github/workflows/release.yml after each tag push).
-# That click is the final "ship to users" confirmation: this bumps every
-# version file to the released tag so the next release starts from a
-# consistent state. Until the release is published, version files keep the
-# previous version — giving a window to finalize changelog notes.
+# Fires after .github/workflows/release.yml publishes a completed release.
+# It keeps every version file aligned with the released tag if the tag was
+# prepared without a local version commit.
 
 on:
   release:
@@ -34,6 +31,8 @@ jobs:
 
           # package.json (source of truth for the release tag check)
           sed -i "s/\"version\": \"[0-9]*\.[0-9]*\.[0-9]*\"/\"version\": \"$VERSION\"/" package.json
+          # package-lock.json (top-level metadata and root package entry)
+          npm version "$VERSION" --package-lock-only --allow-same-version --ignore-scripts
           # src-tauri/tauri.conf.json
           sed -i "s/\"version\": \"[0-9]*\.[0-9]*\.[0-9]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
           # src-tauri/Cargo.toml
@@ -50,6 +49,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock website/version.json
+          git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock website/version.json
           git commit -m "chore: bump version to $VERSION"
           git push origin main

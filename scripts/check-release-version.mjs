@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const packageLock = JSON.parse(
+  readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'),
+);
 const tauriConfig = JSON.parse(
   readFileSync(new URL('../src-tauri/tauri.conf.json', import.meta.url), 'utf8'),
 );
@@ -16,6 +19,8 @@ const websiteVersion = JSON.parse(
 ).version;
 const versions = {
   'package.json': packageJson.version,
+  'package-lock.json': packageLock.version,
+  'package-lock.json packages[""]': packageLock.packages?.['']?.version,
   'src-tauri/tauri.conf.json': tauriConfig.version,
   'src-tauri/Cargo.toml': cargoVersion,
   'website/version.json': websiteVersion,
