@@ -255,7 +255,7 @@ body.resizing-panels * {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  padding: 6px 14px 8px;
+  padding: 2px 12px 4px;
 }
 
 .sidebar-settings-entry {
@@ -5984,7 +5984,7 @@ textarea,
 }
 
 .sidebar-scroll {
-  padding: 14px 12px 18px;
+  padding: 14px 12px 6px;
 }
 
 .brand {

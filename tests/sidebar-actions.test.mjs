@@ -34,7 +34,7 @@ test('title bar wordmark shares the navigation icon inset', () => {
 });
 
 test('left navigation leaves breathing room above Home', () => {
-  assert.match(css, /\.sidebar-scroll\s*\{[^}]*padding:\s*14px 12px 18px;/s);
+  assert.match(css, /\.sidebar-scroll\s*\{[^}]*padding:\s*14px 12px 6px;/s);
 });
 
 test('home row action uses the existing compact neutral icon treatment', () => {
