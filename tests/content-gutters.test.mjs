@@ -10,3 +10,14 @@ test('center content reserves symmetric scrollbar gutters', () => {
     /\.content-scroll\s*\{[^}]*scrollbar-gutter:\s*stable both-edges;/s,
   );
 });
+
+test('conversation rail tightens only the edge beside the center scrollbar', () => {
+  assert.match(
+    styles,
+    /\.rail-header\s*\{\s*min-height:\s*0;\s*padding:\s*10px 12px 10px 8px;/s,
+  );
+  assert.match(
+    styles,
+    /\.rail-scroll\s*\{\s*padding:\s*0 12px 10px 8px;/s,
+  );
+});

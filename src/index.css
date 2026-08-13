@@ -2292,11 +2292,135 @@ html.tree-drag-active * {
 }
 
 .conversation-view {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: min(780px, calc(100% - 72px));
   min-height: 100%;
   padding-top: 24px;
+}
+
+.conversation-jump-bar {
+  position: fixed;
+  top: 50%;
+  left: calc(var(--sidebar-width) + 8px);
+  z-index: 2;
+  display: flex;
+  width: 32px;
+  height: min(58vh, 420px);
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+  padding: 0;
+  transform: translateY(-50%);
+}
+
+.conversation-jump-scroll {
+  display: flex;
+  width: 32px;
+  max-height: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.conversation-jump-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.conversation-jump-item {
+  display: flex;
+  width: 32px;
+  min-height: 12px;
+  flex: 0 0 12px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: default;
+}
+
+.conversation-jump-item > span {
+  display: block;
+  width: 7px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.36;
+  transition:
+    width 140ms ease,
+    opacity 140ms ease,
+    color 140ms ease;
+}
+
+.conversation-jump-item[data-hover-distance='2'] > span {
+  width: 10px;
+  opacity: 0.5;
+}
+
+.conversation-jump-item[data-hover-distance='1'] > span {
+  width: 16px;
+  opacity: 0.68;
+}
+
+.conversation-jump-item[data-hover-distance='0'] > span {
+  width: 26px;
+  height: 2px;
+  color: var(--ink);
+  opacity: 1;
+}
+
+.conversation-jump-item:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.conversation-jump-preview {
+  position: absolute;
+  left: 100%;
+  width: max-content;
+  max-width: min(360px, calc(100vw - var(--sidebar-width) - 76px));
+  margin-left: 10px;
+  padding: 7px 10px;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--secondary-surface);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 7px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 12%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 1120px) {
+  .conversation-jump-bar {
+    left: 234px;
+  }
+
+  .conversation-jump-preview {
+    max-width: min(320px, calc(100vw - 302px));
+  }
+}
+
+@media (max-width: 820px) {
+  .conversation-jump-bar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-jump-item > span {
+    transition: none;
+  }
 }
 
 .chat-empty-state {
@@ -3446,7 +3570,7 @@ html.tree-drag-active * {
   justify-content: center;
   gap: 10px;
   width: 100%;
-  min-height: 42px;
+  min-height: 36px;
   padding: 0 12px;
   color: var(--nav-text);
   background: var(--sidebar-surface);
@@ -5664,7 +5788,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 .conversation-history-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .conversation-history-item {
@@ -6740,12 +6864,12 @@ textarea,
 
 .rail-header {
   min-height: 0;
-  padding: 16px 17px;
+  padding: 10px 12px 10px 8px;
   border-color: var(--line);
 }
 
 .rail-scroll {
-  padding: 0 17px 12px;
+  padding: 0 12px 10px 8px;
 }
 
 .rail-scroll-editor {
@@ -7121,8 +7245,8 @@ textarea,
   align-items: stretch;
   gap: 2px;
   width: 100%;
-  min-height: 56px;
-  padding: 10px 50px 10px 14px;
+  min-height: 50px;
+  padding: 8px 46px 8px 12px;
   border: 0;
   border-radius: inherit;
   background: transparent;

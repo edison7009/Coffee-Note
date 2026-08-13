@@ -6482,9 +6482,18 @@ function ConversationView({
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const jumpBarRef = useRef<HTMLElement>(null);
+  const jumpScrollRef = useRef<HTMLDivElement>(null);
+  const lastJumpPointerYRef = useRef<number | null>(null);
   const [textMenu, setTextMenu] = useState<{ x: number; y: number; copyText: string } | null>(null);
+  const [hoveredJumpMessageId, setHoveredJumpMessageId] = useState<string | null>(null);
+  const [jumpPreviewTop, setJumpPreviewTop] = useState(0);
   const renderedConversationRef = useRef('');
   const previousScrollHeightRef = useRef(0);
+  const jumpMessages = useMemo(
+    () => messages.filter((message) => message.role === 'user'),
+    [messages],
+  );
   const hasRunningTool = messages.some(
     (message) => message.role === 'tool_call' && message.toolStatus === 'running',
   );
@@ -6515,6 +6524,64 @@ function ConversationView({
     renderedConversationRef.current = conversationId;
     previousScrollHeightRef.current = scrollContainer.scrollHeight;
   }, [conversationId, messages, busy]);
+
+  const jumpToMessage = (messageId: string) => {
+    const list = messageListRef.current;
+    const scrollContainer = list?.closest<HTMLElement>('.content-scroll');
+    const target = list?.querySelector<HTMLElement>(`[data-jump-message-id="${CSS.escape(messageId)}"]`);
+    if (!scrollContainer || !target) return;
+    const top = target.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top;
+    scrollContainer.scrollTo({
+      top: Math.max(0, scrollContainer.scrollTop + top - 24),
+      behavior: 'smooth',
+    });
+  };
+
+  const closestJumpMessageFromY = (clientY: number) => {
+    const bar = jumpBarRef.current;
+    const items = jumpScrollRef.current?.querySelectorAll<HTMLElement>('.conversation-jump-item');
+    if (!bar || !items || items.length === 0) return null;
+
+    let closestItem: HTMLElement | null = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    items.forEach((item) => {
+      const rect = item.getBoundingClientRect();
+      const distance = Math.abs(clientY - (rect.top + rect.height / 2));
+      if (distance < closestDistance) {
+        closestItem = item;
+        closestDistance = distance;
+      }
+    });
+    if (!closestItem) return null;
+    const rect = (closestItem as HTMLElement).getBoundingClientRect();
+    return {
+      id: (closestItem as HTMLElement).dataset.jumpTargetId || '',
+      top: rect.top + rect.height / 2 - bar.getBoundingClientRect().top,
+    };
+  };
+
+  const updateJumpHover = (clientY: number) => {
+    const closest = closestJumpMessageFromY(clientY);
+    if (!closest?.id) return;
+    setHoveredJumpMessageId(closest.id);
+    setJumpPreviewTop(closest.top);
+  };
+
+  const handleJumpPointerMove = (event: React.MouseEvent<HTMLElement>) => {
+    lastJumpPointerYRef.current = event.clientY;
+    updateJumpHover(event.clientY);
+  };
+
+  const handleJumpRailClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if ((event.target as Element).closest('.conversation-jump-item')) return;
+    const closest = closestJumpMessageFromY(event.clientY);
+    if (closest?.id) jumpToMessage(closest.id);
+  };
+
+  const hoveredJumpIndex = jumpMessages.findIndex(
+    (message) => message.id === hoveredJumpMessageId,
+  );
+  const hoveredJumpMessage = hoveredJumpIndex >= 0 ? jumpMessages[hoveredJumpIndex] : null;
 
   const conversationTextController = useMemo<TextCommandController>(
     () => ({
@@ -6556,6 +6623,78 @@ function ConversationView({
 
   return (
     <div className="page conversation-view" onContextMenu={openConversationTextMenu}>
+      {jumpMessages.length > 1 && (
+        <nav
+          ref={jumpBarRef}
+          className="conversation-jump-bar"
+          aria-label={locale === 'zh' ? '对话快速定位' : 'Conversation navigation'}
+          onMouseMove={handleJumpPointerMove}
+          onMouseLeave={() => {
+            lastJumpPointerYRef.current = null;
+            setHoveredJumpMessageId(null);
+          }}
+        >
+          <div
+            ref={jumpScrollRef}
+            className="conversation-jump-scroll"
+            onClick={handleJumpRailClick}
+            onScroll={() => {
+              if (lastJumpPointerYRef.current !== null) {
+                updateJumpHover(lastJumpPointerYRef.current);
+              }
+            }}
+          >
+            {jumpMessages.map((message, index) => {
+              const hoverDistance = hoveredJumpIndex < 0
+                ? undefined
+                : Math.abs(index - hoveredJumpIndex);
+              return (
+                <button
+                  type="button"
+                  key={message.id}
+                  data-jump-target-id={message.id}
+                  data-hover-distance={
+                    hoverDistance !== undefined && hoverDistance <= 2
+                      ? hoverDistance
+                      : undefined
+                  }
+                  className="conversation-jump-item"
+                  aria-label={
+                    locale === 'zh'
+                      ? `跳转到第 ${index + 1} 轮提问`
+                      : `Jump to question ${index + 1}`
+                  }
+                  aria-describedby={hoveredJumpMessageId === message.id ? 'conversation-jump-preview' : undefined}
+                  onFocus={() => {
+                    const item = jumpScrollRef.current?.querySelector<HTMLElement>(
+                      `[data-jump-target-id="${CSS.escape(message.id)}"]`,
+                    );
+                    const bar = jumpBarRef.current;
+                    if (!item || !bar) return;
+                    const rect = item.getBoundingClientRect();
+                    setHoveredJumpMessageId(message.id);
+                    setJumpPreviewTop(rect.top + rect.height / 2 - bar.getBoundingClientRect().top);
+                  }}
+                  onBlur={() => setHoveredJumpMessageId(null)}
+                  onClick={() => jumpToMessage(message.id)}
+                >
+                  <span aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+          {hoveredJumpMessage && (
+            <div
+              id="conversation-jump-preview"
+              className="conversation-jump-preview"
+              role="tooltip"
+              style={{ top: jumpPreviewTop }}
+            >
+              {hoveredJumpMessage.content.replace(/\s+/g, ' ').trim()}
+            </div>
+          )}
+        </nav>
+      )}
       {messages.length === 0 && (
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
@@ -6726,6 +6865,7 @@ function ConversationView({
               className={`message ${message.role}`}
               key={message.id}
               data-conversation-copy
+              data-jump-message-id={message.role === 'user' ? message.id : undefined}
             >
               <div className="message-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
