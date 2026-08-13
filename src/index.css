@@ -260,6 +260,9 @@ body.resizing-panels * {
 }
 
 .sidebar-status {
+  display: flex;
+  align-items: center;
+  height: 34px;
   color: var(--muted);
   padding: 0;
   background: transparent;
