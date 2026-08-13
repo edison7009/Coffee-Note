@@ -47,6 +47,7 @@ pub struct SkillDefinition {
     source_url: String,
     source_version: Option<String>,
     enabled: bool,
+    builtin: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +63,7 @@ pub struct SkillPlugin {
     skill_count: usize,
     error: Option<String>,
     enabled: bool,
+    builtin: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -98,6 +100,8 @@ struct SkillSourceMeta {
 #[serde(rename_all = "camelCase")]
 struct SkillIndex {
     version: u8,
+    #[serde(default = "default_true")]
+    builtin_media_enabled: bool,
     #[serde(default)]
     custom_categories: Vec<SkillCategory>,
     #[serde(default)]
@@ -166,6 +170,7 @@ fn fixed_categories() -> Vec<SkillCategory> {
 fn empty_index() -> SkillIndex {
     SkillIndex {
         version: INDEX_VERSION,
+        builtin_media_enabled: true,
         custom_categories: Vec::new(),
         sources: BTreeMap::new(),
     }
@@ -635,9 +640,22 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
         source_id: "builtin".into(),
         source_url: String::new(),
         source_version: None,
-        enabled: true,
+        enabled: index.builtin_media_enabled,
+        builtin: true,
     }];
-    let mut plugins = Vec::new();
+    let mut plugins = vec![SkillPlugin {
+        id: BUILTIN_MEDIA_SKILL_ID.into(),
+        name: "媒体转文字".into(),
+        description: "Coffee Note 自带的媒体转文字技能。".into(),
+        version: None,
+        category_id: "media".into(),
+        codex_compatible: true,
+        source_url: String::new(),
+        skill_count: 1,
+        error: None,
+        enabled: index.builtin_media_enabled,
+        builtin: true,
+    }];
     for (source_id, meta) in sources {
         let root = skills_sources_root().join(source_id);
         match discover_package(&root, &meta.source_url) {
@@ -658,6 +676,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                             source_url: meta.source_url.clone(),
                             source_version: package.version.clone(),
                             enabled: meta.enabled,
+                            builtin: false,
                         }),
                 );
                 plugins.push(SkillPlugin {
@@ -671,6 +690,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                     skill_count: package.skills.len(),
                     error: None,
                     enabled: meta.enabled,
+                    builtin: false,
                 });
             }
             Err(error) => plugins.push(SkillPlugin {
@@ -684,6 +704,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                 skill_count: 0,
                 error: Some(error),
                 enabled: meta.enabled,
+                builtin: false,
             }),
         }
     }
@@ -804,6 +825,14 @@ pub fn set_skill_source_enabled(id: String, enabled: bool) -> Result<SkillCatalo
     Ok(catalog_from_index(&index))
 }
 
+#[tauri::command]
+pub fn set_builtin_skill_enabled(enabled: bool) -> Result<SkillCatalog, String> {
+    let mut index = ensure_store()?;
+    index.builtin_media_enabled = enabled;
+    save_index(&index)?;
+    Ok(catalog_from_index(&index))
+}
+
 fn normalize_category_label(label: String) -> Result<String, String> {
     let label = label.trim().to_string();
     if label.is_empty() || label.chars().count() > 24 {
@@ -880,6 +909,9 @@ pub fn delete_skill_category(id: String) -> Result<SkillCatalog, String> {
 
 pub fn load_skill_prompt(id: &str) -> Result<String, String> {
     if id == BUILTIN_MEDIA_SKILL_ID {
+        if !ensure_store()?.builtin_media_enabled {
+            return Err("The built-in media skill is disabled".to_string());
+        }
         return Ok(BUILTIN_MEDIA_SKILL_PROMPT.to_string());
     }
     let index = ensure_store()?;

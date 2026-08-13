@@ -6,6 +6,7 @@ const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'ut
 const apiSource = await readFile(new URL('../src/api.ts', import.meta.url), 'utf8');
 const settingsSource = await readFile(new URL('../src/settings/SkillsSettings.tsx', import.meta.url), 'utf8');
 const cssSource = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+const transcriptionCssSource = await readFile(new URL('../src/transcriptionSettings.css', import.meta.url), 'utf8');
 const rustSource = await readFile(new URL('../src-tauri/src/skills.rs', import.meta.url), 'utf8');
 const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
 
@@ -73,9 +74,24 @@ test('every plugin row exposes read-only metadata with update and delete actions
     /className="skills-row-actions">\s*\{updatedPluginNotice\?\.pluginId === plugin\.id[\s\S]*className="skills-row-notice"[\s\S]*onClick=\{\(\) => void refreshPlugin\(plugin\)\}/,
   );
   assert.match(cssSource, /\.skills-row-notice\s*\{[^}]*text-overflow:\s*ellipsis;/s);
+  assert.match(cssSource, /\.skills-row-icon\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--ink\) 7%, var\(--secondary-surface\)\)/s);
+  assert.match(transcriptionCssSource, /\.transcription-component-mark\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--ink\) 7%, var\(--secondary-surface\)\)/s);
   assert.match(settingsSource, /className="skills-version"/);
   assert.match(settingsSource, /更新中…/);
   assert.match(settingsSource, /<RefreshCw/);
   assert.match(settingsSource, /<Trash2/);
   assert.doesNotMatch(settingsSource, /startEditSkill|updateSkill\(/);
+});
+
+test('built-in media skill is visible, toggleable, and has no source actions', () => {
+  assert.match(apiSource, /setBuiltinSkillEnabled/);
+  assert.match(rustSource, /pub fn set_builtin_skill_enabled/);
+  assert.match(rustSource, /builtin_media_enabled/);
+  assert.match(settingsSource, /plugin\.builtin/);
+  assert.match(settingsSource, /skills-built-in-mark/);
+  assert.match(settingsSource, /id === 'media'.*Media to text/s);
+  assert.match(settingsSource, /Codex兼容.*Codex compatible/s);
+  assert.match(settingsSource, /plugin\.builtin\s*\?\s*setBuiltinSkillEnabled/);
+  assert.match(settingsSource, /!plugin\.builtin/);
+  assert.match(appSource, /captureMediaSkillDisabled/);
 });

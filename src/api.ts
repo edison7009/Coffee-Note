@@ -49,10 +49,44 @@ const fallbackSkillCatalog: SkillCatalog = {
       sourceId: 'builtin',
       sourceUrl: '',
       enabled: true,
+      builtin: true,
     },
   ],
-  plugins: [],
+  plugins: [{
+    id: 'coffee-note-media-transcribe',
+    name: '媒体转文字',
+    description: 'Coffee Note 自带的媒体转文字技能。',
+    categoryId: 'media',
+    codexCompatible: true,
+    sourceUrl: '',
+    skillCount: 1,
+    enabled: true,
+    builtin: true,
+  }],
 };
+
+function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
+  const builtinSkill = catalog.skills.find((skill) => skill.id === 'coffee-note-media-transcribe');
+  const builtinPlugin = catalog.plugins.find((plugin) => plugin.id === 'coffee-note-media-transcribe');
+  const enabled = builtinSkill?.enabled !== false && builtinPlugin?.enabled !== false;
+  const skill = {
+    ...fallbackSkillCatalog.skills[0],
+    ...builtinSkill,
+    enabled,
+    builtin: true,
+  };
+  const plugin = {
+    ...fallbackSkillCatalog.plugins[0],
+    ...builtinPlugin,
+    enabled,
+    builtin: true,
+  };
+  return {
+    ...catalog,
+    skills: [skill, ...catalog.skills.filter((item) => item.id !== skill.id)],
+    plugins: [plugin, ...catalog.plugins.filter((item) => item.id !== plugin.id)],
+  };
+}
 
 function readFallbackSkillCatalog(): SkillCatalog {
   try {
@@ -67,7 +101,7 @@ function readFallbackSkillCatalog(): SkillCatalog {
       ...skill,
       enabled: skill.enabled !== false,
     }));
-    return catalog;
+    return normalizeFallbackSkillCatalog(catalog);
   } catch {
     return structuredClone(fallbackSkillCatalog);
   }
@@ -248,6 +282,19 @@ export async function setSkillSourceEnabled(id: string, enabled: boolean): Promi
     return writeFallbackSkillCatalog(catalog);
   }
   return invoke<SkillCatalog>('set_skill_source_enabled', { id, enabled });
+}
+
+export async function setBuiltinSkillEnabled(enabled: boolean): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const skill = catalog.skills.find((item) => item.id === 'coffee-note-media-transcribe');
+    const plugin = catalog.plugins.find((item) => item.id === 'coffee-note-media-transcribe');
+    if (!skill || !plugin) throw new Error('Built-in media skill not found');
+    skill.enabled = enabled;
+    plugin.enabled = enabled;
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('set_builtin_skill_enabled', { enabled });
 }
 
 export async function createSkillCategory(label: string): Promise<SkillCatalog> {

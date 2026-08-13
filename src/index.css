@@ -4352,6 +4352,22 @@ html.tree-drag-active * {
   border-color: var(--accent-border);
 }
 
+.capture-error p {
+  margin: 0;
+}
+
+.capture-error-action {
+  margin-top: 8px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: default;
+}
+
 .add-material-dialog {
   display: grid;
   grid-template-rows: auto auto;
@@ -7966,7 +7982,7 @@ textarea,
   place-items: center;
   overflow: hidden;
   color: var(--muted);
-  background: var(--tertiary-surface);
+  background: color-mix(in srgb, var(--ink) 7%, var(--secondary-surface));
   border-radius: 7px;
 }
 
@@ -8008,16 +8024,6 @@ textarea,
 
 .skills-row-copy p.skills-row-error {
   color: #b44943;
-}
-
-.skills-codex-mark {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 550;
 }
 
 .skills-version {
@@ -8285,6 +8291,19 @@ textarea,
 .settings-add-provider:focus-visible {
   color: var(--ink);
   background: var(--accent-soft);
+}
+
+.skills-built-in-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 20px;
+  padding: 0 6px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .settings-custom-provider-form {

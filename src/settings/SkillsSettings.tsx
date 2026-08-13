@@ -1,4 +1,4 @@
-import { Box, Check, Pencil, Plus, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   addSkillSource,
@@ -8,6 +8,7 @@ import {
   moveSkillSource,
   renameSkillCategory,
   setSkillSourceEnabled,
+  setBuiltinSkillEnabled,
   updateSkillFromSource,
 } from '../api';
 import { SettingsSelect } from './SettingsSelect';
@@ -36,7 +37,18 @@ function categoryLabel(id: string, fallback: string, locale: Locale) {
   if (id === 'copywriting') return 'Copywriting';
   if (id === 'ppt') return 'Presentations';
   if (id === 'video') return 'Video';
+  if (id === 'media') return 'Media to text';
   return fallback;
+}
+
+function pluginName(plugin: SkillPlugin, locale: Locale) {
+  if (plugin.builtin && locale === 'en') return 'Media to text';
+  return plugin.name;
+}
+
+function pluginDescription(plugin: SkillPlugin, locale: Locale) {
+  if (plugin.builtin && locale === 'en') return 'Coffee Note built-in media transcription skill.';
+  return plugin.description;
 }
 
 export function SkillsSettings({
@@ -150,7 +162,9 @@ export function SkillsSettings({
     setActionNotice('');
     setUpdatedPluginNotice(null);
     try {
-      onCatalogChange(await setSkillSourceEnabled(plugin.id, !plugin.enabled));
+      onCatalogChange(await (plugin.builtin
+        ? setBuiltinSkillEnabled(!plugin.enabled)
+        : setSkillSourceEnabled(plugin.id, !plugin.enabled)));
     } catch (nextError) {
       setActionError(String(nextError));
     }
@@ -400,11 +414,12 @@ export function SkillsSettings({
                 </div>
                 <div className="skills-row-copy">
                   <div>
-                    <strong>{plugin.name}</strong>
-                    {plugin.codexCompatible && <span className="skills-codex-mark"><Box size={13} />Codex</span>}
+                    <strong>{pluginName(plugin, locale)}</strong>
+                    {plugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '内置' : 'Built-in'}</span>}
+                    {plugin.codexCompatible && <span className="skills-built-in-mark">{locale === 'zh' ? 'Codex兼容' : 'Codex compatible'}</span>}
                     {plugin.version && <span className="skills-version">{plugin.version}</span>}
                   </div>
-                  <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || plugin.description}</p>
+                  <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || pluginDescription(plugin, locale)}</p>
                 </div>
                 <div className="skills-row-actions">
                   {updatedPluginNotice?.pluginId === plugin.id && (
@@ -424,35 +439,37 @@ export function SkillsSettings({
                   >
                     <span aria-hidden="true" />
                   </button>
-                  <button
-                    type="button"
-                    disabled={updatingPluginId !== null}
-                    aria-label={locale === 'zh' ? `编辑插件 ${plugin.name}` : `Edit plugin ${plugin.name}`}
-                    onClick={() => startEditPlugin(plugin)}
-                  >
-                    <Pencil size={15} />
-                    {locale === 'zh' ? '编辑' : 'Edit'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={updatingPluginId !== null}
-                    aria-label={locale === 'zh' ? `更新插件 ${plugin.name}` : `Update plugin ${plugin.name}`}
-                    onClick={() => void refreshPlugin(plugin)}
-                  >
-                    <RefreshCw className={updatingPluginId === plugin.id ? 'is-spinning' : ''} size={15} />
-                    {updatingPluginId === plugin.id
-                      ? (locale === 'zh' ? '更新中…' : 'Updating…')
-                      : (locale === 'zh' ? '更新' : 'Update')}
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    aria-label={locale === 'zh' ? `移除插件 ${plugin.name}` : `Remove plugin ${plugin.name}`}
-                    onClick={() => void removePlugin(plugin)}
-                  >
-                    <Trash2 size={15} />
-                    {locale === 'zh' ? '删除' : 'Delete'}
-                  </button>
+                  {!plugin.builtin && <>
+                    <button
+                      type="button"
+                      disabled={updatingPluginId !== null}
+                      aria-label={locale === 'zh' ? `编辑插件 ${plugin.name}` : `Edit plugin ${plugin.name}`}
+                      onClick={() => startEditPlugin(plugin)}
+                    >
+                      <Pencil size={15} />
+                      {locale === 'zh' ? '编辑' : 'Edit'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingPluginId !== null}
+                      aria-label={locale === 'zh' ? `更新插件 ${plugin.name}` : `Update plugin ${plugin.name}`}
+                      onClick={() => void refreshPlugin(plugin)}
+                    >
+                      <RefreshCw className={updatingPluginId === plugin.id ? 'is-spinning' : ''} size={15} />
+                      {updatingPluginId === plugin.id
+                        ? (locale === 'zh' ? '更新中…' : 'Updating…')
+                        : (locale === 'zh' ? '更新' : 'Update')}
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      aria-label={locale === 'zh' ? `移除插件 ${plugin.name}` : `Remove plugin ${plugin.name}`}
+                      onClick={() => void removePlugin(plugin)}
+                    >
+                      <Trash2 size={15} />
+                      {locale === 'zh' ? '删除' : 'Delete'}
+                    </button>
+                  </>}
                 </div>
               </div>
               {isEditing && (

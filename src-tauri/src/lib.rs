@@ -3451,6 +3451,7 @@ pub fn run() {
             skills::delete_skill_source,
             skills::move_skill_source,
             skills::set_skill_source_enabled,
+            skills::set_builtin_skill_enabled,
             skills::create_skill_category,
             skills::rename_skill_category,
             skills::delete_skill_category,

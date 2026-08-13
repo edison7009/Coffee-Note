@@ -380,7 +380,7 @@
   height: 32px;
   place-items: center;
   color: var(--muted);
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  background: color-mix(in srgb, var(--ink) 7%, var(--secondary-surface));
   border-radius: 7px;
 }
 

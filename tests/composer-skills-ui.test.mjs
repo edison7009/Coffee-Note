@@ -17,8 +17,8 @@ test('composer exposes the catalog-backed skill picker and selected skill pill',
 
 test('skill categories reveal name and description entries on hover', () => {
   assert.match(appSource, /onMouseEnter=\{\(\) => \{[^}]*setActiveSkillGroupId\(group\.id\)/s);
-  assert.match(appSource, /<strong>\{skill\.title\}<\/strong>/);
-  assert.match(appSource, /<small>\{skill\.description\}<\/small>/);
+  assert.match(appSource, /skillTitle\(skill, locale\)/);
+  assert.match(appSource, /skillDescription\(skill, locale\)/);
   assert.match(appSource, /style=\{\{ bottom: `calc\(100% - \$\{42 \+ activeSkillGroupIndex \* 36\}px\)` \}\}/);
   assert.match(cssSource, /\.composer-skill-popover\s*\{[^}]*bottom:\s*calc\(100% \+ 8px\)/s);
   assert.match(cssSource, /\.composer-skill-trigger\.open \.composer-skill-icon\s*\{[^}]*transform:\s*rotate\(45deg\)/s);

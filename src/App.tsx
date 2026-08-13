@@ -215,6 +215,16 @@ const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
 const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 
+function skillTitle(skill: SkillDefinition, locale: Locale) {
+  if (skill.builtin && locale === 'en') return 'Media to text';
+  return skill.title;
+}
+
+function skillDescription(skill: SkillDefinition, locale: Locale) {
+  if (skill.builtin && locale === 'en') return 'Transcribe media links or local files into notes.';
+  return skill.description;
+}
+
 type ConversationUsage = LlmUsage & { requestCount: number };
 
 const EMPTY_USAGE: ConversationUsage = {
@@ -2474,6 +2484,9 @@ function App() {
     transcriptionMode: 'api' | 'local',
   ) => {
     if (chatBusy) return;
+    if (skillCatalog.skills.find((skill) => skill.id === BUILTIN_MEDIA_SKILL_ID)?.enabled === false) {
+      throw new Error(t('captureMediaSkillDisabled'));
+    }
 
     if (activeConversationId) {
       await persistConversationMessages(activeConversationId, chatMessages);
@@ -3383,6 +3396,12 @@ function App() {
         <CaptureGuideDialog
           locale={locale}
           config={modelConfig}
+          mediaSkillEnabled={skillCatalog.skills.find((skill) => skill.id === BUILTIN_MEDIA_SKILL_ID)?.enabled !== false}
+          onOpenSkillSettings={() => {
+            setCaptureGuideOpen(false);
+            setSettingsSection('skills');
+            setSettingsOpen(true);
+          }}
           onClose={() => setCaptureGuideOpen(false)}
           onSendToChat={startCaptureConversation}
           t={t}
@@ -7336,8 +7355,8 @@ function ChatComposer({
                         key={skill.id}
                         onClick={() => chooseSkill(skill)}
                       >
-                        <strong>{skill.title}</strong>
-                        <small>{skill.description}</small>
+                        <strong>{skillTitle(skill, locale)}</strong>
+                        <small>{skillDescription(skill, locale)}</small>
                       </button>
                     ))}
                     {activeSkills.length === 0 && (
@@ -8907,12 +8926,16 @@ function CaptureGuideDialog({
   config,
   onClose,
   onSendToChat,
+  mediaSkillEnabled,
+  onOpenSkillSettings,
   t,
 }: {
   locale: Locale;
   config: ModelConfig;
   onClose: () => void;
   onSendToChat: (input: string, transcriptionMode: 'api' | 'local') => Promise<void>;
+  mediaSkillEnabled: boolean;
+  onOpenSkillSettings: () => void;
   t: (key: TranslationKey) => string;
 }) {
   const [source, setSource] = useState('');
@@ -8936,6 +8959,10 @@ function CaptureGuideDialog({
       )
     ) {
       setError(t('captureNeedsModel'));
+      return;
+    }
+    if (!mediaSkillEnabled) {
+      setError(t('captureMediaSkillDisabled'));
       return;
     }
 
@@ -9009,9 +9036,14 @@ function CaptureGuideDialog({
           </fieldset>
 
           {error && (
-            <p className="capture-error" role="alert">
-              {error}
-            </p>
+            <div className="capture-error" role="alert">
+              <p>{error}</p>
+              {!mediaSkillEnabled && (
+                <button type="button" className="capture-error-action" onClick={onOpenSkillSettings}>
+                  {t('captureOpenSkillSettings')}
+                </button>
+              )}
+            </div>
           )}
 
           <div className="capture-guide-actions">
