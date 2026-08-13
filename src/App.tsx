@@ -3098,6 +3098,10 @@ function App() {
           setSettingsSection('appearance');
           setSettingsOpen(true);
         }}
+        onOpenMessages={() => {
+          setSettingsSection('messages');
+          setSettingsOpen(true);
+        }}
         refreshToken={treeRefresh}
         notify={(message) => setToast({ message, kind: 'status' })}
         t={t}
@@ -5186,6 +5190,7 @@ interface SidebarProps {
   onLibraryChanged: () => void;
   onSwitchRoot: () => void;
   onSettings: () => void;
+  onOpenMessages: () => void;
   refreshToken: number;
   notify: (message: string) => void;
   t: (key: TranslationKey) => string;
@@ -5209,6 +5214,7 @@ function Sidebar({
   onLibraryChanged,
   onSwitchRoot,
   onSettings,
+  onOpenMessages,
   refreshToken,
   notify,
   t,
@@ -5276,9 +5282,9 @@ function Sidebar({
         </nav>
       </div>
       <div className="sidebar-footer">
-        <span className="sidebar-status">
+        <button type="button" className="sidebar-status" onClick={onOpenMessages}>
           {locale === 'zh' ? '尚未连接微信' : 'Not connected to WeChat'}
-        </span>
+        </button>
         <button
           type="button"
           className="sidebar-settings-entry"
