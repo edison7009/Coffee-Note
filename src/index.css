@@ -7506,7 +7506,7 @@ textarea,
 [data-theme='dark'] .settings-page .currency-switch button {
   min-height: 40px;
   color: var(--muted);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   font-size: 14px;
@@ -7518,7 +7518,7 @@ textarea,
 .settings-page .theme-switch button:hover,
 .settings-page .currency-switch button:hover {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .settings-page .provider-grid button.active,
@@ -7530,7 +7530,7 @@ textarea,
 [data-theme='dark'] .settings-page .theme-switch button.active,
 [data-theme='dark'] .settings-page .currency-switch button.active {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
   border-color: color-mix(in srgb, var(--ink) 28%, var(--line));
 }
 
@@ -7602,7 +7602,7 @@ textarea,
   min-height: 42px;
   padding: 9px 11px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   font-size: 14px;
@@ -8270,7 +8270,7 @@ textarea,
 .settings-add-provider:hover,
 .settings-add-provider:focus-visible {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .settings-custom-provider-form {
@@ -8286,7 +8286,7 @@ textarea,
   height: 36px;
   padding: 0 8px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   outline: 0;
@@ -8312,7 +8312,7 @@ textarea,
 .settings-custom-provider-form button:hover:not(:disabled),
 .settings-custom-provider-form button:focus-visible {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .settings-search-field {
@@ -8323,7 +8323,7 @@ textarea,
   min-height: 36px;
   padding: 0 9px;
   color: var(--muted);
-  background: var(--paper);
+  background: var(--secondary-surface);
   border: 1px solid var(--line);
   border-radius: 7px;
 }
@@ -8393,7 +8393,7 @@ textarea,
 .settings-provider-list button:hover,
 .settings-provider-list button.active {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .settings-provider-list .provider-mark,
