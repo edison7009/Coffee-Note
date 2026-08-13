@@ -45,6 +45,15 @@ test('home row action uses the existing compact neutral icon treatment', () => {
   );
 });
 
+test('home row places library search immediately before the folder action', () => {
+  assert.match(
+    appSource,
+    /<div className="nav-home-actions">[\s\S]*?className="nav-search-library"[\s\S]*?<Search size=\{17\} \/>[\s\S]*?className="nav-switch-root"[\s\S]*?<Folder size=\{17\} \/>/s,
+  );
+  assert.match(appSource, /onSearchLibrary=\{\(\) => setLibrarySearchOpen\(true\)\}/);
+  assert.doesNotMatch(appSource, /className="nav-search-library"[^>]*\stitle=/s);
+});
+
 test('sidebar footer fades the navigation into the fixed status area', () => {
   assert.match(css, /\.sidebar-footer\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;[^}]*padding:\s*3px 10px 10px;/s);
   assert.match(css, /\.sidebar-footer::before\s*\{[^}]*bottom:\s*100%;[^}]*height:\s*28px;[^}]*linear-gradient\(to bottom, transparent, var\(--sidebar-surface\)\)/s);

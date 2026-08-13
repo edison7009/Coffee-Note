@@ -1604,6 +1604,7 @@ function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('appearance');
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
+  const [librarySearchOpen, setLibrarySearchOpen] = useState(false);
   const [treeRefresh, setTreeRefresh] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSaveSnapshotRef = useRef<{ id: string; json: string } | null>(null);
@@ -3082,6 +3083,7 @@ function App() {
         onToggleContextNote={toggleContextNote}
         onLibraryChanged={handleSidebarLibraryChanged}
         onSwitchRoot={handleSwitchRoot}
+        onSearchLibrary={() => setLibrarySearchOpen(true)}
         onSettings={() => {
           setSettingsSection('appearance');
           setSettingsOpen(true);
@@ -3372,6 +3374,18 @@ function App() {
           t={t}
           onClose={() => setAddMaterialOpen(false)}
           onCreate={handleCreateMaterial}
+        />
+      )}
+
+      {librarySearchOpen && (
+        <LibrarySearchDialog
+          root={normalizedKnowledgeRoot || library.root}
+          locale={locale}
+          onClose={() => setLibrarySearchOpen(false)}
+          onOpenFile={(relativePath) => {
+            setLibrarySearchOpen(false);
+            openFileNote(relativePath, true, 'library');
+          }}
         />
       )}
 
@@ -5184,6 +5198,7 @@ interface SidebarProps {
   onToggleContextNote: (relativePath: string, title: string) => void;
   onLibraryChanged: () => void;
   onSwitchRoot: () => void;
+  onSearchLibrary: () => void;
   onSettings: () => void;
   onOpenMessages: () => void;
   refreshToken: number;
@@ -5207,6 +5222,7 @@ function Sidebar({
   onToggleContextNote,
   onLibraryChanged,
   onSwitchRoot,
+  onSearchLibrary,
   onSettings,
   onOpenMessages,
   refreshToken,
@@ -5224,14 +5240,24 @@ function Sidebar({
               active={view === 'home'}
               onClick={() => onNavigate('home')}
             />
-            <button
-              type="button"
-              className="nav-switch-root"
-              onClick={onSwitchRoot}
-              aria-label={t('menuSwitchRoot')}
-            >
-              <Folder size={17} />
-            </button>
+            <div className="nav-home-actions">
+              <button
+                type="button"
+                className="nav-search-library"
+                onClick={onSearchLibrary}
+                aria-label={locale === 'zh' ? '搜索资料库' : 'Search library'}
+              >
+                <Search size={17} />
+              </button>
+              <button
+                type="button"
+                className="nav-switch-root"
+                onClick={onSwitchRoot}
+                aria-label={t('menuSwitchRoot')}
+              >
+                <Folder size={17} />
+              </button>
+            </div>
           </div>
           <div className={`nav-chat-row ${view === 'ai' ? 'active' : ''}`}>
             <SidebarButton
@@ -5391,6 +5417,234 @@ function TextInputContextMenu({ locale }: { locale: Locale }) {
       controller={controller}
       onClose={() => setMenu(null)}
     />
+  );
+}
+
+interface LibrarySearchDocument {
+  relativePath: string;
+  name: string;
+  title: string;
+  content: string;
+}
+
+function searchDocumentTitle(name: string, content: string): string {
+  const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return heading || name.replace(/\.md$/i, '');
+}
+
+function searchResultSnippet(content: string, query: string): string {
+  const plain = content
+    .replace(/^---[\s\S]*?---\s*/m, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#>*_`\[\]()|~-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!plain) return '';
+  const index = plain.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
+  const start = Math.max(0, index < 0 ? 0 : index - 34);
+  const excerpt = plain.slice(start, start + 116).trim();
+  return `${start > 0 ? '…' : ''}${excerpt}${start + 116 < plain.length ? '…' : ''}`;
+}
+
+function searchResultDirectory(relativePath: string): string {
+  const parts = relativePath.split('/');
+  return parts.length > 1 ? parts.slice(0, -1).join(' / ') : '';
+}
+
+async function collectLibraryMarkdownFiles(root: string): Promise<DirectoryEntry[]> {
+  const files: DirectoryEntry[] = [];
+  const queue = [''];
+  const visited = new Set<string>();
+  while (queue.length > 0 && files.length < 2000) {
+    const directory = queue.shift() || '';
+    if (visited.has(directory)) continue;
+    visited.add(directory);
+    let entries: DirectoryEntry[] = [];
+    try {
+      entries = await listDirectory(root, directory);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isDir) {
+        if (!directory && HIDDEN_ROOT_FOLDERS.has(entry.name)) continue;
+        queue.push(entry.relativePath);
+      } else if (entry.isMarkdown) {
+        files.push(entry);
+      }
+    }
+  }
+  return files;
+}
+
+function LibrarySearchDialog({
+  root,
+  locale,
+  onClose,
+  onOpenFile,
+}: {
+  root: string;
+  locale: Locale;
+  onClose: () => void;
+  onOpenFile: (relativePath: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [documents, setDocuments] = useState<LibrarySearchDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const resultsScrollRef = useAutoHideScrollbar<HTMLDivElement>();
+
+  useEffect(() => {
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDocuments([]);
+    setLoading(true);
+    setError('');
+    void collectLibraryMarkdownFiles(root)
+      .then(async (files) => {
+        if (cancelled) return;
+        let indexed = files.map((file) => ({
+          relativePath: file.relativePath,
+          name: file.name,
+          title: file.name.replace(/\.md$/i, ''),
+          content: '',
+        }));
+        setDocuments(indexed);
+        for (let start = 0; start < files.length; start += 8) {
+          const batch = files.slice(start, start + 8);
+          const loaded = await Promise.all(batch.map(async (file) => {
+            try {
+              const content = await readNote(root, file.relativePath);
+              return {
+                relativePath: file.relativePath,
+                name: file.name,
+                title: searchDocumentTitle(file.name, content),
+                content,
+              };
+            } catch {
+              return null;
+            }
+          }));
+          if (cancelled) return;
+          const updates = new Map(
+            loaded.filter((item): item is LibrarySearchDocument => item !== null)
+              .map((item) => [item.relativePath, item]),
+          );
+          indexed = indexed.map((item) => updates.get(item.relativePath) || item);
+          setDocuments(indexed);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(locale === 'zh' ? '无法读取当前资料库。' : 'Could not read the current library.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, root]);
+
+  const results = useMemo(() => {
+    const clean = query.trim().toLocaleLowerCase();
+    if (!clean) return documents.slice(0, 80);
+    return documents
+      .map((document) => {
+        const title = document.title.toLocaleLowerCase();
+        const path = document.relativePath.toLocaleLowerCase();
+        const body = document.content.toLocaleLowerCase();
+        const score = title === clean ? 0 : title.includes(clean) ? 1 : path.includes(clean) ? 2 : body.includes(clean) ? 3 : -1;
+        return { document, score };
+      })
+      .filter((item) => item.score >= 0)
+      .sort((left, right) => left.score - right.score || left.document.title.localeCompare(right.document.title))
+      .slice(0, 80)
+      .map((item) => item.document);
+  }, [documents, query]);
+
+  return createPortal(
+    <div className="modal-backdrop library-search-backdrop" onMouseDown={onClose}>
+      <section
+        className="library-search-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="library-search-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="library-search-input-wrap">
+          <Search size={18} aria-hidden="true" />
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={locale === 'zh' ? '搜索当前资料库' : 'Search current library'}
+            aria-label={locale === 'zh' ? '搜索当前资料库' : 'Search current library'}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label={locale === 'zh' ? '清空搜索' : 'Clear search'}
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <h2 id="library-search-title" className="library-search-heading">
+          {query.trim()
+            ? locale === 'zh' ? `搜索结果 · ${results.length}` : `Results · ${results.length}`
+            : locale === 'zh' ? '资料库笔记' : 'Library notes'}
+        </h2>
+        <div ref={resultsScrollRef} className="library-search-results auto-hide-scrollbar">
+          {results.map((document) => (
+            <button
+              type="button"
+              className={`library-search-result${query.trim() ? ' has-query' : ''}`}
+              key={document.relativePath}
+              onClick={() => onOpenFile(document.relativePath)}
+            >
+              <FileText size={16} />
+              <span>
+                <strong>{document.title}</strong>
+                {query.trim() && (
+                  <small>{searchResultSnippet(document.content, query.trim()) || document.relativePath}</small>
+                )}
+              </span>
+              {searchResultDirectory(document.relativePath) && (
+                <span className="library-search-result-directory">
+                  {searchResultDirectory(document.relativePath)}
+                </span>
+              )}
+            </button>
+          ))}
+          {loading && (
+            <div className="library-search-state">
+              <LoaderCircle className="spin" size={18} />
+              <span>{locale === 'zh' ? '正在读取本地笔记…' : 'Reading local notes…'}</span>
+            </div>
+          )}
+          {!loading && !error && results.length === 0 && (
+            <div className="library-search-state">
+              {locale === 'zh' ? '没有找到匹配的笔记。' : 'No matching notes found.'}
+            </div>
+          )}
+          {error && <div className="library-search-state error">{error}</div>}
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
