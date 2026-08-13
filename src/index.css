@@ -3395,7 +3395,7 @@ html.tree-drag-active * {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
@@ -6672,14 +6672,29 @@ textarea,
 
 .rail-resume-chat,
 [data-theme='dark'] .rail-resume-chat {
+  background: var(--sidebar-surface);
+}
+
+.rail-resume-chat {
+  color: #4c4c50;
+}
+
+[data-theme='dark'] .rail-resume-chat {
   color: #b3b7b5;
   background: var(--sidebar-surface);
 }
 
 .rail-resume-chat:hover:not(:disabled),
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  color: #b3b7b5;
   background: var(--sidebar-surface);
+}
+
+.rail-resume-chat:hover:not(:disabled) {
+  color: #4c4c50;
+}
+
+[data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
+  color: #b3b7b5;
 }
 
 .rail-scroll {
