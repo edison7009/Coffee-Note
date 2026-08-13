@@ -87,3 +87,10 @@ test('provider model lists fully expand without an inner scroller or result cap'
   assert.doesNotMatch(modelListRule, /max-height|overflow-y|scrollbar/);
   assert.doesNotMatch(appSource, /\.slice\(0,\s*100\)/);
 });
+
+test('model settings do not expose the legacy web reader provider panel', () => {
+  assert.doesNotMatch(appSource, /function WebReaderSettingsSection/);
+  assert.doesNotMatch(appSource, /settings\.webReader/);
+  assert.doesNotMatch(appSource, /网页读取|Web reader|Firecrawl|Jina Reader/);
+  assert.doesNotMatch(styles, /\.settings-web-reader|\.settings-reader-switch|\.settings-reader-fields/);
+});

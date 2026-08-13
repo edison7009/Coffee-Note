@@ -10,4 +10,5 @@ test('composer placeholder stays concise and visually quieter than entered text'
   assert.match(i18n, /askPlaceholder: 'Write a thought, or let AI organize it…'/);
   assert.match(styles, /\.composer textarea\s*\{[^}]*font-size:\s*14px/s);
   assert.match(styles, /\.composer textarea::placeholder\s*\{[^}]*font-size:\s*13px/s);
+  assert.match(styles, /\.composer-wrap::before\s*\{[^}]*top:\s*-30px;[^}]*height:\s*30px;[^}]*linear-gradient\(to bottom, transparent, var\(--canvas\)\)/s);
 });

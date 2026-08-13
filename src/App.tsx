@@ -16,7 +16,6 @@ import {
   Hash,
   House,
   Layers3,
-  Library,
   ListChecks,
   LoaderCircle,
   MessageCircleMore,
@@ -118,7 +117,6 @@ import {
   chooseImportFile,
   sendAgentMessage,
   listenAgentEvents,
-  resetAgent,
   abortAgent,
   listConversations,
   loadConversation,
@@ -167,8 +165,6 @@ import type {
   PriorityNote,
   ProviderConfig,
   ReasoningEffort,
-  WebReaderProvider,
-  WebReaderSettings,
   SkillCatalog,
   SkillDefinition,
   Story,
@@ -671,17 +667,6 @@ function sanitizeConversationMessages(messages: readonly ChatMessage[]): ChatMes
         : { ...message, content: withoutReasoning.trimStart() };
     })
     .filter((message) => message.role !== 'assistant' || message.content.trim().length > 0);
-}
-
-function getLinks(markdown: string): Array<{ label: string; url: string }> {
-  const links: Array<{ label: string; url: string }> = [];
-  const pattern = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
-  for (const match of markdown.matchAll(pattern)) {
-    if (!links.some((link) => link.url === match[2])) {
-      links.push({ label: match[1], url: match[2] });
-    }
-  }
-  return links.slice(0, 8);
 }
 
 type InternalNoteKind = 'person' | 'story' | 'file';
@@ -1536,7 +1521,6 @@ function App() {
   const [view, setView] = useState<View>('home');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-  const [activePlanSection, setActivePlanSection] = useState<PlanSection>('supplements');
   const [myInfoRetrieval, setMyInfoRetrieval] = useState<MyInfoRetrievalState>(() =>
     parseMyInfoRetrieval(readStorageValue(MY_INFO_RETRIEVAL_KEY)),
   );
@@ -2076,19 +2060,6 @@ function App() {
     noteSummaryKey,
     noteSummaryPreview,
   ]);
-  const currentNoteTarget = useMemo<Omit<InternalNoteTarget, 'label'> | null>(() => {
-    if (view === 'person' && selectedPerson) {
-      return { kind: 'person', id: selectedPerson.id };
-    }
-    if (view === 'story' && selectedStory) {
-      return { kind: 'story', id: selectedStory.id };
-    }
-    if (view === 'file' && fileNotePath) {
-      return { kind: 'file', id: fileNotePath };
-    }
-    return null;
-  }, [view, selectedPerson, selectedStory, fileNotePath]);
-
   useEffect(() => {
     if (!railEditorTarget) return;
     if (!noteRelativePath || railEditorTarget.relativePath !== noteRelativePath) {
@@ -2217,7 +2188,6 @@ function App() {
     const source = view === 'file' ? fileNoteSourceRef.current : 'library';
     const root =
       source === 'myInfo' ? library.myInfoRoot : libraryRootRef.current || library.root;
-    const target = currentNoteTarget;
     const generation = libraryGenerationRef.current;
     try {
       await deleteNote(root, relativePath);
@@ -2434,7 +2404,6 @@ function App() {
   };
 
   const openPlanSection = (section: PlanSection) => {
-    setActivePlanSection(section);
     if (section === 'log') {
       navigate('log');
       return;
@@ -2517,14 +2486,6 @@ function App() {
     conversationSaveSnapshotRef.current = { id: summary.id, json: '[]' };
     setActiveConversationId(summary.id);
     return summary.id;
-  };
-
-  const refreshConversationSummaries = async () => {
-    try {
-      setConversationSummaries(await listConversations());
-    } catch {
-      // Conversation history can recover on the next successful save/load.
-    }
   };
 
   const titleFromMessages = (messages: readonly ChatMessage[]) => {
@@ -3032,7 +2993,6 @@ function App() {
     saveModelConfig({ ...modelSettings, reasoningEffort });
   };
 
-  const references = useMemo(() => getLinks(noteMarkdown), [noteMarkdown]);
   const internalNoteTargets = useMemo<InternalNoteTarget[]>(() => {
     const targets: InternalNoteTarget[] = [];
     const add = (kind: InternalNoteKind, id: string, labels: Array<string | undefined>) => {
@@ -3108,7 +3068,6 @@ function App() {
         <>
       <Sidebar
         locale={locale}
-        library={library}
         view={view}
         libraryRoot={normalizedKnowledgeRoot || library.root}
         activeFilePath={view === 'file' ? fileNotePath : null}
@@ -3385,7 +3344,6 @@ function App() {
         onRegisterEditorCommands={(controller) => {
           editorTextCommandsRef.current = controller;
         }}
-        library={library}
         onNewChat={handleNewChat}
         t={t}
       />
@@ -3416,6 +3374,8 @@ function App() {
           onCreate={handleCreateMaterial}
         />
       )}
+
+      <TextInputContextMenu locale={locale} />
 
       {toast && (
         <div className={`toast ${toast.kind}`} role="status" aria-live="polite">
@@ -3493,6 +3453,7 @@ function PaneResizer({
 type TitlebarMenu = 'file' | 'edit' | 'help';
 type TextCommand = 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'delete' | 'selectAll';
 type TextCommandSurface = 'none' | 'editor' | 'reader';
+type TextInputElement = HTMLInputElement | HTMLTextAreaElement;
 
 interface TextCommandController {
   canRun: (command: TextCommand) => boolean;
@@ -4412,6 +4373,7 @@ function LibraryTree({
   refreshToken: number;
   notify: (message: string) => void;
 }) {
+  const libraryLabel = directoryDisplayName(root) || root;
   const [entriesByDir, setEntriesByDir] = useState<Record<string, DirectoryEntry[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
@@ -5108,11 +5070,11 @@ function LibraryTree({
       <div
         className={`library-root-row ${dropTarget?.relativePath === '' ? 'drop-inside' : ''}`}
         data-tree-root
-        onContextMenu={(event) => openContextMenu(event, 'folder', '', t('treeRoot'))}
+        onContextMenu={(event) => openContextMenu(event, 'folder', '', libraryLabel)}
       >
         <span className="library-root-label">
           <FolderOpen size={17} />
-          <span>{t('treeRoot')}</span>
+          <span>{libraryLabel}</span>
         </span>
         <div className="library-root-actions">
           <button
@@ -5209,7 +5171,6 @@ function LibraryTree({
 
 interface SidebarProps {
   locale: Locale;
-  library: LibrarySnapshot;
   view: View;
   libraryRoot: string;
   activeFilePath: string | null;
@@ -5233,7 +5194,6 @@ interface SidebarProps {
 
 function Sidebar({
   locale,
-  library,
   view,
   libraryRoot,
   activeFilePath,
@@ -5333,6 +5293,111 @@ function Sidebar({
       </div>
     </aside>
   );
+}
+
+const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'email', 'tel', 'password']);
+
+function isTextInputElement(target: EventTarget | null): target is TextInputElement {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (!(target instanceof HTMLInputElement)) return false;
+  return TEXT_INPUT_TYPES.has(target.type);
+}
+
+function setTextInputValue(input: TextInputElement, value: string): void {
+  const prototype = input instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+  descriptor?.set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function replaceTextInputSelection(input: TextInputElement, text: string, from?: number, to?: number): void {
+  input.focus();
+  const start = from ?? input.selectionStart ?? 0;
+  const end = to ?? input.selectionEnd ?? start;
+  input.setSelectionRange(start, end);
+  if (document.execCommand('insertText', false, text)) return;
+
+  const nextValue = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
+  setTextInputValue(input, nextValue);
+  const nextCaret = start + text.length;
+  window.requestAnimationFrame(() => input.setSelectionRange(nextCaret, nextCaret));
+}
+
+function TextInputContextMenu({ locale }: { locale: Locale }) {
+  const [menu, setMenu] = useState<{ x: number; y: number; input: TextInputElement } | null>(null);
+
+  useEffect(() => {
+    const open = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      const input = event.target;
+      if (!isTextInputElement(input) || input.disabled) return;
+      event.preventDefault();
+      input.focus();
+      setMenu({ x: event.clientX, y: event.clientY, input });
+    };
+    document.addEventListener('contextmenu', open);
+    return () => document.removeEventListener('contextmenu', open);
+  }, []);
+
+  if (!menu) return null;
+  const { input } = menu;
+  const hasSelection = (input.selectionEnd ?? 0) > (input.selectionStart ?? 0);
+  const canEdit = !input.readOnly;
+  const controller: TextCommandController = {
+    canRun: (command) => {
+      if (command === 'copy' || command === 'cut') return hasSelection && (command === 'copy' || canEdit);
+      if (command === 'paste' || command === 'delete' || command === 'undo' || command === 'redo') return canEdit;
+      if (command === 'selectAll') return input.value.length > 0;
+      return false;
+    },
+    run: async (command) => {
+      input.focus();
+      if (command === 'undo' || command === 'redo') {
+        document.execCommand(command);
+        return;
+      }
+      if (command === 'selectAll') {
+        input.setSelectionRange(0, input.value.length);
+        return;
+      }
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? start;
+      const selectedText = input.value.slice(start, end);
+      if (command === 'copy' || command === 'cut') {
+        if (!selectedText) return;
+        await writeClipboardText(selectedText);
+        if (command === 'cut') replaceTextInputSelection(input, '', start, end);
+        return;
+      }
+      if (command === 'paste') {
+        const text = await readClipboardText();
+        if (text) replaceTextInputSelection(input, text, start, end);
+        return;
+      }
+      if (command === 'delete') {
+        replaceTextInputSelection(input, '', start, end > start ? end : Math.min(start + 1, input.value.length));
+      }
+    },
+  };
+
+  return (
+    <TextCommandMenu
+      x={menu.x}
+      y={menu.y}
+      locale={locale}
+      commands={EDITOR_TEXT_COMMANDS}
+      controller={controller}
+      onClose={() => setMenu(null)}
+    />
+  );
+}
+
+function directoryDisplayName(root: string): string {
+  const normalized = root.trim().replace(/[\\/]+$/, '');
+  if (!normalized) return '';
+  return normalized.split(/[\\/]/).filter(Boolean).at(-1) || normalized;
 }
 
 function SidebarButton({
@@ -7610,7 +7675,6 @@ function RightRail({
   activeConversationId,
   unreadConversationIds,
   chatBusy,
-  library,
   onNewChat,
   onSelectConversation,
   onRenameConversation,
@@ -7628,7 +7692,6 @@ function RightRail({
   activeConversationId: string;
   unreadConversationIds: string[];
   chatBusy: boolean;
-  library: LibrarySnapshot;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onRenameConversation: (id: string, title: string) => Promise<void>;
@@ -8477,81 +8540,6 @@ function ModelSettingsSection({
   );
 }
 
-function WebReaderSettingsSection({
-  locale,
-  settings,
-  onChange,
-}: {
-  locale: Locale;
-  settings: WebReaderSettings;
-  onChange: (settings: WebReaderSettings) => void;
-}) {
-  const labels: Array<{ value: WebReaderProvider; zh: string; en: string }> = [
-    { value: 'direct', zh: '本地直读', en: 'Direct' },
-    { value: 'firecrawl', zh: 'Firecrawl', en: 'Firecrawl' },
-    { value: 'jina', zh: 'Jina Reader', en: 'Jina Reader' },
-  ];
-  const defaultEndpoint = (provider: WebReaderProvider) => provider === 'firecrawl'
-    ? 'https://api.firecrawl.dev'
-    : provider === 'jina' ? 'https://r.jina.ai' : '';
-  const selectProvider = (provider: WebReaderProvider) => {
-    const nextDefault = defaultEndpoint(provider);
-    const previousDefault = defaultEndpoint(settings.provider);
-    onChange({
-      ...settings,
-      provider,
-      baseUrl: !settings.baseUrl.trim() || settings.baseUrl === previousDefault
-        ? nextDefault
-        : settings.baseUrl,
-      apiKey: provider === 'direct' ? '' : settings.apiKey,
-    });
-  };
-  return (
-    <section className="settings-appearance-block settings-web-reader">
-      <div className="settings-section-heading">
-        <h2>{locale === 'zh' ? '网页读取' : 'Web reader'}</h2>
-        <p>{locale === 'zh'
-          ? 'Agent 读取链接时使用的 provider；远程读取失败会回退到本地直读。'
-          : 'Provider used when the Agent reads a link. Remote readers fall back to direct reading on failure.'}</p>
-      </div>
-      <div className="settings-reader-switch" role="group" aria-label={locale === 'zh' ? '网页读取 provider' : 'Web reader provider'}>
-        {labels.map((item) => (
-          <button
-            type="button"
-            key={item.value}
-            className={settings.provider === item.value ? 'active' : ''}
-            aria-pressed={settings.provider === item.value}
-            onClick={() => selectProvider(item.value)}
-          >
-            {locale === 'zh' ? item.zh : item.en}
-          </button>
-        ))}
-      </div>
-      {settings.provider !== 'direct' && (
-        <div className="settings-provider-fields settings-reader-fields">
-          <label>
-            {locale === 'zh' ? '服务地址' : 'Endpoint'}
-            <input
-              value={settings.baseUrl}
-              spellCheck={false}
-              onChange={(event) => onChange({ ...settings, baseUrl: event.target.value })}
-            />
-          </label>
-          <label>
-            {locale === 'zh' ? 'API 密钥' : 'API key'}
-            <input
-              type="password"
-              value={settings.apiKey}
-              spellCheck={false}
-              onChange={(event) => onChange({ ...settings, apiKey: event.target.value })}
-            />
-          </label>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function SettingsPage({
   initialSection,
   locale,
@@ -8676,15 +8664,6 @@ function SettingsPage({
                   onCurrencyMode={onCurrencyMode}
                   onRefreshCatalog={onRefreshCatalog}
                   t={t}
-                />
-                <WebReaderSettingsSection
-                  locale={locale}
-                  settings={draft.webReader}
-                  onChange={(webReader) => {
-                    const next = { ...draft, webReader };
-                    setDraft(next);
-                    onChange(next);
-                  }}
                 />
               </>
             )}

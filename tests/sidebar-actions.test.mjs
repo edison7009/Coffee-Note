@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+const i18nSource = await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8');
 
 test('home navigation row exposes the shared library switch action', () => {
   assert.match(appSource, /<Sidebar[\s\S]*?onSwitchRoot=\{handleSwitchRoot\}/);
@@ -42,4 +43,22 @@ test('home row action uses the existing compact neutral icon treatment', () => {
     css,
     /\.nav-switch-root\s*\{[^}]*background:\s*transparent;[^}]*border:\s*0;/s,
   );
+});
+
+test('sidebar footer fades the navigation into the fixed status area', () => {
+  assert.match(css, /\.sidebar-footer\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1;/s);
+  assert.match(css, /\.sidebar-footer::before\s*\{[^}]*bottom:\s*100%;[^}]*height:\s*28px;[^}]*linear-gradient\(to bottom, transparent, var\(--sidebar-surface\)\)/s);
+});
+
+test('library section divider has comfortable vertical breathing room', () => {
+  assert.match(css, /\.nav-section-divider\s*\{[^}]*height:\s*1px;[^}]*margin:\s*10px 10px 8px;/s);
+});
+
+test('library root displays the selected directory name instead of a fixed translation', () => {
+  assert.match(appSource, /function directoryDisplayName\(root: string\)/);
+  assert.match(appSource, /const libraryLabel = directoryDisplayName\(root\) \|\| root;/);
+  assert.match(appSource, /openContextMenu\(event, 'folder', '', libraryLabel\)/);
+  assert.match(appSource, /<span>\{libraryLabel\}<\/span>/);
+  assert.doesNotMatch(appSource, /t\('treeRoot'\)/);
+  assert.doesNotMatch(i18nSource, /treeRoot:/);
 });

@@ -43,6 +43,7 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
+  background: var(--canvas, #ffffff);
 }
 
 button,
@@ -157,6 +158,11 @@ a:focus-visible {
   display: none;
 }
 
+.app-shell.right-rail-collapsed > .right-rail {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .pane-resizer {
   position: absolute;
   top: 36px;
@@ -252,11 +258,26 @@ body.resizing-panels * {
 }
 
 .sidebar-footer {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
+}
+
+/* The footer sits over the scrollable navigation. Fade the last tree rows into
+   its surface so the fixed status area does not create a hard horizontal cut. */
+.sidebar-footer::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, var(--sidebar-surface));
+  pointer-events: none;
 }
 
 .sidebar-status {
@@ -616,7 +637,7 @@ body.resizing-panels * {
 
 .nav-section-divider {
   height: 1px;
-  margin: 6px 10px 4px;
+  margin: 10px 10px 8px;
   background: var(--line);
 }
 
@@ -2713,6 +2734,20 @@ html.tree-drag-active * {
   pointer-events: none;
 }
 
+/* Let the last transcript lines dissolve into the fixed composer instead of
+   ending at a hard horizontal edge. The canvas token follows both theme and
+   surface-scheme changes. */
+.composer-wrap::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: 0;
+  left: 0;
+  height: 30px;
+  background: linear-gradient(to bottom, transparent, var(--canvas));
+  pointer-events: none;
+}
+
 .composer {
   position: relative;
   display: flex;
@@ -3662,6 +3697,8 @@ html.tree-drag-active * {
 }
 
 .composer-metrics {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 0.95fr 1.3fr 0.9fr 0.85fr 0.9fr;
   align-items: center;
@@ -7478,37 +7515,6 @@ textarea,
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-}
-
-.settings-web-reader {
-  margin-top: 24px;
-}
-
-.settings-reader-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.settings-reader-switch button {
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ink);
-  font-size: 13px;
-}
-
-.settings-reader-switch button.active {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.settings-reader-fields {
-  margin-top: 16px;
 }
 
 .settings-field-label {

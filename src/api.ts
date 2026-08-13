@@ -640,11 +640,6 @@ export async function listenAgentEvents(
   return listen<AgentEvent>('agent_event', (e) => handler(e.payload));
 }
 
-export async function resetAgent(conversationId?: string): Promise<string> {
-  if (!isTauri) return 'ok';
-  return invoke<string>('agent_reset', { conversationId });
-}
-
 export async function abortAgent(conversationId?: string): Promise<boolean> {
   if (!isTauri) return false;
   return invoke<boolean>('agent_abort', { conversationId });

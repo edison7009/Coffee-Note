@@ -298,23 +298,6 @@ pub fn create_session_map() -> SharedSessionMap {
     Arc::new(Mutex::new(HashMap::new()))
 }
 
-// ── Session persistence ──
-
-fn sessions_dir() -> std::path::PathBuf {
-    crate::app_data_dir().join("sessions")
-}
-
-fn session_file() -> std::path::PathBuf {
-    sessions_dir().join("session.json")
-}
-
-pub fn clear_session_from_disk() {
-    let path = session_file();
-    if path.exists() {
-        let _ = std::fs::remove_file(&path);
-    }
-}
-
 // ── User profile bootstrap (kept from original) ──
 
 fn my_info_section_path(section: &str, locale: &str) -> Option<String> {

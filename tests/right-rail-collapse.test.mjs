@@ -25,6 +25,7 @@ test('right rail collapse animates the grid and hides the resizer', () => {
   assert.match(styles, /\.app-shell\s*\{[\s\S]*transition: grid-template-columns 260ms/);
   assert.match(styles, /\.app-shell\.panel-resizing\s*\{\s*transition: none;\s*\}/);
   assert.match(styles, /\.app-shell\.right-rail-collapsed \.pane-resizer-right\s*\{\s*display: none;\s*\}/);
+  assert.match(styles, /\.app-shell\.right-rail-collapsed > \.right-rail\s*\{[\s\S]*visibility: hidden;[\s\S]*pointer-events: none;/);
 });
 
 test('workspace rail content is gone (no favorites/plan shortcuts in the rail)', () => {

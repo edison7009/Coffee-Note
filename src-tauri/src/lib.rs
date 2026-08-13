@@ -708,30 +708,6 @@ fn count_markdown_files(root: &Path) -> usize {
     count
 }
 
-fn split_csv_line(line: &str) -> Vec<String> {
-    let mut fields = Vec::new();
-    let mut field = String::new();
-    let mut quoted = false;
-    let mut chars = line.chars().peekable();
-
-    while let Some(character) = chars.next() {
-        match character {
-            '"' if quoted && chars.peek() == Some(&'"') => {
-                field.push('"');
-                chars.next();
-            }
-            '"' => quoted = !quoted,
-            ',' if !quoted => {
-                fields.push(field.trim().to_string());
-                field.clear();
-            }
-            _ => field.push(character),
-        }
-    }
-    fields.push(field.trim().to_string());
-    fields
-}
-
 fn tier_rank(tier: &str) -> usize {
     match tier {
         "T1" => 0,
@@ -3257,23 +3233,6 @@ async fn agent_abort(
 }
 
 #[tauri::command]
-async fn agent_reset(
-    session_map: State<'_, SharedSessionMap>,
-    conversation_id: Option<String>,
-) -> Result<String, String> {
-    let mut map = session_map.lock().await;
-    if let Some(id) = conversation_id {
-        map.insert(id.clone(), agent_loop::AgentSession::new());
-        log::info!("[AgentCommand] Session reset: {id}");
-    } else {
-        map.clear();
-        agent_loop::clear_session_from_disk();
-        log::info!("[AgentCommand] All sessions reset");
-    }
-    Ok("ok".to_string())
-}
-
-#[tauri::command]
 async fn agent_send_message(
     app: tauri::AppHandle,
     session_map: State<'_, SharedSessionMap>,
@@ -3475,7 +3434,6 @@ pub fn run() {
             chat_completion,
             agent_send_message,
             agent_abort,
-            agent_reset,
             conversations::list_conversations,
             conversations::load_conversation,
             conversations::rename_conversation,
@@ -3741,12 +3699,6 @@ mod tests {
         assert!(!root.join("dossiers").exists());
 
         fs::remove_dir_all(&root).unwrap();
-    }
-
-    #[test]
-    fn csv_parser_preserves_quoted_commas() {
-        let fields = split_csv_line(r#"one,"two, still two",three"#);
-        assert_eq!(fields, vec!["one", "two, still two", "three"]);
     }
 
     #[test]
