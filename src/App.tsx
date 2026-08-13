@@ -7650,8 +7650,6 @@ function RightRail({
       // A later reload restores the persisted title if the record changed externally.
     }
   };
-  const indexedSourceCount = new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US')
-    .format(library.noteCount);
   return (
     <aside className={`right-rail${editingNote ? ' right-rail-editing' : ''}`}>
       {aiActive && !editingNote && (
@@ -7665,10 +7663,6 @@ function RightRail({
             <Plus size={15} />
             {t('newChat')}
           </button>
-          <div className="rail-count">
-            <span>{locale === 'zh' ? '文档数:' : 'Documents:'}</span>
-            <strong>{indexedSourceCount}</strong>
-          </div>
         </div>
       )}
 

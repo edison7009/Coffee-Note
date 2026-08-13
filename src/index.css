@@ -3314,49 +3314,24 @@ html.tree-drag-active * {
 }
 
 .rail-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
+  display: block;
   min-width: 0;
-  min-height: 82px;
+  min-height: 0;
   padding: 16px 17px;
-}
-
-.rail-count {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.rail-count strong {
-  color: var(--ink);
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The rail header splits into two equal halves — "新对话" centers in the left
-   half, "文档数: X" centers in the right half. */
-.rail-header > button,
-.rail-header > .rail-count {
-  justify-self: center;
-  justify-content: center;
 }
 
 .rail-resume-chat {
   display: flex;
   align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-  margin-left: 0;
-  padding: 0;
-  color: var(--accent);
-  background: transparent;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: var(--tertiary-surface);
   border: 0;
+  border-radius: 14px;
   font-size: 13px;
   font-weight: 650;
   white-space: nowrap;
@@ -6614,21 +6589,21 @@ textarea,
 }
 
 .rail-header {
-  min-height: 58px;
-  padding: 10px 15px;
+  min-height: 0;
+  padding: 16px 17px;
   border-color: var(--line);
 }
 
 .rail-resume-chat,
 [data-theme='dark'] .rail-resume-chat {
-  color: var(--accent);
-  background: transparent;
+  color: var(--ink);
+  background: var(--tertiary-surface);
 }
 
 .rail-resume-chat:hover:not(:disabled),
 [data-theme='dark'] .rail-resume-chat:hover:not(:disabled) {
-  color: var(--accent-hover);
-  background: transparent;
+  color: var(--ink);
+  background: var(--secondary-surface);
 }
 
 .rail-scroll {
