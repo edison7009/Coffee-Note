@@ -430,7 +430,7 @@
 .transcription-component-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 5px;
   min-width: 108px;
 }
