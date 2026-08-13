@@ -1,8 +1,8 @@
 name: Bump version on release publish
 
-# Fires after .github/workflows/release.yml publishes a completed release.
-# It keeps every version file aligned with the released tag if the tag was
-# prepared without a local version commit.
+# Fallback for releases published manually or with an external token. Releases
+# published by release.yml use GITHUB_TOKEN and cannot recursively trigger this
+# workflow, so normal tag releases must prepare version files before tagging.
 
 on:
   release:
