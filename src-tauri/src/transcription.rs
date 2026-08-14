@@ -28,6 +28,14 @@ const MAX_MEDIA_BYTES: u64 = 512 * 1024 * 1024;
 static MEDIA_FETCHER_SETUP_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static MEDIA_FETCHER_READY: tokio::sync::OnceCell<PathBuf> = tokio::sync::OnceCell::const_new();
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+fn configure_hidden_command(command: &mut Command) {
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
 #[derive(Default)]
 pub struct TranscriptionDownloadState {
     downloads: Mutex<BTreeMap<String, CancellationToken>>,
@@ -322,7 +330,12 @@ async fn transcribe_assemblyai(
     Err("Transcription timed out".to_string())
 }
 
-async fn transcribe_local(runtime: &str, model: &str, audio: &Path) -> Result<String, String> {
+async fn transcribe_local(
+    runtime: &str,
+    model: &str,
+    audio: &Path,
+    locale: &str,
+) -> Result<String, String> {
     let executable = runtime_executable(runtime)?;
     let model_path = model_file(model)?;
     let workspace = audio
@@ -331,9 +344,13 @@ async fn transcribe_local(runtime: &str, model: &str, audio: &Path) -> Result<St
     let output_base = workspace.join("transcript");
     let wav = workspace.join("audio.wav");
     audio_to_wav(audio, &wav)?;
-    let output = Command::new(executable)
-        .arg("-m")
-        .arg(model_path)
+    let mut command = Command::new(executable);
+    configure_hidden_command(&mut command);
+    command.arg("-m").arg(model_path);
+    if let Some(language) = local_whisper_language(locale) {
+        command.arg("-l").arg(language);
+    }
+    let output = command
         .arg("-f")
         .arg(wav)
         .arg("-otxt")
@@ -347,9 +364,33 @@ async fn transcribe_local(runtime: &str, model: &str, audio: &Path) -> Result<St
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
-    tokio::fs::read_to_string(output_base.with_extension("txt"))
+    let transcript = tokio::fs::read_to_string(output_base.with_extension("txt"))
         .await
-        .map_err(|error| format!("Could not read local transcription result: {error}"))
+        .map_err(|error| format!("Could not read local transcription result: {error}"))?;
+    usable_local_transcript(&transcript)
+}
+
+fn local_whisper_language(locale: &str) -> Option<&'static str> {
+    match locale {
+        "zh" => Some("zh"),
+        "en" => Some("en"),
+        _ => None,
+    }
+}
+
+fn usable_local_transcript(value: &str) -> Result<String, String> {
+    let transcript = value.trim();
+    let normalized = transcript.to_ascii_lowercase();
+    if transcript.is_empty()
+        || normalized.contains("speaking in foreign language")
+        || normalized.contains("[blank_audio]")
+    {
+        return Err(
+            "Local transcription did not produce usable speech. Try the API mode or a clearer audio source."
+                .to_string(),
+        );
+    }
+    Ok(transcript.to_string())
 }
 
 pub async fn transcribe_media_url(
@@ -371,7 +412,8 @@ pub async fn transcribe_media_url(
         runtime_executable(&config.active_runtime)?;
         model_file(&config.active_model)?;
         let (_workspace, audio) = download_media_audio(url).await?;
-        return transcribe_local(&config.active_runtime, &config.active_model, &audio).await;
+        return transcribe_local(&config.active_runtime, &config.active_model, &audio, locale)
+            .await;
     }
     let provider = config
         .providers
@@ -408,6 +450,7 @@ pub async fn transcribe_local_media_file(
     path: &std::path::Path,
     mode: &str,
     config: &super::TranscriptionSettingsConfig,
+    locale: &str,
 ) -> Result<String, String> {
     if mode == "local" {
         if config.active_runtime.trim().is_empty() {
@@ -418,7 +461,7 @@ pub async fn transcribe_local_media_file(
         }
         runtime_executable(&config.active_runtime)?;
         model_file(&config.active_model)?;
-        return transcribe_local(&config.active_runtime, &config.active_model, path).await;
+        return transcribe_local(&config.active_runtime, &config.active_model, path, locale).await;
     }
     let provider = config
         .providers
@@ -743,9 +786,11 @@ async fn download_media_captions(
         .map_err(|error| format!("Could not create caption workspace: {error}"))?;
     let guard = TempMediaDir(directory.clone());
     let template = directory.join("caption.%(ext)s");
+    let mut command = Command::new(executable);
+    configure_hidden_command(&mut command);
     let result = tokio::time::timeout(
         Duration::from_secs(45),
-        Command::new(executable)
+        command
             .arg("--no-playlist")
             .arg("--quiet")
             .arg("--no-warnings")
@@ -941,6 +986,7 @@ async fn create_fresh_browser_cookie_session(
         .map_err(|error| format!("Could not create a temporary browser session: {error}"))?;
     let guard = TempMediaDir(directory);
     let mut command = Command::new(executable);
+    configure_hidden_command(&mut command);
     command
         .arg("--headless=new")
         .arg("--disable-gpu")
@@ -1006,6 +1052,7 @@ async fn download_media_audio_attempt(
     browser_cookie_source: Option<&str>,
 ) -> Result<Output, String> {
     let mut command = Command::new(executable);
+    configure_hidden_command(&mut command);
     command
         .arg("--no-playlist")
         .arg("--quiet")
@@ -1496,6 +1543,24 @@ mod tests {
             std::process::id(),
             uuid::Uuid::new_v4()
         ))
+    }
+
+    #[test]
+    fn local_whisper_language_follows_ui_locale() {
+        assert_eq!(local_whisper_language("zh"), Some("zh"));
+        assert_eq!(local_whisper_language("en"), Some("en"));
+        assert_eq!(local_whisper_language("auto"), None);
+    }
+
+    #[test]
+    fn local_transcription_rejects_whisper_placeholders() {
+        assert!(usable_local_transcript("(speaking in foreign language)").is_err());
+        assert!(usable_local_transcript("[BLANK_AUDIO]").is_err());
+        assert!(usable_local_transcript("   ").is_err());
+        assert_eq!(
+            usable_local_transcript("  真实文字  ").expect("real speech should be kept"),
+            "真实文字"
+        );
     }
 
     #[test]

@@ -1777,7 +1777,7 @@ async fn read_file_content(path: String) -> Result<file_reader::FileContent, Str
         let config = load_transcription_config()?
             .ok_or_else(|| "Configure audio transcription first".to_string())?;
         let transcript =
-            transcription::transcribe_local_media_file(&file_path, mode, &config).await?;
+            transcription::transcribe_local_media_file(&file_path, mode, &config, "auto").await?;
         return Ok(file_reader::FileContent {
             kind: file_reader::ContentKind::Transcript,
             text: format!("Source transcript:\n{}", transcript.trim()),

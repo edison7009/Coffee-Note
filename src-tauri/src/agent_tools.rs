@@ -290,7 +290,7 @@ pub async fn execute_tool(
         "read_note" => {
             exec_read_note_scoped(args, knowledge_root, excluded_prefixes, Some(my_info_root))
         }
-        "read_local_file" => exec_read_local_file(args).await,
+        "read_local_file" => exec_read_local_file(args, locale).await,
         "web_fetch" => exec_web_fetch(args, web_reader).await,
         "transcribe_media" => exec_transcribe_media(args, locale).await,
         "suggest_memory" => ToolResult {
@@ -419,7 +419,7 @@ async fn exec_transcribe_media(args: &Value, locale: &str) -> ToolResult {
                 output: format!("Media file does not exist: {}", path.display()),
             };
         }
-        crate::transcription::transcribe_local_media_file(path, mode, &config).await
+        crate::transcription::transcribe_local_media_file(path, mode, &config, locale).await
     } else {
         return ToolResult {
             success: false,
@@ -523,7 +523,7 @@ fn safe_read_path(root: &Path, relative: &str, extension: &str) -> Result<PathBu
 
 // ── read_local_file ──
 
-async fn exec_read_local_file(args: &Value) -> ToolResult {
+async fn exec_read_local_file(args: &Value, locale: &str) -> ToolResult {
     let path = match args.pointer("/path").and_then(Value::as_str) {
         Some(p) if !p.trim().is_empty() => p.trim(),
         _ => {
@@ -563,6 +563,7 @@ async fn exec_read_local_file(args: &Value) -> ToolResult {
                         &file_path,
                         "api",
                         &config,
+                        locale,
                     )
                     .await
                     {
@@ -1244,7 +1245,7 @@ mod tests {
     fn read_local_file_rejects_missing_path_with_guidance() {
         let result = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(exec_read_local_file(&json!({})));
+            .block_on(exec_read_local_file(&json!({}), "en"));
         assert!(!result.success);
         assert!(result.output.contains("Invalid read_local_file"));
         assert!(result.output.contains("Retry"));
@@ -1260,7 +1261,7 @@ mod tests {
         let path_str = path.to_string_lossy().into_owned();
         let result = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(exec_read_local_file(&json!({"path": path_str})));
+            .block_on(exec_read_local_file(&json!({"path": path_str}), "en"));
         assert!(result.success, "{}", result.output);
         assert!(result.output.contains("hello from local file"));
         let _ = fs::remove_dir_all(&dir);
@@ -1270,7 +1271,10 @@ mod tests {
     fn read_local_file_reports_missing_file() {
         let result = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(exec_read_local_file(&json!({"path": "C:/definitely/missing/report.pdf"})));
+            .block_on(exec_read_local_file(
+                &json!({"path": "C:/definitely/missing/report.pdf"}),
+                "en",
+            ));
         assert!(!result.success);
         assert!(result.output.contains("Could not read the local file"));
     }
