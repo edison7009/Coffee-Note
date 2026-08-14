@@ -8,7 +8,7 @@ const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 test('running agent activity uses the theme-colored typewriter shimmer without a spinner', () => {
   assert.match(
     css,
-    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--agent-status-accent\)[\s\S]*?background-size:\s*225% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.4s linear infinite;/s,
+    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--agent-status-accent\)[\s\S]*?background-position:\s*200% center;[^}]*background-size:\s*200% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.4s linear infinite;/s,
   );
   assert.match(css, /\.agent-turn-status\s*\{[^}]*font-weight:\s*400;/s);
   assert.match(app, /AGENT_STATUS_VERBS/);
@@ -20,7 +20,10 @@ test('running agent activity uses the theme-colored typewriter shimmer without a
   assert.match(app, /setTimeout\(\(\) => setPhase\('erase'\), 2800\)/);
   assert.match(app, /setShown\(\(value\) => value\.slice\(0, -1\)\), 45\)/);
   assert.match(app, /setShown\(target\.slice\(0, shown\.length \+ 1\)\), 70\)/);
-  assert.match(css, /@keyframes agent-turn-status-shimmer\s*\{\s*to\s*\{\s*background-position:\s*0 0;/s);
+  assert.match(
+    css,
+    /@keyframes agent-turn-status-shimmer\s*\{\s*0%\s*\{\s*background-position:\s*200% center;[\s\S]*?100%\s*\{\s*background-position:\s*-200% center;/s,
+  );
   assert.match(
     css,
     /@media \(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.agent-turn-status-shimmer,[\s\S]*?\.agent-turn-status-caret\s*\{[^}]*animation:\s*none;/s,
