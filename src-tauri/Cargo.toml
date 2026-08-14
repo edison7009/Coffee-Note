@@ -1,6 +1,6 @@
 [package]
 name = "coffee-note"
-version = "0.0.8"
+version = "0.0.9"
 description = "Local-first note system with tier-based organization and AI assistance"
 authors = ["Coffee Team"]
 license = "MIT"
