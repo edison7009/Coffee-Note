@@ -6885,6 +6885,38 @@ function NoteView({
   );
 }
 
+function formatAgentRunDuration(elapsedSeconds: number, locale: Locale): string {
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds % 60;
+  if (minutes === 0) return locale === 'zh' ? `${seconds}秒` : `${seconds}s`;
+  return locale === 'zh'
+    ? `${minutes}分${String(seconds).padStart(2, '0')}秒`
+    : `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+}
+
+function AgentTurnStatus({ locale }: { locale: Locale }) {
+  const [startedAt] = useState(() => Date.now());
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const update = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  return (
+    <div className="agent-turn-status" role="status" aria-live="polite">
+      <span>{locale === 'zh' ? '正在深入思考…' : 'Deep diving…'}</span>
+      {elapsedSeconds >= 15 && (
+        <span className="agent-turn-status-clock" aria-hidden="true">
+          {formatAgentRunDuration(elapsedSeconds, locale)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function ConversationView({
   conversationId,
   locale,
@@ -6915,9 +6947,6 @@ function ConversationView({
   const jumpMessages = useMemo(
     () => messages.filter((message) => message.role === 'user'),
     [messages],
-  );
-  const hasRunningTool = messages.some(
-    (message) => message.role === 'tool_call' && message.toolStatus === 'running',
   );
   const components = useMemo(
     () => ({
@@ -7190,7 +7219,7 @@ function ConversationView({
               ) : status === 'done' ? (
                 <Check size={13} />
               ) : (
-                <span className="activity-dot-spinner" />
+                <Wrench size={13} />
               );
             return (
               <details
@@ -7297,14 +7326,7 @@ function ConversationView({
             </div>
           );
         })}
-        {busy && !hasRunningTool && (
-          <div className="agent-thinking" role="status" aria-live="polite">
-            <span className="activity-dot-spinner" aria-hidden="true" />
-            <span className="agent-thinking-label">
-              {locale === 'zh' ? '正在思考…' : 'Thinking…'}
-            </span>
-          </div>
-        )}
+        {busy && <AgentTurnStatus locale={locale} />}
         <div ref={endRef} />
       </div>
       {textMenu && (
@@ -8495,10 +8517,7 @@ function RightRail({
                           role="status"
                           aria-label={locale === 'zh' ? 'AI 正在处理这个对话' : 'AI is working on this conversation'}
                         >
-                          <span
-                            className="activity-dot-spinner conversation-history-spinner"
-                            aria-hidden="true"
-                          />
+                          <span className="conversation-history-working-dot" aria-hidden="true" />
                         </span>
                       ) : (
                         <button

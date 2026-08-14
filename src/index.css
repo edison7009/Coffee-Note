@@ -5456,14 +5456,15 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 .tool-activity-summary {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   width: fit-content;
   max-width: 100%;
-  min-height: 30px;
-  padding: 4px 2px;
+  min-height: 26px;
+  padding: 2px 0;
   color: var(--muted);
   background: transparent;
   cursor: default;
+  line-height: 20px;
   list-style: none;
   user-select: none;
 }
@@ -5484,26 +5485,8 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   align-items: center;
   justify-content: center;
   width: 14px;
-  color: var(--muted);
-}
-
-.activity-dot-spinner {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
   height: 14px;
-  color: currentColor;
-  font-family: 'Cascadia Mono', 'Segoe UI Symbol', monospace;
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.activity-dot-spinner::before {
-  content: '⠋';
-  animation: activity-dot-spinner 900ms step-end infinite;
+  color: var(--muted);
 }
 
 .tool-activity-label {
@@ -5513,6 +5496,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
+  line-height: 20px;
 }
 
 .tool-activity-chevron {
@@ -5579,41 +5563,25 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   line-height: 1.5;
 }
 
-.agent-thinking {
-  display: flex;
+.agent-turn-status {
+  display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: 7px;
-  min-height: 30px;
-  padding: 4px 2px;
+  height: 26px;
+  padding: 0;
+  color: var(--switch-on);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 26px;
+  white-space: nowrap;
+}
+
+.agent-turn-status-clock {
   color: var(--muted);
-  font-size: 13px;
-}
-
-.agent-thinking svg {
-  flex: 0 0 auto;
-}
-
-.tool-activity.is-running .tool-activity-label,
-.agent-thinking-label {
-  --activity-shimmer-base: #858589;
-  --activity-shimmer-shoulder: #c7c7cb;
-  --activity-shimmer-peak: #f5f5f7;
-  color: transparent;
-  background-image: linear-gradient(
-    90deg,
-    var(--activity-shimmer-base) 18%,
-    var(--activity-shimmer-base) 30%,
-    var(--activity-shimmer-shoulder) 41%,
-    var(--activity-shimmer-peak) 50%,
-    var(--activity-shimmer-shoulder) 59%,
-    var(--activity-shimmer-base) 70%,
-    var(--activity-shimmer-base) 82%
-  );
-  background-position: 100% 0;
-  background-size: 240% 100%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: agent-activity-shimmer 3.2s linear infinite;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
 }
 
 [data-theme='dark'] .tool-activity-data.failed {
@@ -5624,38 +5592,6 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 [data-theme='dark'] .tool-activity.is-failed .tool-activity-status,
 [data-theme='dark'] .tool-activity.is-failed .tool-activity-label {
   color: #f0a0a0;
-}
-
-@keyframes agent-activity-shimmer {
-  to {
-    background-position: 0 0;
-  }
-}
-
-@keyframes activity-dot-spinner {
-  0% { content: '⠋'; }
-  10% { content: '⠙'; }
-  20% { content: '⠹'; }
-  30% { content: '⠸'; }
-  40% { content: '⠼'; }
-  50% { content: '⠴'; }
-  60% { content: '⠦'; }
-  70% { content: '⠧'; }
-  80% { content: '⠇'; }
-  90%, 100% { content: '⠏'; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tool-activity.is-running .tool-activity-label,
-  .agent-thinking-label {
-    color: var(--muted);
-    background: none;
-    animation: none;
-  }
-
-  .activity-dot-spinner::before {
-    animation: none;
-  }
 }
 
 /* ── Context meter ── */
@@ -7639,10 +7575,11 @@ textarea,
   line-height: 0;
 }
 
-.conversation-history-item .conversation-history-spinner {
-  width: 17px;
-  height: 17px;
-  font-size: 17px;
+.conversation-history-working-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--switch-on);
 }
 
 .conversation-history-item:hover .conversation-history-delete,
