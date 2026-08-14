@@ -691,6 +691,10 @@ const PLAN_SECTION_FILES: Record<Exclude<PlanSection, 'log'>, string> = {
   sleep: 'plans/daily-routine.md',
 };
 
+const BUILT_IN_MY_INFO_PATHS = new Set(
+  Object.values(PLAN_SECTION_FILES).flatMap((path) => [path, path.replace(/\.md$/, '.en.md')]),
+);
+
 function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale): string {
   const path = PLAN_SECTION_FILES[section];
   return locale === 'en' ? path.replace(/\.md$/, '.en.md') : path;
@@ -1542,6 +1546,8 @@ function App() {
   const [myInfoRetrieval, setMyInfoRetrieval] = useState<MyInfoRetrievalState>(() =>
     parseMyInfoRetrieval(readStorageValue(MY_INFO_RETRIEVAL_KEY)),
   );
+  const [customMyInfoSections, setCustomMyInfoSections] = useState<DirectoryEntry[]>([]);
+  const [myInfoRefresh, setMyInfoRefresh] = useState(0);
   const [includePriorities, setIncludePriorities] = useStoredState<boolean>(
     MY_PRIORITIES_RETRIEVAL_KEY,
     true,
@@ -1621,7 +1627,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('appearance');
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
-  const [addMaterialOpen, setAddMaterialOpen] = useState(false);
+  const [addContextOpen, setAddContextOpen] = useState(false);
   const [librarySearchOpen, setLibrarySearchOpen] = useState(false);
   const [treeRefresh, setTreeRefresh] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -1713,6 +1719,32 @@ function App() {
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
   }, [locale]);
+
+  useEffect(() => {
+    if (!isTauri || !library.myInfoRoot) {
+      setCustomMyInfoSections([]);
+      return undefined;
+    }
+    let alive = true;
+    void listDirectory(library.myInfoRoot, 'plans')
+      .then((entries) => {
+        if (!alive) return;
+        setCustomMyInfoSections(
+          entries.filter(
+            (entry) =>
+              entry.isMarkdown &&
+              !entry.isDir &&
+              !BUILT_IN_MY_INFO_PATHS.has(entry.relativePath),
+          ),
+        );
+      })
+      .catch(() => {
+        if (alive) setCustomMyInfoSections([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [library.myInfoRoot, myInfoRefresh]);
 
   useEffect(() => {
     void setTrayLocale(locale).catch(() => undefined);
@@ -2176,6 +2208,13 @@ function App() {
       if (generation !== libraryGenerationRef.current) return;
       setNoteMarkdown(content);
       setTreeRefresh((current) => current + 1);
+      if (root === library.myInfoRoot) {
+        setMyInfoRefresh((current) => current + 1);
+        if (!options.quiet) {
+          setToast({ message: t('noteSaved'), kind: 'status' });
+        }
+        return;
+      }
       const snapshot = await loadLibrary(root || undefined, locale);
       if (generation !== libraryGenerationRef.current) return;
       setLibrary(snapshot);
@@ -2267,6 +2306,13 @@ function App() {
       if (generation !== libraryGenerationRef.current) return;
       setToast({ message: t('noteDeleted'), kind: 'status' });
       goBack();
+      if (source === 'myInfo') {
+        setCustomMyInfoSections((current) =>
+          current.filter((section) => section.relativePath !== relativePath),
+        );
+        setMyInfoRefresh((current) => current + 1);
+        return;
+      }
       const snapshot = await loadLibrary(root || undefined, locale);
       if (generation !== libraryGenerationRef.current) return;
       setLibrary(snapshot);
@@ -2393,15 +2439,25 @@ function App() {
     });
   };
 
-  const handleCreateMaterial = async (name: string, icon: string) => {
-    const root = libraryRootRef.current || library.root;
+  const handleCreateContext = async (name: string, icon: string) => {
+    const root = library.myInfoRoot;
     try {
-      const created = await createNote(root, '', name, icon);
-      setTreeRefresh((current) => current + 1);
-      setAddMaterialOpen(false);
-      openFileNote(created);
+      const created = await createNote(root, 'plans', name, icon);
+      setCustomMyInfoSections((current) => [
+        ...current.filter((section) => section.relativePath !== created),
+        {
+          name: created.split('/').pop() || `${name}.md`,
+          relativePath: created,
+          isDir: false,
+          isMarkdown: true,
+          icon,
+        },
+      ]);
+      setMyInfoRefresh((current) => current + 1);
+      setAddContextOpen(false);
+      openFileNote(created, true, 'myInfo');
       setToast({
-        message: `${t('addMaterialCreate')}${locale === 'zh' ? '：' : ': '}${name}`,
+        message: `${t('contextAdded')}${locale === 'zh' ? '：' : ': '}${name}`,
         kind: 'status',
       });
     } catch (error) {
@@ -2484,7 +2540,7 @@ function App() {
     openFileNote(getPlanSectionFile(section, locale), true, 'myInfo');
   };
 
-  const toggleMyInfoRetrieval = (section: MyInfoSectionId) => {
+  const toggleMyInfoRetrieval = (section: string) => {
     setMyInfoRetrieval((current) => {
       const next = { ...current, [section]: !current[section] };
       try {
@@ -2983,7 +3039,10 @@ function App() {
         noteSummary: selectedContextPaths.length > 0 || !implicitContextEnabled
           ? undefined
           : noteSummary?.text,
-        enabledMyInfoSections: enabledMyInfoSections(myInfoRetrieval),
+        enabledMyInfoSections: enabledMyInfoSections(
+          myInfoRetrieval,
+          customMyInfoSections.map((section) => section.relativePath),
+        ),
         includePriorities,
         currentPage: selectedContextPaths.length > 0 || !implicitContextEnabled
           ? undefined
@@ -3309,13 +3368,15 @@ function App() {
                 <PlanView
                   locale={locale}
                   retrievalState={myInfoRetrieval}
+                  customSections={customMyInfoSections}
                   onSection={openPlanSection}
+                  onCustomSection={(path) => openFileNote(path, true, 'myInfo')}
                   onToggleRetrieval={toggleMyInfoRetrieval}
                   onBack={goBack}
                   onHome={() => navigate('home')}
                   includePriorities={includePriorities}
                   onTogglePriorities={() => setIncludePriorities(!includePriorities)}
-                  onAdd={() => setAddMaterialOpen(true)}
+                  onAdd={() => setAddContextOpen(true)}
                   t={t}
                 />
               )}
@@ -3442,12 +3503,12 @@ function App() {
         />
       )}
 
-      {addMaterialOpen && (
+      {addContextOpen && (
         <AddMaterialDialog
           locale={locale}
           t={t}
-          onClose={() => setAddMaterialOpen(false)}
-          onCreate={handleCreateMaterial}
+          onClose={() => setAddContextOpen(false)}
+          onCreate={handleCreateContext}
         />
       )}
 
@@ -7395,7 +7456,9 @@ function HealthLogPanel({ locale }: { locale: Locale }) {
 function PlanView({
   locale,
   retrievalState,
+  customSections,
   onSection,
+  onCustomSection,
   onToggleRetrieval,
   onBack,
   onHome,
@@ -7406,8 +7469,10 @@ function PlanView({
 }: {
   locale: Locale;
   retrievalState: MyInfoRetrievalState;
+  customSections: DirectoryEntry[];
   onSection: (section: PlanSection) => void;
-  onToggleRetrieval: (section: MyInfoSectionId) => void;
+  onCustomSection: (path: string) => void;
+  onToggleRetrieval: (section: string) => void;
   onBack: () => void;
   onHome: () => void;
   includePriorities: boolean;
@@ -7454,8 +7519,8 @@ function PlanView({
             <FilePlus2 size={17} />
           </span>
           <span>
-            <strong>{t('addMaterial')}</strong>
-            <small>{t('addMaterialCreateSub')}</small>
+            <strong>{t('addContext')}</strong>
+            <small>{t('addContextCreateSub')}</small>
           </span>
         </button>
         {sections.map((section) => (
@@ -7492,6 +7557,36 @@ function PlanView({
             </button>
           </div>
         ))}
+        {customSections.map((section) => {
+          const title = section.name.replace(/\.md$/i, '');
+          return (
+            <div className="plan-section-card" key={section.relativePath}>
+              <button
+                type="button"
+                className="plan-section-open"
+                onClick={() => onCustomSection(section.relativePath)}
+              >
+                <span className="plan-section-icon" style={{ background: 'var(--tertiary-surface)' }}>
+                  {NOTE_ICONS[section.icon || 'filetext'] || NOTE_ICONS.filetext}
+                </span>
+                <span className="plan-section-copy">
+                  <strong>{title}</strong>
+                  <small>{locale === 'zh' ? '自定义设定' : 'Custom context'}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="plan-retrieval-switch"
+                role="switch"
+                aria-checked={retrievalState[section.relativePath] !== false}
+                aria-label={locale === 'zh' ? `AI 检索：${title}` : `AI retrieval for ${title}`}
+                onClick={() => onToggleRetrieval(section.relativePath)}
+              >
+                <span />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -9303,13 +9398,13 @@ function AddMaterialDialog({
         className="settings-dialog add-material-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-material-title"
+        aria-labelledby="add-context-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <DialogHeader
           icon={<FilePlus2 size={21} />}
-          title={t('addMaterial')}
-          titleId="add-material-title"
+          title={t('addContext')}
+          titleId="add-context-title"
           onClose={onClose}
           closeLabel={locale === 'zh' ? '关闭' : 'Close'}
         />
@@ -9357,7 +9452,8 @@ function AddMaterialDialog({
               autoFocus
               className="add-material-input"
               value={name}
-              placeholder={locale === 'zh' ? '输入资料名称…' : 'Name…'}
+              aria-label={t('addContextName')}
+              placeholder={locale === 'zh' ? '输入设定名称…' : 'Context name…'}
               onChange={(event) => setName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') submit();

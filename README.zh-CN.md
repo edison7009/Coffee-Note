@@ -81,31 +81,34 @@ curl -fsSL https://note.coffeecli.com/install.sh | sh
 ```mermaid
 flowchart LR
   UI["React + TypeScript 界面"] --> IPC["Tauri IPC"]
-  IPC --> Core["Rust Note Agent"]
-  Core --> Library["本地 Markdown 笔记库"]
-  Core --> Memory["本地设定与对话"]
-  Core --> Models["DeepSeek / OpenAI 兼容 / Anthropic"]
-  Channels["微信 / Telegram"] --> Core
+  IPC --> Bridge["Rust 产品核心"]
+  Bridge --> DSH["DeepSeek Harness 运行时"]
+  Bridge --> Library["本地 Markdown 笔记库"]
+  Bridge --> Memory["Library Graph 与记忆路由"]
+  DSH --> Models["DeepSeek / OpenAI 兼容 / Anthropic"]
+  Channels["微信 / Telegram"] --> Bridge
 ```
 
 ### 底层实现
 
 - **桌面外壳**：Tauri 2；前端使用 React 18、TypeScript 与 Vite。
-- **Agent 运行时**：`agent_loop.rs` 与 `agent_tools.rs` 组成专注笔记场景的自研 Rust 核心，负责检索、读写、记忆路由和完成优先的工具循环。
+- **Agent 运行时**：固定版本的 DeepSeek Harness 负责 Agent 循环、工具编排、会话日志、Token 计量和上下文压缩；Coffee Note 通过薄适配层跟随 DSH 升级，不再维护独立循环。
+- **产品核心**：Rust 保留本地优先的安全边界和产品专属能力，包括笔记检索与读写、Library Graph、“我的设定”和记忆路由、网页读取、媒体转写及消息渠道。
 - **安全边界**：工具只操作已选择的笔记库和用户明确提供的本地文件，不开放任意 Shell，也不允许无限制文件写入。
 - **本地检索**：Library Graph 从 Markdown 结构与链接建立轻量关系图，只返回与当前问题相关的片段。
-- **上下文路由**：最近对话、已开启的“我的设定”、当前笔记与相关资料分别路由；接近上限时在本地压缩早期上下文。
-- **模型通信**：Rust 使用 `reqwest` 与 rustls 完成模型流式请求、网页读取、版本检查与可选语音服务调用。
+- **上下文路由**：Coffee Note 分别路由最近对话、已开启的“我的设定”、当前笔记与相关资料；DeepSeek Harness 负责持久会话和上下文压缩。
+- **模型通信**：内置 DSH Sidecar 负责模型流式请求；Rust 使用 `reqwest` 与 rustls 完成网页读取、版本检查与可选语音服务调用。本地工具桥只监听 localhost，并使用每进程随机令牌。
 - **媒体处理**：本地音频解码使用 Symphonia；语音转写可以选择已配置的云服务或本地识别路径。
 
-进一步阅读：[架构说明](docs/ARCHITECTURE.md)、[Note Agent 设计](docs/NOTE_AGENT.md)、[面向成本的 Agent 决策](docs/NOTE_AGENT_SAVINGS.md)。
+DeepSeek Harness 的版本固定在 `dsh-runtime/package.json`。参阅[官方指南](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart)和[源码仓库](https://github.com/deepseek-ai/deepseek-harness)。
 
 ## 仓库结构
 
 | 路径 | 作用 |
 | --- | --- |
 | `src/` | React 桌面界面与 TypeScript 应用逻辑 |
-| `src-tauri/` | Rust 后端、Agent 循环、检索、文件与媒体处理 |
+| `src-tauri/` | Rust 产品核心、DSH 适配层、检索、文件与媒体处理 |
+| `dsh-runtime/` | 固定版本的 DeepSeek Harness 组合与 Coffee Note 工具插件 |
 | `starter-knowledge/` | 首次启动使用的双语示例资料库 |
 | `tests/` | 前端与共享逻辑测试 |
 | `docs/` | 架构、Agent、资料库与发布文档 |

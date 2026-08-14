@@ -1,13 +1,20 @@
 // Agent Tools — domain-specific tools for Coffee Note.
 // save_note, search_library, read_note operate on the local knowledge library.
 
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 use crate::knowledge_map;
-use crate::llm_stream::ToolDef;
 use crate::web_reader::{self, WebReaderSettings};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolDef {
+    pub name: String,
+    pub description: String,
+    pub parameters: Value,
+}
 
 // ── Tool result ──
 
@@ -361,10 +368,7 @@ async fn exec_web_fetch(args: &Value, settings: &WebReaderSettings) -> ToolResul
 }
 
 async fn exec_transcribe_media(args: &Value, locale: &str) -> ToolResult {
-    let mode = args
-        .get("mode")
-        .and_then(Value::as_str)
-        .unwrap_or("api");
+    let mode = args.get("mode").and_then(Value::as_str).unwrap_or("api");
     if !matches!(mode, "api" | "local") {
         return ToolResult {
             success: false,
@@ -1270,7 +1274,9 @@ mod tests {
     fn read_local_file_reports_missing_file() {
         let result = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(exec_read_local_file(&json!({"path": "C:/definitely/missing/report.pdf"})));
+            .block_on(exec_read_local_file(
+                &json!({"path": "C:/definitely/missing/report.pdf"}),
+            ));
         assert!(!result.success);
         assert!(result.output.contains("Could not read the local file"));
     }

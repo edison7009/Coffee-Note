@@ -1,6 +1,9 @@
 node_modules/
 dist/
 src-tauri/target/
+src-tauri/runtime/
+dsh-runtime/node_modules/
+dsh-runtime/*.tar.gz
 tmp/
 references/
 docs/

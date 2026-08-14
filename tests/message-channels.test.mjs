@@ -9,7 +9,7 @@ const globalStyles = await readFile(new URL('../src/index.css', import.meta.url)
 const settingsSource = await readFile(new URL('../src/settings/MessageSettings.tsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../src/settings/MessageSettings.css', import.meta.url), 'utf8');
 const rustSource = await readFile(new URL('../src-tauri/src/channels.rs', import.meta.url), 'utf8');
-const agentLoopSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
+const agentRuntimeSource = await readFile(new URL('../src-tauri/src/dsh_runtime.rs', import.meta.url), 'utf8');
 const [weixinIcon, telegramIcon] = await Promise.all([
   readFile(new URL('../public/channels/weixin.png', import.meta.url)),
   readFile(new URL('../public/channels/telegram.png', import.meta.url)),
@@ -38,10 +38,11 @@ test('channel messages enter the shared persisted conversation agent', () => {
   assert.match(rustSource, /CHANNEL_JOBS_FILE/);
   assert.match(rustSource, /enqueue_job\(job\)/);
   assert.match(rustSource, /run_channel_agent/);
-  assert.match(rustSource, /agent_loop::run_agent/);
+  assert.match(rustSource, /dsh_runtime::DshRuntime/);
+  assert.match(rustSource, /\.run\(app\.clone\(\), request, research_context\)/);
   assert.match(rustSource, /source_channel:\s*Some\(job\.channel\.clone\(\)\)/);
   assert.match(rustSource, /append_channel_user_message/);
-  assert.match(rustSource, /append_agent_assistant_messages_since/);
+  assert.match(rustSource, /append_channel_assistant_message_with_id/);
   assert.match(rustSource, /agent_start_index/);
   assert.match(rustSource, /channel-reply:/);
   assert.match(rustSource, /"message-conversation-updated"/);
@@ -51,9 +52,9 @@ test('channel messages enter the shared persisted conversation agent', () => {
   assert.match(settingsSource, /手机对话会同步到客户端的对话记录/);
   assert.match(apiSource, /listenMessageConversationUpdated/);
   assert.match(appSource, /listenMessageConversationUpdated\(\(conversationId\)/);
-  assert.match(agentLoopSource, /普通文字必须按普通对话回答/);
-  assert.match(agentLoopSource, /主要由公开网址组成/);
-  assert.match(agentLoopSource, /绝不能仅因为消息来自手机就保存为资料/);
+  assert.match(agentRuntimeSource, /linked phone channel is only another conversation entry point/);
+  assert.match(agentRuntimeSource, /message primarily containing a public URL implies fetch, organize, and save/);
+  assert.match(agentRuntimeSource, /other writes require expressed user intent/);
 });
 
 test('Telegram uses private-chat polling and one-time account pairing', () => {

@@ -25,6 +25,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Install pinned DeepSeek Harness runtime
+        run: npm run dsh:ci
+
+      - name: Verify DeepSeek Harness composition
+        run: npm run dsh:smoke
+
+      - name: Pack DeepSeek Harness runtime
+        run: npm run dsh:pack
+
       - name: Verify release tag
         shell: bash
         run: |

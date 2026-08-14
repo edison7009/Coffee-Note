@@ -1,14 +1,12 @@
 use chrono::Local;
 use tauri::State;
 
-mod agent_loop;
 mod agent_tools;
 mod channels;
 mod conversations;
+mod dsh_runtime;
 mod file_reader;
-mod json_repair;
 mod knowledge_map;
-mod llm_stream;
 mod memory;
 mod skills;
 mod transcription;
@@ -23,7 +21,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::Emitter;
 
-use agent_loop::SharedSessionMap;
+use dsh_runtime::DshRuntime;
 
 const MAX_NOTE_BYTES: usize = 120_000;
 const MAX_CONTEXT_BYTES: usize = 52_000;
@@ -417,7 +415,8 @@ fn load_transcription_config() -> Result<Option<TranscriptionSettingsConfig>, St
     load_transcription_config_from(&transcription_config_path())
 }
 
-pub(crate) fn load_transcription_config_for_agent() -> Result<Option<TranscriptionSettingsConfig>, String> {
+pub(crate) fn load_transcription_config_for_agent(
+) -> Result<Option<TranscriptionSettingsConfig>, String> {
     load_transcription_config_from(&transcription_config_path())
 }
 
@@ -1977,15 +1976,29 @@ fn find_capture_url(input: &str) -> Option<&str> {
         let rest = &input[start..];
         let end = rest
             .find(|character: char| {
-                character.is_whitespace()
-                    || "，。！？；：、\"'<>()[]（）【】{}".contains(character)
+                character.is_whitespace() || "，。！？；：、\"'<>()[]（）【】{}".contains(character)
             })
             .unwrap_or(rest.len());
         let candidate = rest[..end].trim_end_matches(|character: char| {
             matches!(
                 character,
-                ',' | '.' | ';' | ':' | '，' | '。' | '！' | '？' | '；' | '：'
-                    | '、' | ')' | ']' | '}' | '>' | '"' | '\'' | '…'
+                ',' | '.'
+                    | ';'
+                    | ':'
+                    | '，'
+                    | '。'
+                    | '！'
+                    | '？'
+                    | '；'
+                    | '：'
+                    | '、'
+                    | ')'
+                    | ']'
+                    | '}'
+                    | '>'
+                    | '"'
+                    | '\''
+                    | '…'
             )
         });
         if !candidate.is_empty() {
@@ -2341,7 +2354,11 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         let material = match content.kind {
             file_reader::ContentKind::Text | file_reader::ContentKind::Transcript => content.text,
             file_reader::ContentKind::Image => {
-                format!("[Image file: {}]\n{}", content.label, content.image_path.unwrap_or_default())
+                format!(
+                    "[Image file: {}]\n{}",
+                    content.label,
+                    content.image_path.unwrap_or_default()
+                )
             }
             file_reader::ContentKind::Unsupported => {
                 return Err(format!(
@@ -3092,7 +3109,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
         // release asset if it returns an HTML page (e.g. a static-host SPA
         // fallback for /download/windows) instead of a real installer.
         let website_download = client.get(WEBSITE_WINDOWS_DOWNLOAD).send().await;
-        let website_html = website_download.as_ref().map_or(false, |response| {
+        let website_html = website_download.as_ref().is_ok_and(|response| {
             response
                 .headers()
                 .get(reqwest::header::CONTENT_TYPE)
@@ -3100,11 +3117,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
                 .is_some_and(|content_type| content_type.contains("text/html"))
         });
         let (mut response, expected_asset_size) = match website_download {
-            Ok(response)
-                if response.status().is_success() && !website_html =>
-            {
-                (response, 0)
-            }
+            Ok(response) if response.status().is_success() && !website_html => (response, 0),
             _ => {
                 let release = latest_release(&client).await?;
                 let asset = release
@@ -3206,7 +3219,7 @@ async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String
 
 // -- Agent commands --
 
-async fn prepare_agent_context(request: &agent_loop::AgentRequest) -> Option<String> {
+async fn prepare_agent_context(request: &dsh_runtime::AgentRequest) -> Option<String> {
     let research = if needs_live_research(&request.message) {
         let fake_req = ChatRequest {
             api_key: request.api_key.clone(),
@@ -3250,36 +3263,18 @@ async fn prepare_agent_context(request: &agent_loop::AgentRequest) -> Option<Str
 
 #[tauri::command]
 async fn agent_abort(
-    session_map: State<'_, SharedSessionMap>,
+    runtime: State<'_, DshRuntime>,
+    app: tauri::AppHandle,
     conversation_id: Option<String>,
 ) -> Result<bool, String> {
-    let mut map = session_map.lock().await;
-    if let Some(id) = conversation_id {
-        if let Some(sess) = map.get_mut(&id) {
-            if sess.running {
-                sess.cancel();
-                log::info!("[AgentCommand] Agent aborted: {id}");
-                return Ok(true);
-            }
-        }
-        return Ok(false);
-    }
-
-    for sess in map.values_mut() {
-        if sess.running {
-            sess.cancel();
-            log::info!("[AgentCommand] Agent aborted");
-            return Ok(true);
-        }
-    }
-    Ok(false)
+    runtime.abort(&app, conversation_id.as_deref()).await
 }
 
 #[tauri::command]
 async fn agent_send_message(
     app: tauri::AppHandle,
-    session_map: State<'_, SharedSessionMap>,
-    mut request: agent_loop::AgentRequest,
+    runtime: State<'_, DshRuntime>,
+    mut request: dsh_runtime::AgentRequest,
 ) -> Result<String, String> {
     if request.api_key.trim().is_empty() {
         return Err("An API key is required".to_string());
@@ -3293,25 +3288,11 @@ async fn agent_send_message(
         .map(skills::load_skill_prompt)
         .transpose()?;
     let rc = prepare_agent_context(&request).await;
-    let map = (*session_map).clone();
+    let runtime = (*runtime).clone();
     let app_clone = app.clone();
-    let error_conversation_id = request.conversation_id.clone();
     tokio::spawn(async move {
-        if let Err(e) = agent_loop::run_agent(app_clone, request, map, rc).await {
+        if let Err(e) = runtime.run(app_clone, request, rc).await {
             log::error!("[AgentCommand] Agent error: {e}");
-            let _ = app.emit(
-                "agent_event",
-                agent_loop::AgentEvent::Error {
-                    conversation_id: error_conversation_id.clone(),
-                    message: e,
-                },
-            );
-            let _ = app.emit(
-                "agent_event",
-                agent_loop::AgentEvent::Done {
-                    conversation_id: error_conversation_id,
-                },
-            );
         }
     });
     Ok("ok".to_string())
@@ -3400,7 +3381,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .manage(agent_loop::create_session_map())
+        .manage(DshRuntime::default())
         .manage(channels::ChannelRuntime::default())
         .invoke_handler(tauri::generate_handler![
             load_model_config,

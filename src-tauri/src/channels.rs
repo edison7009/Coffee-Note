@@ -965,33 +965,44 @@ async fn run_channel_agent(
         return Err("请先在桌面端完成 AI 模型配置。".to_string());
     }
 
-    let start_index = match job.agent_start_index {
-        Some(index) => index,
-        None => {
-            let index = crate::conversations::load_agent_messages(&job.conversation_id)
-                .0
-                .len();
-            save_job_agent_start(&job.id, index)?;
-            job.agent_start_index = Some(index);
-            index
-        }
-    };
     let reply_message_id = format!("channel-reply:{}", job.id);
-    if crate::conversations::load_agent_messages(&job.conversation_id)
-        .0
-        .len()
-        > start_index
-    {
-        let (_, recovered_reply) = crate::conversations::append_agent_assistant_messages_since(
-            &job.conversation_id,
-            start_index,
-            &reply_message_id,
-        )?;
-        if let Some(reply) = recovered_reply {
-            return Ok(reply);
-        }
+    let conversation = crate::conversations::load_conversation(job.conversation_id.clone())?;
+    if let Some(reply) = conversation.ui_messages.iter().find_map(|message| {
+        (message.get("id").and_then(Value::as_str) == Some(reply_message_id.as_str()))
+            .then(|| {
+                message
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .flatten()
+    }) {
+        return Ok(reply);
     }
-    let request = crate::agent_loop::AgentRequest {
+    if job.agent_start_index.is_none() {
+        save_job_agent_start(&job.id, conversation.ui_messages.len())?;
+        job.agent_start_index = Some(conversation.ui_messages.len());
+    }
+    let current_message_id = format!("channel:{}", job.id);
+    let history = conversation
+        .ui_messages
+        .iter()
+        .filter(|message| {
+            message.get("id").and_then(Value::as_str) != Some(current_message_id.as_str())
+        })
+        .rev()
+        .take(8)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .filter_map(|message| {
+            Some(crate::dsh_runtime::HistoryLine {
+                role: message.get("role")?.as_str()?.to_string(),
+                content: message.get("content")?.as_str()?.to_string(),
+            })
+        })
+        .collect();
+    let request = crate::dsh_runtime::AgentRequest {
         conversation_id: job.conversation_id.clone(),
         api_key: provider.api_key.clone(),
         base_url: provider.base_url.clone(),
@@ -1006,30 +1017,31 @@ async fn run_channel_agent(
         include_priorities: true,
         current_page: None,
         note_summary: None,
-        history: Vec::new(),
+        history,
         provider: provider.protocol.clone(),
         reasoning_effort: Some(model_settings.reasoning_effort.clone()),
         web_reader: model_settings.web_reader.clone(),
         source_channel: Some(job.channel.clone()),
     };
     let research_context = super::prepare_agent_context(&request).await;
-    let session_map = app
-        .state::<crate::agent_loop::SharedSessionMap>()
+    let runtime = app
+        .state::<crate::dsh_runtime::DshRuntime>()
         .inner()
         .clone();
-    crate::agent_loop::run_agent(app.clone(), request, session_map, research_context).await?;
-    let (_, final_reply) = crate::conversations::append_agent_assistant_messages_since(
-        &job.conversation_id,
-        start_index,
-        &reply_message_id,
-    )?;
-    final_reply.ok_or_else(|| {
-        if settings.locale == "en" {
+    let final_reply = runtime.run(app.clone(), request, research_context).await?;
+    if final_reply.trim().is_empty() {
+        return Err(if settings.locale == "en" {
             "The model did not return a reply.".to_string()
         } else {
             "模型没有返回可发送的回复。".to_string()
-        }
-    })
+        });
+    }
+    crate::conversations::append_channel_assistant_message_with_id(
+        &job.conversation_id,
+        &reply_message_id,
+        &final_reply,
+    )?;
+    Ok(final_reply)
 }
 
 async fn process_channel_message(app: AppHandle, job_id: String) {

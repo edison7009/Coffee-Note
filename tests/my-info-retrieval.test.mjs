@@ -39,3 +39,11 @@ test('malformed persisted values restore all five defaults', () => {
   assert.deepEqual(parseMyInfoRetrieval('{broken'), DEFAULT_MY_INFO_RETRIEVAL);
   assert.equal(parseMyInfoRetrieval('{"sleep":false}').sleep, false);
 });
+
+test('custom My Context paths persist independently and default to enabled', () => {
+  const path = 'plans/writing-style.md';
+  const state = normalizeMyInfoRetrieval({ [path]: false });
+  assert.equal(state[path], false);
+  assert.doesNotMatch(enabledMyInfoSections(state, [path]).join(','), /writing-style/);
+  assert.match(enabledMyInfoSections(DEFAULT_MY_INFO_RETRIEVAL, [path]).join(','), /writing-style/);
+});

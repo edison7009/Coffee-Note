@@ -81,31 +81,34 @@ curl -fsSL https://note.coffeecli.com/install.sh | sh
 ```mermaid
 flowchart LR
   UI["React + TypeScript UI"] --> IPC["Tauri IPC"]
-  IPC --> Core["Rust Note Agent"]
-  Core --> Library["Local Markdown Library"]
-  Core --> Memory["Local Context & Conversations"]
-  Core --> Models["DeepSeek / OpenAI-compatible / Anthropic"]
-  Channels["Weixin / Telegram"] --> Core
+  IPC --> Bridge["Rust Product Core"]
+  Bridge --> DSH["DeepSeek Harness Runtime"]
+  Bridge --> Library["Local Markdown Library"]
+  Bridge --> Memory["Library Graph & Memory Routing"]
+  DSH --> Models["DeepSeek / OpenAI-compatible / Anthropic"]
+  Channels["Weixin / Telegram"] --> Bridge
 ```
 
 ### Under the hood
 
 - **Desktop shell:** Tauri 2 with a React 18, TypeScript, and Vite frontend.
-- **Agent runtime:** a focused Rust core in `agent_loop.rs` and `agent_tools.rs`, built for note search, reading, writing, memory routing, and completion-oriented tool use.
+- **Agent runtime:** a pinned DeepSeek Harness runtime owns the agent loop, tool orchestration, session log, token accounting, and context compaction. Coffee Note follows DSH upgrades through one thin adapter instead of maintaining a separate loop.
+- **Product core:** Rust keeps the local-first boundaries and product-specific tools: note search/read/write, Library Graph, My Contexts and memory routing, web reading, media transcription, and channel delivery.
 - **Safety boundary:** tools operate on the selected library and explicit local files; the agent does not expose arbitrary shell execution or unrestricted filesystem writes.
 - **Retrieval:** Library Graph builds a lightweight local relationship map from Markdown structure and links, then returns only relevant passages.
-- **Context:** recent conversation, enabled My Contexts pages, the open note, and relevant library passages are routed separately and compacted locally when needed.
-- **Networking:** Rust uses `reqwest` with rustls for model streaming, web reading, release checks, and optional transcription services.
+- **Context:** Coffee Note routes recent conversation, enabled My Contexts pages, the open note, and relevant library passages; DeepSeek Harness performs durable session management and compaction.
+- **Networking:** the bundled DSH sidecar handles model streaming, while Rust uses `reqwest` with rustls for web reading, release checks, and optional transcription services. The private tool bridge listens only on localhost and uses a random per-process token.
 - **Media:** local audio decoding uses Symphonia; transcription can use configured cloud services or the local recognition path.
 
-For more detail, see [Architecture](docs/ARCHITECTURE.md), [Note Agent design](docs/NOTE_AGENT.md), and [cost-oriented agent decisions](docs/NOTE_AGENT_SAVINGS.md).
+DeepSeek Harness is version-pinned in `dsh-runtime/package.json`. See the [official guide](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart) and [source repository](https://github.com/deepseek-ai/deepseek-harness).
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
 | `src/` | React desktop UI and TypeScript application logic |
-| `src-tauri/` | Rust backend, agent loop, retrieval, file and media handling |
+| `src-tauri/` | Rust product core, DSH adapter, retrieval, file and media handling |
+| `dsh-runtime/` | Pinned DeepSeek Harness composition and Coffee Note tool plugin |
 | `starter-knowledge/` | Bilingual first-run library content |
 | `tests/` | Frontend and shared-logic tests |
 | `docs/` | Architecture, agent, library, and release documentation |
