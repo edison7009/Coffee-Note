@@ -5421,7 +5421,7 @@ function Sidebar({
           onClick={onSettings}
           aria-label={t('settings')}
         >
-          <Settings size={18} strokeWidth={1.8} />
+          <Settings size={16} strokeWidth={1.8} />
         </button>
       </div>
     </aside>

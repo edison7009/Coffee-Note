@@ -310,7 +310,7 @@ body.resizing-panels * {
   padding: 0;
   align-items: center;
   place-items: center;
-  color: var(--muted);
+  color: var(--accent);
   background: transparent;
   border: 0;
   border-radius: 8px;
@@ -342,7 +342,7 @@ body.resizing-panels * {
 
 .sidebar-settings-entry:hover {
   color: var(--ink);
-  background: transparent;
+  background: var(--accent-soft);
 }
 
 .brand {

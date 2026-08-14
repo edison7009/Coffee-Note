@@ -71,6 +71,8 @@ test('available update action sits between message status and settings in the si
     /<div className="window-controls">\s*<UpdateButton locale=\{locale\} \/>/s,
   );
   assert.match(css, /\.sidebar-update\s*\{[^}]*width:\s*28px;[^}]*height:\s*28px;/s);
+  assert.match(css, /\.sidebar-settings-entry\s*\{[^}]*color:\s*var\(--accent\);/s);
+  assert.match(css, /\.sidebar-settings-entry:hover\s*\{[^}]*background:\s*var\(--accent-soft\);/s);
 });
 
 test('library section divider has comfortable vertical breathing room', () => {
