@@ -195,6 +195,7 @@ struct PrepareCaptureRequest {
     transcription_mode: Option<String>,
     input: String,
     locale: String,
+    knowledge_root: String,
     #[serde(default)]
     web_reader: web_reader::WebReaderSettings,
 }
@@ -2357,8 +2358,14 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
             let mode = request.transcription_mode.as_deref().unwrap_or("api");
             let config = load_transcription_config()?
                 .ok_or_else(|| "Configure audio transcription first".to_string())?;
-            let transcript =
-                transcription::transcribe_media_url(&url, mode, &config, &request.locale).await?;
+            let transcript = transcription::transcribe_media_url(
+                &url,
+                mode,
+                &config,
+                &request.locale,
+                Path::new(&request.knowledge_root),
+            )
+            .await?;
             if transcript.trim().is_empty() {
                 return Err("Audio transcription returned no text".to_string());
             }
@@ -4177,6 +4184,7 @@ mod tests {
             transcription_mode: None,
             input: "A 12-week creatine trial with 42 participants.".to_string(),
             locale: "en".to_string(),
+            knowledge_root: std::env::temp_dir().to_string_lossy().into_owned(),
             web_reader: web_reader::WebReaderSettings::default(),
         }))
         .expect("capture should be prepared");

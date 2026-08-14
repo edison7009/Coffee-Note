@@ -338,9 +338,11 @@ async fn transcribe_local(
 ) -> Result<String, String> {
     let executable = runtime_executable(runtime)?;
     let model_path = model_file(model)?;
-    let workspace = audio
-        .parent()
-        .ok_or_else(|| "Audio workspace is unavailable".to_string())?;
+    let workspace =
+        std::env::temp_dir().join(format!("coffee-note-whisper-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&workspace)
+        .map_err(|error| format!("Could not create local transcription workspace: {error}"))?;
+    let _guard = TempMediaDir(workspace.clone());
     let output_base = workspace.join("transcript");
     let wav = workspace.join("audio.wav");
     audio_to_wav(audio, &wav)?;
@@ -398,7 +400,9 @@ pub async fn transcribe_media_url(
     mode: &str,
     config: &super::TranscriptionSettingsConfig,
     locale: &str,
+    knowledge_root: &Path,
 ) -> Result<String, String> {
+    media_download_directory(knowledge_root)?;
     if let Some(captions) = download_media_captions(url, locale).await? {
         return Ok(captions);
     }
@@ -411,7 +415,7 @@ pub async fn transcribe_media_url(
         }
         runtime_executable(&config.active_runtime)?;
         model_file(&config.active_model)?;
-        let (_workspace, audio) = download_media_audio(url).await?;
+        let audio = download_media_audio(url, knowledge_root).await?;
         return transcribe_local(&config.active_runtime, &config.active_model, &audio, locale)
             .await;
     }
@@ -433,7 +437,7 @@ pub async fn transcribe_media_url(
     if !matches!(endpoint.scheme(), "http" | "https") {
         return Err("The speech recognition API URL must use HTTP or HTTPS".to_string());
     }
-    let (_workspace, audio) = download_media_audio(url).await?;
+    let audio = download_media_audio(url, knowledge_root).await?;
     match provider.protocol.as_str() {
         "deepgram" => transcribe_deepgram(provider, &audio).await,
         "assemblyai" => transcribe_assemblyai(provider, &audio).await,
@@ -1057,6 +1061,8 @@ async fn download_media_audio_attempt(
         .arg("--no-playlist")
         .arg("--quiet")
         .arg("--no-warnings")
+        .arg("--no-part")
+        .arg("--windows-filenames")
         .arg("--max-filesize")
         .arg(MAX_MEDIA_BYTES.to_string())
         .arg("-f")
@@ -1076,17 +1082,35 @@ async fn download_media_audio_attempt(
         .map_err(|error| format!("Could not start media import: {error}"))
 }
 
-async fn download_media_audio(url: &reqwest::Url) -> Result<(TempMediaDir, PathBuf), String> {
+fn media_download_directory(knowledge_root: &Path) -> Result<PathBuf, String> {
+    if !knowledge_root.is_dir() {
+        return Err("The selected AI work directory is unavailable".to_string());
+    }
+    let canonical_root = knowledge_root
+        .canonicalize()
+        .map_err(|error| format!("The selected AI work directory is unavailable: {error}"))?;
+    let downloads = canonical_root.join("Downloads");
+    fs::create_dir_all(&downloads)
+        .map_err(|error| format!("Could not create the Downloads folder: {error}"))?;
+    let canonical_downloads = downloads
+        .canonicalize()
+        .map_err(|error| format!("Could not access the Downloads folder: {error}"))?;
+    if !canonical_downloads.starts_with(&canonical_root) {
+        return Err("The Downloads folder must stay inside the selected AI work directory".to_string());
+    }
+    Ok(canonical_downloads)
+}
+
+async fn download_media_audio(
+    url: &reqwest::Url,
+    knowledge_root: &Path,
+) -> Result<PathBuf, String> {
     if !supports_media_url(url) {
         return Err("This URL is not a supported media link".to_string());
     }
     let executable = ensure_media_fetcher().await?;
-    let directory =
-        std::env::temp_dir().join(format!("coffee-note-media-{}", uuid::Uuid::new_v4()));
-    fs::create_dir_all(&directory)
-        .map_err(|error| format!("Could not create media workspace: {error}"))?;
-    let guard = TempMediaDir(directory.clone());
-    let template = directory.join("audio.%(ext)s");
+    let directory = media_download_directory(knowledge_root)?;
+    let template = directory.join("%(title)s [%(id)s].%(ext)s");
     let mut output = download_media_audio_attempt(&executable, &template, url, None).await?;
     let retry_with_browser = !output.status.success()
         && is_douyin_url(url)
@@ -1133,9 +1157,7 @@ async fn download_media_audio(url: &reqwest::Url) -> Result<(TempMediaDir, PathB
     let stdout = String::from_utf8_lossy(&output.stdout);
     let printed = stdout.lines().last().unwrap_or_default().trim();
     let path = PathBuf::from(printed);
-    let canonical_dir = directory
-        .canonicalize()
-        .map_err(|error| error.to_string())?;
+    let canonical_dir = directory;
     let canonical_path = path
         .canonicalize()
         .map_err(|_| "Media import did not produce an audio file".to_string())?;
@@ -1148,7 +1170,7 @@ async fn download_media_audio(url: &reqwest::Url) -> Result<(TempMediaDir, PathB
     if size == 0 || size > MAX_MEDIA_BYTES {
         return Err("Downloaded media audio is empty or too large".to_string());
     }
-    Ok((guard, canonical_path))
+    Ok(canonical_path)
 }
 
 fn runtime_spec(id: &str) -> Option<ResourceSpec> {
@@ -1561,6 +1583,19 @@ mod tests {
             usable_local_transcript("  真实文字  ").expect("real speech should be kept"),
             "真实文字"
         );
+    }
+
+    #[test]
+    fn media_downloads_stay_inside_the_selected_work_directory() {
+        let root = fixture_root("downloads");
+        fs::create_dir_all(&root).expect("work directory fixture should be created");
+
+        let downloads = media_download_directory(&root)
+            .expect("Downloads should be created inside the selected work directory");
+        assert_eq!(downloads, root.canonicalize().unwrap().join("Downloads"));
+        assert!(downloads.is_dir());
+
+        fs::remove_dir_all(root).expect("work directory fixture should be removed");
     }
 
     #[test]

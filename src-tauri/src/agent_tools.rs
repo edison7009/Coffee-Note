@@ -292,7 +292,7 @@ pub async fn execute_tool(
         }
         "read_local_file" => exec_read_local_file(args, locale).await,
         "web_fetch" => exec_web_fetch(args, web_reader).await,
-        "transcribe_media" => exec_transcribe_media(args, locale).await,
+        "transcribe_media" => exec_transcribe_media(args, locale, knowledge_root).await,
         "suggest_memory" => ToolResult {
             success: true,
             output: "Memory suggestion sent for user confirmation.".into(),
@@ -360,7 +360,7 @@ async fn exec_web_fetch(args: &Value, settings: &WebReaderSettings) -> ToolResul
     }
 }
 
-async fn exec_transcribe_media(args: &Value, locale: &str) -> ToolResult {
+async fn exec_transcribe_media(args: &Value, locale: &str, knowledge_root: &Path) -> ToolResult {
     let mode = args
         .get("mode")
         .and_then(Value::as_str)
@@ -410,7 +410,8 @@ async fn exec_transcribe_media(args: &Value, locale: &str) -> ToolResult {
                 output: "This URL is not a supported media link.".into(),
             };
         }
-        crate::transcription::transcribe_media_url(&url, mode, &config, locale).await
+        crate::transcription::transcribe_media_url(&url, mode, &config, locale, knowledge_root)
+            .await
     } else if let Some(raw_path) = args.get("path").and_then(Value::as_str) {
         let path = Path::new(raw_path.trim());
         if !path.is_file() {
@@ -726,7 +727,8 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         Ok(_) => ToolResult {
             success: true,
             output: format!(
-                "Saved note to {relative} ({note_len} chars)",
+                "Saved note to {} ({note_len} chars)",
+                file_path.display(),
                 note_len = note.chars().count()
             ),
         },
@@ -1238,6 +1240,7 @@ mod tests {
         );
         assert!(result.success, "{}", result.output);
         assert!(dir.join("inbox").join("健身计划.md").exists());
+        assert!(result.output.contains(&dir.to_string_lossy().to_string()));
         let _ = fs::remove_dir_all(&dir);
     }
 

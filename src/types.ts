@@ -198,6 +198,7 @@ export interface PrepareCaptureRequest {
   transcriptionMode?: 'api' | 'local';
   input: string;
   locale: Locale;
+  knowledgeRoot: string;
   webReader: WebReaderSettings;
 }
 

@@ -2996,7 +2996,7 @@ function App() {
         webReader: modelSettings.webReader,
         message: clean,
         locale,
-        knowledgeRoot: library.root,
+        knowledgeRoot: libraryRootRef.current || library.root,
         skillId: skillIdOverride === undefined
           ? selectedSkillId || undefined
           : skillIdOverride || undefined,
