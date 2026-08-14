@@ -5570,10 +5570,20 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   gap: 7px;
   height: 26px;
   padding: 0;
+  color: var(--switch-on);
   font-size: 14px;
   font-weight: 600;
   line-height: 26px;
   white-space: nowrap;
+}
+
+.agent-turn-status-text {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 1ch;
+}
+
+.agent-turn-status-shimmer {
   background: linear-gradient(
     90deg,
     var(--switch-on) 0%,
@@ -5583,12 +5593,22 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
     var(--switch-on) 100%
   );
   background-position: 100% 0;
-  background-size: 250% 100%;
+  background-size: 225% 100%;
   background-clip: text;
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: agent-turn-status-shimmer 1.8s linear infinite;
+  animation: agent-turn-status-shimmer 2.7s linear infinite;
+}
+
+.agent-turn-status-caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  align-self: center;
+  background: var(--switch-on);
+  animation: agent-turn-status-caret-blink 1s steps(2) infinite;
 }
 
 .agent-turn-status-clock {
@@ -5605,8 +5625,21 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   }
 }
 
+@keyframes agent-turn-status-caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .agent-turn-status {
+  .agent-turn-status-shimmer,
+  .agent-turn-status-caret {
     background-position: 0 0;
     background-size: 100% 100%;
     animation: none;

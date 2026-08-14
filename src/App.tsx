@@ -6833,9 +6833,26 @@ function formatAgentRunDuration(elapsedSeconds: number, locale: Locale): string 
     : `${minutes}m ${String(seconds).padStart(2, '0')}s`;
 }
 
+const AGENT_STATUS_VERBS: Record<Locale, string[]> = {
+  zh: ['思索', '琢磨', '酝酿', '雕琢', '沉吟', '推敲', '梳理', '推演', '演算', '凝聚', '编排', '钻研', '寻思', '酿造', '检索'],
+  en: ['Brewing', 'Calculating', 'Composing', 'Considering', 'Crafting', 'Deliberating', 'Formulating', 'Generating', 'Imagining', 'Orchestrating', 'Pondering', 'Processing', 'Reasoning', 'Synthesizing', 'Working'],
+};
+
+function formatAgentStatusPhrase(verb: string, locale: Locale): string {
+  return locale === 'zh' ? `正在${verb}中…` : `${verb}…`;
+}
+
 function AgentTurnStatus({ locale }: { locale: Locale }) {
   const [startedAt] = useState(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const pickPhrase = () => {
+    const verbs = AGENT_STATUS_VERBS[locale];
+    const verb = verbs[Math.floor(Math.random() * verbs.length)];
+    return formatAgentStatusPhrase(verb, locale);
+  };
+  const [target, setTarget] = useState(() => pickPhrase());
+  const [shown, setShown] = useState(target);
+  const [phase, setPhase] = useState<'show' | 'erase' | 'type'>('show');
 
   useEffect(() => {
     const update = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
@@ -6844,9 +6861,44 @@ function AgentTurnStatus({ locale }: { locale: Locale }) {
     return () => window.clearInterval(timer);
   }, [startedAt]);
 
+  useEffect(() => {
+    const next = pickPhrase();
+    setTarget(next);
+    setShown(next);
+    setPhase('show');
+    // Locale changes should restart the phrase in the new language.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
+
+  useEffect(() => {
+    if (phase === 'show') {
+      const timer = window.setTimeout(() => setPhase('erase'), 3200);
+      return () => window.clearTimeout(timer);
+    }
+    if (phase === 'erase') {
+      if (shown.length === 0) {
+        setTarget(pickPhrase());
+        setPhase('type');
+        return;
+      }
+      const timer = window.setTimeout(() => setShown((value) => value.slice(0, -1)), 55);
+      return () => window.clearTimeout(timer);
+    }
+    if (shown.length >= target.length) {
+      setPhase('show');
+      return;
+    }
+    const timer = window.setTimeout(() => setShown(target.slice(0, shown.length + 1)), 85);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, shown, target]);
+
   return (
     <div className="agent-turn-status" role="status" aria-live="polite">
-      <span>{locale === 'zh' ? '正在深入思考…' : 'Deep diving…'}</span>
+      <span className="agent-turn-status-text">
+        <span className="agent-turn-status-shimmer">{shown}</span>
+        {phase !== 'show' && <span className="agent-turn-status-caret" aria-hidden="true" />}
+      </span>
       {elapsedSeconds >= 15 && (
         <span className="agent-turn-status-clock" aria-hidden="true">
           {formatAgentRunDuration(elapsedSeconds, locale)}
