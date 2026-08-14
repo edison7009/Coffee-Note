@@ -22,6 +22,9 @@ use crate::{agent_tools, memory};
 const DSH_PROVIDER_ROUTE: &str = "coffee-note";
 const DSH_DEEPSEEK_ROUTE: &str = "deepseek-official";
 const MAX_TOOL_OUTPUT_CHARS: usize = 8_000;
+const DEFAULT_CONTEXT_WINDOW: u64 = 32_768;
+const DEFAULT_DEEPSEEK_CONTEXT_WINDOW: u64 = 131_072;
+const DEFAULT_MAX_OUTPUT_TOKENS: u64 = 4_096;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,6 +34,7 @@ pub struct LlmUsage {
     pub total_tokens: u64,
     pub cache_hit_tokens: u64,
     pub cache_miss_tokens: u64,
+    pub cache_write_tokens: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,6 +135,12 @@ pub struct AgentRequest {
     #[serde(default)]
     pub reasoning_effort: Option<String>,
     #[serde(default)]
+    pub model_context_window: Option<u64>,
+    #[serde(default)]
+    pub model_max_output_tokens: Option<u64>,
+    #[serde(default)]
+    pub model_reasoning_efforts: Vec<String>,
+    #[serde(default)]
     pub web_reader: crate::web_reader::WebReaderSettings,
     #[serde(default)]
     pub source_channel: Option<String>,
@@ -154,6 +164,9 @@ struct RuntimeConfig {
     model: String,
     provider: String,
     reasoning_effort: Option<String>,
+    model_context_window: Option<u64>,
+    model_max_output_tokens: Option<u64>,
+    model_reasoning_efforts: Vec<String>,
     knowledge_root: String,
 }
 
@@ -165,6 +178,9 @@ impl From<&AgentRequest> for RuntimeConfig {
             model: request.model.clone(),
             provider: request.provider.clone(),
             reasoning_effort: request.reasoning_effort.clone(),
+            model_context_window: request.model_context_window,
+            model_max_output_tokens: request.model_max_output_tokens,
+            model_reasoning_efforts: request.model_reasoning_efforts.clone(),
             knowledge_root: request.knowledge_root.clone(),
         }
     }
@@ -195,6 +211,7 @@ impl Default for RuntimeProcess {
 struct ActiveRun {
     started: bool,
     final_text: String,
+    terminal_error: Option<String>,
     done: Option<oneshot::Sender<Result<String, String>>>,
 }
 
@@ -244,6 +261,7 @@ impl DshRuntime {
                 ActiveRun {
                     started: false,
                     final_text: String::new(),
+                    terminal_error: None,
                     done: Some(done_tx),
                 },
             );
@@ -330,6 +348,36 @@ impl DshRuntime {
         Ok(true)
     }
 
+    pub async fn delete_session_data(&self, conversation_id: &str) -> Result<(), String> {
+        if conversation_id.is_empty() {
+            return Err("Conversation id cannot be empty".to_string());
+        }
+        let _guard = self.lifecycle.lock().await;
+        if !self.runs.lock().await.is_empty() {
+            return Err(
+                "Cannot delete a conversation while DeepSeek Harness is processing a message."
+                    .to_string(),
+            );
+        }
+        self.stop_process().await;
+        let session_root = crate::app_data_dir().join("dsh").join("sessions");
+        let id = conversation_id.to_string();
+        tokio::task::spawn_blocking(move || remove_dsh_session_data_at(&session_root, &id))
+            .await
+            .map_err(|error| format!("DSH session cleanup task failed: {error}"))??;
+        self.seeded_sessions.lock().await.remove(conversation_id);
+        let marker = seeded_session_marker(conversation_id);
+        if let Err(error) = fs::remove_file(&marker) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                return Err(format!(
+                    "Could not remove DSH session migration marker {}: {error}",
+                    marker.display()
+                ));
+            }
+        }
+        Ok(())
+    }
+
     async fn ensure_started(&self, app: &AppHandle, request: &AgentRequest) -> Result<(), String> {
         let wanted = RuntimeConfig::from(request);
         let _guard = self.lifecycle.lock().await;
@@ -392,6 +440,14 @@ impl DshRuntime {
                 deepseek_reasoning(request.reasoning_effort.as_deref()),
             )
             .env("COFFEE_NOTE_DSH_MODEL", &request.model)
+            .env(
+                "COFFEE_NOTE_DSH_CONTEXT_WINDOW",
+                model_context_window(request).to_string(),
+            )
+            .env(
+                "COFFEE_NOTE_DSH_MAX_OUTPUT_TOKENS",
+                model_max_output_tokens(request).to_string(),
+            )
             .env("COFFEE_NOTE_TOOL_BRIDGE_ADDR", &bridge.address)
             .env("COFFEE_NOTE_TOOL_BRIDGE_TOKEN", &bridge.token)
             .stdin(Stdio::piped())
@@ -433,7 +489,7 @@ impl DshRuntime {
                     "cwd": request.knowledge_root,
                     "provider": provider_route(request),
                     "model": request.model,
-                    "maxTokens": 4096,
+                    "maxTokens": model_max_output_tokens(request),
                 }),
             )
             .await;
@@ -551,14 +607,33 @@ impl DshRuntime {
                             state: "idle".into(),
                         },
                     );
-                    self.emit(
-                        app,
-                        AgentEvent::Done {
-                            conversation_id: id.to_string(),
-                        },
-                    );
-                    if let Some(done) = run.done.take() {
-                        let _ = done.send(Ok(run.final_text));
+                    if let Some(error) = run.terminal_error.take() {
+                        self.emit(
+                            app,
+                            AgentEvent::Error {
+                                conversation_id: id.to_string(),
+                                message: error.clone(),
+                            },
+                        );
+                        self.emit(
+                            app,
+                            AgentEvent::Done {
+                                conversation_id: id.to_string(),
+                            },
+                        );
+                        if let Some(done) = run.done.take() {
+                            let _ = done.send(Err(error));
+                        }
+                    } else {
+                        self.emit(
+                            app,
+                            AgentEvent::Done {
+                                conversation_id: id.to_string(),
+                            },
+                        );
+                        if let Some(done) = run.done.take() {
+                            let _ = done.send(Ok(run.final_text));
+                        }
                     }
                 }
             }
@@ -667,19 +742,11 @@ impl DshRuntime {
                 );
             }
             Some("turn/end") => {
-                let reason = data
-                    .get("reason")
-                    .and_then(|value| value.get("kind"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("completed");
-                if !matches!(reason, "completed" | "max-tokens") {
-                    self.emit(
-                        app,
-                        AgentEvent::Error {
-                            conversation_id: id.to_string(),
-                            message: format!("DeepSeek Harness ended the turn: {reason}"),
-                        },
-                    );
+                let reason_data = data.get("reason").unwrap_or(&Value::Null);
+                if let Some(error) = turn_terminal_error(reason_data) {
+                    if let Some(run) = self.runs.lock().await.get_mut(id) {
+                        run.terminal_error = Some(error);
+                    }
                 }
             }
             _ => {}
@@ -687,20 +754,11 @@ impl DshRuntime {
     }
 
     fn emit_usage(&self, app: &AppHandle, id: &str, usage: &Value) {
-        let prompt = u64_field(usage, "inputTokens");
-        let completion = u64_field(usage, "outputTokens");
-        let cache_hit = u64_field(usage, "cacheReadTokens");
         self.emit(
             app,
             AgentEvent::Usage {
                 conversation_id: id.to_string(),
-                usage: LlmUsage {
-                    prompt_tokens: prompt,
-                    completion_tokens: completion,
-                    total_tokens: prompt.saturating_add(completion),
-                    cache_hit_tokens: cache_hit,
-                    cache_miss_tokens: prompt.saturating_sub(cache_hit),
-                },
+                usage: mapped_usage(usage),
             },
         );
     }
@@ -919,6 +977,69 @@ fn seeded_session_marker(id: &str) -> PathBuf {
         .join(digest)
 }
 
+fn encode_dsh_session_id(id: &str) -> Result<String, String> {
+    if id.is_empty() {
+        return Err("Conversation id cannot be empty".to_string());
+    }
+    if id == "." {
+        return Ok("~002E".to_string());
+    }
+    if id == ".." {
+        return Ok("~002E~002E".to_string());
+    }
+    let mut encoded = String::new();
+    for unit in id.encode_utf16() {
+        let safe = unit >= u16::from(b'A') && unit <= u16::from(b'Z')
+            || unit >= u16::from(b'a') && unit <= u16::from(b'z')
+            || unit >= u16::from(b'0') && unit <= u16::from(b'9')
+            || matches!(unit, 46 | 95 | 45);
+        if safe {
+            encoded.push(char::from(unit as u8));
+        } else {
+            encoded.push_str(&format!("~{unit:04X}"));
+        }
+    }
+    Ok(encoded)
+}
+
+fn remove_dsh_session_data_at(session_root: &Path, id: &str) -> Result<(), String> {
+    if !session_root.is_dir() {
+        return Ok(());
+    }
+    let encoded = encode_dsh_session_id(id)?;
+    let projects = fs::read_dir(session_root).map_err(|error| {
+        format!(
+            "Could not inspect DSH session directory {}: {error}",
+            session_root.display()
+        )
+    })?;
+    for project in projects.flatten() {
+        let Ok(file_type) = project.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() || file_type.is_symlink() {
+            continue;
+        }
+        let project_path = project.path();
+        let candidate = project_path.join(&encoded);
+        if fs::symlink_metadata(&candidate).is_ok_and(|metadata| {
+            let file_type = metadata.file_type();
+            file_type.is_dir() && !file_type.is_symlink()
+        }) {
+            fs::remove_dir_all(&candidate).map_err(|error| {
+                format!(
+                    "Could not delete DSH session {}: {error}",
+                    candidate.display()
+                )
+            })?;
+        }
+        if fs::read_dir(&project_path).is_ok_and(|mut entries| entries.next().is_none()) {
+            let _ = fs::remove_dir(&project_path);
+        }
+    }
+    Ok(())
+}
+
 fn persist_seeded_session(id: &str) {
     let marker = seeded_session_marker(id);
     let result = marker
@@ -974,6 +1095,7 @@ fn extract_bundled_runtime(archive_path: &Path, destination: &Path) -> Result<Pa
     let digest = format!("{:x}", hasher.finalize());
     let target = destination.join(format!("dsh-{}", &digest[..16]));
     if valid_runtime_root(&target) {
+        prune_old_runtimes(destination, &target);
         return Ok(target);
     }
 
@@ -1008,7 +1130,33 @@ fn extract_bundled_runtime(archive_path: &Path, destination: &Path) -> Result<Pa
     if extraction.is_err() && staging.starts_with(destination) {
         let _ = fs::remove_dir_all(&staging);
     }
+    if let Ok(active) = extraction.as_ref() {
+        prune_old_runtimes(destination, active);
+    }
     extraction
+}
+
+fn prune_old_runtimes(destination: &Path, active: &Path) {
+    let Ok(entries) = fs::read_dir(destination) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path == active
+            || !entry.file_name().to_string_lossy().starts_with("dsh-")
+            || !entry
+                .file_type()
+                .is_ok_and(|file_type| file_type.is_dir() && !file_type.is_symlink())
+        {
+            continue;
+        }
+        if let Err(error) = fs::remove_dir_all(&path) {
+            log::warn!(
+                "[DeepSeekHarness] Could not remove superseded runtime {}: {error}",
+                path.display()
+            );
+        }
+    }
 }
 
 fn valid_runtime_root(root: &Path) -> bool {
@@ -1064,8 +1212,8 @@ fn provider_config(request: &AgentRequest) -> Result<Value, String> {
         "models": [{
             "id": request.model,
             "name": request.model,
-            "contextWindow": 131072,
-            "maxTokens": 8192,
+            "contextWindow": model_context_window(request),
+            "maxTokens": model_max_output_tokens(request),
             "input": ["text"]
         }],
         "headers": {
@@ -1075,10 +1223,47 @@ fn provider_config(request: &AgentRequest) -> Result<Value, String> {
         },
         "streamIdleTimeoutMs": 300000
     });
-    if let Some(reasoning) = normalized_reasoning(request.reasoning_effort.as_deref()) {
-        profile["reasoning"] = Value::String(reasoning.to_string());
+    let mut reasoning_efforts = serde_json::Map::new();
+    for effort in &request.model_reasoning_efforts {
+        let Some(effort) = normalized_reasoning(Some(effort)) else {
+            continue;
+        };
+        let value = if effort == "off" {
+            Value::Null
+        } else {
+            Value::String(effort.to_string())
+        };
+        reasoning_efforts.insert(effort.to_string(), value);
+    }
+    if reasoning_efforts.keys().any(|effort| effort != "off") {
+        profile["models"][0]["reasoningEfforts"] = Value::Object(reasoning_efforts.clone());
+        if let Some(reasoning) = normalized_reasoning(request.reasoning_effort.as_deref()) {
+            if reasoning_efforts.contains_key(reasoning) {
+                profile["reasoning"] = Value::String(reasoning.to_string());
+            }
+        }
     }
     Ok(json!({DSH_PROVIDER_ROUTE: profile}))
+}
+
+fn model_context_window(request: &AgentRequest) -> u64 {
+    let fallback = if provider_route(request) == DSH_DEEPSEEK_ROUTE {
+        DEFAULT_DEEPSEEK_CONTEXT_WINDOW
+    } else {
+        DEFAULT_CONTEXT_WINDOW
+    };
+    request
+        .model_context_window
+        .unwrap_or(fallback)
+        .clamp(4_096, 2_000_000)
+}
+
+fn model_max_output_tokens(request: &AgentRequest) -> u64 {
+    let context_limit = model_context_window(request) / 2;
+    request
+        .model_max_output_tokens
+        .unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS)
+        .clamp(256, context_limit.min(32_768))
 }
 
 fn provider_base_url(base_url: &str, api: &str) -> String {
@@ -1096,8 +1281,7 @@ fn provider_base_url(base_url: &str, api: &str) -> String {
 
 fn normalized_reasoning(value: Option<&str>) -> Option<&str> {
     match value {
-        Some("minimal" | "low" | "medium" | "high") => value,
-        Some("xhigh" | "max") => Some("high"),
+        Some("off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") => value,
         _ => None,
     }
 }
@@ -1343,6 +1527,44 @@ fn u64_field(value: &Value, key: &str) -> u64 {
     value.get(key).and_then(Value::as_u64).unwrap_or_default()
 }
 
+fn mapped_usage(usage: &Value) -> LlmUsage {
+    let uncached_input = u64_field(usage, "inputTokens");
+    let completion = u64_field(usage, "outputTokens");
+    let cache_hit = u64_field(usage, "cacheReadTokens");
+    let cache_write = u64_field(usage, "cacheWriteTokens");
+    let cache_miss = uncached_input;
+    let prompt = cache_miss
+        .saturating_add(cache_hit)
+        .saturating_add(cache_write);
+    LlmUsage {
+        prompt_tokens: prompt,
+        completion_tokens: completion,
+        total_tokens: prompt.saturating_add(completion),
+        cache_hit_tokens: cache_hit,
+        cache_miss_tokens: cache_miss,
+        cache_write_tokens: cache_write,
+    }
+}
+
+fn turn_terminal_error(reason: &Value) -> Option<String> {
+    let kind = reason
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or("completed");
+    if matches!(kind, "completed" | "max-tokens") {
+        return None;
+    }
+    Some(
+        reason
+            .get("error")
+            .and_then(|error| error.get("message"))
+            .and_then(Value::as_str)
+            .filter(|message| !message.trim().is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("DeepSeek Harness ended the turn: {kind}")),
+    )
+}
+
 fn localized(locale: &str, en: &str, zh: &str) -> String {
     if locale == "en" {
         en.to_string()
@@ -1354,6 +1576,33 @@ fn localized(locale: &str, en: &str, zh: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn request_fixture() -> AgentRequest {
+        AgentRequest {
+            conversation_id: "conversation-1".to_string(),
+            api_key: "test-key".to_string(),
+            base_url: "https://gateway.example/v1".to_string(),
+            model: "example-model".to_string(),
+            message: "hello".to_string(),
+            locale: "en".to_string(),
+            knowledge_root: ".".to_string(),
+            context_paths: Vec::new(),
+            skill_id: None,
+            skill_prompt: None,
+            enabled_my_info_sections: None,
+            include_priorities: true,
+            current_page: None,
+            note_summary: None,
+            history: Vec::new(),
+            provider: "openai".to_string(),
+            reasoning_effort: Some("medium".to_string()),
+            model_context_window: None,
+            model_max_output_tokens: None,
+            model_reasoning_efforts: Vec::new(),
+            web_reader: crate::web_reader::WebReaderSettings::default(),
+            source_channel: None,
+        }
+    }
 
     fn runtime_fixture(root: &Path) {
         for relative in [
@@ -1388,10 +1637,106 @@ mod tests {
     }
 
     #[test]
-    fn maps_extended_reasoning_to_high() {
-        assert_eq!(normalized_reasoning(Some("max")), Some("high"));
-        assert_eq!(normalized_reasoning(Some("xhigh")), Some("high"));
+    fn preserves_supported_extended_reasoning_levels() {
+        assert_eq!(normalized_reasoning(Some("max")), Some("max"));
+        assert_eq!(normalized_reasoning(Some("xhigh")), Some("xhigh"));
         assert_eq!(normalized_reasoning(None), None);
+    }
+
+    #[test]
+    fn generic_provider_declares_only_known_model_reasoning() {
+        let mut request = request_fixture();
+        let unknown = provider_config(&request).unwrap();
+        let unknown_profile = &unknown[DSH_PROVIDER_ROUTE];
+        assert!(unknown_profile.get("reasoning").is_none());
+        assert!(unknown_profile["models"][0]
+            .get("reasoningEfforts")
+            .is_none());
+        assert_eq!(unknown_profile["models"][0]["contextWindow"], 32_768);
+
+        request.base_url = "https://api.deepseek.com".to_string();
+        assert_eq!(model_context_window(&request), 131_072);
+        request.base_url = "https://gateway.example/v1".to_string();
+
+        request.model_context_window = Some(64_000);
+        request.model_max_output_tokens = Some(8_000);
+        request.model_reasoning_efforts = vec!["low".to_string(), "medium".to_string()];
+        let known = provider_config(&request).unwrap();
+        let known_profile = &known[DSH_PROVIDER_ROUTE];
+        assert_eq!(known_profile["reasoning"], "medium");
+        assert_eq!(known_profile["models"][0]["contextWindow"], 64_000);
+        assert_eq!(known_profile["models"][0]["maxTokens"], 8_000);
+        assert_eq!(known_profile["models"][0]["reasoningEfforts"]["low"], "low");
+    }
+
+    #[test]
+    fn maps_disjoint_dsh_usage_to_product_totals() {
+        let usage = mapped_usage(&json!({
+            "inputTokens": 2_000,
+            "outputTokens": 200,
+            "cacheReadTokens": 6_000,
+            "cacheWriteTokens": 500
+        }));
+        assert_eq!(usage.prompt_tokens, 8_500);
+        assert_eq!(usage.completion_tokens, 200);
+        assert_eq!(usage.total_tokens, 8_700);
+        assert_eq!(usage.cache_hit_tokens, 6_000);
+        assert_eq!(usage.cache_miss_tokens, 2_000);
+        assert_eq!(usage.cache_write_tokens, 500);
+    }
+
+    #[test]
+    fn preserves_terminal_dsh_failure_for_run_result() {
+        assert_eq!(
+            turn_terminal_error(&json!({
+                "kind": "error",
+                "error": {"message": "provider unavailable", "code": "SERVER"}
+            }))
+            .as_deref(),
+            Some("provider unavailable")
+        );
+        assert_eq!(turn_terminal_error(&json!({"kind": "completed"})), None);
+        assert_eq!(turn_terminal_error(&json!({"kind": "max-tokens"})), None);
+    }
+
+    #[test]
+    fn removes_only_the_encoded_dsh_session_directory() {
+        let root =
+            std::env::temp_dir().join(format!("coffee-note-dsh-sessions-{}", uuid::Uuid::new_v4()));
+        let project = root.join("--project--");
+        let id = "对话/one";
+        let encoded = encode_dsh_session_id(id).unwrap();
+        let target = project.join(&encoded);
+        let other = project.join("other-session");
+        fs::create_dir_all(&target).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        fs::write(target.join("session.jsonl.zstd"), b"fixture").unwrap();
+        fs::write(other.join("session.jsonl.zstd"), b"fixture").unwrap();
+
+        remove_dsh_session_data_at(&root, id).unwrap();
+
+        assert!(!target.exists());
+        assert!(other.is_dir());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn prunes_only_superseded_dsh_runtime_directories() {
+        let root =
+            std::env::temp_dir().join(format!("coffee-note-dsh-prune-{}", uuid::Uuid::new_v4()));
+        let active = root.join("dsh-active");
+        let old = root.join("dsh-old");
+        let unrelated = root.join("user-files");
+        fs::create_dir_all(&active).unwrap();
+        fs::create_dir_all(&old).unwrap();
+        fs::create_dir_all(&unrelated).unwrap();
+
+        prune_old_runtimes(&root, &active);
+
+        assert!(active.is_dir());
+        assert!(!old.exists());
+        assert!(unrelated.is_dir());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

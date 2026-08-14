@@ -89,10 +89,16 @@ fn is_valid_conversation_id(id: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
 }
 
-fn conversation_path(id: &str) -> Result<PathBuf, String> {
-    if !is_valid_conversation_id(id) {
-        return Err("Invalid conversation id".to_string());
+pub fn validate_conversation_id(id: &str) -> Result<(), String> {
+    if is_valid_conversation_id(id) {
+        Ok(())
+    } else {
+        Err("Invalid conversation id".to_string())
     }
+}
+
+fn conversation_path(id: &str) -> Result<PathBuf, String> {
+    validate_conversation_id(id)?;
     Ok(conversations_dir().join(format!("{id}.json")))
 }
 
@@ -370,7 +376,6 @@ pub fn save_conversation_ui(
     Ok(summary)
 }
 
-#[tauri::command]
 pub fn delete_conversation(id: String) -> Result<Vec<ConversationSummary>, String> {
     let _write_guard = conversation_write_lock()?;
     let path = conversation_path(&id)?;

@@ -95,9 +95,13 @@ test('composer selections reach the actual model request', () => {
   assert.match(appSource, /reasoningLevels = configuredModel \? COMPOSER_REASONING_LEVELS : \[\]/);
   assert.doesNotMatch(settingsSource, /getCatalogModel|modelMeta\?\.reasoning/);
   assert.match(appSource, /reasoningEffort: modelConfig\.reasoningEffort/);
+  assert.match(appSource, /modelContextWindow: catalogModel\?\.limit\?\.context/);
+  assert.match(appSource, /modelMaxOutputTokens: catalogModel\?\.limit\?\.output/);
+  assert.match(appSource, /modelReasoningEfforts/);
   assert.doesNotMatch(appSource, /clampReasoningEffort|availableReasoningEfforts/);
   assert.doesNotMatch(catalogSource, /function clampReasoningEffort|function availableReasoningEfforts/);
   assert.match(runtimeSource, /profile\["reasoning"\]/);
+  assert.match(runtimeSource, /"reasoningEfforts"/);
   assert.match(runtimeSource, /"model": request\.model/);
   assert.match(runtimeSource, /"provider": provider_route\(request\)/);
 });

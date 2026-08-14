@@ -3298,6 +3298,16 @@ async fn agent_send_message(
     Ok("ok".to_string())
 }
 
+#[tauri::command]
+async fn delete_conversation(
+    runtime: State<'_, DshRuntime>,
+    id: String,
+) -> Result<Vec<conversations::ConversationSummary>, String> {
+    conversations::validate_conversation_id(&id)?;
+    runtime.delete_session_data(&id).await?;
+    conversations::delete_conversation(id)
+}
+
 fn show_main_window(app: &tauri::AppHandle) {
     use tauri::Manager;
 
@@ -3439,7 +3449,7 @@ pub fn run() {
             conversations::conversation_file_path,
             conversations::save_conversation_ui,
             conversations::create_conversation,
-            conversations::delete_conversation,
+            delete_conversation,
             memory::confirm_memory_suggestion,
             check_for_update,
             download_and_install_update,

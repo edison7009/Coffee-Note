@@ -1020,6 +1020,9 @@ async fn run_channel_agent(
         history,
         provider: provider.protocol.clone(),
         reasoning_effort: Some(model_settings.reasoning_effort.clone()),
+        model_context_window: None,
+        model_max_output_tokens: None,
+        model_reasoning_efforts: Vec::new(),
         web_reader: model_settings.web_reader.clone(),
         source_channel: Some(job.channel.clone()),
     };

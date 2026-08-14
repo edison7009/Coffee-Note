@@ -240,6 +240,7 @@ const EMPTY_USAGE: ConversationUsage = {
   totalTokens: 0,
   cacheHitTokens: 0,
   cacheMissTokens: 0,
+  cacheWriteTokens: 0,
   requestCount: 0,
 };
 
@@ -258,6 +259,7 @@ function loadConversationUsage(): Record<string, ConversationUsage> {
           totalTokens: count(usage.totalTokens),
           cacheHitTokens: count(usage.cacheHitTokens),
           cacheMissTokens: count(usage.cacheMissTokens),
+          cacheWriteTokens: count(usage.cacheWriteTokens),
           requestCount: count(usage.requestCount),
         },
       ]),
@@ -280,19 +282,25 @@ function estimateModelCost(
   const catalogModel = getCatalogModel(catalog, config.providerId, config.model);
   if (config.customModels.includes(config.model) || !catalogModel) return null;
   const identity = `${config.baseUrl} ${config.model}`.toLowerCase();
-  let prices: { cacheHit: number; cacheMiss: number; output: number } | null = null;
+  let prices: {
+    cacheHit: number;
+    cacheMiss: number;
+    cacheWrite: number;
+    output: number;
+  } | null = null;
   if (currency === 'CNY' && identity.includes('deepseek')) {
     // DeepSeek publishes separate regional prices; do not convert them as exchange rates.
     const pro = /v4[-_. ]?pro/.test(identity);
     prices = pro
-      ? { cacheHit: 0.025, cacheMiss: 3, output: 6 }
-      : { cacheHit: 0.02, cacheMiss: 1, output: 2 };
+      ? { cacheHit: 0.025, cacheMiss: 3, cacheWrite: 3, output: 6 }
+      : { cacheHit: 0.02, cacheMiss: 1, cacheWrite: 1, output: 2 };
   } else if (currency === 'USD') {
     const cost = catalogModel.cost;
     if (cost?.input != null && cost.output != null) {
       prices = {
         cacheHit: cost.cacheRead ?? cost.input,
         cacheMiss: cost.input,
+        cacheWrite: cost.cacheWrite ?? cost.input,
         output: cost.output,
       };
     }
@@ -301,6 +309,7 @@ function estimateModelCost(
   return (
     usage.cacheHitTokens * prices.cacheHit
     + usage.cacheMissTokens * prices.cacheMiss
+    + usage.cacheWriteTokens * prices.cacheWrite
     + usage.completionTokens * prices.output
   ) / 1_000_000;
 }
@@ -2929,6 +2938,7 @@ function App() {
                 totalTokens: previous.totalTokens + event.usage.totalTokens,
                 cacheHitTokens: previous.cacheHitTokens + event.usage.cacheHitTokens,
                 cacheMissTokens: previous.cacheMissTokens + event.usage.cacheMissTokens,
+                cacheWriteTokens: previous.cacheWriteTokens + event.usage.cacheWriteTokens,
                 requestCount: previous.requestCount,
               },
             };
@@ -3019,6 +3029,16 @@ function App() {
     }
 
     try {
+      const catalogModel = getCatalogModel(
+        modelCatalog,
+        modelConfig.providerId,
+        modelConfig.model,
+      );
+      const modelReasoningEfforts = catalogModel?.reasoningOptions.length
+        ? catalogModel.reasoningOptions
+        : catalogModel?.reasoning
+          ? [modelConfig.reasoningEffort]
+          : [];
       await sendAgentMessage({
         conversationId,
         apiKey: modelConfig.apiKey,
@@ -3026,6 +3046,9 @@ function App() {
         model: modelConfig.model,
         provider: modelConfig.provider,
         reasoningEffort: modelConfig.reasoningEffort,
+        modelContextWindow: catalogModel?.limit?.context,
+        modelMaxOutputTokens: catalogModel?.limit?.output,
+        modelReasoningEfforts,
         webReader: modelSettings.webReader,
         message: clean,
         locale,
@@ -7673,7 +7696,7 @@ function ChatComposer({
   const activeSkills = skillCatalog.skills.filter(
     (skill) => skill.categoryId === activeSkillGroup?.id && skill.enabled,
   );
-  const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens;
+  const cacheTokens = usage.cacheHitTokens + usage.cacheMissTokens + usage.cacheWriteTokens;
   const cacheHitRate = cacheTokens > 0
     ? `${Math.round((usage.cacheHitTokens / cacheTokens) * 100)}%`
     : usage.requestCount === 0 ? '0%' : '—';

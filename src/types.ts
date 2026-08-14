@@ -353,6 +353,7 @@ export interface LlmUsage {
   totalTokens: number;
   cacheHitTokens: number;
   cacheMissTokens: number;
+  cacheWriteTokens: number;
 }
 
 // ── Agent events (from Rust backend via Tauri) ──
@@ -384,6 +385,9 @@ export interface AgentRequest {
   model: string;
   provider?: string;
   reasoningEffort?: ReasoningEffort;
+  modelContextWindow?: number;
+  modelMaxOutputTokens?: number;
+  modelReasoningEfforts?: ReasoningEffort[];
   webReader: WebReaderSettings;
   message: string;
   locale: Locale;
