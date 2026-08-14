@@ -247,9 +247,15 @@
     .wrap { padding: 0 1.5rem; }
     .nav { padding: 16px 1.5rem; }
     .nav-links { display: none; }
+    .install-cmd-row { width: 100%; max-width: 100%; }
+    .install-cmd-row code {
+      flex: 1; min-width: 0; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .install-cmd-row .copy-btn { flex: 0 0 58px; }
     .chapter, .chapter.flip { grid-template-columns: 1fr; gap: 32px; }
     .chapter.flip .text { order: 1; } .chapter.flip .shot { order: 2; }
-    .metrics { grid-template-columns: repeat(3, 1fr); padding: 24px 0; }
+    .metrics { grid-template-columns: 1fr; padding: 24px 0; }
     .metric { padding: 24px 8px; }
     .create-row { grid-template-columns: 1fr; }
     footer { padding: 20px 1.5rem; }
@@ -324,7 +330,14 @@
     <a href="https://github.com/edison7009/Coffee-Note/issues" target="_blank" rel="noopener noreferrer" data-i18n="cnFeedback">问题反馈</a>
   </div>
   <div class="hero-shot reveal">
-    <img src="screenshots/home.png" alt="Coffee Note home">
+    <img
+      src="screenshots/home-en.png"
+      alt="Coffee Note home"
+      data-shot-en="screenshots/home-en.png"
+      data-shot-zh="screenshots/home-zh.png"
+      data-alt-en="Coffee Note home"
+      data-alt-zh="Coffee Note 首页"
+    >
   </div>
 </header>
 
@@ -353,7 +366,14 @@
       </ul>
     </div>
     <div class="shot reveal">
-      <img src="screenshots/settings.png" alt="Library settings">
+      <img
+        src="screenshots/chat-empty-en.png"
+        alt="Coffee Note AI workspace"
+        data-shot-en="screenshots/chat-empty-en.png"
+        data-shot-zh="screenshots/chat-empty-zh.png"
+        data-alt-en="Coffee Note AI workspace"
+        data-alt-zh="Coffee Note AI 工作区"
+      >
     </div>
   </div>
 </section>
@@ -367,7 +387,14 @@
   </div>
   <div class="chapter flip">
     <div class="shot reveal">
-      <img src="screenshots/ai-cost.png" alt="AI chat with token cost">
+      <img
+        src="screenshots/chat-en.png"
+        alt="AI chat with token cost"
+        data-shot-en="screenshots/chat-en.png"
+        data-shot-zh="screenshots/chat-zh.png"
+        data-alt-en="AI chat with token cost"
+        data-alt-zh="显示 Token 与费用的 AI 对话"
+      >
     </div>
     <div class="text">
       <h3 data-i18n="costH3">Cheap models, done right</h3>
@@ -376,6 +403,35 @@
         <li data-i18n="costL2">Memory routing, not whole-library dumps</li>
         <li data-i18n="costL3">Token, calls and cost shown per request</li>
       </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Context ===== -->
+<section class="doc wrap" id="context">
+  <div class="doc-head">
+    <div class="kicker" data-i18n="ctxKicker">Your context stays yours</div>
+    <h2 data-i18n="ctxTitle">Give AI the context that actually matters.</h2>
+    <p data-i18n="ctxSub">Keep goals, experience, lessons, and key records local. You decide what AI can retrieve.</p>
+  </div>
+  <div class="chapter">
+    <div class="text">
+      <h3 data-i18n="ctxH3">Useful memory, under your control</h3>
+      <ul>
+        <li data-i18n="ctxL1">Enable or disable each personal context independently</li>
+        <li data-i18n="ctxL2">Connect long-term goals with the work in front of you</li>
+        <li data-i18n="ctxL3">Local files remain readable, editable, and portable</li>
+      </ul>
+    </div>
+    <div class="shot reveal">
+      <img
+        src="screenshots/contexts-en.png"
+        alt="Coffee Note personal contexts"
+        data-shot-en="screenshots/contexts-en.png"
+        data-shot-zh="screenshots/contexts-zh.png"
+        data-alt-en="Coffee Note personal contexts"
+        data-alt-zh="Coffee Note 我的设定"
+      >
     </div>
   </div>
 </section>
@@ -389,7 +445,14 @@
   </div>
   <div class="chapter flip">
     <div class="shot reveal">
-      <img src="screenshots/video-import.png" alt="Video import dialog">
+      <img
+        src="screenshots/media-en.png"
+        alt="Media transcription dialog"
+        data-shot-en="screenshots/media-en.png"
+        data-shot-zh="screenshots/media-zh.png"
+        data-alt-en="Media transcription dialog"
+        data-alt-zh="媒体转文字窗口"
+      >
     </div>
     <div class="text">
       <h3 data-i18n="vidH3">Short video, three steps to a note</h3>
@@ -398,6 +461,35 @@
         <li data-i18n="vidL2">Auto-transcribe: video to audio, audio to text, API or local engine</li>
         <li data-i18n="vidL3">Agent writes the note: spoken content becomes structured Markdown</li>
       </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Channels ===== -->
+<section class="doc wrap" id="channels">
+  <div class="doc-head">
+    <div class="kicker" data-i18n="channelKicker">Capture from your phone</div>
+    <h2 data-i18n="channelTitle">Send a link. Get a finished note.</h2>
+    <p data-i18n="channelSub">Connect Weixin or Telegram, send a video or webpage privately, and let Coffee Note organize it on your computer.</p>
+  </div>
+  <div class="chapter">
+    <div class="text">
+      <h3 data-i18n="channelH3">Your desktop does the work</h3>
+      <ul>
+        <li data-i18n="channelL1">Weixin for China, Telegram for everywhere else</li>
+        <li data-i18n="channelL2">Results are saved directly into your local note library</li>
+        <li data-i18n="channelL3">Private pairing and restricted channel permissions</li>
+      </ul>
+    </div>
+    <div class="shot reveal">
+      <img
+        src="screenshots/channels-en.png"
+        alt="Coffee Note message channels"
+        data-shot-en="screenshots/channels-en.png"
+        data-shot-zh="screenshots/channels-zh.png"
+        data-alt-en="Coffee Note message channels"
+        data-alt-zh="Coffee Note 消息渠道"
+      >
     </div>
   </div>
 </section>
@@ -432,9 +524,6 @@
 <div class="band wrap">
   <h2 data-i18n="bandTitle">Short video → Note → PPT / Video. A perfect loop!</h2>
   <p data-i18n="bandSub">Capture anything, organize it with cheap AI, and let notes grow into new forms.</p>
-  <div class="frame reveal">
-    <img src="screenshots/multiselect-ppt.png" alt="Multiselect notes, generate PPT or video">
-  </div>
 </div>
 
 <!-- ===== Final CTA ===== -->
@@ -482,6 +571,13 @@
       costL1: 'Cache hit rate visible in the chat',
       costL2: 'Memory routing, not whole-library dumps',
       costL3: 'Token, calls and cost shown per request',
+      ctxKicker: 'Your context stays yours',
+      ctxTitle: 'Give AI the context that actually matters.',
+      ctxSub: 'Keep goals, experience, lessons, and key records local. You decide what AI can retrieve.',
+      ctxH3: 'Useful memory, under your control',
+      ctxL1: 'Enable or disable each personal context independently',
+      ctxL2: 'Connect long-term goals with the work in front of you',
+      ctxL3: 'Local files remain readable, editable, and portable',
       vidKicker: 'One click, short video to note',
       vidTitle: 'Any video URL becomes a note.',
       vidSub: 'From "watched and forgotten" to searchable, quotable, reviewable.',
@@ -489,6 +585,13 @@
       vidL1: 'Paste a video link: TikTok, YouTube, X',
       vidL2: 'Auto-transcribe: video to audio, audio to text, API or local engine',
       vidL3: 'Agent writes the note: spoken content becomes structured Markdown',
+      channelKicker: 'Capture from your phone',
+      channelTitle: 'Send a link. Get a finished note.',
+      channelSub: 'Connect Weixin or Telegram, send a video or webpage privately, and let Coffee Note organize it on your computer.',
+      channelH3: 'Your desktop does the work',
+      channelL1: 'Weixin for China, Telegram for everywhere else',
+      channelL2: 'Results are saved directly into your local note library',
+      channelL3: 'Private pairing and restricted channel permissions',
       genKicker: 'Generate',
       genTitle: 'Notes grow into PPT and video.',
       genSub: 'Select a few notes, pick a skill, get a finished artifact.',
@@ -531,6 +634,13 @@
       costL1: '缓存命中率直接可见',
       costL2: '记忆路由，不是整库倾倒',
       costL3: '每次请求展示 token、次数和成本',
+      ctxKicker: '你的设定，只属于你',
+      ctxTitle: '只把真正重要的上下文交给 AI。',
+      ctxSub: '目标、经验、教训与重要记录都保存在本地，由你决定 AI 可以检索哪些内容。',
+      ctxH3: '有用的记忆，也有清晰的控制权',
+      ctxL1: '每类个人设定都可以单独开启或关闭',
+      ctxL2: '把长期目标与眼前正在做的事连接起来',
+      ctxL3: '本地文件始终可读、可编辑、可迁移',
       vidKicker: '一键短视频变成笔记',
       vidTitle: '任意视频网址，变成一条笔记。',
       vidSub: '从「看过就忘」到「可搜索、可引用、可复习」。',
@@ -538,6 +648,13 @@
       vidL1: '粘贴视频链接：YouTube、B 站、抖音、小红书、X 都支持',
       vidL2: '自动转写：视频转音频，音频转文字，API 或本地引擎随你选',
       vidL3: 'Agent 写出笔记：口播内容变成结构化 Markdown，可检索、可引用',
+      channelKicker: '从手机随手收集',
+      channelTitle: '发来一个链接，拿回一篇笔记。',
+      channelSub: '连接微信或 Telegram，私聊发送视频或网页，Coffee Note 会在你的电脑上整理并保存。',
+      channelH3: '电脑在后台替你完成整理',
+      channelL1: '国内使用微信，海外使用 Telegram',
+      channelL2: '整理结果直接写入你的本地笔记库',
+      channelL3: '私密配对，并严格限制消息渠道权限',
       genKicker: '一键生成',
       genTitle: '笔记还能长成 PPT 和视频。',
       genSub: '多选几份笔记，选一个技能，得到一份成品。',
@@ -565,10 +682,15 @@
 
   function renderI18N() {
     const dict = I18N[currentLang] || I18N.en;
+    const screenshotLanguage = currentLang === 'zh' ? 'zh' : 'en';
     if (dict.docTitle) document.title = dict.docTitle;
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.dataset.i18n;
       if (dict[key]) el.innerHTML = dict[key];
+    });
+    document.querySelectorAll('[data-shot-en]').forEach((image) => {
+      image.src = image.dataset[`shot${screenshotLanguage === 'zh' ? 'Zh' : 'En'}`];
+      image.alt = image.dataset[`alt${screenshotLanguage === 'zh' ? 'Zh' : 'En'}`] || '';
     });
     const toggle = document.getElementById('langToggle');
     if (toggle) toggle.textContent = currentLang === 'zh' ? '中' : (currentLang === 'zh-TW' ? '繁' : currentLang.split('-')[0].toUpperCase());
