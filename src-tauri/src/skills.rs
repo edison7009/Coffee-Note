@@ -968,6 +968,11 @@ mod tests {
     }
 
     #[test]
+    fn media_skill_never_saves_a_placeholder_after_transcription_failure() {
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("转写失败时不得创建或更新占位笔记"));
+    }
+
+    #[test]
     fn git_sources_accept_remote_urls_and_reject_paths_or_options() {
         assert!(validate_git_url("https://github.com/openai/skills.git").is_ok());
         assert!(validate_git_url("git@github.com:openai/skills.git").is_ok());

@@ -3368,6 +3368,11 @@ pub fn run() {
         .setup(|app| {
             configure_tray_menu(app.handle(), "zh")
                 .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)?;
+            tauri::async_runtime::spawn(async {
+                if let Err(error) = transcription::prepare_media_environment().await {
+                    log::warn!("Media environment prewarm failed: {error}");
+                }
+            });
             channels::start_configured_channels(app.handle());
             Ok(())
         })

@@ -25,6 +25,8 @@ use tokio_util::sync::CancellationToken;
 
 const RESOURCE_EVENT: &str = "transcription-resource-progress";
 const MAX_MEDIA_BYTES: u64 = 512 * 1024 * 1024;
+static MEDIA_FETCHER_SETUP_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+static MEDIA_FETCHER_READY: tokio::sync::OnceCell<PathBuf> = tokio::sync::OnceCell::const_new();
 
 #[derive(Default)]
 pub struct TranscriptionDownloadState {
@@ -74,7 +76,10 @@ fn runtime_executable(runtime: &str) -> Result<PathBuf, String> {
 
 fn audio_to_wav(input: &Path, output: &Path) -> Result<(), String> {
     let file = fs::File::open(input).map_err(|error| format!("Could not open audio: {error}"))?;
-    let hint = Hint::new();
+    let mut hint = Hint::new();
+    if let Some(extension) = input.extension().and_then(|value| value.to_str()) {
+        hint.with_extension(extension);
+    }
     let source = MediaSourceStream::new(Box::new(file), Default::default());
     let mut probed = get_probe()
         .format(
@@ -86,14 +91,14 @@ fn audio_to_wav(input: &Path, output: &Path) -> Result<(), String> {
         .map_err(|error| format!("Could not decode audio: {error}"))?;
     let track = probed
         .format
-        .default_track()
+        .tracks()
+        .iter()
+        // AAC-in-MP4 may expose its channel layout only after the first frame
+        // is decoded, while its sample rate is already present on the track.
+        .find(|track| track.codec_params.sample_rate.is_some())
         .ok_or_else(|| "Audio has no playable track".to_string())?;
     let track_id = track.id;
     let codec_params = track.codec_params.clone();
-    let channels = codec_params
-        .channels
-        .ok_or_else(|| "Audio has no channel information".to_string())?
-        .count();
     let sample_rate = codec_params
         .sample_rate
         .ok_or_else(|| "Audio has no sample-rate information".to_string())?;
@@ -124,6 +129,10 @@ fn audio_to_wav(input: &Path, output: &Path) -> Result<(), String> {
         let decoded = decoder
             .decode(&packet)
             .map_err(|error| format!("Could not decode audio: {error}"))?;
+        let channels = decoded.spec().channels.count();
+        if channels == 0 {
+            return Err("Decoded audio has no channels".to_string());
+        }
         let mut samples = SampleBuffer::<f32>::new(decoded.capacity() as u64, *decoded.spec());
         samples.copy_interleaved_ref(decoded);
         for frame in samples.samples().chunks(channels) {
@@ -887,10 +896,28 @@ async fn download_fixed_file(spec: ResourceSpec, target: &Path) -> Result<(), St
 }
 
 async fn ensure_media_fetcher() -> Result<PathBuf, String> {
+    if let Some(target) = MEDIA_FETCHER_READY.get() {
+        if target.is_file() {
+            return Ok(target.clone());
+        }
+    }
+    let _setup_guard = MEDIA_FETCHER_SETUP_LOCK.lock().await;
+    if let Some(target) = MEDIA_FETCHER_READY.get() {
+        if target.is_file() {
+            return Ok(target.clone());
+        }
+    }
     let spec = media_fetcher_spec()?;
     let target = resource_root().join("tools").join(spec.file_name);
     download_fixed_file(spec, &target).await?;
+    let _ = MEDIA_FETCHER_READY.set(target.clone());
     Ok(target)
+}
+
+/// Prepare the small, pinned media-import dependency in the background after
+/// Coffee Note starts. Speech runtimes and models remain explicit user downloads.
+pub(crate) async fn prepare_media_environment() -> Result<(), String> {
+    ensure_media_fetcher().await.map(|_| ())
 }
 
 struct TempMediaDir(PathBuf);
@@ -986,7 +1013,7 @@ async fn download_media_audio_attempt(
         .arg("--max-filesize")
         .arg(MAX_MEDIA_BYTES.to_string())
         .arg("-f")
-        .arg("bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio[ext=mp3]/bestaudio[ext=wav]/bestaudio[ext=flac]/bestaudio[ext=ogg]/bestaudio/best[ext=mp4]/best")
+        .arg("bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio[ext=mp3]/bestaudio[ext=wav]/bestaudio[ext=flac]/bestaudio[ext=ogg]/bestaudio/best[vcodec^=h264][ext=mp4]/best[ext=mp4]/best")
         .arg("-o")
         .arg(template)
         .arg("--print")
@@ -1528,42 +1555,6 @@ mod tests {
         assert!(!needs_fresh_browser_cookies(
             b"HTTP Error 404: video unavailable"
         ));
-    }
-
-    #[test]
-    #[ignore = "live Douyin download smoke test"]
-    fn live_douyin_share_link_downloads_audio() {
-        let url = reqwest::Url::parse("https://v.douyin.com/TJfE5AIvBso/")
-            .expect("live fixture URL should parse");
-        let runtime = tokio::runtime::Runtime::new().expect("runtime should start");
-        let executable = runtime
-            .block_on(ensure_media_fetcher())
-            .expect("fetcher should be ready");
-        let diagnostic_root = fixture_root("live-douyin");
-        fs::create_dir_all(&diagnostic_root).expect("diagnostic directory should exist");
-        let template = diagnostic_root.join("audio.%(ext)s");
-        let (browser_guard, cookie_source) = runtime
-            .block_on(create_fresh_browser_cookie_session(&url))
-            .expect("fresh browser session should open");
-        let diagnostic = runtime
-            .block_on(download_media_audio_attempt(
-                &executable,
-                &template,
-                &url,
-                Some(&cookie_source),
-            ))
-            .expect("diagnostic download should run");
-        eprintln!(
-            "fresh browser status={} stderr={}",
-            diagnostic.status,
-            String::from_utf8_lossy(&diagnostic.stderr)
-        );
-        drop(browser_guard);
-        let _ = fs::remove_dir_all(&diagnostic_root);
-        let (_workspace, audio) = runtime
-            .block_on(download_media_audio(&url))
-            .expect("Douyin audio should download");
-        assert!(audio.is_file());
     }
 
     #[test]
