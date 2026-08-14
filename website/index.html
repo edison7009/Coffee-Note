@@ -101,15 +101,24 @@
     box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
   }
 
+  /* ===== Site highlight — the hero's primary product statement ===== */
+  .site-highlight-note {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    max-width: min(100%, 760px); min-width: 0; min-height: 40px; padding: 8px 18px;
+    border: 1px solid rgba(212, 165, 132, 0.34); border-radius: 999px;
+    background: linear-gradient(180deg, rgba(212, 165, 132, 0.15), rgba(212, 165, 132, 0.07));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 36px rgba(96, 55, 27, 0.18);
+    color: rgba(235, 235, 235, 0.88); text-align: center;
+    font-size: 0.88rem; font-weight: 500; letter-spacing: 0.01em;
+    margin-bottom: 22px;
+  }
+  .site-highlight-copy { min-width: 0; }
+  .site-highlight-note strong { color: #f0c7a9; font-weight: 700; }
+
   /* ===== Layout ===== */
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 4rem; position: relative; z-index: 1; }
 
   .hero { padding: 40px 0 56px; }
-  .hero .tagline {
-    font-family: var(--font-mono); font-size: 0.8rem;
-    color: var(--brand); letter-spacing: 0.06em;
-    margin-bottom: 22px;
-  }
   .hero h1 {
     font-size: clamp(34px, 4.6vw, 56px);
     font-weight: 700; line-height: 1.15; letter-spacing: -0.02em;
@@ -247,6 +256,7 @@
     .wrap { padding: 0 1.5rem; }
     .nav { padding: 16px 1.5rem; }
     .nav-links { display: none; }
+    .site-highlight-note { padding: 8px 14px; font-size: 0.84rem; line-height: 1.45; }
     .install-cmd-row { width: 100%; max-width: 100%; }
     .install-cmd-row code {
       flex: 1; min-width: 0; overflow: hidden;
@@ -300,7 +310,7 @@
 
 <!-- ===== Hero ===== -->
 <header class="hero wrap">
-  <div class="tagline" data-i18n="tagline">Your AI Second Brain for Knowledge &amp; Ideas</div>
+  <p class="site-highlight-note"><span class="site-highlight-copy" data-i18n="siteHighlight">The future AI note system built on the <strong>DeepSeek Harness</strong> core</span></p>
   <h1 data-i18n="heroTitle">The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span></h1>
   <p class="lead" data-i18n="heroLead">DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save</p>
   <div class="install-row">
@@ -546,7 +556,7 @@
   const I18N = {
     en: {
       docTitle: 'Coffee Note — The AI note tool that saves you money, deeply optimized for DeepSeek',
-      tagline: 'Your AI Second Brain for Knowledge & Ideas',
+      siteHighlight: 'The future AI note system built on the <strong>DeepSeek Harness</strong> core',
       heroTitle: 'The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span>',
       heroLead: 'DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save',
       getBtn: 'Get Coffee Note',
@@ -607,7 +617,7 @@
     },
     zh: {
       docTitle: 'Coffee Note — 帮你省钱的 AI 笔记工具，深度优化 DeepSeek',
-      tagline: 'Your AI Second Brain for Knowledge & Ideas',
+      siteHighlight: '基于 <strong>DeepSeek Harness</strong> 内核打造的未来 AI 笔记系统',
       heroTitle: '帮你省钱的 AI 笔记工具<br><span class="hero-accent">深度优化 DeepSeek</span>',
       heroLead: 'DeepSeek 高效缓存 · 粘贴抖音/小红书/B站地址转文字 · 生成PPT或视频 · 越用越省钱',
       getBtn: '获取 Coffee Note',
