@@ -4,6 +4,7 @@ use tauri::State;
 mod agent_tools;
 mod channels;
 mod conversations;
+pub mod dsh_launcher;
 mod dsh_runtime;
 mod file_reader;
 mod knowledge_map;
@@ -3359,7 +3360,11 @@ pub fn run() {
         .setup(|app| {
             configure_tray_menu(app.handle(), "zh")
                 .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)?;
-            tauri::async_runtime::spawn(async {
+            let dsh_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = dsh_runtime::prepare_runtime(dsh_app).await {
+                    log::warn!("DeepSeek Harness runtime prewarm failed: {error}");
+                }
                 if let Err(error) = transcription::prepare_media_environment().await {
                     log::warn!("Media environment prewarm failed: {error}");
                 }

@@ -83,13 +83,21 @@ try {
     },
   }
   const runTurn = async promptText => {
-    const child = spawn(process.execPath, [
-      path.join(root, 'node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js'),
-      path.join(root, 'coffee-note.cordis.yml'),
-    ], {
+    const entry = path.join(root, 'node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js')
+    const config = path.join(root, 'coffee-note.cordis.yml')
+    const launcher = process.env.COFFEE_NOTE_DSH_LAUNCHER
+    const child = spawn(launcher || process.execPath, launcher
+      ? ['--coffee-note-dsh-sidecar']
+      : [entry, config], {
       cwd: root,
       env: {
         ...process.env,
+        ...(launcher ? {
+          COFFEE_NOTE_DSH_NODE: process.execPath,
+          COFFEE_NOTE_DSH_ENTRY: entry,
+          COFFEE_NOTE_DSH_CONFIG: config,
+          COFFEE_NOTE_DSH_CWD: root,
+        } : {}),
         COFFEE_NOTE_DSH_PROVIDER: JSON.stringify(provider),
         COFFEE_NOTE_DSH_SYSTEM_PROMPT: 'Coffee Note smoke test.',
         COFFEE_NOTE_DSH_SESSION_ROOT: sessionRoot,

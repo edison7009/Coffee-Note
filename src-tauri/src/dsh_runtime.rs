@@ -15,9 +15,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::process::{Child, ChildStdin, Command};
-use tokio::sync::{oneshot, Mutex, RwLock};
+use tokio::sync::{oneshot, Mutex, OnceCell, RwLock};
 
-use crate::{agent_tools, memory};
+use crate::{agent_tools, dsh_launcher, memory};
 
 const DSH_PROVIDER_ROUTE: &str = "coffee-note";
 const DSH_DEEPSEEK_ROUTE: &str = "deepseek-official";
@@ -28,6 +28,8 @@ const DEFAULT_MAX_OUTPUT_TOKENS: u64 = 4_096;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+static PREPARED_RUNTIME_ROOT: OnceCell<PathBuf> = OnceCell::const_new();
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -426,10 +428,27 @@ impl DshRuntime {
         let session_root = crate::app_data_dir().join("dsh").join("sessions");
         fs::create_dir_all(&session_root).map_err(|error| error.to_string())?;
         let provider_config = provider_config(request)?;
-        let mut command = Command::new(node);
+        #[cfg(windows)]
+        let mut command = {
+            let executable = std::env::current_exe()
+                .map_err(|error| format!("Could not locate Coffee Note executable: {error}"))?;
+            let mut command = Command::new(executable);
+            command
+                .arg(dsh_launcher::SIDECAR_ARG)
+                .env(dsh_launcher::NODE_ENV, &node)
+                .env(dsh_launcher::ENTRY_ENV, &script_path)
+                .env(dsh_launcher::CONFIG_ENV, &config_path)
+                .env(dsh_launcher::CWD_ENV, &runtime_root);
+            command.creation_flags(CREATE_NO_WINDOW);
+            command
+        };
+        #[cfg(not(windows))]
+        let mut command = {
+            let mut command = Command::new(node);
+            command.arg(&script_path).arg(&config_path);
+            command
+        };
         command
-            .arg(script_path)
-            .arg(&config_path)
             .current_dir(&runtime_root)
             .env("COFFEE_NOTE_DSH_PROVIDER", provider_config.to_string())
             .env("COFFEE_NOTE_DSH_SYSTEM_PROMPT", system_prompt())
@@ -458,8 +477,6 @@ impl DshRuntime {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        #[cfg(windows)]
-        command.creation_flags(CREATE_NO_WINDOW);
         let mut child = command
             .spawn()
             .map_err(|error| format!("Could not start DeepSeek Harness: {error}"))?;
@@ -1059,7 +1076,19 @@ fn persist_seeded_session(id: &str) {
     }
 }
 
+pub async fn prepare_runtime(app: AppHandle) -> Result<(), String> {
+    runtime_root(&app).await.map(|_| ())
+}
+
 async fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
+    let app = app.clone();
+    PREPARED_RUNTIME_ROOT
+        .get_or_try_init(|| async move { resolve_runtime_root(&app).await })
+        .await
+        .cloned()
+}
+
+async fn resolve_runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     let development = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")))
