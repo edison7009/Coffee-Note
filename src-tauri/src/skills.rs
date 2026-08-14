@@ -25,7 +25,8 @@ const BUILTIN_MEDIA_SKILL_PROMPT: &str = "\
 1. 先从用户输入中提取媒体链接或文件路径；\n\
 2. 调用 transcribe_media 工具获取文字稿；\n\
 3. 把文字稿整理成清晰的 Markdown 笔记，按需使用 save_note；\n\
-4. 不要虚构视频中没有的内容，不把标题观点当作医学结论，保留原始来源 URL。";
+4. 只有转写成功且取得正文后才能保存笔记；转写失败时不得创建或更新占位笔记；\n\
+5. 不要虚构视频中没有的内容，不把标题观点当作医学结论，保留原始来源 URL。";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

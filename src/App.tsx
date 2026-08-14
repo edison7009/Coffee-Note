@@ -126,6 +126,7 @@ import {
   getMessageChannelStatus,
   listenMessageChannelStatus,
   listenMessageCaptureSaved,
+  listenMessageConversationUpdated,
   saveConversationUi,
   createConversation,
   deleteConversation,
@@ -217,6 +218,9 @@ const PRODUCT_WEBSITE = 'https://note.coffeecli.com/';
 const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
 const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
+const CAPTURE_TRANSCRIPTION_MODE_KEY = storageKey('capture-transcription-mode:v1');
+
+type TranscriptionMode = 'api' | 'local';
 
 function skillTitle(skill: SkillDefinition, locale: Locale) {
   if (skill.builtin && locale === 'en') return 'Media to text';
@@ -1799,6 +1803,7 @@ function App() {
     if (!isTauri) return undefined;
     let unlistenStatus = () => {};
     let unlistenSaved = () => {};
+    let unlistenConversation = () => {};
     const refreshStatus = () => {
       void getMessageChannelStatus().then(setMessageChannelStatus).catch(() => undefined);
     };
@@ -1809,9 +1814,34 @@ function App() {
       const root = libraryRootRef.current || library.root;
       void loadLibrary(root || undefined, locale).then(setLibrary).catch(() => undefined);
     }).then((stop) => { unlistenSaved = stop; });
+    void listenMessageConversationUpdated((conversationId) => {
+      void listConversations()
+        .then(setConversationSummaries)
+        .catch(() => undefined);
+      if (
+        activeConversationIdRef.current === conversationId
+        && appViewRef.current === 'ai'
+      ) {
+        void loadConversation(conversationId)
+          .then((record) => {
+            const messages = sanitizeConversationMessages(record.uiMessages || []);
+            conversationSaveSnapshotRef.current = {
+              id: conversationId,
+              json: JSON.stringify(messages),
+            };
+            setChatMessages(messages);
+          })
+          .catch(() => undefined);
+      } else {
+        setUnreadConversationIds((current) =>
+          current.includes(conversationId) ? current : [...current, conversationId],
+        );
+      }
+    }).then((stop) => { unlistenConversation = stop; });
     return () => {
       unlistenStatus();
       unlistenSaved();
+      unlistenConversation();
     };
   }, []);
 
@@ -2493,7 +2523,7 @@ function App() {
 
   const startCaptureConversation = async (
     input: string,
-    transcriptionMode: 'api' | 'local',
+    transcriptionMode: TranscriptionMode,
   ) => {
     if (chatBusy) return;
     if (skillCatalog.skills.find((skill) => skill.id === BUILTIN_MEDIA_SKILL_ID)?.enabled === false) {
@@ -2514,7 +2544,6 @@ function App() {
     setActiveConversationId(summary.id);
     setChatMessages([]);
     setCaptureGuideOpen(false);
-    setSelectedSkillId(BUILTIN_MEDIA_SKILL_ID);
 
     const initialMessage = locale === 'zh'
       ? `请把下面这段分享文案里的媒体链接转成文字，并整理成笔记。使用${transcriptionMode === 'local' ? '本地' : '语音'}模型。\n\n${input.trim()}`
@@ -2945,7 +2974,9 @@ function App() {
         message: clean,
         locale,
         knowledgeRoot: library.root,
-        skillId: skillIdOverride ?? (selectedSkillId || undefined),
+        skillId: skillIdOverride === undefined
+          ? selectedSkillId || undefined
+          : skillIdOverride || undefined,
         contextPaths: selectedContextPaths.length > 0
           ? selectedContextPaths
           : implicitContextEnabled ? implicitContextPaths : [],
@@ -2982,12 +3013,12 @@ function App() {
     }
   };
 
-  const handleSend = async (question: string) => {
+  const handleSend = async (question: string, skillId: string | null) => {
     const clean = question.trim();
     if (!clean || chatBusy) return;
 
     const conversationId = await ensureConversation();
-    await startAgentTurn(conversationId, clean, chatMessages);
+    await startAgentTurn(conversationId, clean, chatMessages, skillId);
   };
 
   const handleNewChat = async () => {
@@ -7075,7 +7106,7 @@ function ConversationView({
               ) : status === 'done' ? (
                 <Check size={13} />
               ) : (
-                <Wrench size={13} />
+                <span className="activity-dot-spinner" />
               );
             return (
               <details
@@ -7184,7 +7215,7 @@ function ConversationView({
         })}
         {busy && !hasRunningTool && (
           <div className="agent-thinking" role="status" aria-live="polite">
-            <Sparkles size={13} aria-hidden="true" />
+            <span className="activity-dot-spinner" aria-hidden="true" />
             <span className="agent-thinking-label">
               {locale === 'zh' ? '正在思考…' : 'Thinking…'}
             </span>
@@ -7492,7 +7523,7 @@ function ChatComposer({
   locale,
 }: {
   busy: boolean;
-  onSend: (message: string) => void;
+  onSend: (message: string, skillId: string | null) => void;
   onAbort?: () => void;
   placeholder: string;
   sendLabel: string;
@@ -7694,7 +7725,8 @@ function ChatComposer({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (busy || !value.trim()) return;
-    onSend(value);
+    onSend(value, selectedSkillId);
+    onSelectedSkillChange(null);
     setValue('');
   };
 
@@ -8345,7 +8377,10 @@ function RightRail({
                           role="status"
                           aria-label={locale === 'zh' ? 'AI 正在处理这个对话' : 'AI is working on this conversation'}
                         >
-                          <span className="conversation-history-spinner" aria-hidden="true" />
+                          <span
+                            className="activity-dot-spinner conversation-history-spinner"
+                            aria-hidden="true"
+                          />
                         </span>
                       ) : (
                         <button
@@ -9361,14 +9396,17 @@ function CaptureGuideDialog({
   locale: Locale;
   config: ModelConfig;
   onClose: () => void;
-  onSendToChat: (input: string, transcriptionMode: 'api' | 'local') => Promise<void>;
+  onSendToChat: (input: string, transcriptionMode: TranscriptionMode) => Promise<void>;
   mediaSkillEnabled: boolean;
   onOpenSkillSettings: () => void;
   t: (key: TranslationKey) => string;
 }) {
   const [source, setSource] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [transcriptionMode, setTranscriptionMode] = useState<'api' | 'local'>('api');
+  const [transcriptionMode, setTranscriptionMode] = useStoredState<TranscriptionMode>(
+    CAPTURE_TRANSCRIPTION_MODE_KEY,
+    'api',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

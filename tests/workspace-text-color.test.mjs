@@ -15,6 +15,29 @@ test('main and contextual rail use a softer content ink than the navigation shel
   assert.match(css, /\[data-theme='dark'\] \.message-content,[\s\S]*?color:\s*var\(--ink\);/s);
 });
 
+test('conversation selection uses one shared neutral surface with regular text', () => {
+  assert.match(
+    css,
+    /\.conversation-history-item:hover,[\s\S]*?\.conversation-history-item\.unread\s*\{\s*background:\s*var\(--control-hover\);/s,
+  );
+  assert.match(
+    css,
+    /\[data-theme='dark'\] \.conversation-history-item:hover,[\s\S]*?\[data-theme='dark'\] \.conversation-history-item\.unread\s*\{[^}]*background:\s*var\(--accent-soft\);/s,
+  );
+  assert.doesNotMatch(
+    css,
+    /\[data-theme='dark'\] \.conversation-history-item(?:\.active)?\s*>\s*button:first-child(?:\:hover[^,\s]*)?\s*\{[^}]*background:\s*var\(--accent-soft\);/s,
+  );
+  assert.match(
+    css,
+    /\.conversation-history-item strong\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*400;/s,
+  );
+  assert.match(
+    css,
+    /\.conversation-history-item small\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*400;/s,
+  );
+});
+
 test('tier list dark surfaces remain transparent to the selected color scheme', () => {
   assert.match(
     css,

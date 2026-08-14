@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Output, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 use symphonia::core::audio::SampleBuffer;
@@ -498,6 +498,156 @@ pub fn supports_media_url(url: &reqwest::Url) -> bool {
     .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
 }
 
+fn is_douyin_url(url: &reqwest::Url) -> bool {
+    let host = url
+        .host_str()
+        .unwrap_or_default()
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
+    ["douyin.com", "iesdouyin.com"]
+        .iter()
+        .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
+}
+
+fn needs_fresh_browser_cookies(stderr: &[u8]) -> bool {
+    let message = String::from_utf8_lossy(stderr).to_ascii_lowercase();
+    message.contains("fresh cookies") || message.contains("cookies are needed")
+}
+
+/// Return only browsers that appear to have a local profile. Cookie extraction
+/// is used as a narrow retry for Douyin's fresh-session challenge; cookies stay
+/// in the yt-dlp child process and are never exported or persisted by Coffee Note.
+fn browser_cookie_sources() -> Vec<&'static str> {
+    let mut sources = Vec::new();
+    let mut add_if_present = |name: &'static str, path: PathBuf| {
+        if path.is_dir() && !sources.contains(&name) {
+            sources.push(name);
+        }
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(roaming) = dirs::config_dir() {
+            add_if_present("firefox", roaming.join("Mozilla").join("Firefox"));
+            add_if_present("opera", roaming.join("Opera Software").join("Opera Stable"));
+        }
+        if let Some(local) = dirs::data_local_dir() {
+            add_if_present(
+                "edge",
+                local.join("Microsoft").join("Edge").join("User Data"),
+            );
+            add_if_present(
+                "chrome",
+                local.join("Google").join("Chrome").join("User Data"),
+            );
+            add_if_present(
+                "brave",
+                local
+                    .join("BraveSoftware")
+                    .join("Brave-Browser")
+                    .join("User Data"),
+            );
+            add_if_present("vivaldi", local.join("Vivaldi").join("User Data"));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Some(home) = dirs::home_dir() {
+        let support = home.join("Library").join("Application Support");
+        add_if_present("firefox", support.join("Firefox"));
+        add_if_present("chrome", support.join("Google").join("Chrome"));
+        add_if_present("edge", support.join("Microsoft Edge"));
+        add_if_present("brave", support.join("BraveSoftware").join("Brave-Browser"));
+        add_if_present("vivaldi", support.join("Vivaldi"));
+        add_if_present("opera", support.join("com.operasoftware.Opera"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            add_if_present("firefox", home.join(".mozilla").join("firefox"));
+        }
+        if let Some(config) = dirs::config_dir() {
+            add_if_present("chrome", config.join("google-chrome"));
+            add_if_present("chromium", config.join("chromium"));
+            add_if_present("edge", config.join("microsoft-edge"));
+            add_if_present("brave", config.join("BraveSoftware").join("Brave-Browser"));
+            add_if_present("vivaldi", config.join("vivaldi"));
+            add_if_present("opera", config.join("opera"));
+        }
+    }
+
+    sources
+}
+
+fn chromium_browser_executables() -> Vec<(&'static str, PathBuf)> {
+    let mut browsers = Vec::new();
+    let mut add = |source: &'static str, path: PathBuf| {
+        if path.is_file() {
+            browsers.push((source, path));
+        }
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        for root in [
+            std::env::var_os("ProgramFiles(x86)"),
+            std::env::var_os("ProgramFiles"),
+            std::env::var_os("LOCALAPPDATA"),
+        ]
+        .into_iter()
+        .flatten()
+        .map(PathBuf::from)
+        {
+            add(
+                "chrome",
+                root.join("Google")
+                    .join("Chrome")
+                    .join("Application")
+                    .join("chrome.exe"),
+            );
+            add(
+                "edge",
+                root.join("Microsoft")
+                    .join("Edge")
+                    .join("Application")
+                    .join("msedge.exe"),
+            );
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        add(
+            "chrome",
+            PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+        );
+        add(
+            "edge",
+            PathBuf::from("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+        );
+        add(
+            "brave",
+            PathBuf::from("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    for (source, path) in [
+        ("chrome", "/usr/bin/google-chrome"),
+        ("chrome", "/usr/bin/google-chrome-stable"),
+        ("chromium", "/usr/bin/chromium"),
+        ("chromium", "/usr/bin/chromium-browser"),
+        ("edge", "/usr/bin/microsoft-edge"),
+        ("edge", "/usr/bin/microsoft-edge-stable"),
+        ("brave", "/usr/bin/brave-browser"),
+    ] {
+        add(source, PathBuf::from(path));
+    }
+
+    browsers
+}
+
 fn strip_caption_tags(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
     let mut inside_tag = false;
@@ -750,6 +900,108 @@ impl Drop for TempMediaDir {
     }
 }
 
+async fn create_fresh_browser_cookie_session(
+    url: &reqwest::Url,
+) -> Result<(TempMediaDir, String), String> {
+    let (browser_source, executable) = chromium_browser_executables()
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No Chromium browser is installed".to_string())?;
+    let directory =
+        std::env::temp_dir().join(format!("coffee-note-browser-{}", uuid::Uuid::new_v4()));
+    let profile = directory.join("profile");
+    fs::create_dir_all(&profile)
+        .map_err(|error| format!("Could not create a temporary browser session: {error}"))?;
+    let guard = TempMediaDir(directory);
+    let mut command = Command::new(executable);
+    command
+        .arg("--headless=new")
+        .arg("--disable-gpu")
+        .arg("--disable-background-mode")
+        .arg("--disable-component-update")
+        .arg("--disable-extensions")
+        .arg("--disable-features=LockProfileCookieDatabase")
+        .arg("--no-first-run")
+        .arg("--no-default-browser-check")
+        .arg(format!("--user-data-dir={}", profile.to_string_lossy()))
+        .arg("--virtual-time-budget=10000")
+        .arg("--dump-dom")
+        .arg(url.as_str())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    command.kill_on_drop(true);
+    let output = tokio::time::timeout(Duration::from_secs(45), command.output())
+        .await
+        .map_err(|_| "Temporary browser session timed out".to_string())?
+        .map_err(|error| format!("Could not start a temporary browser session: {error}"))?;
+    if !output.status.success() {
+        return Err("The temporary browser session could not load Douyin".to_string());
+    }
+    // Chromium may keep its cookie helper alive briefly after --dump-dom exits.
+    // Probe the fresh profile until yt-dlp will be able to copy its database.
+    let cookie_database_candidates = [
+        profile.join("Default").join("Network").join("Cookies"),
+        profile.join("Default").join("Cookies"),
+    ];
+    let cookie_probe = profile.join("cookie-readiness-probe");
+    let mut ready = false;
+    for _ in 0..40 {
+        if let Some(database) = cookie_database_candidates
+            .iter()
+            .find(|candidate| candidate.is_file())
+        {
+            match fs::copy(database, &cookie_probe) {
+                Ok(_) => {
+                    let _ = fs::remove_file(&cookie_probe);
+                    ready = true;
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {}
+                Err(_) => {}
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    if !ready {
+        return Err("The temporary browser did not release its cookie session".to_string());
+    }
+    Ok((
+        guard,
+        format!("{browser_source}:{}", profile.to_string_lossy()),
+    ))
+}
+
+async fn download_media_audio_attempt(
+    executable: &Path,
+    template: &Path,
+    url: &reqwest::Url,
+    browser_cookie_source: Option<&str>,
+) -> Result<Output, String> {
+    let mut command = Command::new(executable);
+    command
+        .arg("--no-playlist")
+        .arg("--quiet")
+        .arg("--no-warnings")
+        .arg("--max-filesize")
+        .arg(MAX_MEDIA_BYTES.to_string())
+        .arg("-f")
+        .arg("bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio[ext=mp3]/bestaudio[ext=wav]/bestaudio[ext=flac]/bestaudio[ext=ogg]/bestaudio/best[ext=mp4]/best")
+        .arg("-o")
+        .arg(template)
+        .arg("--print")
+        .arg("after_move:filepath");
+    if let Some(browser) = browser_cookie_source {
+        command.arg("--cookies-from-browser").arg(browser);
+    }
+    command.arg(url.as_str()).stdin(Stdio::null());
+    command.kill_on_drop(true);
+    tokio::time::timeout(Duration::from_secs(300), command.output())
+        .await
+        .map_err(|_| "Media import timed out".to_string())?
+        .map_err(|error| format!("Could not start media import: {error}"))
+}
+
 async fn download_media_audio(url: &reqwest::Url) -> Result<(TempMediaDir, PathBuf), String> {
     if !supports_media_url(url) {
         return Err("This URL is not a supported media link".to_string());
@@ -761,16 +1013,43 @@ async fn download_media_audio(url: &reqwest::Url) -> Result<(TempMediaDir, PathB
         .map_err(|error| format!("Could not create media workspace: {error}"))?;
     let guard = TempMediaDir(directory.clone());
     let template = directory.join("audio.%(ext)s");
-    let output = Command::new(executable)
-        .arg("--no-playlist").arg("--quiet").arg("--no-warnings")
-        .arg("--max-filesize").arg(MAX_MEDIA_BYTES.to_string())
-        .arg("-f").arg("bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio[ext=mp3]/bestaudio[ext=wav]/bestaudio[ext=flac]/bestaudio[ext=ogg]/bestaudio")
-        .arg("-o").arg(&template)
-        .arg("--print").arg("after_move:filepath").arg(url.as_str())
-        .stdin(Stdio::null()).output().await
-        .map_err(|error| format!("Could not start media import: {error}"))?;
+    let mut output = download_media_audio_attempt(&executable, &template, url, None).await?;
+    let retry_with_browser = !output.status.success()
+        && is_douyin_url(url)
+        && needs_fresh_browser_cookies(&output.stderr);
+    if retry_with_browser {
+        if let Ok((fresh_session, cookie_source)) = create_fresh_browser_cookie_session(url).await {
+            let candidate =
+                download_media_audio_attempt(&executable, &template, url, Some(&cookie_source))
+                    .await?;
+            output = candidate;
+            drop(fresh_session);
+        }
+        if !output.status.success() {
+            for browser in browser_cookie_sources() {
+                let candidate =
+                    download_media_audio_attempt(&executable, &template, url, Some(browser))
+                        .await?;
+                if candidate.status.success() {
+                    output = candidate;
+                    break;
+                }
+                output = candidate;
+            }
+        }
+    }
     if !output.status.success() {
         let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if retry_with_browser {
+            return Err(format!(
+                "Douyin still rejected the fresh local browser session. Open the link in Edge, Chrome, or Firefox, refresh it, then retry. Coffee Note does not store browser cookies.{}",
+                if message.is_empty() {
+                    String::new()
+                } else {
+                    format!(" Download detail: {message}")
+                }
+            ));
+        }
         return Err(if message.is_empty() {
             "The media audio could not be downloaded".to_string()
         } else {
@@ -1216,6 +1495,75 @@ mod tests {
                 "{source} should not be supported"
             );
         }
+    }
+
+    #[test]
+    fn douyin_cookie_retry_is_limited_to_real_douyin_hosts() {
+        for source in [
+            "https://v.douyin.com/example",
+            "https://www.douyin.com/video/1",
+            "https://www.iesdouyin.com/share/video/1",
+        ] {
+            let url = reqwest::Url::parse(source).expect("fixture URL should parse");
+            assert!(is_douyin_url(&url), "{source} should use the retry");
+        }
+        for source in [
+            "https://douyin.com.evil.example/video/1",
+            "https://www.tiktok.com/@coffeenote/video/1",
+            "https://example.com/douyin.com",
+        ] {
+            let url = reqwest::Url::parse(source).expect("fixture URL should parse");
+            assert!(!is_douyin_url(&url), "{source} should not use the retry");
+        }
+    }
+
+    #[test]
+    fn fresh_cookie_error_detection_is_specific() {
+        assert!(needs_fresh_browser_cookies(
+            b"ERROR: Fresh cookies (not necessarily logged in) are needed"
+        ));
+        assert!(needs_fresh_browser_cookies(
+            b"Extractor says COOKIES ARE NEEDED for this media"
+        ));
+        assert!(!needs_fresh_browser_cookies(
+            b"HTTP Error 404: video unavailable"
+        ));
+    }
+
+    #[test]
+    #[ignore = "live Douyin download smoke test"]
+    fn live_douyin_share_link_downloads_audio() {
+        let url = reqwest::Url::parse("https://v.douyin.com/TJfE5AIvBso/")
+            .expect("live fixture URL should parse");
+        let runtime = tokio::runtime::Runtime::new().expect("runtime should start");
+        let executable = runtime
+            .block_on(ensure_media_fetcher())
+            .expect("fetcher should be ready");
+        let diagnostic_root = fixture_root("live-douyin");
+        fs::create_dir_all(&diagnostic_root).expect("diagnostic directory should exist");
+        let template = diagnostic_root.join("audio.%(ext)s");
+        let (browser_guard, cookie_source) = runtime
+            .block_on(create_fresh_browser_cookie_session(&url))
+            .expect("fresh browser session should open");
+        let diagnostic = runtime
+            .block_on(download_media_audio_attempt(
+                &executable,
+                &template,
+                &url,
+                Some(&cookie_source),
+            ))
+            .expect("diagnostic download should run");
+        eprintln!(
+            "fresh browser status={} stderr={}",
+            diagnostic.status,
+            String::from_utf8_lossy(&diagnostic.stderr)
+        );
+        drop(browser_guard);
+        let _ = fs::remove_dir_all(&diagnostic_root);
+        let (_workspace, audio) = runtime
+            .block_on(download_media_audio(&url))
+            .expect("Douyin audio should download");
+        assert!(audio.is_file());
     }
 
     #[test]

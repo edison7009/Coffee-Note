@@ -5487,6 +5487,25 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   color: var(--muted);
 }
 
+.activity-dot-spinner {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+  font-family: 'Cascadia Mono', 'Segoe UI Symbol', monospace;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.activity-dot-spinner::before {
+  content: '⠋';
+  animation: activity-dot-spinner 900ms step-end infinite;
+}
+
 .tool-activity-label {
   flex: 0 1 auto;
   min-width: 0;
@@ -5576,18 +5595,25 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 .tool-activity.is-running .tool-activity-label,
 .agent-thinking-label {
+  --activity-shimmer-base: #858589;
+  --activity-shimmer-shoulder: #c7c7cb;
+  --activity-shimmer-peak: #f5f5f7;
   color: transparent;
   background-image: linear-gradient(
     90deg,
-    var(--muted) 25%,
-    var(--ink) 50%,
-    var(--muted) 75%
+    var(--activity-shimmer-base) 18%,
+    var(--activity-shimmer-base) 30%,
+    var(--activity-shimmer-shoulder) 41%,
+    var(--activity-shimmer-peak) 50%,
+    var(--activity-shimmer-shoulder) 59%,
+    var(--activity-shimmer-base) 70%,
+    var(--activity-shimmer-base) 82%
   );
-  background-position: -150% 0;
-  background-size: 220% 100%;
+  background-position: 100% 0;
+  background-size: 240% 100%;
   background-clip: text;
   -webkit-background-clip: text;
-  animation: agent-activity-shimmer 1.65s linear infinite;
+  animation: agent-activity-shimmer 3.2s linear infinite;
 }
 
 [data-theme='dark'] .tool-activity-data.failed {
@@ -5602,8 +5628,21 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 @keyframes agent-activity-shimmer {
   to {
-    background-position: 150% 0;
+    background-position: 0 0;
   }
+}
+
+@keyframes activity-dot-spinner {
+  0% { content: '⠋'; }
+  10% { content: '⠙'; }
+  20% { content: '⠹'; }
+  30% { content: '⠸'; }
+  40% { content: '⠼'; }
+  50% { content: '⠴'; }
+  60% { content: '⠦'; }
+  70% { content: '⠧'; }
+  80% { content: '⠇'; }
+  90%, 100% { content: '⠏'; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5611,6 +5650,10 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   .agent-thinking-label {
     color: var(--muted);
     background: none;
+    animation: none;
+  }
+
+  .activity-dot-spinner::before {
     animation: none;
   }
 }
@@ -5901,7 +5944,8 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 .conversation-history-item strong {
   color: var(--nav-text);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 [data-theme='dark'] .conversation-history-item strong {
@@ -5910,7 +5954,8 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 
 .conversation-history-item small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .conversation-history-item small.conversation-history-meta {
@@ -7389,8 +7434,7 @@ textarea,
 }
 
 .conversation-history-item.active > button:first-child,
-.conversation-history-item > button:first-child:hover:not(:disabled),
-[data-theme='dark'] .conversation-history-item.active > button:first-child {
+.conversation-history-item > button:first-child:hover:not(:disabled) {
   color: var(--accent);
   background: var(--accent-soft);
 }
@@ -7546,9 +7590,7 @@ textarea,
 [data-theme='dark'] .conversation-history-item:hover,
 [data-theme='dark'] .conversation-history-item.active,
 [data-theme='dark'] .conversation-history-item.working,
-[data-theme='dark'] .conversation-history-item.unread,
-[data-theme='dark'] .conversation-history-item > button:first-child:hover:not(:disabled),
-[data-theme='dark'] .conversation-history-item.active > button:first-child {
+[data-theme='dark'] .conversation-history-item.unread {
   color: var(--ink);
   background: var(--accent-soft);
 }
@@ -7598,14 +7640,9 @@ textarea,
 }
 
 .conversation-history-item .conversation-history-spinner {
-  display: block;
   width: 17px;
   height: 17px;
-  border: 2px solid color-mix(in srgb, var(--muted) 32%, transparent);
-  border-top-color: var(--muted);
-  border-radius: 50%;
-  transform-origin: 50% 50%;
-  animation: spin 900ms linear infinite;
+  font-size: 17px;
 }
 
 .conversation-history-item:hover .conversation-history-delete,

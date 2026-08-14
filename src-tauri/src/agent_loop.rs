@@ -150,6 +150,9 @@ pub struct AgentRequest {
     pub reasoning_effort: Option<String>,
     #[serde(default)]
     pub web_reader: crate::web_reader::WebReaderSettings,
+    /// Linked message channel that originated this turn, if any.
+    #[serde(default)]
+    pub source_channel: Option<String>,
 }
 
 fn default_include_priorities() -> bool {
@@ -906,6 +909,14 @@ pub async fn run_agent(
 
     let tools = agent_tools::get_tool_definitions();
     let mut system_prompt = build_system_prompt(&request.locale);
+    if request.source_channel.is_some() {
+        let channel_rule = if request.locale == "en" {
+            " A linked phone channel is only another conversation entry point. Respond to ordinary text as an ordinary conversation and never save it merely because it arrived from a phone. If a message consists primarily of a public URL, treat that as an implicit request to fetch, organize, and save the source as a local note. For every other save or edit, follow the user's expressed intent and use the same tools and judgment as the desktop chat."
+        } else {
+            " 已连接的手机渠道只是另一个对话入口。普通文字必须按普通对话回答，绝不能仅因为消息来自手机就保存为资料。如果一条消息主要由公开网址组成，应将其视为获取、整理并保存为本地笔记的隐含请求。除此之外，只有用户表达了保存或编辑意图时才调用相应工具，能力与判断标准均和桌面端对话一致。"
+        };
+        system_prompt.push_str(channel_rule);
+    }
     if let Some(skill_prompt) = request.skill_prompt.as_deref() {
         let skill_prompt = if request.locale == "en" {
             format!(
@@ -966,6 +977,13 @@ pub async fn run_agent(
         let sess = map
             .entry(conversation_id.clone())
             .or_insert_with(AgentSession::new);
+        if sess.running {
+            return Err(if request.locale == "en" {
+                "This conversation is already processing another message.".to_string()
+            } else {
+                "这个对话正在处理另一条消息，请稍后再试。".to_string()
+            });
+        }
         if sess.messages.is_empty() && sess.provider_messages.is_empty() {
             let (messages, provider_messages) =
                 conversations::load_agent_messages(&conversation_id);

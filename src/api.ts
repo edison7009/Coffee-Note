@@ -355,6 +355,13 @@ export async function listenMessageCaptureSaved(handler: () => void): Promise<()
   return listen('message-capture-saved', handler);
 }
 
+export async function listenMessageConversationUpdated(
+  handler: (conversationId: string) => void,
+): Promise<() => void> {
+  if (!isTauri) return () => {};
+  return listen<string>('message-conversation-updated', (event) => handler(event.payload));
+}
+
 export async function setBuiltinSkillEnabled(enabled: boolean): Promise<SkillCatalog> {
   if (!isTauri) {
     const catalog = readFallbackSkillCatalog();

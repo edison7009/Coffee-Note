@@ -51,6 +51,21 @@ test('composer skill management opens the Skills settings page', () => {
 test('composer reads categories and skills from the shared catalog', () => {
   assert.match(appSource, /skillCatalog\.categories\.map\(\(group\)/);
   assert.match(appSource, /skillCatalog\.skills\.filter\(\s*\(skill\) => skill\.categoryId === activeSkillGroup\?\.id\s*&&\s*skill\.enabled,\s*\)/s);
-  assert.match(appSource, /skillId: skillIdOverride \?\? \(selectedSkillId \|\| undefined\)/);
+  assert.match(appSource, /skillId: skillIdOverride === undefined\s*\? selectedSkillId \|\| undefined\s*:\s*skillIdOverride \|\| undefined/);
   assert.doesNotMatch(appSource, /expert-manager|cloudstudio-deploy/);
+});
+
+test('a selected composer skill applies to one submitted message only', () => {
+  assert.match(
+    appSource,
+    /onSend\(value, selectedSkillId\);\s*onSelectedSkillChange\(null\);\s*setValue\(''\);/s,
+  );
+  assert.match(
+    appSource,
+    /startAgentTurn\(conversationId, clean, chatMessages, skillId\)/,
+  );
+  assert.doesNotMatch(
+    appSource,
+    /setSelectedSkillId\(BUILTIN_MEDIA_SKILL_ID\)/,
+  );
 });

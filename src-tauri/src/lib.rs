@@ -3206,6 +3206,48 @@ async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String
 
 // -- Agent commands --
 
+async fn prepare_agent_context(request: &agent_loop::AgentRequest) -> Option<String> {
+    let research = if needs_live_research(&request.message) {
+        let fake_req = ChatRequest {
+            api_key: request.api_key.clone(),
+            base_url: request.base_url.clone(),
+            model: request.model.clone(),
+            provider: request.provider.clone(),
+            reasoning_effort: request.reasoning_effort.clone(),
+            question: request.message.clone(),
+            locale: request.locale.clone(),
+            knowledge_root: request.knowledge_root.clone(),
+            context_paths: request.context_paths.clone(),
+            history: Vec::new(),
+        };
+        match plan_research_query(&fake_req).await {
+            Some(query) => {
+                let snapshot = collect_research(query).await;
+                Some(research_context(&snapshot))
+            }
+            None => None,
+        }
+    } else {
+        None
+    };
+    let knowledge_root = PathBuf::from(&request.knowledge_root);
+    let local_ctx = retrieve_agent_library_context(
+        &knowledge_root,
+        &my_info_root(),
+        &request.message,
+        &request.context_paths,
+        &request.locale,
+        MAX_CONTEXT_BYTES,
+    );
+    let mut full_context = research.unwrap_or_default();
+    if !local_ctx.is_empty() {
+        full_context.push_str(&format!(
+            "\n\nUse the following local context. Do not claim it is exhaustive:\n{local_ctx}"
+        ));
+    }
+    (!full_context.is_empty()).then_some(full_context)
+}
+
 #[tauri::command]
 async fn agent_abort(
     session_map: State<'_, SharedSessionMap>,
@@ -3250,49 +3292,7 @@ async fn agent_send_message(
         .as_deref()
         .map(skills::load_skill_prompt)
         .transpose()?;
-    let research_context = if needs_live_research(&request.message) {
-        let fake_req = ChatRequest {
-            api_key: request.api_key.clone(),
-            base_url: request.base_url.clone(),
-            model: request.model.clone(),
-            provider: request.provider.clone(),
-            reasoning_effort: request.reasoning_effort.clone(),
-            question: request.message.clone(),
-            locale: request.locale.clone(),
-            knowledge_root: request.knowledge_root.clone(),
-            context_paths: request.context_paths.clone(),
-            history: Vec::new(),
-        };
-        match plan_research_query(&fake_req).await {
-            Some(query) => {
-                let snapshot = collect_research(query).await;
-                Some(research_context(&snapshot))
-            }
-            None => None,
-        }
-    } else {
-        None
-    };
-    let knowledge_root = PathBuf::from(&request.knowledge_root);
-    let local_ctx = retrieve_agent_library_context(
-        &knowledge_root,
-        &my_info_root(),
-        &request.message,
-        &request.context_paths,
-        &request.locale,
-        MAX_CONTEXT_BYTES,
-    );
-    let mut full_research = research_context.unwrap_or_default();
-    if !local_ctx.is_empty() {
-        full_research.push_str(&format!(
-            "\n\nUse the following local context. Do not claim it is exhaustive:\n{local_ctx}"
-        ));
-    }
-    let rc = if full_research.is_empty() {
-        None
-    } else {
-        Some(full_research)
-    };
+    let rc = prepare_agent_context(&request).await;
     let map = (*session_map).clone();
     let app_clone = app.clone();
     let error_conversation_id = request.conversation_id.clone();

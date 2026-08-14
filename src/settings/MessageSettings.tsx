@@ -166,8 +166,8 @@ export function MessageSettings({ locale }: { locale: Locale }) {
         <h2>{locale === 'zh' ? '消息渠道' : 'Message channels'}</h2>
         <p>
           {locale === 'zh'
-            ? '从手机发送视频或网页链接，Coffee Note 会在本机整理并保存笔记，再把结果发回手机。'
-            : 'Send a video or webpage link from your phone. Coffee Note processes and saves it locally, then replies with the result.'}
+            ? '连接后可像在客户端一样与 Coffee Note 对话；AI 会按你的意图回答、读取或整理本地笔记，单独发送链接也可以转成文档。手机对话会同步到客户端的对话记录。'
+            : 'Chat with Coffee Note from your phone just like in the desktop app. AI can answer, use local notes, or turn a shared link into a document, and the conversation appears in desktop history.'}
         </p>
         <span className="message-settings-summary">
           {connectedCount > 0
@@ -191,7 +191,7 @@ export function MessageSettings({ locale }: { locale: Locale }) {
               {statusText(status.weixin)}
             </span>
           </div>
-          <p>{locale === 'zh' ? '使用腾讯官方 iLink 服务，扫码后通过机器人私聊发送链接。' : 'Uses Tencent iLink. Scan once, then send links in a direct chat with the bot.'}</p>
+          <p>{locale === 'zh' ? '使用腾讯官方 iLink 服务，扫码后即可通过机器人私聊对话。' : 'Uses Tencent iLink. Scan once, then chat privately with the bot.'}</p>
           {status.weixinError && <small>{status.weixinError}</small>}
           {weixinQr && (
             <div className="weixin-connect-flow">
@@ -319,8 +319,8 @@ export function MessageSettings({ locale }: { locale: Locale }) {
 
       <p className="message-settings-footnote">
         {locale === 'zh'
-          ? '仅接受已绑定账号的私聊。渠道消息只能触发链接整理与保存，不能执行终端、删除文件或修改设置。电脑需保持开机，Coffee Note 可在后台运行。'
-          : 'Only direct messages from the paired account are accepted. Channel messages can only organize and save links; they cannot run terminal commands, delete files, or change settings. Keep this computer on with Coffee Note running in the background.'}
+          ? '仅接受已绑定账号的私聊。手机端使用与客户端相同的 AI 笔记能力，因此可以按你的要求读取、创建或修改当前本地笔记库；它不能执行终端命令或修改应用设置。电脑需保持开机，Coffee Note 可在后台运行。'
+          : 'Only direct messages from the paired account are accepted. Phone chats use the same AI note capabilities as the desktop app, so they can read, create, or edit the current local library when asked; they cannot run terminal commands or change app settings. Keep this computer on with Coffee Note running in the background.'}
       </p>
     </div>
   );

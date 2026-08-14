@@ -452,6 +452,117 @@ pub fn save_agent_messages(
     Ok(())
 }
 
+pub fn append_channel_user_message(
+    id: &str,
+    message_id: &str,
+    content: &str,
+) -> Result<ConversationSummary, String> {
+    let _write_guard = conversation_write_lock()?;
+    let mut record = read_record(id)?;
+    if !record
+        .ui_messages
+        .iter()
+        .any(|message| message.get("id").and_then(Value::as_str) == Some(message_id))
+    {
+        record.ui_messages.push(serde_json::json!({
+            "id": message_id,
+            "role": "user",
+            "content": content,
+            "createdAt": now_ms()
+        }));
+    }
+    record.updated_at = now_ms();
+    update_automatic_title(&mut record, None);
+    write_record(&record)?;
+    let estimated = read_index()
+        .into_iter()
+        .find(|summary| summary.id == id)
+        .map(|summary| summary.estimated_context_bytes)
+        .unwrap_or_default();
+    let summary = summary_for(&record, estimated);
+    upsert_summary(summary.clone())?;
+    Ok(summary)
+}
+
+pub fn append_agent_assistant_messages_since(
+    id: &str,
+    start_index: usize,
+    reply_message_id: &str,
+) -> Result<(ConversationSummary, Option<String>), String> {
+    let _write_guard = conversation_write_lock()?;
+    let mut record = read_record(id)?;
+    if let Some(existing_reply) = record
+        .ui_messages
+        .iter()
+        .find(|message| message.get("id").and_then(Value::as_str) == Some(reply_message_id))
+    {
+        let reply = existing_reply
+            .get("content")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let estimated = read_index()
+            .into_iter()
+            .find(|summary| summary.id == id)
+            .map(|summary| summary.estimated_context_bytes)
+            .unwrap_or_default();
+        return Ok((summary_for(&record, estimated), reply));
+    }
+    let mut assistant_messages = record
+        .llm_messages
+        .iter()
+        .skip(start_index)
+        .filter(|message| message.role == "assistant")
+        .filter_map(message_to_ui)
+        .collect::<Vec<_>>();
+    if let Some(last) = assistant_messages.last_mut().and_then(Value::as_object_mut) {
+        last.insert(
+            "id".to_string(),
+            Value::String(reply_message_id.to_string()),
+        );
+    }
+    let final_reply = assistant_messages
+        .iter()
+        .rev()
+        .find_map(|message| message.get("content").and_then(Value::as_str))
+        .map(str::to_string);
+    record.ui_messages.extend(assistant_messages);
+    record.updated_at = now_ms();
+    update_automatic_title(&mut record, None);
+    write_record(&record)?;
+    let estimated = read_index()
+        .into_iter()
+        .find(|summary| summary.id == id)
+        .map(|summary| summary.estimated_context_bytes)
+        .unwrap_or_default();
+    let summary = summary_for(&record, estimated);
+    upsert_summary(summary.clone())?;
+    Ok((summary, final_reply))
+}
+
+pub fn append_channel_assistant_message(
+    id: &str,
+    content: &str,
+) -> Result<ConversationSummary, String> {
+    let _write_guard = conversation_write_lock()?;
+    let mut record = read_record(id)?;
+    record.ui_messages.push(serde_json::json!({
+        "id": uuid::Uuid::new_v4().to_string(),
+        "role": "assistant",
+        "content": content,
+        "createdAt": now_ms()
+    }));
+    record.updated_at = now_ms();
+    write_record(&record)?;
+    let estimated = read_index()
+        .into_iter()
+        .find(|summary| summary.id == id)
+        .map(|summary| summary.estimated_context_bytes)
+        .unwrap_or_default();
+    let summary = summary_for(&record, estimated);
+    upsert_summary(summary.clone())?;
+    Ok(summary)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

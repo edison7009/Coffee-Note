@@ -1,9 +1,8 @@
 //! Local messaging channels for Coffee Note.
 //!
 //! The Weixin transport follows Tencent's MIT-licensed `openclaw-weixin`
-//! implementation and public iLink HTTP/JSON protocol. Coffee Note keeps the
-//! transport deliberately small: direct text messages enter a restricted
-//! capture pipeline and never receive general host/tool access.
+//! implementation and public iLink HTTP/JSON protocol. Linked private chats are
+//! alternate entry points into Coffee Note's regular local conversation agent.
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
@@ -38,6 +37,8 @@ pub struct WeixinSettings {
     pub allowed_user_id: String,
     #[serde(default)]
     pub sync_buf: String,
+    #[serde(default)]
+    pub conversation_id: String,
 }
 
 fn default_weixin_base_url() -> String {
@@ -59,6 +60,8 @@ pub struct TelegramSettings {
     pub pairing_code: String,
     #[serde(default)]
     pub update_offset: i64,
+    #[serde(default)]
+    pub conversation_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -151,6 +154,10 @@ struct PendingChannelJob {
     recipient: String,
     #[serde(default)]
     context_token: String,
+    #[serde(default)]
+    conversation_id: String,
+    #[serde(default)]
+    agent_start_index: Option<usize>,
     created_at_ms: u64,
     #[serde(default)]
     final_reply: String,
@@ -250,6 +257,22 @@ fn save_job_result(id: &str, final_reply: String, note_saved: bool) -> Result<()
         if let Some(job) = jobs.iter_mut().find(|job| job.id == id) {
             job.final_reply = final_reply;
             job.note_saved = note_saved;
+        }
+    })
+}
+
+fn save_job_conversation(id: &str, conversation_id: String) -> Result<(), String> {
+    mutate_jobs(|jobs| {
+        if let Some(job) = jobs.iter_mut().find(|job| job.id == id) {
+            job.conversation_id = conversation_id;
+        }
+    })
+}
+
+fn save_job_agent_start(id: &str, start_index: usize) -> Result<(), String> {
+    mutate_jobs(|jobs| {
+        if let Some(job) = jobs.iter_mut().find(|job| job.id == id) {
+            job.agent_start_index = Some(start_index);
         }
     })
 }
@@ -644,6 +667,9 @@ pub async fn poll_weixin_login(
             return Err("Weixin returned an unsafe service endpoint".to_string());
         }
         mutate_settings(|settings| {
+            if settings.weixin.allowed_user_id != user_id {
+                settings.weixin.conversation_id.clear();
+            }
             settings.weixin.enabled = true;
             settings.weixin.token = token.to_string();
             settings.weixin.account_id = account_id.to_string();
@@ -721,6 +747,7 @@ pub async fn connect_telegram(
         settings.telegram.allowed_user_id.clear();
         settings.telegram.pairing_code = pairing_code();
         settings.telegram.update_offset = 0;
+        settings.telegram.conversation_id.clear();
         settings.clone()
     })?;
     restart_telegram(&app)?;
@@ -891,11 +918,125 @@ impl ReplyTarget {
     }
 }
 
-async fn process_capture(app: AppHandle, job_id: String) {
+fn ensure_channel_conversation(channel: &str, first_message: &str) -> Result<String, String> {
+    let settings = load_settings()?;
+    let saved_id = match channel {
+        "weixin" => settings.weixin.conversation_id,
+        "telegram" => settings.telegram.conversation_id,
+        _ => return Err("Unknown message channel".to_string()),
+    };
+    if !saved_id.is_empty() && crate::conversations::load_conversation(saved_id.clone()).is_ok() {
+        return Ok(saved_id);
+    }
+
+    let summary = crate::conversations::create_conversation(Some(first_message.to_string()))?;
+    let conversation_id = summary.id.clone();
+    mutate_settings(|settings| match channel {
+        "weixin" => settings.weixin.conversation_id = conversation_id.clone(),
+        "telegram" => settings.telegram.conversation_id = conversation_id.clone(),
+        _ => {}
+    })?;
+    Ok(summary.id)
+}
+
+fn channel_failure(locale: &str, error: &str) -> String {
+    if locale == "en" {
+        format!("AI reply failed: {error}")
+    } else {
+        format!("AI 回复失败：{error}")
+    }
+}
+
+async fn run_channel_agent(
+    app: &AppHandle,
+    job: &mut PendingChannelJob,
+    settings: &MessageSettings,
+) -> Result<String, String> {
+    let model_settings =
+        super::load_model_config()?.ok_or_else(|| "请先在桌面端配置 AI 模型。".to_string())?;
+    let provider = model_settings
+        .providers
+        .get(&model_settings.active_provider)
+        .ok_or_else(|| "当前 AI 服务不可用。".to_string())?;
+    if provider.api_key.trim().is_empty()
+        || provider.base_url.trim().is_empty()
+        || provider.model.trim().is_empty()
+    {
+        return Err("请先在桌面端完成 AI 模型配置。".to_string());
+    }
+
+    let start_index = match job.agent_start_index {
+        Some(index) => index,
+        None => {
+            let index = crate::conversations::load_agent_messages(&job.conversation_id)
+                .0
+                .len();
+            save_job_agent_start(&job.id, index)?;
+            job.agent_start_index = Some(index);
+            index
+        }
+    };
+    let reply_message_id = format!("channel-reply:{}", job.id);
+    if crate::conversations::load_agent_messages(&job.conversation_id)
+        .0
+        .len()
+        > start_index
+    {
+        let (_, recovered_reply) = crate::conversations::append_agent_assistant_messages_since(
+            &job.conversation_id,
+            start_index,
+            &reply_message_id,
+        )?;
+        if let Some(reply) = recovered_reply {
+            return Ok(reply);
+        }
+    }
+    let request = crate::agent_loop::AgentRequest {
+        conversation_id: job.conversation_id.clone(),
+        api_key: provider.api_key.clone(),
+        base_url: provider.base_url.clone(),
+        model: provider.model.clone(),
+        message: job.input.clone(),
+        locale: settings.locale.clone(),
+        knowledge_root: settings.knowledge_root.clone(),
+        context_paths: Vec::new(),
+        skill_id: None,
+        skill_prompt: None,
+        enabled_my_info_sections: None,
+        include_priorities: true,
+        current_page: None,
+        note_summary: None,
+        history: Vec::new(),
+        provider: provider.protocol.clone(),
+        reasoning_effort: Some(model_settings.reasoning_effort.clone()),
+        web_reader: model_settings.web_reader.clone(),
+        source_channel: Some(job.channel.clone()),
+    };
+    let research_context = super::prepare_agent_context(&request).await;
+    let session_map = app
+        .state::<crate::agent_loop::SharedSessionMap>()
+        .inner()
+        .clone();
+    crate::agent_loop::run_agent(app.clone(), request, session_map, research_context).await?;
+    let (_, final_reply) = crate::conversations::append_agent_assistant_messages_since(
+        &job.conversation_id,
+        start_index,
+        &reply_message_id,
+    )?;
+    final_reply.ok_or_else(|| {
+        if settings.locale == "en" {
+            "The model did not return a reply.".to_string()
+        } else {
+            "模型没有返回可发送的回复。".to_string()
+        }
+    })
+}
+
+async fn process_channel_message(app: AppHandle, job_id: String) {
     let runtime = app.state::<ChannelRuntime>();
     let permit = runtime.jobs.clone().acquire_owned().await;
     let Ok(_permit) = permit else { return };
-    let job = match pending_job(&job_id) {
+    let mut job = match pending_job(&job_id) {
         Ok(Some(job)) => job,
         _ => return,
     };
@@ -922,21 +1063,55 @@ async fn process_capture(app: AppHandle, job_id: String) {
         status.active_jobs += 1;
     }
     emit_status(&app);
-    let (message, saved) = if job.final_reply.is_empty() {
-        let result = process_capture_inner(&job.input).await;
-        let saved = result.is_ok();
-        let message = match result {
-            Ok((draft, path)) => {
-                let prefix = if settings.locale == "en" {
-                    format!("Saved: {}\n{}\n\n", draft.title, path)
-                } else {
-                    format!("已保存：{}\n{}\n\n", draft.title, path)
-                };
-                format!("{prefix}{}", draft.content)
+    if job.conversation_id.is_empty() {
+        match ensure_channel_conversation(&job.channel, &job.input) {
+            Ok(conversation_id) => {
+                job.conversation_id = conversation_id.clone();
+                if let Err(error) = save_job_conversation(&job.id, conversation_id) {
+                    log::warn!("[Channels] Could not persist the conversation mapping: {error}");
+                    if let Ok(mut status) = runtime.status.lock() {
+                        status.active_jobs = status.active_jobs.saturating_sub(1);
+                    }
+                    emit_status(&app);
+                    return;
+                }
             }
-            Err(error) => format!("处理失败：{error}"),
+            Err(error) => {
+                log::warn!("[Channels] Could not create a phone conversation: {error}");
+                if let Ok(mut status) = runtime.status.lock() {
+                    status.active_jobs = status.active_jobs.saturating_sub(1);
+                }
+                emit_status(&app);
+                return;
+            }
+        }
+    }
+    let ui_message_id = format!("channel:{}", job.id);
+    if let Err(error) = crate::conversations::append_channel_user_message(
+        &job.conversation_id,
+        &ui_message_id,
+        &job.input,
+    ) {
+        log::warn!("[Channels] Could not persist the inbound conversation message: {error}");
+        if let Ok(mut status) = runtime.status.lock() {
+            status.active_jobs = status.active_jobs.saturating_sub(1);
+        }
+        emit_status(&app);
+        return;
+    }
+    let (message, saved) = if job.final_reply.is_empty() {
+        let message = match run_channel_agent(&app, &mut job, &settings).await {
+            Ok(message) => message,
+            Err(error) => {
+                let message = channel_failure(&settings.locale, &error);
+                let _ = crate::conversations::append_channel_assistant_message(
+                    &job.conversation_id,
+                    &message,
+                );
+                message
+            }
         };
-        if let Err(error) = save_job_result(&job_id, message.clone(), saved) {
+        if let Err(error) = save_job_result(&job_id, message.clone(), false) {
             log::warn!("[Channels] Could not persist the job result: {error}");
             if let Ok(mut status) = runtime.status.lock() {
                 status.active_jobs = status.active_jobs.saturating_sub(1);
@@ -944,10 +1119,9 @@ async fn process_capture(app: AppHandle, job_id: String) {
             emit_status(&app);
             return;
         }
-        if saved {
-            let _ = app.emit("message-capture-saved", ());
-        }
-        (message, saved)
+        let _ = app.emit("message-conversation-updated", job.conversation_id.clone());
+        let _ = app.emit("message-capture-saved", ());
+        (message, false)
     } else {
         (job.final_reply.clone(), job.note_saved)
     };
@@ -965,52 +1139,6 @@ async fn process_capture(app: AppHandle, job_id: String) {
         status.active_jobs = status.active_jobs.saturating_sub(1);
     }
     emit_status(&app);
-}
-
-async fn process_capture_inner(input: &str) -> Result<(super::CaptureDraft, String), String> {
-    let settings = load_settings()?;
-    let root = PathBuf::from(&settings.knowledge_root);
-    if !root.is_dir() {
-        return Err("请先在桌面端选择笔记库。".to_string());
-    }
-    if super::find_capture_url(input).is_none() {
-        return Err("请发送公开视频或网页链接。".to_string());
-    }
-    let model_settings =
-        super::load_model_config()?.ok_or_else(|| "请先在桌面端配置 AI 模型。".to_string())?;
-    let provider = model_settings
-        .providers
-        .get(&model_settings.active_provider)
-        .ok_or_else(|| "当前 AI 服务不可用。".to_string())?;
-    if provider.api_key.trim().is_empty()
-        || provider.base_url.trim().is_empty()
-        || provider.model.trim().is_empty()
-    {
-        return Err("请先在桌面端完成 AI 模型配置。".to_string());
-    }
-    let draft = super::prepare_capture(super::PrepareCaptureRequest {
-        api_key: provider.api_key.clone(),
-        base_url: provider.base_url.clone(),
-        model: provider.model.clone(),
-        provider: provider.protocol.clone(),
-        reasoning_effort: Some(model_settings.reasoning_effort.clone()),
-        transcription_mode: Some(settings.transcription_mode.clone()),
-        input: input.to_string(),
-        locale: settings.locale.clone(),
-        web_reader: model_settings.web_reader.clone(),
-    })
-    .await?;
-    let path = super::save_capture(super::CaptureRequest {
-        knowledge_root: settings.knowledge_root,
-        title: draft.title.clone(),
-        content: draft.content.clone(),
-        source_url: draft.source_url.clone(),
-        locale: settings.locale,
-    })?;
-    // The desktop tree may be visible while a phone task completes.
-    // Notify it to reload without coupling the channel worker to React state.
-    // Failure to notify does not invalidate the saved note.
-    Ok((draft, path))
 }
 
 fn restart_weixin(app: &AppHandle) -> Result<(), String> {
@@ -1068,7 +1196,7 @@ fn resume_pending_jobs(app: &AppHandle) {
         for job in jobs {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                process_capture(app, job.id).await;
+                process_channel_message(app, job.id).await;
             });
         }
     }
@@ -1175,7 +1303,7 @@ async fn telegram_loop(app: AppHandle, cancel: CancellationToken) {
                             let _ = telegram_send(
                                 &token,
                                 &chat_id,
-                                "Coffee Note 已连接。现在直接发送视频或网页链接即可。",
+                                "Coffee Note 已连接。现在可以像在客户端一样直接对话；发送链接时，AI 也可以整理并保存为本地笔记。",
                             )
                             .await;
                             set_status(&app, "telegram", "connected", "");
@@ -1193,6 +1321,13 @@ async fn telegram_loop(app: AppHandle, cancel: CancellationToken) {
             if user_id != current.telegram.allowed_user_id {
                 continue;
             }
+            let conversation_id = match ensure_channel_conversation("telegram", &text) {
+                Ok(id) => id,
+                Err(error) => {
+                    log::warn!("[Telegram] Could not prepare conversation: {error}");
+                    continue;
+                }
+            };
             let job_id = format!("telegram:{update_id}");
             let job = PendingChannelJob {
                 id: job_id.clone(),
@@ -1200,21 +1335,17 @@ async fn telegram_loop(app: AppHandle, cancel: CancellationToken) {
                 input: text,
                 recipient: chat_id.clone(),
                 context_token: String::new(),
+                conversation_id,
+                agent_start_index: None,
                 created_at_ms: unix_ms(),
                 final_reply: String::new(),
                 note_saved: false,
             };
             match enqueue_job(job) {
                 Ok(true) => {
-                    let _ = telegram_send(
-                        &current.telegram.bot_token,
-                        &chat_id,
-                        "收到，正在整理并保存…",
-                    )
-                    .await;
                     let app_clone = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        process_capture(app_clone, job_id).await;
+                        process_channel_message(app_clone, job_id).await;
                     });
                 }
                 Ok(false) => {}
@@ -1323,6 +1454,13 @@ async fn weixin_loop(app: AppHandle, cancel: CancellationToken) {
             if text.is_empty() || context_token.is_empty() {
                 continue;
             }
+            let conversation_id = match ensure_channel_conversation("weixin", &text) {
+                Ok(id) => id,
+                Err(error) => {
+                    log::warn!("[Weixin] Could not prepare conversation: {error}");
+                    continue;
+                }
+            };
             let job_id = format!("weixin:{id}");
             let job = PendingChannelJob {
                 id: job_id.clone(),
@@ -1330,6 +1468,8 @@ async fn weixin_loop(app: AppHandle, cancel: CancellationToken) {
                 input: text,
                 recipient: from.to_string(),
                 context_token: context_token.clone(),
+                conversation_id,
+                agent_start_index: None,
                 created_at_ms: unix_ms(),
                 final_reply: String::new(),
                 note_saved: false,
@@ -1337,16 +1477,9 @@ async fn weixin_loop(app: AppHandle, cancel: CancellationToken) {
             match enqueue_job(job) {
                 Ok(true) => {
                     seen.insert(id.clone());
-                    let _ = weixin_send(
-                        &settings.weixin,
-                        from,
-                        &context_token,
-                        "收到，正在整理并保存…",
-                    )
-                    .await;
                     let app_clone = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        process_capture(app_clone, job_id).await;
+                        process_channel_message(app_clone, job_id).await;
                     });
                 }
                 Ok(false) => {
@@ -1390,6 +1523,7 @@ mod tests {
             knowledge_root: "C:/Notes".to_string(),
             telegram: TelegramSettings {
                 bot_token: "secret".to_string(),
+                conversation_id: "phone-conversation".to_string(),
                 ..TelegramSettings::default()
             },
             ..MessageSettings::default()
@@ -1398,6 +1532,7 @@ mod tests {
         let loaded = load_settings_from(&path).expect("settings should load");
         assert_eq!(loaded.knowledge_root, "C:/Notes");
         assert_eq!(loaded.telegram.bot_token, "secret");
+        assert_eq!(loaded.telegram.conversation_id, "phone-conversation");
         fs::remove_file(path).expect("fixture should be removed");
     }
 
