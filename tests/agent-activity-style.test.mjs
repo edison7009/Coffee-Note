@@ -5,13 +5,18 @@ import test from 'node:test';
 const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 
-test('running agent activity uses one static theme-colored DeepSeek-style status line', () => {
+test('running agent activity uses the theme-colored DeepSeek text shimmer without a spinner', () => {
   assert.match(
     css,
-    /\.agent-turn-status\s*\{[^}]*height:\s*26px;[^}]*color:\s*var\(--switch-on\);[^}]*font-size:\s*14px;[^}]*line-height:\s*26px;/s,
+    /\.agent-turn-status\s*\{[^}]*height:\s*26px;[^}]*background:\s*linear-gradient\([\s\S]*?var\(--switch-on\)[\s\S]*?background-size:\s*250% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 1\.8s linear infinite;/s,
   );
   assert.match(app, /locale === 'zh' \? '正在深入思考…' : 'Deep diving…'/);
-  assert.doesNotMatch(css, /agent-activity-shimmer|activity-dot-spinner/);
+  assert.match(css, /@keyframes agent-turn-status-shimmer\s*\{\s*to\s*\{\s*background-position:\s*0 0;/s);
+  assert.match(
+    css,
+    /@media \(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.agent-turn-status\s*\{[^}]*animation:\s*none;/s,
+  );
+  assert.doesNotMatch(css, /activity-dot-spinner/);
   assert.doesNotMatch(app, /activity-dot-spinner/);
 });
 
@@ -19,7 +24,7 @@ test('the active turn clock appears only after fifteen seconds', () => {
   assert.match(app, /elapsedSeconds >= 15/);
   assert.match(
     css,
-    /\.agent-turn-status-clock\s*\{[^}]*color:\s*var\(--muted\);[^}]*font-size:\s*12px;[^}]*font-variant-numeric:\s*tabular-nums;/s,
+    /\.agent-turn-status-clock\s*\{[^}]*color:\s*var\(--muted\);[^}]*font-size:\s*12px;[^}]*font-variant-numeric:\s*tabular-nums;[^}]*-webkit-text-fill-color:\s*var\(--muted\);/s,
   );
 });
 

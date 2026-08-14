@@ -5570,11 +5570,25 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   gap: 7px;
   height: 26px;
   padding: 0;
-  color: var(--switch-on);
   font-size: 14px;
   font-weight: 600;
   line-height: 26px;
   white-space: nowrap;
+  background: linear-gradient(
+    90deg,
+    var(--switch-on) 0%,
+    var(--switch-on) 40%,
+    color-mix(in srgb, var(--switch-on) 35%, white) 50%,
+    var(--switch-on) 60%,
+    var(--switch-on) 100%
+  );
+  background-position: 100% 0;
+  background-size: 250% 100%;
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: agent-turn-status-shimmer 1.8s linear infinite;
 }
 
 .agent-turn-status-clock {
@@ -5582,6 +5596,21 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 400;
+  -webkit-text-fill-color: var(--muted);
+}
+
+@keyframes agent-turn-status-shimmer {
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-turn-status {
+    background-position: 0 0;
+    background-size: 100% 100%;
+    animation: none;
+  }
 }
 
 [data-theme='dark'] .tool-activity-data.failed {
