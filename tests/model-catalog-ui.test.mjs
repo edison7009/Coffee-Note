@@ -8,7 +8,7 @@ const catalogSource = readFileSync(new URL('../src/modelCatalog.ts', import.meta
 const settingsSource = readFileSync(new URL('../src/modelSettings.ts', import.meta.url), 'utf8');
 const i18nSource = readFileSync(new URL('../src/i18n.ts', import.meta.url), 'utf8');
 const rustSource = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
-const runtimeSource = readFileSync(new URL('../src-tauri/src/dsh_runtime.rs', import.meta.url), 'utf8');
+const streamSource = readFileSync(new URL('../src-tauri/src/llm_stream.rs', import.meta.url), 'utf8');
 
 test('models.dev catalog and logos feed the provider settings workspace', () => {
   assert.match(apiSource, /loadModelCatalog/);
@@ -100,10 +100,8 @@ test('composer selections reach the actual model request', () => {
   assert.match(appSource, /modelReasoningEfforts/);
   assert.doesNotMatch(appSource, /clampReasoningEffort|availableReasoningEfforts/);
   assert.doesNotMatch(catalogSource, /function clampReasoningEffort|function availableReasoningEfforts/);
-  assert.match(runtimeSource, /profile\["reasoning"\]/);
-  assert.match(runtimeSource, /"reasoningEfforts"/);
-  assert.match(runtimeSource, /"model": request\.model/);
-  assert.match(runtimeSource, /"provider": provider_route\(request\)/);
+  assert.match(streamSource, /body\["reasoning_effort"\]/);
+  assert.match(streamSource, /body\["output_config"\]/);
 });
 
 test('custom models never inherit guessed or catalog pricing', () => {

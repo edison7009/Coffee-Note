@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5173",
-    "beforeDevCommand": "npm run dsh:install && npm run dev",
-    "beforeBuildCommand": "npm run dsh:ci && npm run dsh:pack && npm run build"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "trayIcon": {
@@ -48,9 +48,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../dsh-runtime/coffee-note-dsh-runtime.tar.gz": "dsh-runtime/coffee-note-dsh-runtime.tar.gz"
-    },
     "windows": {
       "nsis": {
         "template": "installer.nsi",

@@ -10,7 +10,7 @@ export const MY_INFO_SECTION_IDS = [
 ] as const;
 
 export type MyInfoSectionId = (typeof MY_INFO_SECTION_IDS)[number];
-export type MyInfoRetrievalState = Record<string, boolean> & Record<MyInfoSectionId, boolean>;
+export type MyInfoRetrievalState = Record<MyInfoSectionId, boolean>;
 
 export const DEFAULT_MY_INFO_RETRIEVAL: MyInfoRetrievalState = {
   supplements: true,
@@ -25,15 +25,9 @@ export function normalizeMyInfoRetrieval(value: unknown): MyInfoRetrievalState {
     return { ...DEFAULT_MY_INFO_RETRIEVAL };
   }
   const stored = value as Record<string, unknown>;
-  const normalized = Object.fromEntries(
-    Object.entries(stored)
-      .filter(([id, enabled]) => id.startsWith('plans/') && typeof enabled === 'boolean')
-      .map(([id, enabled]) => [id, enabled]),
+  return Object.fromEntries(
+    MY_INFO_SECTION_IDS.map((id) => [id, stored[id] === false ? false : true]),
   ) as MyInfoRetrievalState;
-  for (const id of MY_INFO_SECTION_IDS) {
-    normalized[id] = stored[id] === false ? false : true;
-  }
-  return normalized;
 }
 
 export function parseMyInfoRetrieval(value: string | null): MyInfoRetrievalState {
@@ -45,12 +39,6 @@ export function parseMyInfoRetrieval(value: string | null): MyInfoRetrievalState
   }
 }
 
-export function enabledMyInfoSections(
-  state: MyInfoRetrievalState,
-  customPaths: readonly string[] = [],
-): string[] {
-  return [
-    ...MY_INFO_SECTION_IDS.filter((id) => state[id]),
-    ...customPaths.filter((path) => state[path] !== false),
-  ];
+export function enabledMyInfoSections(state: MyInfoRetrievalState): MyInfoSectionId[] {
+  return MY_INFO_SECTION_IDS.filter((id) => state[id]);
 }

@@ -19,12 +19,12 @@ test('My Info explains that AI only retrieves enabled content', () => {
   assert.match(i18n, /planHint: 'AI只检索开关开启的内容，内容也可以是提示词、技能等。'/);
 });
 
-test('built-in and custom My Context documents expose independent accessible switches', () => {
+test('the five My Info documents expose independent accessible switches', () => {
   assert.match(appSource, /sections\.map\(\(section\) =>[\s\S]*?className="plan-retrieval-switch"/s);
   assert.match(appSource, /role="switch"/);
   assert.match(appSource, /aria-checked=\{retrievalState\[section\.id\]\}/);
   assert.match(appSource, /onClick=\{\(\) => onToggleRetrieval\(section\.id\)\}/);
-  assert.match(appSource, /customSections\.map\(\(section\) =>[\s\S]*?role="switch"/s);
+  assert.doesNotMatch(appSource, /key="add"[\s\S]*?role="switch"/s);
   assert.match(appSource, /`AI 检索：\$\{section\.title\}`/);
   assert.match(appSource, /`AI retrieval for \$\{section\.title\}`/);
   assert.doesNotMatch(appSource, /retrievalState\[section\.id\] \? '关闭' : '开启'/);
@@ -37,14 +37,6 @@ test('default My Contexts card titles use English title case', () => {
   assert.match(i18n, /addMaterial: 'Add Material'/);
   assert.doesNotMatch(appSource, /'My (resume|goals|experience|lessons)'|'Key records'/);
   assert.doesNotMatch(i18n, /addMaterial: 'Add material'/);
-});
-
-test('the My Contexts creation action is distinct from Add Material', () => {
-  assert.match(i18n, /addContext: '添加设定'/);
-  assert.match(i18n, /addContext: 'Add Context'/);
-  assert.match(appSource, /createNote\(root, 'plans', name, icon\)/);
-  assert.match(appSource, /openFileNote\(created, true, 'myInfo'\)/);
-  assert.match(appSource, /customSections=\{customMyInfoSections\}/);
 });
 
 test('Key Records does not duplicate resume content in its description', () => {
@@ -61,7 +53,7 @@ test('My Info cards open directly without a selected-card state', () => {
 });
 
 test('agent requests include the enabled My Info section IDs', () => {
-  assert.match(appSource, /enabledMyInfoSections: enabledMyInfoSections\([\s\S]*?customMyInfoSections\.map/s);
+  assert.match(appSource, /enabledMyInfoSections: enabledMyInfoSections\(myInfoRetrieval\)/);
   assert.match(appSource, /view === 'file' && fileNoteSource === 'library' \? fileNotePath : undefined/);
 });
 

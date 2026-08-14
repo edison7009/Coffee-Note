@@ -5,6 +5,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
+use crate::llm_stream::{ContentBlock, Message, MessageContent};
+
 const INDEX_FILE: &str = "index.json";
 const LEGACY_IMPORT_FLAG: &str = ".legacy-session-imported";
 static CONVERSATION_WRITE_LOCK: Mutex<()> = Mutex::new(());
@@ -31,6 +33,13 @@ pub struct ConversationRecord {
     pub custom_title: bool,
     #[serde(default)]
     pub ui_messages: Vec<Value>,
+    #[serde(default)]
+    pub llm_messages: Vec<Message>,
+    /// Exact provider-visible transcript, including request-scoped context that
+    /// must remain byte-stable for prefix caching. The regular LLM transcript
+    /// stays clean for UI recovery and local conversation inspection.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provider_messages: Vec<Message>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -146,7 +155,7 @@ fn summary_for(record: &ConversationRecord, estimated_context_bytes: usize) -> C
         title: record.title.clone(),
         created_at: record.created_at,
         updated_at: record.updated_at,
-        message_count: record.ui_messages.len(),
+        message_count: record.ui_messages.len().max(record.llm_messages.len()),
         estimated_context_bytes,
     }
 }
@@ -209,29 +218,36 @@ fn write_record(record: &ConversationRecord) -> Result<(), String> {
     write_json_atomic(conversation_path(&record.id)?, record)
 }
 
-fn legacy_message_to_ui(message: &Value) -> Option<Value> {
-    let role = message.get("role")?.as_str()?;
-    if !matches!(role, "user" | "assistant") {
-        return None;
-    }
-    let content = match message.get("content")? {
-        Value::String(text) => text.clone(),
-        Value::Array(blocks) => blocks
-            .iter()
-            .filter(|block| block.get("type").and_then(Value::as_str) == Some("text"))
-            .filter_map(|block| block.get("text").and_then(Value::as_str))
-            .collect::<Vec<_>>()
-            .join(""),
-        _ => String::new(),
-    };
-    (!content.trim().is_empty()).then(|| {
-        serde_json::json!({
+fn message_to_ui(message: &Message) -> Option<Value> {
+    match (&message.role[..], &message.content) {
+        ("user" | "assistant", MessageContent::Text(content)) => Some(serde_json::json!({
             "id": uuid::Uuid::new_v4().to_string(),
-            "role": role,
+            "role": message.role,
             "content": content,
             "createdAt": now_ms()
-        })
-    })
+        })),
+        ("assistant", MessageContent::Blocks(blocks)) => {
+            let text = blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("");
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(serde_json::json!({
+                    "id": uuid::Uuid::new_v4().to_string(),
+                    "role": "assistant",
+                    "content": text,
+                    "createdAt": now_ms()
+                }))
+            }
+        }
+        _ => None,
+    }
 }
 
 fn migrate_legacy_session_if_needed() -> Result<(), String> {
@@ -251,17 +267,17 @@ fn migrate_legacy_session_if_needed() -> Result<(), String> {
             legacy_path.display()
         )
     })?;
-    let legacy_messages = serde_json::from_str::<Vec<Value>>(&json).unwrap_or_default();
-    if legacy_messages.is_empty() {
+    let llm_messages = serde_json::from_str::<Vec<Message>>(&json).unwrap_or_default();
+    if llm_messages.is_empty() {
         fs::write(legacy_import_flag(), b"empty")
             .map_err(|error| format!("Cannot mark legacy import: {error}"))?;
         return Ok(());
     }
 
     let timestamp = now_ms();
-    let ui_messages = legacy_messages
+    let ui_messages = llm_messages
         .iter()
-        .filter_map(legacy_message_to_ui)
+        .filter_map(message_to_ui)
         .collect::<Vec<_>>();
     let record = ConversationRecord {
         id: format!("legacy-{}", uuid::Uuid::new_v4()),
@@ -270,6 +286,8 @@ fn migrate_legacy_session_if_needed() -> Result<(), String> {
         updated_at: timestamp,
         custom_title: false,
         ui_messages,
+        llm_messages,
+        provider_messages: Vec::new(),
     };
     write_record(&record)?;
     upsert_summary(summary_for(&record, 0))?;
@@ -302,6 +320,8 @@ pub fn create_conversation(title: Option<String>) -> Result<ConversationSummary,
         updated_at: timestamp,
         custom_title: false,
         ui_messages: Vec::new(),
+        llm_messages: Vec::new(),
+        provider_messages: Vec::new(),
     };
     write_record(&record)?;
     let summary = summary_for(&record, 0);
@@ -365,6 +385,8 @@ pub fn save_conversation_ui(
             updated_at: timestamp,
             custom_title: false,
             ui_messages: Vec::new(),
+            llm_messages: Vec::new(),
+            provider_messages: Vec::new(),
         })
     })?;
     record.ui_messages = ui_messages;
@@ -388,6 +410,51 @@ pub fn delete_conversation(id: String) -> Result<Vec<ConversationSummary>, Strin
         .filter(|candidate| candidate.id != id)
         .collect::<Vec<_>>();
     write_index(summaries)
+}
+
+pub fn load_agent_messages(id: &str) -> (Vec<Message>, Vec<Message>) {
+    let Ok(record) = read_record(id) else {
+        return (Vec::new(), Vec::new());
+    };
+    let raw_messages = record.llm_messages;
+    let provider_messages = if record.provider_messages.is_empty() {
+        raw_messages.clone()
+    } else {
+        record.provider_messages
+    };
+    (raw_messages, provider_messages)
+}
+
+pub fn save_agent_messages(
+    id: &str,
+    llm_messages: &[Message],
+    provider_messages: &[Message],
+) -> Result<(), String> {
+    let _write_guard = conversation_write_lock()?;
+    let mut record = read_record(id).or_else(|_| {
+        let timestamp = now_ms();
+        Ok::<ConversationRecord, String>(ConversationRecord {
+            id: id.to_string(),
+            title: "New conversation".to_string(),
+            created_at: timestamp,
+            updated_at: timestamp,
+            custom_title: false,
+            ui_messages: Vec::new(),
+            llm_messages: Vec::new(),
+            provider_messages: Vec::new(),
+        })
+    })?;
+    record.llm_messages = llm_messages.to_vec();
+    record.provider_messages = provider_messages.to_vec();
+    record.updated_at = now_ms();
+    write_record(&record)?;
+    let estimated = read_index()
+        .into_iter()
+        .find(|summary| summary.id == id)
+        .map(|summary| summary.estimated_context_bytes)
+        .unwrap_or_default();
+    upsert_summary(summary_for(&record, estimated))?;
+    Ok(())
 }
 
 pub fn append_channel_user_message(
@@ -422,32 +489,73 @@ pub fn append_channel_user_message(
     Ok(summary)
 }
 
+pub fn append_agent_assistant_messages_since(
+    id: &str,
+    start_index: usize,
+    reply_message_id: &str,
+) -> Result<(ConversationSummary, Option<String>), String> {
+    let _write_guard = conversation_write_lock()?;
+    let mut record = read_record(id)?;
+    if let Some(existing_reply) = record
+        .ui_messages
+        .iter()
+        .find(|message| message.get("id").and_then(Value::as_str) == Some(reply_message_id))
+    {
+        let reply = existing_reply
+            .get("content")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let estimated = read_index()
+            .into_iter()
+            .find(|summary| summary.id == id)
+            .map(|summary| summary.estimated_context_bytes)
+            .unwrap_or_default();
+        return Ok((summary_for(&record, estimated), reply));
+    }
+    let mut assistant_messages = record
+        .llm_messages
+        .iter()
+        .skip(start_index)
+        .filter(|message| message.role == "assistant")
+        .filter_map(message_to_ui)
+        .collect::<Vec<_>>();
+    if let Some(last) = assistant_messages.last_mut().and_then(Value::as_object_mut) {
+        last.insert(
+            "id".to_string(),
+            Value::String(reply_message_id.to_string()),
+        );
+    }
+    let final_reply = assistant_messages
+        .iter()
+        .rev()
+        .find_map(|message| message.get("content").and_then(Value::as_str))
+        .map(str::to_string);
+    record.ui_messages.extend(assistant_messages);
+    record.updated_at = now_ms();
+    update_automatic_title(&mut record, None);
+    write_record(&record)?;
+    let estimated = read_index()
+        .into_iter()
+        .find(|summary| summary.id == id)
+        .map(|summary| summary.estimated_context_bytes)
+        .unwrap_or_default();
+    let summary = summary_for(&record, estimated);
+    upsert_summary(summary.clone())?;
+    Ok((summary, final_reply))
+}
+
 pub fn append_channel_assistant_message(
     id: &str,
     content: &str,
 ) -> Result<ConversationSummary, String> {
-    append_channel_assistant_message_with_id(id, &uuid::Uuid::new_v4().to_string(), content)
-}
-
-pub fn append_channel_assistant_message_with_id(
-    id: &str,
-    message_id: &str,
-    content: &str,
-) -> Result<ConversationSummary, String> {
     let _write_guard = conversation_write_lock()?;
     let mut record = read_record(id)?;
-    if !record
-        .ui_messages
-        .iter()
-        .any(|message| message.get("id").and_then(Value::as_str) == Some(message_id))
-    {
-        record.ui_messages.push(serde_json::json!({
-            "id": message_id,
-            "role": "assistant",
-            "content": content,
-            "createdAt": now_ms()
-        }));
-    }
+    record.ui_messages.push(serde_json::json!({
+        "id": uuid::Uuid::new_v4().to_string(),
+        "role": "assistant",
+        "content": content,
+        "createdAt": now_ms()
+    }));
     record.updated_at = now_ms();
     write_record(&record)?;
     let estimated = read_index()
@@ -488,6 +596,8 @@ mod tests {
             updated_at: 0,
             custom_title: true,
             ui_messages: Vec::new(),
+            llm_messages: Vec::new(),
+            provider_messages: Vec::new(),
         };
 
         update_automatic_title(&mut record, Some("First user message"));

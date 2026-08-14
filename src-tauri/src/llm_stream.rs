@@ -1,0 +1,1230 @@
+// LLM Client — OpenAI and Anthropic protocols with SSE streaming.
+// Ported from EchoBird's services/llm_client.rs and adapted to Coffee Note.
+
+use futures_util::StreamExt;
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest_eventsource::{Event, EventSource};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::time::Duration;
+use tokio::sync::mpsc;
+
+use crate::{MODEL_APP_TITLE, MODEL_APP_URL};
+
+/// Maximum quiet time between SSE chunks before declaring the upstream stalled.
+const SSE_CHUNK_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Number of attempts (including the first) for retryable upstream errors.
+const MAX_RETRY_ATTEMPTS: u32 = 3;
+
+fn insert_app_attribution_headers(headers: &mut HeaderMap) {
+    headers.insert("HTTP-Referer", HeaderValue::from_static(MODEL_APP_URL));
+    headers.insert(
+        "X-OpenRouter-Title",
+        HeaderValue::from_static(MODEL_APP_TITLE),
+    );
+    headers.insert("X-Title", HeaderValue::from_static(MODEL_APP_TITLE));
+}
+
+// ── Public Types ──
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LlmProvider {
+    OpenAI,
+    Anthropic,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmConfig {
+    pub provider: LlmProvider,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    pub max_output_tokens: u32,
+    pub reasoning_effort: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolDef {
+    pub name: String,
+    pub description: String,
+    pub parameters: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub role: String,
+    pub content: MessageContent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageContent {
+    Text(String),
+    Blocks(Vec<ContentBlock>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "thinking")]
+    Thinking {
+        thinking: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        signature: String,
+    },
+    #[serde(rename = "tool_use")]
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
+    #[serde(rename = "tool_result")]
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+    },
+}
+
+/// Token usage reported by the upstream provider for one model request.
+/// Cache fields are normalized across OpenAI-compatible and Anthropic APIs.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmUsage {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub total_tokens: u64,
+    pub cache_hit_tokens: u64,
+    pub cache_miss_tokens: u64,
+}
+
+/// Events emitted during streaming.
+#[derive(Debug, Clone)]
+pub enum LlmEvent {
+    TextDelta(String),
+    Thinking(String),
+    ThinkingSignature(String),
+    ToolCallStart { id: String, name: String },
+    ToolCallDelta { id: String, args_chunk: String },
+    ToolCallEnd { id: String },
+    Usage(LlmUsage),
+    Done { stop_reason: String },
+    Error(String),
+}
+
+// ── Client ──
+
+#[derive(Clone)]
+pub struct LlmClient {
+    config: LlmConfig,
+    http: reqwest::Client,
+}
+
+impl LlmClient {
+    pub fn new(config: LlmConfig) -> Result<Self, String> {
+        let http = reqwest::Client::builder()
+            .timeout(Duration::from_secs(600))
+            .build()
+            .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+        Ok(Self { config, http })
+    }
+
+    #[allow(dead_code)]
+    pub fn provider(&self) -> LlmProvider {
+        self.config.provider
+    }
+
+    /// Stream a chat completion. Returns a channel receiver of LlmEvent.
+    pub async fn chat_stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDef],
+        system_prompt: &str,
+    ) -> Result<mpsc::Receiver<LlmEvent>, String> {
+        match self.config.provider {
+            LlmProvider::OpenAI => {
+                self.chat_stream_openai(messages, tools, system_prompt)
+                    .await
+            }
+            LlmProvider::Anthropic => {
+                self.chat_stream_anthropic(messages, tools, system_prompt)
+                    .await
+            }
+        }
+    }
+
+    // ── OpenAI ──
+
+    /// Process one `delta.tool_calls` array from an OpenAI-style stream and
+    /// return the events the agent loop needs, in emission order. Tool calls are
+    /// keyed by their stream index; `arguments` arrive as fragments across
+    /// chunks and must be forwarded via `ToolCallDelta` so the caller can
+    /// reassemble the full JSON. (The EchoBird port originally accumulated them
+    /// locally and dropped them, leaving every OpenAI-protocol tool call with
+    /// empty arguments.)
+    fn process_openai_tool_calls(
+        tool_calls: &[Value],
+        tool_acc: &mut std::collections::HashMap<i64, (String, String, String)>,
+    ) -> Vec<LlmEvent> {
+        let mut events = Vec::new();
+        for tc in tool_calls {
+            let idx = tc.get("index").and_then(Value::as_i64).unwrap_or(0);
+            let is_new = !tool_acc.contains_key(&idx);
+            let entry =
+                tool_acc
+                    .entry(idx)
+                    .or_insert((String::new(), String::new(), String::new()));
+            if let Some(id) = tc.get("id").and_then(Value::as_str) {
+                if entry.0.is_empty() {
+                    entry.0 = id.to_string();
+                }
+            }
+            if let Some(func) = tc.get("function") {
+                if let Some(name) = func.get("name").and_then(Value::as_str) {
+                    if entry.1.is_empty() {
+                        entry.1 = name.to_string();
+                    }
+                }
+            }
+            if is_new && !entry.0.is_empty() && !entry.1.is_empty() {
+                events.push(LlmEvent::ToolCallStart {
+                    id: entry.0.clone(),
+                    name: entry.1.clone(),
+                });
+            }
+            if let Some(func) = tc.get("function") {
+                if let Some(args) = func.get("arguments").and_then(Value::as_str) {
+                    if !args.is_empty() && !entry.0.is_empty() {
+                        events.push(LlmEvent::ToolCallDelta {
+                            id: entry.0.clone(),
+                            args_chunk: args.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        events
+    }
+
+    async fn chat_stream_openai(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDef],
+        system_prompt: &str,
+    ) -> Result<mpsc::Receiver<LlmEvent>, String> {
+        let url = openai_endpoint(&self.config.base_url);
+
+        let tools_json: Vec<Value> = tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters,
+                    }
+                })
+            })
+            .collect();
+
+        let mut msgs = vec![json!({"role": "system", "content": system_prompt})];
+        for m in messages {
+            msgs.push(message_to_openai_json(m));
+        }
+
+        let mut body = json!({
+            "model": self.config.model,
+            "messages": msgs,
+            "stream": true,
+            "stream_options": { "include_usage": true },
+            "max_tokens": self.config.max_output_tokens,
+        });
+        if !tools_json.is_empty() {
+            body["tools"] = json!(tools_json);
+            body["tool_choice"] = json!("auto");
+        }
+        if let Some(effort) = normalized_reasoning_effort(self.config.reasoning_effort.as_deref()) {
+            body["reasoning_effort"] = json!(effort);
+        }
+
+        let auth_value = HeaderValue::from_str(&format!("Bearer {}", self.config.api_key))
+            .map_err(|e| format!("Invalid API key: {e}"))?;
+
+        let http = self.http.clone();
+        let url_owned = url.clone();
+        let body_owned = body.clone();
+        let make_request = move || -> Result<reqwest::RequestBuilder, String> {
+            let mut headers = HeaderMap::new();
+            headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+            headers.insert(AUTHORIZATION, auth_value.clone());
+            insert_app_attribution_headers(&mut headers);
+            Ok(http.post(&url_owned).headers(headers).json(&body_owned))
+        };
+
+        let OpenedStream { mut es, pending } =
+            open_with_retry(make_request, MAX_RETRY_ATTEMPTS).await?;
+
+        let (tx, rx) = mpsc::channel::<LlmEvent>(128);
+        tokio::spawn(async move {
+            // index -> (id, name, args)
+            let mut tool_acc: std::collections::HashMap<i64, (String, String, String)> =
+                std::collections::HashMap::new();
+            let mut pending_stop_reason = "stop".to_string();
+            let mut done_sent = false;
+            let mut stream_failed = false;
+            let mut events: std::collections::VecDeque<Result<Event, reqwest_eventsource::Error>> =
+                pending.into_iter().map(Ok).collect();
+
+            loop {
+                let event = if let Some(buffered) = events.pop_front() {
+                    Some(buffered)
+                } else {
+                    match tokio::time::timeout(SSE_CHUNK_TIMEOUT, es.next()).await {
+                        Ok(maybe_event) => maybe_event,
+                        Err(_) => {
+                            let _ = tx
+                                .send(LlmEvent::Error(format!(
+                                    "Upstream stalled (no data for {}s)",
+                                    SSE_CHUNK_TIMEOUT.as_secs()
+                                )))
+                                .await;
+                            stream_failed = true;
+                            break;
+                        }
+                    }
+                };
+                let Some(event) = event else { break };
+                match event {
+                    Ok(Event::Message(msg)) => {
+                        if msg.data == "[DONE]" {
+                            for (_, (id, _, _)) in tool_acc.drain() {
+                                let _ = tx.send(LlmEvent::ToolCallEnd { id }).await;
+                            }
+                            let _ = tx
+                                .send(LlmEvent::Done {
+                                    stop_reason: pending_stop_reason.clone(),
+                                })
+                                .await;
+                            done_sent = true;
+                            break;
+                        }
+                        let Ok(chunk) = serde_json::from_str::<Value>(&msg.data) else {
+                            continue;
+                        };
+
+                        // Usage commonly arrives in its own final chunk with an empty
+                        // `choices` array, so parse it before looking for a delta.
+                        if let Some(usage) = chunk.get("usage").and_then(openai_usage) {
+                            let _ = tx.send(LlmEvent::Usage(usage)).await;
+                        }
+
+                        let delta = match chunk.pointer("/choices/0/delta") {
+                            Some(d) => d,
+                            None => {
+                                if let Some(reason) = chunk
+                                    .pointer("/choices/0/finish_reason")
+                                    .and_then(Value::as_str)
+                                {
+                                    pending_stop_reason = reason.to_string();
+                                }
+                                continue;
+                            }
+                        };
+
+                        if let Some(content) = delta.get("content").and_then(Value::as_str) {
+                            if !content.is_empty() {
+                                let _ = tx.send(LlmEvent::TextDelta(content.to_string())).await;
+                            }
+                        }
+                        if let Some(reasoning) =
+                            delta.get("reasoning_content").and_then(Value::as_str)
+                        {
+                            if !reasoning.is_empty() {
+                                let _ = tx.send(LlmEvent::Thinking(reasoning.to_string())).await;
+                            }
+                        }
+                        if let Some(tool_calls) = delta.get("tool_calls").and_then(Value::as_array)
+                        {
+                            for event in Self::process_openai_tool_calls(tool_calls, &mut tool_acc)
+                            {
+                                let _ = tx.send(event).await;
+                            }
+                        }
+                        if let Some(reason) = chunk
+                            .pointer("/choices/0/finish_reason")
+                            .and_then(Value::as_str)
+                        {
+                            for (_, (id, _, _)) in tool_acc.drain() {
+                                let _ = tx.send(LlmEvent::ToolCallEnd { id }).await;
+                            }
+                            pending_stop_reason = reason.to_string();
+                        }
+                    }
+                    Ok(Event::Open) => {}
+                    Err(e) => {
+                        let msg = match e {
+                            reqwest_eventsource::Error::InvalidStatusCode(status, response) => {
+                                let body = response.text().await.unwrap_or_default();
+                                extract_upstream_error_message(status.as_u16(), &body)
+                            }
+                            reqwest_eventsource::Error::Transport(t) => {
+                                format!("Connection error: {t}")
+                            }
+                            other => format!("Stream error: {other}"),
+                        };
+                        let _ = tx.send(LlmEvent::Error(msg)).await;
+                        stream_failed = true;
+                        break;
+                    }
+                }
+            }
+            // A few compatible gateways close the SSE stream without a literal
+            // `[DONE]`. Still finish cleanly after consuming their final usage.
+            if !done_sent && !stream_failed {
+                for (_, (id, _, _)) in tool_acc.drain() {
+                    let _ = tx.send(LlmEvent::ToolCallEnd { id }).await;
+                }
+                let _ = tx
+                    .send(LlmEvent::Done {
+                        stop_reason: pending_stop_reason,
+                    })
+                    .await;
+            }
+        });
+
+        Ok(rx)
+    }
+
+    // ── Anthropic ──
+
+    async fn chat_stream_anthropic(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDef],
+        system_prompt: &str,
+    ) -> Result<mpsc::Receiver<LlmEvent>, String> {
+        let url = anthropic_endpoint(&self.config.base_url);
+
+        let normalized = normalize_anthropic_messages(messages);
+        let msgs: Vec<Value> = normalized.iter().map(message_to_anthropic_json).collect();
+
+        let tools_json: Vec<Value> = tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "name": t.name,
+                    "description": t.description,
+                    "input_schema": t.parameters,
+                })
+            })
+            .collect();
+
+        let mut body = json!({
+            "model": self.config.model,
+            "system": system_prompt,
+            "messages": msgs,
+            "max_tokens": self.config.max_output_tokens,
+            "stream": true,
+        });
+        if !tools_json.is_empty() {
+            body["tools"] = json!(tools_json);
+        }
+        if let Some(effort) = normalized_reasoning_effort(self.config.reasoning_effort.as_deref()) {
+            body["output_config"] = json!({ "effort": effort });
+        }
+
+        let api_key_value = HeaderValue::from_str(&self.config.api_key)
+            .map_err(|e| format!("Invalid API key: {e}"))?;
+
+        let http = self.http.clone();
+        let url_owned = url.clone();
+        let body_owned = body.clone();
+        let make_request = move || -> Result<reqwest::RequestBuilder, String> {
+            let mut headers = HeaderMap::new();
+            headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+            headers.insert("x-api-key", api_key_value.clone());
+            headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
+            insert_app_attribution_headers(&mut headers);
+            Ok(http.post(&url_owned).headers(headers).json(&body_owned))
+        };
+
+        let OpenedStream { mut es, pending } = open_with_retry(make_request, 1).await?;
+
+        let (tx, rx) = mpsc::channel::<LlmEvent>(128);
+        tokio::spawn(async move {
+            let mut current_tool_id = String::new();
+            let mut done_sent = false;
+            let mut usage = LlmUsage::default();
+            let mut usage_sent = false;
+            let mut events: std::collections::VecDeque<Result<Event, reqwest_eventsource::Error>> =
+                pending.into_iter().map(Ok).collect();
+
+            loop {
+                let event = if let Some(buffered) = events.pop_front() {
+                    Some(buffered)
+                } else {
+                    match tokio::time::timeout(SSE_CHUNK_TIMEOUT, es.next()).await {
+                        Ok(maybe_event) => maybe_event,
+                        Err(_) => {
+                            let _ = tx
+                                .send(LlmEvent::Error(format!(
+                                    "Upstream stalled (no data for {}s)",
+                                    SSE_CHUNK_TIMEOUT.as_secs()
+                                )))
+                                .await;
+                            break;
+                        }
+                    }
+                };
+                let Some(event) = event else { break };
+                match event {
+                    Ok(Event::Message(msg)) => {
+                        let Ok(data) = serde_json::from_str::<Value>(&msg.data) else {
+                            continue;
+                        };
+                        match msg.event.as_str() {
+                            "message_start" => {
+                                if let Some(value) = data.pointer("/message/usage") {
+                                    merge_anthropic_usage(&mut usage, value);
+                                }
+                            }
+                            "content_block_start" => {
+                                if let Some(block) = data.get("content_block") {
+                                    if block.get("type").and_then(Value::as_str) == Some("tool_use")
+                                    {
+                                        current_tool_id = block
+                                            .get("id")
+                                            .and_then(Value::as_str)
+                                            .unwrap_or("")
+                                            .to_string();
+                                        let name = block
+                                            .get("name")
+                                            .and_then(Value::as_str)
+                                            .unwrap_or("")
+                                            .to_string();
+                                        let _ = tx
+                                            .send(LlmEvent::ToolCallStart {
+                                                id: current_tool_id.clone(),
+                                                name,
+                                            })
+                                            .await;
+                                    }
+                                }
+                            }
+                            "content_block_delta" => {
+                                if let Some(delta) = data.get("delta") {
+                                    match delta.get("type").and_then(Value::as_str) {
+                                        Some("text_delta") => {
+                                            if let Some(text) =
+                                                delta.get("text").and_then(Value::as_str)
+                                            {
+                                                let _ = tx
+                                                    .send(LlmEvent::TextDelta(text.to_string()))
+                                                    .await;
+                                            }
+                                        }
+                                        Some("input_json_delta") => {
+                                            if let Some(json_str) =
+                                                delta.get("partial_json").and_then(Value::as_str)
+                                            {
+                                                let _ = tx
+                                                    .send(LlmEvent::ToolCallDelta {
+                                                        id: current_tool_id.clone(),
+                                                        args_chunk: json_str.to_string(),
+                                                    })
+                                                    .await;
+                                            }
+                                        }
+                                        Some("thinking_delta") => {
+                                            if let Some(thinking) =
+                                                delta.get("thinking").and_then(Value::as_str)
+                                            {
+                                                let _ = tx
+                                                    .send(LlmEvent::Thinking(thinking.to_string()))
+                                                    .await;
+                                            }
+                                        }
+                                        Some("signature_delta") => {
+                                            if let Some(sig) =
+                                                delta.get("signature").and_then(Value::as_str)
+                                            {
+                                                let _ = tx
+                                                    .send(LlmEvent::ThinkingSignature(
+                                                        sig.to_string(),
+                                                    ))
+                                                    .await;
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            "content_block_stop" => {
+                                if !current_tool_id.is_empty() {
+                                    let _ = tx
+                                        .send(LlmEvent::ToolCallEnd {
+                                            id: current_tool_id.clone(),
+                                        })
+                                        .await;
+                                    current_tool_id.clear();
+                                }
+                            }
+                            "message_delta" => {
+                                if let Some(value) = data.get("usage") {
+                                    merge_anthropic_usage(&mut usage, value);
+                                }
+                                if let Some(reason) =
+                                    data.pointer("/delta/stop_reason").and_then(Value::as_str)
+                                {
+                                    if !usage_sent && usage.total_tokens > 0 {
+                                        let _ = tx.send(LlmEvent::Usage(usage.clone())).await;
+                                        usage_sent = true;
+                                    }
+                                    let _ = tx
+                                        .send(LlmEvent::Done {
+                                            stop_reason: reason.to_string(),
+                                        })
+                                        .await;
+                                    done_sent = true;
+                                }
+                            }
+                            "message_stop" => {
+                                if !usage_sent && usage.total_tokens > 0 {
+                                    let _ = tx.send(LlmEvent::Usage(usage.clone())).await;
+                                }
+                                if !done_sent {
+                                    let _ = tx
+                                        .send(LlmEvent::Done {
+                                            stop_reason: "end_turn".into(),
+                                        })
+                                        .await;
+                                }
+                                break;
+                            }
+                            "error" => {
+                                let err_msg = data
+                                    .pointer("/error/message")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("Unknown Anthropic error");
+                                let _ = tx.send(LlmEvent::Error(err_msg.to_string())).await;
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    Ok(Event::Open) => {}
+                    Err(e) => {
+                        let msg = match e {
+                            reqwest_eventsource::Error::InvalidStatusCode(status, response) => {
+                                let body = response.text().await.unwrap_or_default();
+                                extract_upstream_error_message(status.as_u16(), &body)
+                            }
+                            reqwest_eventsource::Error::Transport(t) => {
+                                format!("Connection error: {t}")
+                            }
+                            other => format!("Stream error: {other}"),
+                        };
+                        let _ = tx.send(LlmEvent::Error(msg)).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(rx)
+    }
+}
+
+// ── Helpers ──
+
+fn openai_endpoint(base_url: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}/chat/completions")
+    }
+}
+
+fn anthropic_endpoint(base_url: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    if trimmed.ends_with("/messages") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1") {
+        format!("{trimmed}/messages")
+    } else {
+        format!("{trimmed}/v1/messages")
+    }
+}
+
+fn normalized_reasoning_effort(value: Option<&str>) -> Option<&str> {
+    match value {
+        Some("low" | "medium" | "high" | "xhigh" | "max") => value,
+        _ => None,
+    }
+}
+
+fn token_value(value: &Value, key: &str) -> u64 {
+    value.get(key).and_then(Value::as_u64).unwrap_or(0)
+}
+
+/// Normalize usage from DeepSeek, OpenAI and OpenAI-compatible gateways.
+fn openai_usage(value: &Value) -> Option<LlmUsage> {
+    let prompt_tokens = token_value(value, "prompt_tokens").max(token_value(value, "input_tokens"));
+    let completion_tokens =
+        token_value(value, "completion_tokens").max(token_value(value, "output_tokens"));
+    let cache_hit_tokens = token_value(value, "prompt_cache_hit_tokens")
+        .max(token_value(value, "cache_read_input_tokens"))
+        .max(
+            value
+                .pointer("/prompt_tokens_details/cached_tokens")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
+        );
+    let explicit_miss = token_value(value, "prompt_cache_miss_tokens")
+        .max(token_value(value, "cache_creation_input_tokens"));
+    let cache_miss_tokens = if explicit_miss > 0 {
+        explicit_miss
+    } else {
+        prompt_tokens.saturating_sub(cache_hit_tokens)
+    };
+    let total_tokens =
+        token_value(value, "total_tokens").max(prompt_tokens.saturating_add(completion_tokens));
+
+    (total_tokens > 0).then_some(LlmUsage {
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        cache_hit_tokens,
+        cache_miss_tokens,
+    })
+}
+
+fn merge_anthropic_usage(usage: &mut LlmUsage, value: &Value) {
+    let uncached = token_value(value, "input_tokens");
+    let cache_read = token_value(value, "cache_read_input_tokens");
+    let cache_creation = token_value(value, "cache_creation_input_tokens");
+    if uncached > 0 || cache_read > 0 || cache_creation > 0 {
+        usage.prompt_tokens = uncached
+            .saturating_add(cache_read)
+            .saturating_add(cache_creation);
+        usage.cache_hit_tokens = cache_read;
+        usage.cache_miss_tokens = uncached.saturating_add(cache_creation);
+    }
+    let output = token_value(value, "output_tokens");
+    if output > 0 {
+        usage.completion_tokens = output;
+    }
+    usage.total_tokens = usage.prompt_tokens.saturating_add(usage.completion_tokens);
+}
+
+fn message_to_openai_json(m: &Message) -> Value {
+    match &m.content {
+        MessageContent::Text(text) => json!({"role": m.role, "content": text}),
+        MessageContent::Blocks(blocks) => {
+            if (m.role == "tool" || m.role == "user") && blocks.len() == 1 {
+                if let Some(ContentBlock::ToolResult {
+                    tool_use_id,
+                    content,
+                }) = blocks.first()
+                {
+                    return json!({
+                        "role": "tool",
+                        "tool_call_id": tool_use_id,
+                        "content": content,
+                    });
+                }
+            }
+            if m.role == "assistant" {
+                let mut tool_calls = Vec::new();
+                let mut text_parts = Vec::new();
+                let mut reasoning_parts = Vec::new();
+                for block in blocks {
+                    match block {
+                        ContentBlock::Text { text } => text_parts.push(text.clone()),
+                        ContentBlock::Thinking { thinking, .. } => {
+                            reasoning_parts.push(thinking.clone())
+                        }
+                        ContentBlock::ToolUse { id, name, input } => {
+                            tool_calls.push(json!({
+                                "id": id,
+                                "type": "function",
+                                "function": {"name": name, "arguments": input.to_string()},
+                            }));
+                        }
+                        ContentBlock::ToolResult { .. } => {}
+                    }
+                }
+                let mut msg = json!({"role": "assistant"});
+                msg["content"] = json!(text_parts.join(""));
+                if !reasoning_parts.is_empty() {
+                    msg["reasoning_content"] = json!(reasoning_parts.join(""));
+                }
+                if !tool_calls.is_empty() {
+                    msg["tool_calls"] = json!(tool_calls);
+                }
+                return msg;
+            }
+            json!({"role": m.role, "content": m.content.clone()})
+        }
+    }
+}
+
+fn message_to_anthropic_json(m: &Message) -> Value {
+    match &m.content {
+        MessageContent::Text(text) => json!({"role": m.role, "content": text}),
+        MessageContent::Blocks(blocks) => {
+            let content: Vec<Value> = blocks
+                .iter()
+                .map(|b| match b {
+                    ContentBlock::Text { text } => json!({"type": "text", "text": text}),
+                    ContentBlock::Thinking { thinking, signature } => {
+                        let mut block = json!({"type": "thinking", "thinking": thinking});
+                        if !signature.is_empty() {
+                            block["signature"] = json!(signature);
+                        }
+                        block
+                    }
+                    ContentBlock::ToolUse { id, name, input } => {
+                        json!({"type": "tool_use", "id": id, "name": name, "input": input})
+                    }
+                    ContentBlock::ToolResult { tool_use_id, content } => {
+                        json!({"type": "tool_result", "tool_use_id": tool_use_id, "content": content})
+                    }
+                })
+                .collect();
+            json!({"role": m.role, "content": content})
+        }
+    }
+}
+
+/// Merge consecutive pure-tool_result user messages into one. Anthropic
+/// requires all tool_results for a turn in the immediately-following user
+/// message; splitting them produces a 400 about unmatched ids.
+fn normalize_anthropic_messages(messages: &[Message]) -> Vec<Message> {
+    fn is_pure_tool_result_user(m: &Message) -> bool {
+        if m.role != "user" {
+            return false;
+        }
+        match &m.content {
+            MessageContent::Blocks(blocks) => {
+                !blocks.is_empty()
+                    && blocks
+                        .iter()
+                        .all(|b| matches!(b, ContentBlock::ToolResult { .. }))
+            }
+            _ => false,
+        }
+    }
+
+    let mut out: Vec<Message> = Vec::with_capacity(messages.len());
+    let mut i = 0;
+    while i < messages.len() {
+        if is_pure_tool_result_user(&messages[i]) {
+            let mut merged: Vec<ContentBlock> = Vec::new();
+            while i < messages.len() && is_pure_tool_result_user(&messages[i]) {
+                if let MessageContent::Blocks(blocks) = &messages[i].content {
+                    merged.extend(blocks.iter().cloned());
+                }
+                i += 1;
+            }
+            out.push(Message {
+                role: "user".into(),
+                content: MessageContent::Blocks(merged),
+            });
+        } else {
+            out.push(messages[i].clone());
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Status codes worth retrying. 408 deliberately excluded — a streaming
+/// request that already timed out is unlikely to recover on retry.
+fn is_retryable_status(status: u16) -> bool {
+    status == 429 || (500..600).contains(&status)
+}
+
+/// Honor `Retry-After: <seconds>`, capped at 30s.
+fn parse_retry_after(headers: &HeaderMap) -> Option<Duration> {
+    let raw = headers.get(reqwest::header::RETRY_AFTER)?.to_str().ok()?;
+    let secs: u64 = raw.trim().parse().ok()?;
+    Some(Duration::from_secs(secs.min(30)))
+}
+
+/// Exponential backoff for attempt N (0-indexed). 500ms × 3^N.
+fn backoff_for_attempt(attempt: u32) -> Duration {
+    let base_ms: u64 = 500;
+    let factor: u64 = 3u64.saturating_pow(attempt);
+    Duration::from_millis(base_ms.saturating_mul(factor))
+}
+
+/// Extract a user-friendly error message from an upstream error response.
+fn extract_upstream_error_message(status: u16, body: &str) -> String {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return format!("Upstream returned HTTP {status}");
+    }
+    if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
+        if let Some(msg) = parsed
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(Value::as_str)
+        {
+            return msg.to_string();
+        }
+        if let Some(msg) = parsed.get("error").and_then(Value::as_str) {
+            return msg.to_string();
+        }
+        if let Some(msg) = parsed.get("message").and_then(Value::as_str) {
+            return msg.to_string();
+        }
+    }
+    if looks_like_html(trimmed) {
+        if let Some(title) = extract_html_title(trimmed) {
+            return title;
+        }
+        return format!("Upstream returned HTTP {status}");
+    }
+    let truncated: String = trimmed.chars().take(200).collect();
+    if truncated.is_empty() {
+        format!("Upstream returned HTTP {status}")
+    } else {
+        truncated
+    }
+}
+
+fn looks_like_html(body: &str) -> bool {
+    let head: String = body
+        .trim_start()
+        .chars()
+        .take(64)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    head.starts_with("<!doctype html")
+        || head.starts_with("<html")
+        || head.starts_with("<head")
+        || head.starts_with("<body")
+        || head.starts_with("<center>")
+}
+
+fn extract_html_title(body: &str) -> Option<String> {
+    let lower = body.to_ascii_lowercase();
+    let start_tag = lower.find("<title")?;
+    let after_open = body[start_tag..].find('>').map(|i| start_tag + i + 1)?;
+    let end_tag = lower[after_open..].find("</title>")?;
+    let title = body[after_open..after_open + end_tag].trim();
+    if title.is_empty() {
+        None
+    } else {
+        Some(title.to_string())
+    }
+}
+
+/// Connection-time outcome from `open_with_retry`.
+struct OpenedStream {
+    es: EventSource,
+    pending: Vec<Event>,
+}
+
+/// Open an EventSource with transient-error retry. Returns when the server
+/// emits `Open` (healthy stream) or a `Message` directly (buffered into
+/// `pending`), or when a non-retryable error fires / attempts are exhausted.
+async fn open_with_retry<F>(make_request: F, max_attempts: u32) -> Result<OpenedStream, String>
+where
+    F: Fn() -> Result<reqwest::RequestBuilder, String>,
+{
+    let mut last_err = String::from("All retry attempts failed");
+    for attempt in 0..max_attempts {
+        let request = make_request()?;
+        let mut es = match EventSource::new(request) {
+            Ok(es) => es,
+            Err(e) => return Err(format!("Could not build request: {e}")),
+        };
+
+        match es.next().await {
+            Some(Ok(Event::Open)) => {
+                return Ok(OpenedStream {
+                    es,
+                    pending: Vec::new(),
+                });
+            }
+            Some(Ok(ev @ Event::Message(_))) => {
+                return Ok(OpenedStream {
+                    es,
+                    pending: vec![ev],
+                });
+            }
+            Some(Err(reqwest_eventsource::Error::InvalidStatusCode(status, response))) => {
+                let retry_after = parse_retry_after(response.headers());
+                let body = response.text().await.unwrap_or_default();
+                let message = extract_upstream_error_message(status.as_u16(), &body);
+                if is_retryable_status(status.as_u16()) && attempt + 1 < max_attempts {
+                    let wait = retry_after.unwrap_or_else(|| backoff_for_attempt(attempt));
+                    log::info!(
+                        "[LLM] Upstream {} (attempt {}/{}), retrying in {:?}: {}",
+                        status,
+                        attempt + 1,
+                        max_attempts,
+                        wait,
+                        message
+                    );
+                    tokio::time::sleep(wait).await;
+                    last_err = message;
+                    continue;
+                }
+                return Err(message);
+            }
+            Some(Err(reqwest_eventsource::Error::Transport(t))) => {
+                if attempt + 1 < max_attempts {
+                    let wait = backoff_for_attempt(attempt);
+                    log::info!(
+                        "[LLM] Transport error (attempt {}/{}), retrying in {:?}: {}",
+                        attempt + 1,
+                        max_attempts,
+                        wait,
+                        t
+                    );
+                    tokio::time::sleep(wait).await;
+                    last_err = format!("Connection error: {t}");
+                    continue;
+                }
+                return Err(format!("Connection error: {t}"));
+            }
+            Some(Err(other)) => {
+                return Err(format!("SSE setup error: {other}"));
+            }
+            None => {
+                if attempt + 1 < max_attempts {
+                    tokio::time::sleep(backoff_for_attempt(attempt)).await;
+                    last_err = "Upstream closed connection immediately".to_string();
+                    continue;
+                }
+                return Err("Upstream closed connection immediately".to_string());
+            }
+        }
+    }
+    Err(last_err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_attribution_headers_identify_coffee_note() {
+        let mut headers = HeaderMap::new();
+        insert_app_attribution_headers(&mut headers);
+        assert_eq!(headers["HTTP-Referer"], "https://note.coffeecli.com");
+        assert_eq!(headers["X-OpenRouter-Title"], "Coffee Note");
+        assert_eq!(headers["X-Title"], "Coffee Note");
+    }
+
+    #[test]
+    fn openai_endpoint_appends_chat_completions() {
+        assert_eq!(
+            openai_endpoint("https://api.openai.com/v1"),
+            "https://api.openai.com/v1/chat/completions"
+        );
+        assert_eq!(
+            openai_endpoint("https://api.openai.com/v1/"),
+            "https://api.openai.com/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn openai_endpoint_keeps_existing_chat_completions() {
+        assert_eq!(
+            openai_endpoint("https://api.openai.com/v1/chat/completions"),
+            "https://api.openai.com/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn anthropic_endpoint_appends_v1_messages() {
+        assert_eq!(
+            anthropic_endpoint("https://api.anthropic.com"),
+            "https://api.anthropic.com/v1/messages"
+        );
+    }
+
+    #[test]
+    fn anthropic_endpoint_appends_messages_to_v1() {
+        assert_eq!(
+            anthropic_endpoint("https://api.anthropic.com/v1"),
+            "https://api.anthropic.com/v1/messages"
+        );
+    }
+
+    #[test]
+    fn anthropic_endpoint_keeps_messages_suffix() {
+        assert_eq!(
+            anthropic_endpoint("https://api.anthropic.com/v1/messages"),
+            "https://api.anthropic.com/v1/messages"
+        );
+    }
+
+    #[test]
+    fn parses_deepseek_cache_usage() {
+        let usage = openai_usage(&json!({
+            "prompt_tokens": 1200,
+            "completion_tokens": 80,
+            "total_tokens": 1280,
+            "prompt_cache_hit_tokens": 960,
+            "prompt_cache_miss_tokens": 240
+        }))
+        .expect("usage");
+        assert_eq!(usage.cache_hit_tokens, 960);
+        assert_eq!(usage.cache_miss_tokens, 240);
+        assert_eq!(usage.total_tokens, 1280);
+    }
+
+    #[test]
+    fn parses_openai_nested_cached_tokens() {
+        let usage = openai_usage(&json!({
+            "prompt_tokens": 1000,
+            "completion_tokens": 100,
+            "prompt_tokens_details": { "cached_tokens": 750 }
+        }))
+        .expect("usage");
+        assert_eq!(usage.cache_hit_tokens, 750);
+        assert_eq!(usage.cache_miss_tokens, 250);
+        assert_eq!(usage.total_tokens, 1100);
+    }
+
+    #[test]
+    fn merges_anthropic_cache_usage() {
+        let mut usage = LlmUsage::default();
+        merge_anthropic_usage(
+            &mut usage,
+            &json!({
+                "input_tokens": 200,
+                "cache_read_input_tokens": 700,
+                "cache_creation_input_tokens": 100
+            }),
+        );
+        merge_anthropic_usage(&mut usage, &json!({ "output_tokens": 50 }));
+        assert_eq!(usage.prompt_tokens, 1000);
+        assert_eq!(usage.cache_hit_tokens, 700);
+        assert_eq!(usage.cache_miss_tokens, 300);
+        assert_eq!(usage.total_tokens, 1050);
+    }
+
+    #[test]
+    fn openai_tool_call_arguments_are_forwarded_as_deltas() {
+        // Regression test: the OpenAI stream handler must forward every
+        // `arguments` fragment as a ToolCallDelta, or the agent loop ends up
+        // executing tool calls with empty arguments (the DeepSeek failure
+        // mode where save_note always returned "Missing or empty 'title'").
+        let mut acc: std::collections::HashMap<i64, (String, String, String)> =
+            std::collections::HashMap::new();
+        let chunks = vec![
+            json!({"index": 0, "id": "call_1", "type": "function", "function": {"name": "save_note", "arguments": ""}}),
+            json!({"index": 0, "function": {"arguments": "{\"title\":"}}),
+            json!({"index": 0, "function": {"arguments": " \"健身计划\","}}),
+            json!({"index": 0, "function": {"arguments": " \"content\":\"内容\"}"}}),
+        ];
+
+        let mut events = Vec::new();
+        for chunk in &chunks {
+            events.extend(LlmClient::process_openai_tool_calls(
+                std::slice::from_ref(chunk),
+                &mut acc,
+            ));
+        }
+
+        // Reassemble arguments the way agent_loop does, from forwarded deltas.
+        let mut args = String::new();
+        let mut start: Option<(String, String)> = None;
+        for event in &events {
+            match event {
+                LlmEvent::ToolCallStart { id, name } => start = Some((id.clone(), name.clone())),
+                LlmEvent::ToolCallDelta { id, args_chunk } => {
+                    assert_eq!(start.as_ref().map(|(i, _)| i.as_str()), Some(id.as_str()));
+                    args.push_str(args_chunk);
+                }
+                _ => {}
+            }
+        }
+
+        assert_eq!(start.as_ref().map(|(_, n)| n.as_str()), Some("save_note"));
+        let parsed: Value = serde_json::from_str(&args).expect("arguments reassemble into JSON");
+        assert_eq!(parsed["title"], "健身计划");
+        assert_eq!(parsed["content"], "内容");
+    }
+
+    #[test]
+    fn normalize_merges_consecutive_tool_result_users() {
+        let input = vec![
+            Message {
+                role: "user".into(),
+                content: MessageContent::Text("go".into()),
+            },
+            Message {
+                role: "assistant".into(),
+                content: MessageContent::Blocks(vec![
+                    ContentBlock::ToolUse {
+                        id: "c1".into(),
+                        name: "t".into(),
+                        input: json!({}),
+                    },
+                    ContentBlock::ToolUse {
+                        id: "c2".into(),
+                        name: "t".into(),
+                        input: json!({}),
+                    },
+                ]),
+            },
+            Message {
+                role: "user".into(),
+                content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                    tool_use_id: "c1".into(),
+                    content: "r1".into(),
+                }]),
+            },
+            Message {
+                role: "user".into(),
+                content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                    tool_use_id: "c2".into(),
+                    content: "r2".into(),
+                }]),
+            },
+        ];
+        let out = normalize_anthropic_messages(&input);
+        assert_eq!(out.len(), 3, "user, assistant, merged-user");
+        if let MessageContent::Blocks(blocks) = &out[2].content {
+            assert_eq!(blocks.len(), 2, "two merged tool_results");
+        } else {
+            panic!("expected Blocks");
+        }
+    }
+
+    #[test]
+    fn retryable_includes_429_and_5xx() {
+        assert!(is_retryable_status(429));
+        assert!(is_retryable_status(500));
+        assert!(is_retryable_status(503));
+        assert!(!is_retryable_status(200));
+        assert!(!is_retryable_status(400));
+        assert!(!is_retryable_status(401));
+    }
+
+    #[test]
+    fn backoff_grows_exponentially() {
+        assert_eq!(backoff_for_attempt(0), Duration::from_millis(500));
+        assert_eq!(backoff_for_attempt(1), Duration::from_millis(1500));
+        assert_eq!(backoff_for_attempt(2), Duration::from_millis(4500));
+    }
+}

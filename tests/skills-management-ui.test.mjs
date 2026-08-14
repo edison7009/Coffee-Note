@@ -8,7 +8,7 @@ const settingsSource = await readFile(new URL('../src/settings/SkillsSettings.ts
 const cssSource = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const transcriptionCssSource = await readFile(new URL('../src/transcriptionSettings.css', import.meta.url), 'utf8');
 const rustSource = await readFile(new URL('../src-tauri/src/skills.rs', import.meta.url), 'utf8');
-const agentSource = await readFile(new URL('../src-tauri/src/dsh_runtime.rs', import.meta.url), 'utf8');
+const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
 
 test('settings includes a dedicated skills page backed by one shared catalog', () => {
   assert.match(appSource, /type SettingsSectionId = 'model' \| 'skills' \| 'transcription' \| 'appearance'/);

@@ -7,10 +7,6 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
-    "dsh:install": "npm install --prefix dsh-runtime --omit=dev --no-audit --no-fund",
-    "dsh:ci": "npm ci --prefix dsh-runtime --omit=dev --no-audit --no-fund",
-    "dsh:pack": "node scripts/pack-dsh-runtime.mjs",
-    "dsh:smoke": "npm --prefix dsh-runtime run smoke",
     "catalog:build": "node scripts/build-local-catalog.mjs",
     "library:check": "node scripts/check-bilingual-library.mjs",
     "preview": "vite preview",
@@ -42,7 +38,6 @@
     "@types/qrcode": "^1.5.5",
     "@vitejs/plugin-react": "^4.3.4",
     "smol-toml": "^1.8.0",
-    "tar": "^7.4.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
   }
