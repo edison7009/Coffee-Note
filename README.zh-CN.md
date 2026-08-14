@@ -29,7 +29,6 @@ Coffee Note 是围绕本地 Markdown 文件构建的跨平台桌面 Note Agent�
 
 | 项目 | 当前状态 |
 | --- | --- |
-| 最新版本 | **v0.0.8** |
 | 桌面平台 | Windows、macOS、Linux |
 | 数据存储 | 本地 Markdown 笔记库与本地对话记录 |
 | 模型协议 | OpenAI 兼容 API、Anthropic Messages API |

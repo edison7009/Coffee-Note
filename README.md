@@ -29,7 +29,6 @@ Coffee Note is a cross-platform desktop note agent built around local Markdown f
 
 | Project | Current state |
 | --- | --- |
-| Latest release | **v0.0.8** |
 | Desktop | Windows, macOS, Linux |
 | Storage | Local Markdown library and local conversation records |
 | Model protocols | OpenAI-compatible APIs and Anthropic Messages API |
