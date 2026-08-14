@@ -11,6 +11,10 @@ await stat(path.join(modules, '@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bi
   .catch(() => {
     throw new Error('DeepSeek Harness is not installed. Run npm run dsh:ci first.')
   })
+await stat(path.join(root, 'src/coffee-sdk-jsonrpc-server.mjs'))
+  .catch(() => {
+    throw new Error('Coffee Note JSON-RPC session adapter is missing.')
+  })
 await mkdir(root, { recursive: true })
 await tar.c({
   cwd: root,

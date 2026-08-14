@@ -26,6 +26,9 @@ const DEFAULT_CONTEXT_WINDOW: u64 = 32_768;
 const DEFAULT_DEEPSEEK_CONTEXT_WINDOW: u64 = 131_072;
 const DEFAULT_MAX_OUTPUT_TOKENS: u64 = 4_096;
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LlmUsage {
@@ -423,7 +426,8 @@ impl DshRuntime {
         let session_root = crate::app_data_dir().join("dsh").join("sessions");
         fs::create_dir_all(&session_root).map_err(|error| error.to_string())?;
         let provider_config = provider_config(request)?;
-        let mut child = Command::new(node)
+        let mut command = Command::new(node);
+        command
             .arg(script_path)
             .arg(&config_path)
             .current_dir(&runtime_root)
@@ -453,7 +457,10 @@ impl DshRuntime {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
+        let mut child = command
             .spawn()
             .map_err(|error| format!("Could not start DeepSeek Harness: {error}"))?;
         let stdin = child
@@ -1162,6 +1169,7 @@ fn prune_old_runtimes(destination: &Path, active: &Path) {
 fn valid_runtime_root(root: &Path) -> bool {
     root.join("coffee-note.cordis.yml").is_file()
         && root.join("src/coffee-tools.mjs").is_file()
+        && root.join("src/coffee-sdk-jsonrpc-server.mjs").is_file()
         && root
             .join("node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js")
             .is_file()
@@ -1607,6 +1615,7 @@ mod tests {
     fn runtime_fixture(root: &Path) {
         for relative in [
             "src/coffee-tools.mjs",
+            "src/coffee-sdk-jsonrpc-server.mjs",
             "node_modules/@deepseek-ai/dsh-sdk-jsonrpc-demo/lib/packaged-bin.js",
             "node_modules/node/bin/node",
             "node_modules/node/bin/node.exe",

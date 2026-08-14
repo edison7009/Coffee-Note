@@ -2,7 +2,7 @@
 # stdout belongs exclusively to the JSON-RPC transport.
 
 - id: sdk-jsonrpc-server
-  name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
+  name: './src/coffee-sdk-jsonrpc-server.mjs'
   config:
     maxTokensAsSuccess: true
 
