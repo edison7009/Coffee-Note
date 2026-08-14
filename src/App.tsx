@@ -6925,6 +6925,9 @@ const AGENT_STATUS_VERBS: Record<Locale, string[]> = {
   ],
 };
 
+const AGENT_STATUS_GLYPHS = ['·', '✢', '*', '✶', '✻', '✽'];
+const AGENT_STATUS_FRAMES = [...AGENT_STATUS_GLYPHS, ...[...AGENT_STATUS_GLYPHS].reverse()];
+
 function formatAgentStatusPhrase(verb: string, locale: Locale): string {
   return locale === 'zh' ? `正在${verb}中…` : `${verb}…`;
 }
@@ -6932,6 +6935,7 @@ function formatAgentStatusPhrase(verb: string, locale: Locale): string {
 function AgentTurnStatus({ locale }: { locale: Locale }) {
   const [startedAt] = useState(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [frame, setFrame] = useState(0);
   const pickPhrase = () => {
     const verbs = AGENT_STATUS_VERBS[locale];
     const verb = verbs[Math.floor(Math.random() * verbs.length)];
@@ -6949,6 +6953,14 @@ function AgentTurnStatus({ locale }: { locale: Locale }) {
   }, [startedAt]);
 
   useEffect(() => {
+    const timer = window.setInterval(
+      () => setFrame((value) => (value + 1) % AGENT_STATUS_FRAMES.length),
+      100,
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     const next = pickPhrase();
     setTarget(next);
     setShown(next);
@@ -6959,7 +6971,7 @@ function AgentTurnStatus({ locale }: { locale: Locale }) {
 
   useEffect(() => {
     if (phase === 'show') {
-      const timer = window.setTimeout(() => setPhase('erase'), 3200);
+      const timer = window.setTimeout(() => setPhase('erase'), 2800);
       return () => window.clearTimeout(timer);
     }
     if (phase === 'erase') {
@@ -6968,20 +6980,23 @@ function AgentTurnStatus({ locale }: { locale: Locale }) {
         setPhase('type');
         return;
       }
-      const timer = window.setTimeout(() => setShown((value) => value.slice(0, -1)), 55);
+      const timer = window.setTimeout(() => setShown((value) => value.slice(0, -1)), 45);
       return () => window.clearTimeout(timer);
     }
     if (shown.length >= target.length) {
       setPhase('show');
       return;
     }
-    const timer = window.setTimeout(() => setShown(target.slice(0, shown.length + 1)), 85);
+    const timer = window.setTimeout(() => setShown(target.slice(0, shown.length + 1)), 70);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, shown, target]);
 
   return (
     <div className="agent-turn-status" role="status" aria-live="polite">
+      <span className="agent-turn-status-glyph" aria-hidden="true">
+        {AGENT_STATUS_FRAMES[frame]}
+      </span>
       <span className="agent-turn-status-text">
         <span className="agent-turn-status-shimmer">{shown}</span>
         {phase !== 'show' && <span className="agent-turn-status-caret" aria-hidden="true" />}

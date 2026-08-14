@@ -5577,6 +5577,16 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   white-space: nowrap;
 }
 
+.agent-turn-status-glyph {
+  display: inline-block;
+  width: 13px;
+  color: var(--agent-status-accent);
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
+  animation: agent-turn-status-glyph-pulse 1.2s ease-in-out infinite;
+}
+
 .agent-turn-status-text {
   display: inline-flex;
   align-items: baseline;
@@ -5598,7 +5608,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: agent-turn-status-shimmer 2.7s linear infinite;
+  animation: agent-turn-status-shimmer 2.4s linear infinite;
 }
 
 .agent-turn-status-caret {
@@ -5622,6 +5632,19 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 @keyframes agent-turn-status-shimmer {
   to {
     background-position: 0 0;
+  }
+}
+
+@keyframes agent-turn-status-glyph-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
   }
 }
 
