@@ -7567,7 +7567,7 @@ textarea,
 
 .message.user .message-content {
   color: var(--ink);
-  background: var(--chat-user-bubble);
+  background: color-mix(in srgb, var(--chat-user-bubble) 92%, var(--ink));
   border-radius: 14px;
 }
 

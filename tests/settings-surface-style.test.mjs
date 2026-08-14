@@ -81,6 +81,17 @@ test('appearance color schemes use compact side-by-side swatches', () => {
   );
 });
 
+test('user message bubbles keep theme color without pure white or black surfaces', () => {
+  const bubbleRules = [...settingsStyles.matchAll(/\.message\.user \.message-content\s*\{([^}]*)\}/g)]
+    .map((match) => match[1]);
+
+  assert.ok(
+    bubbleRules.some((body) =>
+      /background:\s*color-mix\(in srgb, var\(--chat-user-bubble\) 92%, var\(--ink\)\)/.test(body),
+    ),
+  );
+});
+
 test('all settings pages share the model page content width', () => {
   assert.match(
     settingsStyles,
