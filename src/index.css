@@ -5572,7 +5572,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   padding: 0;
   color: var(--agent-status-accent);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 26px;
   white-space: nowrap;
 }
