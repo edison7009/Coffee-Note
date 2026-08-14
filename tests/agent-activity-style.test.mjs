@@ -5,7 +5,7 @@ import test from 'node:test';
 const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 
-test('running agent activity uses the theme-colored typewriter shimmer without a spinner', () => {
+test('running agent activity mirrors the EchoBird typewriter shimmer and spinner', () => {
   assert.match(
     css,
     /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--agent-status-accent\)[\s\S]*?background-position:\s*200% center;[^}]*background-size:\s*200% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.4s linear infinite;/s,
