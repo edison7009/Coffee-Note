@@ -5570,7 +5570,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   gap: 7px;
   height: 26px;
   padding: 0;
-  color: var(--switch-on);
+  color: var(--agent-status-accent);
   font-size: 14px;
   font-weight: 600;
   line-height: 26px;
@@ -5586,11 +5586,11 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 .agent-turn-status-shimmer {
   background: linear-gradient(
     90deg,
-    var(--switch-on) 0%,
-    var(--switch-on) 40%,
-    color-mix(in srgb, var(--switch-on) 35%, white) 50%,
-    var(--switch-on) 60%,
-    var(--switch-on) 100%
+    color-mix(in srgb, var(--agent-status-accent) 65%, white) 0%,
+    color-mix(in srgb, var(--agent-status-accent) 65%, white) 40%,
+    white 50%,
+    color-mix(in srgb, var(--agent-status-accent) 65%, white) 60%,
+    color-mix(in srgb, var(--agent-status-accent) 65%, white) 100%
   );
   background-position: 100% 0;
   background-size: 225% 100%;
@@ -5607,7 +5607,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   height: 1em;
   margin-left: 2px;
   align-self: center;
-  background: var(--switch-on);
+  background: var(--agent-status-accent);
   animation: agent-turn-status-caret-blink 1s steps(2) infinite;
 }
 
@@ -6019,6 +6019,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --tertiary-surface: #ededeb;
   --composer-surface: #f7f7f7;
   --chat-user-bubble: #f1f1f1;
+  --agent-status-accent: #d97757;
   --teal: var(--accent);
   --blue: var(--accent);
   --soft-teal: var(--accent-soft);
@@ -6046,6 +6047,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   --tertiary-surface: #2c2c2c;
   --composer-surface: #242424;
   --chat-user-bubble: #2c2c2c;
+  --agent-status-accent: #e28a67;
   --soft-teal: var(--accent-soft);
   --shadow: 0 20px 54px rgba(0, 0, 0, 0.42);
   --accent: #c7c7c7;

@@ -8,9 +8,11 @@ const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 test('running agent activity uses the theme-colored typewriter shimmer without a spinner', () => {
   assert.match(
     css,
-    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--switch-on\)[\s\S]*?background-size:\s*225% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.7s linear infinite;/s,
+    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--agent-status-accent\)[\s\S]*?background-size:\s*225% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.7s linear infinite;/s,
   );
   assert.match(app, /AGENT_STATUS_VERBS/);
+  assert.match(app, /'Wrangling'/);
+  assert.match(app, /'炮制'/);
   assert.match(app, /agent-turn-status-caret/);
   assert.match(app, /setTimeout\(\(\) => setPhase\('erase'\), 3200\)/);
   assert.match(css, /@keyframes agent-turn-status-shimmer\s*\{\s*to\s*\{\s*background-position:\s*0 0;/s);
