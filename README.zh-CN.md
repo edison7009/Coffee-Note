@@ -1,8 +1,10 @@
+<p align="center">
+  <img src="docs/images/readme-banner-zh.png" width="100%" alt="帮你省钱的 AI 笔记工具，深度优化 DeepSeek">
+</p>
+
 <div align="center">
   <img src="app-icon.png" width="96" height="96" alt="Coffee Note 图标">
   <h1>Coffee Note</h1>
-  <p><strong>本地优先、深度优化 DeepSeek 的 AI 笔记工作台。</strong></p>
-  <p>管理 Markdown 笔记、看清优先级、随手收集资料，并用负担得起的模型完成真正有用的 Agent 工作流。</p>
 
   <p>
     <a href="https://github.com/edison7009/Coffee-Note/releases/latest"><img alt="最新版本" src="https://img.shields.io/github/v/release/edison7009/Coffee-Note?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>

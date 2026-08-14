@@ -1,8 +1,10 @@
+<p align="center">
+  <img src="docs/images/readme-banner-en.png" width="100%" alt="The AI note tool that saves you money, deeply optimized for DeepSeek">
+</p>
+
 <div align="center">
   <img src="app-icon.png" width="96" height="96" alt="Coffee Note icon">
   <h1>Coffee Note</h1>
-  <p><strong>A local-first AI note workspace, deeply optimized for DeepSeek.</strong></p>
-  <p>Organize Markdown notes, make priorities visible, capture material from anywhere, and use affordable models without giving up a capable agent workflow.</p>
 
   <p>
     <a href="https://github.com/edison7009/Coffee-Note/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/edison7009/Coffee-Note?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
