@@ -81,13 +81,13 @@ test('appearance color schemes use compact side-by-side swatches', () => {
   );
 });
 
-test('user message bubbles keep theme color without pure white or black surfaces', () => {
+test('user message bubbles reuse the navigation surface in both themes', () => {
   const bubbleRules = [...settingsStyles.matchAll(/\.message\.user \.message-content\s*\{([^}]*)\}/g)]
     .map((match) => match[1]);
 
   assert.ok(
     bubbleRules.some((body) =>
-      /background:\s*color-mix\(in srgb, var\(--chat-user-bubble\) 92%, var\(--ink\)\)/.test(body),
+      /background:\s*var\(--sidebar-surface\)/.test(body),
     ),
   );
 });

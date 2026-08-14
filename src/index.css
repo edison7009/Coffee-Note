@@ -2522,7 +2522,7 @@ html.tree-drag-active * {
   margin-left: auto;
   padding: 9px 14px 7px;
   overflow-wrap: anywhere;
-  background: #e8f3f0;
+  background: var(--sidebar-surface);
   border-radius: 10px;
 }
 
@@ -7595,12 +7595,12 @@ textarea,
 
 [data-theme='dark'] .message.user .message-content {
   color: var(--ink);
-  background: var(--chat-user-bubble);
+  background: var(--sidebar-surface);
 }
 
 .message.user .message-content {
   color: var(--ink);
-  background: color-mix(in srgb, var(--chat-user-bubble) 92%, var(--ink));
+  background: var(--sidebar-surface);
   border-radius: 14px;
 }
 
