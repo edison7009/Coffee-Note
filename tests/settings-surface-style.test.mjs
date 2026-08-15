@@ -60,11 +60,13 @@ test('appearance settings are one continuous unframed surface', () => {
 });
 
 test('appearance color scheme uses the shared selected background', () => {
+  const hover = rule(settingsStyles, '\\.surface-scheme-card:hover');
   const selected = rule(
     settingsStyles,
     "\\.surface-scheme-card\\.active,\\s*\\[data-theme='dark'\\] \\.surface-scheme-card\\.active",
   );
 
+  assert.match(hover, /background:\s*var\(--accent-soft\)/);
   assert.match(selected, /background:\s*var\(--accent-soft\)/);
   assert.doesNotMatch(selected, /background:\s*(?:#fff(?:fff)?|white|var\(--paper\))/i);
 });

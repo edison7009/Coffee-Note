@@ -746,6 +746,29 @@ interface SurfaceScheme {
 
 const SURFACE_SCHEMES: SurfaceScheme[] = [
   {
+    id: 'solarized',
+    labelZh: '青灰',
+    labelEn: 'Teal gray',
+    light: {
+      shell: '#F6EFDA',
+      canvas: '#FDF6E3',
+      secondary: '#FAF3DC',
+      tertiary: '#F6EDD4',
+      composer: '#FAF3DC',
+      bubble: '#F6EDD4',
+      accentContrast: '#FFFFFF',
+    },
+    dark: {
+      shell: '#022733',
+      canvas: '#001F27',
+      secondary: '#01222B',
+      tertiary: '#032830',
+      composer: '#01222B',
+      bubble: '#032830',
+      accentContrast: '#001F27',
+    },
+  },
+  {
     id: 'openscience',
     labelZh: '燕麦',
     labelEn: 'Oat',
@@ -1042,29 +1065,6 @@ const SURFACE_SCHEMES: SurfaceScheme[] = [
       composer: '#1C122F',
       bubble: '#170E26',
       accentContrast: '#1A102B',
-    },
-  },
-  {
-    id: 'solarized',
-    labelZh: '青灰',
-    labelEn: 'Teal gray',
-    light: {
-      shell: '#F6EFDA',
-      canvas: '#FDF6E3',
-      secondary: '#FAF3DC',
-      tertiary: '#F6EDD4',
-      composer: '#FAF3DC',
-      bubble: '#F6EDD4',
-      accentContrast: '#FFFFFF',
-    },
-    dark: {
-      shell: '#022733',
-      canvas: '#001F27',
-      secondary: '#01222B',
-      tertiary: '#032830',
-      composer: '#01222B',
-      bubble: '#032830',
-      accentContrast: '#001F27',
     },
   },
   {
@@ -1437,11 +1437,11 @@ function App() {
   const [locale, setLocale] = useStoredState<Locale>(storageKey('locale'), 'zh');
   const [themeMode, setThemeMode] = useStoredState<ThemeMode>(
     storageKey('theme'),
-    'system',
+    'light',
   );
   const [surfaceScheme, setSurfaceScheme] = useStoredState<SurfaceSchemeId>(
     storageKey('surface-scheme:v1'),
-    'openscience',
+    'solarized',
   );
   const [currencyMode, setCurrencyMode] = useStoredState<CurrencyMode>(
     storageKey('currency'),
@@ -5106,7 +5106,7 @@ function LibraryTree({
 
   return (
     <div
-      className="nav-tree-group library-tree"
+      className="library-tree"
     >
       <div
         className={`library-root-row ${dropTarget?.relativePath === '' ? 'drop-inside' : ''}`}

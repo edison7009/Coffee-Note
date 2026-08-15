@@ -79,6 +79,19 @@ test('library section divider has comfortable vertical breathing room', () => {
   assert.match(css, /\.nav-section-divider\s*\{[^}]*height:\s*1px;[^}]*margin:\s*10px 10px 8px;/s);
 });
 
+test('library expansion keeps the sidebar tree viewport stable', () => {
+  assert.match(appSource, /className="library-tree"/);
+  assert.doesNotMatch(appSource, /className="nav-tree-group library-tree"/);
+  assert.match(
+    css,
+    /\.library-tree\s*\{[^}]*display:\s*flex;[^}]*flex:\s*1 1 0;[^}]*overflow:\s*hidden;/s,
+  );
+  assert.match(
+    css,
+    /\.library-tree-scroll\s*\{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;[^}]*overflow-anchor:\s*none;/s,
+  );
+});
+
 test('library root displays the selected directory name instead of a fixed translation', () => {
   assert.match(appSource, /function directoryDisplayName\(root: string\)/);
   assert.match(appSource, /const libraryLabel = directoryDisplayName\(root\) \|\| root;/);

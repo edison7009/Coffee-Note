@@ -7,7 +7,7 @@ import { readStorageValue, storageKey } from './storage';
 type StartupTheme = 'system' | 'light' | 'dark';
 
 function applyStartupTheme() {
-  let themeMode: StartupTheme = 'system';
+  let themeMode: StartupTheme = 'light';
   try {
     const stored = readStorageValue(storageKey('theme'));
     if (stored) {

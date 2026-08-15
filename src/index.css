@@ -660,28 +660,18 @@ body.resizing-panels * {
 /* Library tree follows the primary nav buttons with a quiet section break. */
 .library-tree {
   display: flex;
-  /* Keep a short library compact; shrink only when the sidebar runs out of room. */
-  flex: 0 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   margin-top: 2px;
+  overflow: hidden;
 }
 
 .nav-section-divider {
   height: 1px;
   margin: 10px 10px 8px;
   background: var(--line);
-}
-
-.nav-tree-group {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
-  min-width: 0;
-}
-
-.nav-tree-group + .nav-tree-group {
-  margin-top: 2px;
 }
 
 .nav-tree-toggle .nav-count {
@@ -778,9 +768,10 @@ body.resizing-panels * {
 }
 
 .library-tree-scroll {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   scrollbar-width: none;
 }
@@ -8047,7 +8038,7 @@ textarea,
 
 .surface-scheme-card:hover {
   color: var(--ink);
-  background: var(--tertiary-surface);
+  background: var(--accent-soft);
 }
 
 .surface-scheme-card.active,
