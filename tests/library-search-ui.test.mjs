@@ -26,7 +26,7 @@ test('library search input follows desktop input and context-menu rules', () => 
     appSource.indexOf('function LibrarySearchDialog('),
     appSource.indexOf('function directoryDisplayName('),
   );
-  assert.match(appSource, /<input[\s\S]*?type="search"[\s\S]*?placeholder=\{locale === 'zh' \? '搜索当前资料库'/s);
+  assert.match(appSource, /<input[\s\S]*?type="search"[\s\S]*?placeholder=\{locale === 'zh' \? '搜索当前工作区的笔记'/s);
   assert.match(appSource, /<TextInputContextMenu locale=\{locale\} \/>/);
   assert.match(appSource, /const TEXT_INPUT_TYPES = new Set\(\['text', 'search'/);
   assert.match(css, /\.library-search-input-wrap\s*\{[^}]*background:\s*var\(--control-surface\);[^}]*border:\s*1px solid var\(--line\);/s);

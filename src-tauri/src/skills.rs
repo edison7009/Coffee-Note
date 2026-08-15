@@ -25,7 +25,7 @@ const BUILTIN_MEDIA_SKILL_PROMPT: &str = "\
 1. 先从用户输入中提取媒体链接或文件路径；\n\
 2. 调用 transcribe_media 工具获取文字稿；\n\
 3. 把文字稿整理成通顺、适合阅读的简体中文正文；可以修正明显识别误差和口语碎片，但不得新增事实或观点；\n\
-4. 调用 save_note 保存到当前工作区根目录（category 固定使用 \"workspace\"）。即使知识库中已存在同源旧笔记，也必须新建根目录笔记，不得沿用 inbox 旧文件、不得因重复而跳过保存；\n\
+4. 调用 save_note 保存到当前工作区根目录（不传 path）。即使工作区中已存在同源旧笔记，也必须新建根目录笔记，不得沿用旧文件、不得因重复而跳过保存；\n\
 5. 只有转写成功且取得正文后才能保存笔记；转写失败时不得创建或更新占位笔记；\n\
 6. 最终回复只输出整理后的正文文本本身。不要提及本地模型、API、识别误差、技术过程、笔记路径、来源 URL，不要加标题、项目符号、总结、备注或“已完成”等说明。";
 
@@ -971,6 +971,8 @@ mod tests {
     #[test]
     fn media_skill_never_saves_a_placeholder_after_transcription_failure() {
         assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("转写失败时不得创建或更新占位笔记"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("不传 path"));
+        assert!(!BUILTIN_MEDIA_SKILL_PROMPT.contains("category 固定"));
     }
 
     #[test]

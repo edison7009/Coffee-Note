@@ -666,7 +666,7 @@ export async function saveCapture(request: CaptureRequest): Promise<string> {
     const captures = JSON.parse(readStorageValue(CAPTURES_KEY) || '[]');
     captures.push({ ...request, createdAt: Date.now() });
     writeStorageValue(CAPTURES_KEY, JSON.stringify(captures));
-    return 'prototype/inbox';
+    return 'prototype/workspace-root';
   }
   return invoke<string>('save_capture', { request });
 }

@@ -1,5 +1,5 @@
-// Agent Tools — domain-specific tools for Coffee Note.
-// save_note, search_library, read_note operate on the local knowledge library.
+// Agent tools for the selected local workspace. Note-specific tools remain
+// available as optional Coffee Note features, not as a required directory model.
 
 use serde_json::{json, Value};
 use std::fs;
@@ -8,6 +8,9 @@ use std::path::{Component, Path, PathBuf};
 use crate::knowledge_map;
 use crate::llm_stream::ToolDef;
 use crate::web_reader::{self, WebReaderSettings};
+
+const MAX_WORKSPACE_TEXT_BYTES: usize = 1_000_000;
+const MAX_WORKSPACE_LIST_ENTRIES: usize = 500;
 
 // ── Tool result ──
 
@@ -21,16 +24,97 @@ pub struct ToolResult {
 pub fn get_tool_definitions() -> Vec<ToolDef> {
     vec![
         ToolDef {
+            name: "list_workspace".into(),
+            description: "List files and directories inside the user's selected workspace. Use this before editing when you need to understand a project or locate relevant files. 'path' is an optional workspace-relative directory and 'depth' is 1 to 4 (default 2). This is a general workspace: do not assume any note folder structure.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Optional workspace-relative directory; omit or use an empty string for the workspace root"
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4,
+                        "description": "How many directory levels to list; default 2"
+                    }
+                },
+                "required": []
+            }),
+        },
+        ToolDef {
+            name: "read_workspace_file".into(),
+            description: "Read a UTF-8 text file inside the selected workspace. Use this for source code, configuration, documentation, data, or Markdown. Read relevant files before modifying them. Paths must be relative to the workspace.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path, for example 'src/main.ts' or 'README.md'"
+                    }
+                },
+                "required": ["path"]
+            }),
+        },
+        ToolDef {
+            name: "write_workspace_file".into(),
+            description: "Create or fully replace a UTF-8 text file inside the selected workspace. Use this for source code and any other text file, not only notes. Existing files require overwrite=true; prefer replace_workspace_text for focused edits.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative destination path"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Complete UTF-8 file content"
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "Set true to replace an existing file; default false"
+                    }
+                },
+                "required": ["path", "content"]
+            }),
+        },
+        ToolDef {
+            name: "replace_workspace_text".into(),
+            description: "Apply an exact text replacement inside an existing UTF-8 workspace file. By default oldText must occur exactly once. Set replaceAll=true only when every exact occurrence should change. This is the preferred tool for focused code edits.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path"
+                    },
+                    "oldText": {
+                        "type": "string",
+                        "description": "Exact existing text to replace"
+                    },
+                    "newText": {
+                        "type": "string",
+                        "description": "Replacement text; may be empty"
+                    },
+                    "replaceAll": {
+                        "type": "boolean",
+                        "description": "Replace every exact occurrence; default false"
+                    }
+                },
+                "required": ["path", "oldText", "newText"]
+            }),
+        },
+        ToolDef {
             name: "save_note".into(),
-                description: "Save a structured Markdown note to the user's local knowledge library. \
-                Use this whenever the user wants to record, save, or remember information — \
-                a summary, a finding, a plan, a comparison, a protocol, or any note. \
-                The note is saved as a .md file in the library. \
+                description: "Save a structured Markdown note inside the selected workspace. \
+                Use this only when the user wants a note or asks to record information; do not use it \
+                for source code or unrelated files. The default destination is the workspace root. \
                 IMPORTANT: you MUST include both a non-empty 'title' and a non-empty 'content' \
                 string in the arguments; calls with missing or empty arguments are rejected. \
-                Choose category: 'workspace' to save directly into the currently selected library root, \
-                'inbox' for general notes, 'dossiers' for strategy/compound notes, \
-                'cases' for person/protocol notes, 'stories' for anecdote/observation notes."
+                Optionally provide a workspace-relative .md path. Never invent Inbox or another \
+                fixed directory; use a subdirectory only when the user requests it or it already fits \
+                the workspace."
                 .into(),
             parameters: json!({
                 "type": "object",
@@ -43,10 +127,9 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
                         "type": "string",
                         "description": "The note body in clean Markdown"
                     },
-                    "category": {
+                    "path": {
                         "type": "string",
-                        "enum": ["workspace", "inbox", "dossiers", "cases", "stories"],
-                        "description": "Which library folder to save into. 'workspace' writes into the current workspace root; default: inbox"
+                        "description": "Optional workspace-relative Markdown path. When omitted, the note is saved in the workspace root using its title."
                     },
                     "sources": {
                         "type": "array",
@@ -92,8 +175,7 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "update_note".into(),
-            description: "Update an existing note in the knowledge library by its relative path \
-                (e.g. 'dossiers/creatine.md', 'plans/exercise.md', 'cases/bryan-johnson-daily.md'). \
+            description: "Update an existing Markdown note in the selected workspace by its relative path. \
                 Use this to edit any note, including its frontmatter and sources. Provide the full \
                 new file content. Optionally provide 'sources' as a list of URLs; they are written \
                 into the note's frontmatter when the content has none."
@@ -103,7 +185,7 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path of the note file, e.g. 'dossiers/creatine.md'"
+                        "description": "Workspace-relative path of the Markdown note"
                     },
                     "content": {
                         "type": "string",
@@ -121,10 +203,10 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         ToolDef {
             name: "update_tier".into(),
             description: "Set the T1–T5 priority of any Markdown note in the user's current \
-                library. 'name' may be the note's relative path, filename stem, frontmatter title, \
+                workspace. 'name' may be the note's relative path, filename stem, frontmatter title, \
                 or first Markdown heading. 'tier' is one of T1, T2, T3, T4, T5, or 'pending' to \
                 hide the note from the home tier list. The priority is stored in the note's \
-                frontmatter and appears after the library reloads."
+                frontmatter and appears after the workspace reloads."
                 .into(),
             parameters: json!({
                 "type": "object",
@@ -143,9 +225,10 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "search_library".into(),
-            description: "Search the user's local knowledge library by keyword. \
+            description: "Semantically search Markdown notes in the selected workspace by keyword. \
                 Returns a list of matching note paths with title and a short snippet. \
-                Use this to find relevant notes before answering questions or before reading a note."
+                Use this for note retrieval, not for inspecting a codebase; use list_workspace and \
+                read_workspace_file for general project work."
                 .into(),
             parameters: json!({
                 "type": "object",
@@ -160,16 +243,16 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "read_note".into(),
-            description: "Read the full content of a note from the knowledge library. \
-                Provide the relative path (e.g. 'dossiers/nmn.md'). \
-                Use this after search_library to get the full text of a relevant note."
+            description: "Read the full content of a Markdown note from the selected workspace. \
+                Use this after search_library for semantic note retrieval. For source code and other \
+                text files, use read_workspace_file."
                 .into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path to the note file (e.g. 'dossiers/nmn.md')"
+                        "description": "Workspace-relative path to the Markdown note"
                     }
                 },
                 "required": ["path"]
@@ -177,13 +260,13 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "read_local_file".into(),
-            description: "Read the content of a local file outside the knowledge library so you can \
-                organize it into the user's Markdown library. Use this when the user asks you to \
+            description: "Read the content of a local file outside the selected workspace when the \
+                user explicitly supplies its absolute path. Use this when the user asks you to \
                 import a local document — a PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), \
                 HTML file, plain text, or an image (for multimodal models). \
                 Text-based files are read as text; images are returned as paths for vision. \
-                After reading, organize the material into a clean Markdown note and save it with \
-                save_note. The file path must be absolute, e.g. 'C:/Users/name/Downloads/report.pdf'."
+                Follow the user's requested outcome; do not automatically turn the file into a note. \
+                The file path must be absolute, e.g. 'C:/Users/name/Downloads/report.pdf'."
                 .into(),
             parameters: json!({
                 "type": "object",
@@ -274,36 +357,30 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
 pub async fn execute_tool(
     name: &str,
     args: &Value,
-    knowledge_root: &Path,
+    workspace_root: &Path,
     my_info_root: &Path,
     locale: &str,
     excluded_prefixes: &[String],
     web_reader: &WebReaderSettings,
-    force_save_note_workspace: bool,
 ) -> ToolResult {
-    let args = if name == "save_note" && force_save_note_workspace {
-        let mut value = args.clone();
-        if let Some(object) = value.as_object_mut() {
-            object.insert("category".to_string(), json!("workspace"));
-        }
-        value
-    } else {
-        args.clone()
-    };
     match name {
-        "save_note" => exec_save_note(&args, knowledge_root, locale),
-        "update_plan" => exec_update_plan(&args, my_info_root, locale),
-        "update_note" => exec_update_note(&args, knowledge_root, locale),
-        "update_tier" => exec_update_tier(&args, knowledge_root, locale),
+        "list_workspace" => exec_list_workspace(args, workspace_root),
+        "read_workspace_file" => exec_read_workspace_file(args, workspace_root),
+        "write_workspace_file" => exec_write_workspace_file(args, workspace_root),
+        "replace_workspace_text" => exec_replace_workspace_text(args, workspace_root),
+        "save_note" => exec_save_note(args, workspace_root, locale),
+        "update_plan" => exec_update_plan(args, my_info_root, locale),
+        "update_note" => exec_update_note(args, workspace_root, locale),
+        "update_tier" => exec_update_tier(args, workspace_root, locale),
         "search_library" => {
-            exec_search_library_scoped(&args, knowledge_root, locale, excluded_prefixes)
+            exec_search_library_scoped(args, workspace_root, locale, excluded_prefixes)
         }
         "read_note" => {
-            exec_read_note_scoped(&args, knowledge_root, excluded_prefixes, Some(my_info_root))
+            exec_read_note_scoped(args, workspace_root, excluded_prefixes, Some(my_info_root))
         }
-        "read_local_file" => exec_read_local_file(&args, locale).await,
-        "web_fetch" => exec_web_fetch(&args, web_reader).await,
-        "transcribe_media" => exec_transcribe_media(&args, locale, knowledge_root).await,
+        "read_local_file" => exec_read_local_file(args, locale).await,
+        "web_fetch" => exec_web_fetch(args, web_reader).await,
+        "transcribe_media" => exec_transcribe_media(args, locale, workspace_root).await,
         "suggest_memory" => ToolResult {
             success: true,
             output: "Memory suggestion sent for user confirmation.".into(),
@@ -372,10 +449,7 @@ async fn exec_web_fetch(args: &Value, settings: &WebReaderSettings) -> ToolResul
 }
 
 async fn exec_transcribe_media(args: &Value, locale: &str, knowledge_root: &Path) -> ToolResult {
-    let mode = args
-        .get("mode")
-        .and_then(Value::as_str)
-        .unwrap_or("api");
+    let mode = args.get("mode").and_then(Value::as_str).unwrap_or("api");
     if !matches!(mode, "api" | "local") {
         return ToolResult {
             success: false,
@@ -455,12 +529,14 @@ async fn exec_transcribe_media(args: &Value, locale: &str, knowledge_root: &Path
     }
 }
 
-fn validate_relative_path(path: &str, required_extension: &str) -> Result<Vec<String>, String> {
+fn validate_workspace_relative_path(path: &str, allow_empty: bool) -> Result<Vec<String>, String> {
     let normalized = path.replace('\\', "/");
-    if normalized.trim().is_empty() || !normalized.ends_with(required_extension) {
-        return Err(format!(
-            "Path must be a relative {required_extension} file inside the selected library"
-        ));
+    if normalized.trim().is_empty() {
+        return if allow_empty {
+            Ok(Vec::new())
+        } else {
+            Err("Path must be relative to the selected workspace".to_string())
+        };
     }
     let mut parts = Vec::new();
     for component in Path::new(&normalized).components() {
@@ -468,23 +544,36 @@ fn validate_relative_path(path: &str, required_extension: &str) -> Result<Vec<St
             Component::Normal(part) => parts.push(part.to_string_lossy().to_string()),
             Component::CurDir => {}
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                return Err("Path must stay inside the selected library".to_string())
+                return Err("Path must stay inside the selected workspace".to_string())
             }
         }
     }
-    if parts.is_empty() {
-        return Err("Path must stay inside the selected library".to_string());
+    if parts.is_empty() && !allow_empty {
+        return Err("Path must stay inside the selected workspace".to_string());
     }
     Ok(parts)
 }
 
-fn safe_write_path(root: &Path, relative: &str, extension: &str) -> Result<PathBuf, String> {
-    let parts = validate_relative_path(relative, extension)?;
+fn validate_relative_path(path: &str, required_extension: &str) -> Result<Vec<String>, String> {
+    let normalized = path.replace('\\', "/");
+    if !normalized
+        .to_ascii_lowercase()
+        .ends_with(&required_extension.to_ascii_lowercase())
+    {
+        return Err(format!(
+            "Path must be a relative {required_extension} file inside the selected workspace"
+        ));
+    }
+    validate_workspace_relative_path(&normalized, false)
+}
+
+fn safe_workspace_write_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let parts = validate_workspace_relative_path(relative, false)?;
     fs::create_dir_all(root)
-        .map_err(|error| format!("Cannot create library root {}: {error}", root.display()))?;
+        .map_err(|error| format!("Cannot create workspace root {}: {error}", root.display()))?;
     let canonical_root = root
         .canonicalize()
-        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))?;
+        .map_err(|error| format!("Workspace directory is unavailable: {error}"))?;
     let (file_name, directories) = parts
         .split_last()
         .ok_or_else(|| "Path must include a file name".to_string())?;
@@ -499,7 +588,7 @@ fn safe_write_path(root: &Path, relative: &str, extension: &str) -> Result<PathB
             .canonicalize()
             .map_err(|error| format!("Cannot resolve {}: {error}", candidate.display()))?;
         if !canonical.starts_with(&canonical_root) || !canonical.is_dir() {
-            return Err("Refusing to write outside the selected library".to_string());
+            return Err("Refusing to write outside the selected workspace".to_string());
         }
         parent = canonical;
     }
@@ -509,18 +598,23 @@ fn safe_write_path(root: &Path, relative: &str, extension: &str) -> Result<PathB
             .canonicalize()
             .map_err(|error| format!("Cannot resolve {}: {error}", candidate.display()))?;
         if !canonical.starts_with(&canonical_root) || !canonical.is_file() {
-            return Err("Refusing to write outside the selected library".to_string());
+            return Err("Refusing to write outside the selected workspace".to_string());
         }
         return Ok(canonical);
     }
     Ok(candidate)
 }
 
-fn safe_read_path(root: &Path, relative: &str, extension: &str) -> Result<PathBuf, String> {
-    let parts = validate_relative_path(relative, extension)?;
+fn safe_write_path(root: &Path, relative: &str, extension: &str) -> Result<PathBuf, String> {
+    validate_relative_path(relative, extension)?;
+    safe_workspace_write_path(root, relative)
+}
+
+fn safe_workspace_read_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let parts = validate_workspace_relative_path(relative, false)?;
     let canonical_root = root
         .canonicalize()
-        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))?;
+        .map_err(|error| format!("Workspace directory is unavailable: {error}"))?;
     let candidate = parts
         .iter()
         .fold(canonical_root.clone(), |path, part| path.join(part));
@@ -528,9 +622,372 @@ fn safe_read_path(root: &Path, relative: &str, extension: &str) -> Result<PathBu
         .canonicalize()
         .map_err(|error| format!("Cannot read {relative}: {error}"))?;
     if !canonical.starts_with(&canonical_root) || !canonical.is_file() {
-        return Err("Refusing to read outside the selected library".to_string());
+        return Err("Refusing to read outside the selected workspace".to_string());
     }
     Ok(canonical)
+}
+
+fn safe_read_path(root: &Path, relative: &str, extension: &str) -> Result<PathBuf, String> {
+    validate_relative_path(relative, extension)?;
+    safe_workspace_read_path(root, relative)
+}
+
+fn is_sensitive_workspace_path(relative: &str) -> bool {
+    let normalized = relative.replace('\\', "/").to_ascii_lowercase();
+    let parts = normalized.split('/').collect::<Vec<_>>();
+    if parts
+        .iter()
+        .any(|part| matches!(*part, ".git" | ".ssh" | ".aws"))
+    {
+        return true;
+    }
+    let file = parts.last().copied().unwrap_or_default();
+    file == ".env"
+        || (file.starts_with(".env.") && file != ".env.example")
+        || file == "credentials.json"
+        || file == "secrets.json"
+        || file == "id_rsa"
+        || file == "id_ed25519"
+        || [".pem", ".key", ".p12", ".pfx"]
+            .iter()
+            .any(|extension| file.ends_with(extension))
+}
+
+fn safe_workspace_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let parts = validate_workspace_relative_path(relative, true)?;
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("Workspace directory is unavailable: {error}"))?;
+    let candidate = parts
+        .iter()
+        .fold(canonical_root.clone(), |path, part| path.join(part));
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("Cannot open workspace directory '{relative}': {error}"))?;
+    if !canonical.starts_with(&canonical_root) || !canonical.is_dir() {
+        return Err("Refusing to list outside the selected workspace".to_string());
+    }
+    Ok(canonical)
+}
+
+fn collect_workspace_entries(
+    root: &Path,
+    directory: &Path,
+    relative: &str,
+    depth: usize,
+    output: &mut Vec<String>,
+) -> Result<(), String> {
+    if depth == 0 || output.len() >= MAX_WORKSPACE_LIST_ENTRIES {
+        return Ok(());
+    }
+    let mut entries = fs::read_dir(directory)
+        .map_err(|error| format!("Cannot list {}: {error}", directory.display()))?
+        .flatten()
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase());
+    for entry in entries {
+        if output.len() >= MAX_WORKSPACE_LIST_ENTRIES {
+            break;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        let child_relative = if relative.is_empty() {
+            name.clone()
+        } else {
+            format!("{relative}/{name}")
+        };
+        let metadata = fs::symlink_metadata(entry.path())
+            .map_err(|error| format!("Cannot inspect {child_relative}: {error}"))?;
+        if metadata.file_type().is_symlink() {
+            output.push(format!("{child_relative} [symlink]"));
+        } else if metadata.is_dir() {
+            output.push(format!("{child_relative}/"));
+            if matches!(name.as_str(), ".git" | "node_modules" | "target" | "dist") {
+                continue;
+            }
+            collect_workspace_entries(root, &entry.path(), &child_relative, depth - 1, output)?;
+        } else if metadata.is_file() {
+            output.push(format!("{child_relative} ({} bytes)", metadata.len()));
+        }
+    }
+    let canonical = directory
+        .canonicalize()
+        .map_err(|error| format!("Cannot resolve {}: {error}", directory.display()))?;
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|error| format!("Workspace directory is unavailable: {error}"))?;
+    if !canonical.starts_with(canonical_root) {
+        return Err("Refusing to list outside the selected workspace".to_string());
+    }
+    Ok(())
+}
+
+fn exec_list_workspace(args: &Value, root: &Path) -> ToolResult {
+    let path = args
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    let depth = args
+        .get("depth")
+        .and_then(Value::as_u64)
+        .unwrap_or(2)
+        .clamp(1, 4) as usize;
+    let directory = match safe_workspace_directory(root, path) {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
+    let mut entries = Vec::new();
+    match collect_workspace_entries(root, &directory, path, depth, &mut entries) {
+        Ok(()) => ToolResult {
+            success: true,
+            output: if entries.is_empty() {
+                "Workspace directory is empty.".to_string()
+            } else {
+                let truncated = entries.len() >= MAX_WORKSPACE_LIST_ENTRIES;
+                let mut output = entries.join("\n");
+                if truncated {
+                    output.push_str("\n...[workspace listing truncated]");
+                }
+                output
+            },
+        },
+        Err(error) => ToolResult {
+            success: false,
+            output: error,
+        },
+    }
+}
+
+fn workspace_path_arg<'a>(args: &'a Value, tool: &str) -> Result<&'a str, ToolResult> {
+    args.get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .ok_or_else(|| ToolResult {
+            success: false,
+            output: format!(
+                "Invalid {tool} arguments: expected a non-empty workspace-relative 'path'."
+            ),
+        })
+}
+
+fn exec_read_workspace_file(args: &Value, root: &Path) -> ToolResult {
+    let path = match workspace_path_arg(args, "read_workspace_file") {
+        Ok(path) => path,
+        Err(result) => return result,
+    };
+    if is_sensitive_workspace_path(path) {
+        return ToolResult {
+            success: false,
+            output: "Refusing to send a likely secret or repository-internal file to the model."
+                .to_string(),
+        };
+    }
+    let full_path = match safe_workspace_read_path(root, path) {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
+    let bytes = match fs::read(&full_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!("Cannot read {path}: {error}"),
+            }
+        }
+    };
+    if bytes.len() > MAX_WORKSPACE_TEXT_BYTES {
+        return ToolResult {
+            success: false,
+            output: format!(
+                "Workspace file is too large to read ({} bytes; limit {MAX_WORKSPACE_TEXT_BYTES}).",
+                bytes.len()
+            ),
+        };
+    }
+    if bytes.contains(&0) {
+        return ToolResult {
+            success: false,
+            output: "Workspace file appears to be binary and cannot be sent as text.".to_string(),
+        };
+    }
+    match String::from_utf8(bytes) {
+        Ok(content) => ToolResult {
+            success: true,
+            output: format!("File: {path}\n\n{content}"),
+        },
+        Err(_) => ToolResult {
+            success: false,
+            output: "Workspace file is not valid UTF-8 text.".to_string(),
+        },
+    }
+}
+
+fn exec_write_workspace_file(args: &Value, root: &Path) -> ToolResult {
+    let path = match workspace_path_arg(args, "write_workspace_file") {
+        Ok(path) => path,
+        Err(result) => return result,
+    };
+    let Some(content) = args.get("content").and_then(Value::as_str) else {
+        return ToolResult {
+            success: false,
+            output: "Invalid write_workspace_file arguments: 'content' must be a string."
+                .to_string(),
+        };
+    };
+    if content.len() > MAX_WORKSPACE_TEXT_BYTES {
+        return ToolResult {
+            success: false,
+            output: format!("Workspace file exceeds the {MAX_WORKSPACE_TEXT_BYTES}-byte limit."),
+        };
+    }
+    if is_sensitive_workspace_path(path) {
+        return ToolResult {
+            success: false,
+            output: "Refusing to write a likely secret or repository-internal file.".to_string(),
+        };
+    }
+    let full_path = match safe_workspace_write_path(root, path) {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
+    if full_path.exists()
+        && !args
+            .get("overwrite")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    {
+        return ToolResult {
+            success: false,
+            output: format!(
+                "'{path}' already exists. Read it first, then use replace_workspace_text or retry with overwrite=true."
+            ),
+        };
+    }
+    match fs::write(&full_path, content) {
+        Ok(()) => ToolResult {
+            success: true,
+            output: format!("Wrote {path} ({} chars)", content.chars().count()),
+        },
+        Err(error) => ToolResult {
+            success: false,
+            output: format!("Cannot write {path}: {error}"),
+        },
+    }
+}
+
+fn exec_replace_workspace_text(args: &Value, root: &Path) -> ToolResult {
+    let path = match workspace_path_arg(args, "replace_workspace_text") {
+        Ok(path) => path,
+        Err(result) => return result,
+    };
+    let old_text = args
+        .get("oldText")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let Some(new_text) = args.get("newText").and_then(Value::as_str) else {
+        return ToolResult {
+            success: false,
+            output: "Invalid replace_workspace_text arguments: 'newText' must be a string."
+                .to_string(),
+        };
+    };
+    if old_text.is_empty() {
+        return ToolResult {
+            success: false,
+            output: "Invalid replace_workspace_text arguments: 'oldText' must not be empty."
+                .to_string(),
+        };
+    }
+    if is_sensitive_workspace_path(path) {
+        return ToolResult {
+            success: false,
+            output: "Refusing to edit a likely secret or repository-internal file.".to_string(),
+        };
+    }
+    let full_path = match safe_workspace_read_path(root, path) {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: error,
+            }
+        }
+    };
+    let content = match fs::read_to_string(&full_path) {
+        Ok(content) if content.len() <= MAX_WORKSPACE_TEXT_BYTES => content,
+        Ok(_) => {
+            return ToolResult {
+                success: false,
+                output: format!(
+                    "Workspace file exceeds the {MAX_WORKSPACE_TEXT_BYTES}-byte limit."
+                ),
+            }
+        }
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!("Cannot read {path} as UTF-8 text: {error}"),
+            }
+        }
+    };
+    let occurrences = content.match_indices(old_text).count();
+    if occurrences == 0 {
+        return ToolResult {
+            success: false,
+            output:
+                "The exact oldText was not found. Re-read the file and retry with current text."
+                    .to_string(),
+        };
+    }
+    let replace_all = args
+        .get("replaceAll")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if occurrences > 1 && !replace_all {
+        return ToolResult {
+            success: false,
+            output: format!(
+                "oldText occurs {occurrences} times. Provide more context for one exact match or set replaceAll=true."
+            ),
+        };
+    }
+    let updated = if replace_all {
+        content.replace(old_text, new_text)
+    } else {
+        content.replacen(old_text, new_text, 1)
+    };
+    if updated.len() > MAX_WORKSPACE_TEXT_BYTES {
+        return ToolResult {
+            success: false,
+            output: format!("Updated file would exceed the {MAX_WORKSPACE_TEXT_BYTES}-byte limit."),
+        };
+    }
+    match fs::write(&full_path, updated) {
+        Ok(()) => ToolResult {
+            success: true,
+            output: format!("Updated {path} ({occurrences} exact match(es))"),
+        },
+        Err(error) => ToolResult {
+            success: false,
+            output: format!("Cannot update {path}: {error}"),
+        },
+    }
 }
 
 // ── read_local_file ──
@@ -641,7 +1098,7 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
             return ToolResult {
                 success: false,
                 output: "Missing or empty 'title' — save_note requires a non-empty 'title' and a \
-                    non-empty 'content' string (category is optional). Retry with complete arguments."
+                    non-empty 'content' string (path is optional). Retry with complete arguments."
                     .into(),
             }
         }
@@ -658,11 +1115,6 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
             }
         }
     };
-    let category = args
-        .pointer("/category")
-        .and_then(Value::as_str)
-        .unwrap_or("inbox");
-
     let sources = args
         .get("sources")
         .and_then(Value::as_array)
@@ -694,26 +1146,17 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         )
     };
 
-    let valid_categories = ["workspace", "inbox", "dossiers", "cases", "stories"];
-    if !valid_categories.contains(&category) {
-        return ToolResult {
-            success: false,
-            output: format!(
-                "Invalid category '{category}'. Must be one of: {}",
-                valid_categories.join(", ")
-            ),
-        };
-    }
-
     // Sanitize filename
     let safe_name = sanitize_filename(title);
     let filename = format!("{safe_name}.md");
-    let relative = if category == "workspace" {
-        filename.clone()
-    } else {
-        format!("{category}/{filename}")
-    };
-    let file_path = match safe_write_path(root, &relative, ".md") {
+    let relative = args
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .unwrap_or(&filename)
+        .replace('\\', "/");
+    let mut file_path = match safe_write_path(root, &relative, ".md") {
         Ok(path) => path,
         Err(error) => {
             return ToolResult {
@@ -722,6 +1165,22 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
             }
         }
     };
+    if file_path.exists() {
+        let parent = file_path.parent().unwrap_or(root);
+        let stem = file_path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("note");
+        let mut suffix = 2;
+        loop {
+            let candidate = parent.join(format!("{stem}-{suffix}.md"));
+            if !candidate.exists() {
+                file_path = candidate;
+                break;
+            }
+            suffix += 1;
+        }
+    }
 
     // Build the note with frontmatter
     let note = format!(
@@ -909,7 +1368,7 @@ fn exec_update_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
             return ToolResult {
                 success: false,
                 output: "Missing or empty 'path' — update_note requires a relative Markdown path \
-                    inside the library (e.g. 'dossiers/creatine.md'). Retry with complete arguments."
+                    inside the workspace (e.g. 'notes/idea.md'). Retry with complete arguments."
                     .into(),
             }
         }
@@ -918,8 +1377,8 @@ fn exec_update_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
     if validate_relative_path(&clean, ".md").is_err() {
         return ToolResult {
             success: false,
-            output: "Invalid 'path' — must be a relative Markdown path inside the library \
-                (e.g. 'dossiers/creatine.md'). Retry with a valid path."
+            output: "Invalid 'path' — must be a relative Markdown path inside the workspace \
+                (e.g. 'notes/idea.md'). Retry with a valid path."
                 .into(),
         };
     }
@@ -1219,6 +1678,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn tool_definitions_expose_general_workspace_operations_without_note_categories() {
+        let tools = get_tool_definitions();
+        for name in [
+            "list_workspace",
+            "read_workspace_file",
+            "write_workspace_file",
+            "replace_workspace_text",
+        ] {
+            assert!(tools.iter().any(|tool| tool.name == name), "missing {name}");
+        }
+        let save_note = tools
+            .iter()
+            .find(|tool| tool.name == "save_note")
+            .expect("save_note should remain available");
+        assert!(save_note.parameters.pointer("/properties/path").is_some());
+        assert!(save_note
+            .parameters
+            .pointer("/properties/category")
+            .is_none());
+    }
+
+    #[test]
     fn save_note_rejects_empty_arguments_with_guidance() {
         let result = exec_save_note(&json!({}), Path::new("unused"), "zh");
         assert!(!result.success);
@@ -1241,26 +1722,25 @@ mod tests {
     }
 
     #[test]
-    fn save_note_writes_note_successfully() {
+    fn save_note_defaults_to_workspace_root() {
         let dir = std::env::temp_dir().join(format!("ol-save-note-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let result = exec_save_note(
             &json!({
                 "title": "健身计划",
-                "content": "# 健身计划\n\n内容",
-                "category": "inbox"
+                "content": "# 健身计划\n\n内容"
             }),
             &dir,
             "zh",
         );
         assert!(result.success, "{}", result.output);
-        assert!(dir.join("inbox").join("健身计划.md").exists());
+        assert!(dir.join("健身计划.md").exists());
         assert!(result.output.contains(&dir.to_string_lossy().to_string()));
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn save_note_workspace_writes_directly_into_the_selected_root() {
+    fn save_note_honors_explicit_workspace_relative_path() {
         let dir = std::env::temp_dir().join(format!(
             "ol-save-note-workspace-test-{}",
             std::process::id()
@@ -1270,13 +1750,82 @@ mod tests {
             &json!({
                 "title": "工作区根目录笔记",
                 "content": "# 工作区根目录笔记\n\n直接保存在根目录。",
-                "category": "workspace"
+                "path": "notes/工作区笔记.md"
             }),
             &dir,
             "zh",
         );
         assert!(result.success, "{}", result.output);
-        assert!(dir.join("工作区根目录笔记.md").exists());
+        assert!(dir.join("notes/工作区笔记.md").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn workspace_tools_read_write_list_and_replace_code_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "coffee-note-workspace-tools-{}-{}",
+            std::process::id(),
+            chrono::Local::now()
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+
+        let write = exec_write_workspace_file(
+            &json!({"path": "src/main.ts", "content": "export const answer = 41;\n"}),
+            &dir,
+        );
+        assert!(write.success, "{}", write.output);
+
+        let list = exec_list_workspace(&json!({"depth": 3}), &dir);
+        assert!(list.success, "{}", list.output);
+        assert!(list.output.contains("src/main.ts"));
+
+        let read = exec_read_workspace_file(&json!({"path": "src/main.ts"}), &dir);
+        assert!(read.success, "{}", read.output);
+        assert!(read.output.contains("answer = 41"));
+
+        let replace = exec_replace_workspace_text(
+            &json!({
+                "path": "src/main.ts",
+                "oldText": "answer = 41",
+                "newText": "answer = 42"
+            }),
+            &dir,
+        );
+        assert!(replace.success, "{}", replace.output);
+        assert_eq!(
+            fs::read_to_string(dir.join("src/main.ts")).unwrap(),
+            "export const answer = 42;\n"
+        );
+
+        let overwrite_without_confirmation =
+            exec_write_workspace_file(&json!({"path": "src/main.ts", "content": "removed"}), &dir);
+        assert!(!overwrite_without_confirmation.success);
+        assert!(overwrite_without_confirmation
+            .output
+            .contains("overwrite=true"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn workspace_tools_reject_traversal_and_sensitive_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "coffee-note-workspace-guards-{}-{}",
+            std::process::id(),
+            chrono::Local::now()
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(".env"), "API_KEY=secret").unwrap();
+
+        let traversal =
+            exec_write_workspace_file(&json!({"path": "../escape.ts", "content": "no"}), &dir);
+        assert!(!traversal.success);
+        let secret = exec_read_workspace_file(&json!({"path": ".env"}), &dir);
+        assert!(!secret.success);
+        assert!(secret.output.contains("likely secret"));
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1499,7 +2048,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let result = exec_read_note(&json!({"path": "C:/Windows/win.ini"}), &dir);
         assert!(!result.success);
-        assert!(result.output.contains("inside the selected library"));
+        assert!(result.output.contains("inside the selected workspace"));
         let _ = fs::remove_dir_all(&dir);
     }
 

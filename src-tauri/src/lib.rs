@@ -1341,13 +1341,13 @@ fn inspect_library_graph(
 fn safe_existing_path(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
     let canonical_root = root
         .canonicalize()
-        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))?;
+        .map_err(|error| format!("Workspace directory is unavailable: {error}"))?;
     let candidate = canonical_root.join(relative_path);
     let canonical_candidate = candidate
         .canonicalize()
         .map_err(|error| format!("Note is unavailable: {error}"))?;
     if !canonical_candidate.starts_with(&canonical_root) {
-        return Err("Refusing to read outside the selected knowledge directory".to_string());
+        return Err("Refusing to read outside the selected workspace".to_string());
     }
     Ok(canonical_candidate)
 }
@@ -1478,7 +1478,7 @@ struct DirectoryEntry {
 
 fn canonical_library_root(root: &Path) -> Result<PathBuf, String> {
     root.canonicalize()
-        .map_err(|error| format!("Knowledge directory is unavailable: {error}"))
+        .map_err(|error| format!("Workspace directory is unavailable: {error}"))
 }
 
 fn resolve_under_root(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
@@ -1489,7 +1489,7 @@ fn resolve_under_root(root: &Path, relative_path: &str) -> Result<PathBuf, Strin
         canonical_root.join(relative_path)
     };
     if !candidate.starts_with(&canonical_root) {
-        return Err("Refusing to access outside the selected knowledge directory".to_string());
+        return Err("Refusing to access outside the selected workspace".to_string());
     }
     Ok(candidate)
 }
@@ -1814,17 +1814,15 @@ fn save_capture(request: CaptureRequest) -> Result<String, String> {
 
     let root = PathBuf::from(&request.knowledge_root);
     if !root.is_dir() {
-        return Err("Choose a valid knowledge directory before saving".to_string());
+        return Err("Choose a valid workspace directory before saving".to_string());
     }
 
-    let inbox = root.join("inbox");
-    fs::create_dir_all(&inbox).map_err(|error| format!("Could not create inbox: {error}"))?;
     let date = Local::now().format("%Y-%m-%d").to_string();
     let base_name = format!("{date}-{}", slugify(title));
-    let mut path = inbox.join(format!("{base_name}.md"));
+    let mut path = root.join(format!("{base_name}.md"));
     let mut suffix = 2;
     while path.exists() {
-        path = inbox.join(format!("{base_name}-{suffix}.md"));
+        path = root.join(format!("{base_name}-{suffix}.md"));
         suffix += 1;
     }
 
@@ -1834,7 +1832,7 @@ fn save_capture(request: CaptureRequest) -> Result<String, String> {
         .map(|url| format!("source_url: {}\n", yaml_string(url)))
         .unwrap_or_default();
     let markdown = format!(
-        "---\ntitle: {}\ncaptured_at: {}\nlocale: {}\n{}status: inbox\n---\n\n# {}\n\n{}\n",
+        "---\ntitle: {}\ncaptured_at: {}\nlocale: {}\n{}---\n\n# {}\n\n{}\n",
         yaml_string(title),
         Local::now().to_rfc3339(),
         request.locale,
@@ -2934,10 +2932,12 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         "使用简体中文回答。"
     };
     let system_prompt = format!(
-        "You are Coffee Note, a local-first note assistant. \
-         The user's local notes are your primary memory. Use the supplied notes before general knowledge. \
-         Cite the local note path in parentheses when a statement depends on it. \
-         Clearly separate the user's recorded context from general information. \
+        "You are Coffee Note, a local-first general-purpose workspace assistant. \
+         The selected directory may be a code repository, writing project, note collection, or any other \
+         workspace. Do not assume a fixed note architecture and do not refuse programming or other \
+         non-note work. Use supplied local context when it is relevant, and cite its file path in \
+         parentheses when a statement depends on it. Clearly separate local workspace context from \
+         general information. \
          Never invent a fact, measurement, or source. \
          When a LIVE SCIENTIFIC SEARCH snapshot is supplied, distinguish peer-reviewed publications, \
          registered trials, posted trial results, and non-peer-reviewed preprints. A trial registration \
@@ -4206,9 +4206,15 @@ mod tests {
             locale: "en".to_string(),
         })
         .expect("capture should save");
+        assert_eq!(
+            Path::new(&saved).parent(),
+            Some(root.as_path()),
+            "captures should save directly in the selected workspace root"
+        );
         let saved_content = fs::read_to_string(&saved).expect("saved note should be readable");
         assert!(saved_content.contains("# Creatine trial"));
         assert!(saved_content.contains("A structured draft."));
+        assert!(!saved_content.contains("status: inbox"));
         fs::remove_dir_all(root).expect("capture fixture should be removed");
     }
 

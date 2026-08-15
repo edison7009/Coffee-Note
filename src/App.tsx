@@ -3815,7 +3815,7 @@ function AppTitlebar({
               <div className="titlebar-menu-popover" role="menu">
                 <button type="button" role="menuitem" onClick={() => runMenuAction(onSwitchRoot)}>
                   <FolderOpen size={15} />
-                  <span>{locale === 'zh' ? '切换资料库...' : 'Switch library...'}</span>
+                  <span>{locale === 'zh' ? '切换工作区...' : 'Switch workspace...'}</span>
                 </button>
               </div>
             )}
@@ -4074,7 +4074,6 @@ interface CtxMenuActions {
   onCopy: (menu: CtxMenuState) => void;
   onPaste: (menu: CtxMenuState) => void;
   onShowInFolder: (menu: CtxMenuState) => void;
-  onCleanup?: (menu: CtxMenuState) => void;
 }
 
 type TreeOrder = Record<string, string[]>;
@@ -4205,12 +4204,6 @@ function ContextMenu({
       )}
       <div className="ctx-menu-divider" />
       {item(<FolderSearch size={13} />, t('menuShowInFolder'), () => actions.onShowInFolder(menu))}
-      {isRoot && actions.onCleanup && (
-        <>
-          <div className="ctx-menu-divider" />
-          {item(<Trash2 size={13} />, t('menuCleanup'), () => actions.onCleanup!(menu))}
-        </>
-      )}
     </div>,
     document.body,
   );
@@ -4412,39 +4405,6 @@ interface TreeEditState {
   mode: 'create-folder' | 'create-note';
   path: string;
 }
-
-// Internal and transitional folders stay hidden from the tree; newly created
-// folders (via the context menu) are always visible.
-const TRANSITIONAL_ROOT_FOLDERS = [
-  'audits',
-  'licenses',
-  'methods',
-  'papers',
-  'products',
-  'profile',
-  'records',
-  'research-log',
-  'sources',
-  'templates',
-  'topics',
-  'inbox',
-];
-const HIDDEN_ROOT_FOLDERS = new Set([
-  'audits',
-  'licenses',
-  'methods',
-  'papers',
-  'products',
-  'profile',
-  'records',
-  'research-log',
-  'sources',
-  'templates',
-  'topics',
-  'inbox',
-  'catalog',
-  'plans',
-]);
 
 function LibraryTree({
   root,
@@ -4760,26 +4720,6 @@ function LibraryTree({
     } catch {
       // Reveal is best-effort.
     }
-  };
-
-  const handleCleanup = async () => {
-    closeMenu();
-    const confirmed = await confirm(t('cleanupConfirm'), {
-      title: t('menuCleanup'),
-      kind: 'warning',
-      okLabel: t('menuCleanup'),
-      cancelLabel: t('cancel'),
-    });
-    if (!confirmed) return;
-    for (const folder of TRANSITIONAL_ROOT_FOLDERS) {
-      try {
-        await deleteEntry(rootRef.current, folder);
-      } catch {
-        // Folders that are already gone or protected are skipped silently.
-      }
-    }
-    refreshDir('');
-    onLibraryChanged();
   };
 
   const commitEdit = async () => {
@@ -5162,7 +5102,6 @@ function LibraryTree({
     onCopy: handleCopy,
     onPaste: handlePaste,
     onShowInFolder: handleShowInFolder,
-    onCleanup: handleCleanup,
   };
 
   return (
@@ -5206,12 +5145,7 @@ function LibraryTree({
       <div className="library-tree-scroll">
         <div className="tree-children">
           {renderEditRow('', 0)}
-          {orderedEntries(
-            '',
-            (entriesByDir[''] || []).filter(
-              (entry) => !entry.isDir || !HIDDEN_ROOT_FOLDERS.has(entry.name),
-            ),
-          )
+          {orderedEntries('', entriesByDir[''] || [])
             .map((entry) =>
               entry.isDir ? renderFolder(entry, 0) : renderFile(entry, 0),
             )}
@@ -5336,7 +5270,7 @@ function Sidebar({
                 type="button"
                 className="nav-search-library"
                 onClick={onSearchLibrary}
-                aria-label={locale === 'zh' ? '搜索资料库' : 'Search library'}
+                aria-label={locale === 'zh' ? '搜索工作区笔记' : 'Search workspace notes'}
               >
                 <Search size={17} />
               </button>
@@ -5566,7 +5500,6 @@ async function collectLibraryMarkdownFiles(root: string): Promise<DirectoryEntry
     }
     for (const entry of entries) {
       if (entry.isDir) {
-        if (!directory && HIDDEN_ROOT_FOLDERS.has(entry.name)) continue;
         queue.push(entry.relativePath);
       } else if (entry.isMarkdown) {
         files.push(entry);
@@ -5644,7 +5577,7 @@ function LibrarySearchDialog({
       })
       .catch(() => {
         if (!cancelled) {
-          setError(locale === 'zh' ? '无法读取当前资料库。' : 'Could not read the current library.');
+          setError(locale === 'zh' ? '无法读取当前工作区。' : 'Could not read the current workspace.');
         }
       })
       .finally(() => {
@@ -5688,8 +5621,8 @@ function LibrarySearchDialog({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={locale === 'zh' ? '搜索当前资料库' : 'Search current library'}
-            aria-label={locale === 'zh' ? '搜索当前资料库' : 'Search current library'}
+            placeholder={locale === 'zh' ? '搜索当前工作区的笔记' : 'Search notes in current workspace'}
+            aria-label={locale === 'zh' ? '搜索当前工作区的笔记' : 'Search notes in current workspace'}
           />
           {query && (
             <button
@@ -5704,7 +5637,7 @@ function LibrarySearchDialog({
         <h2 id="library-search-title" className="library-search-heading">
           {query.trim()
             ? locale === 'zh' ? `搜索结果 · ${results.length}` : `Results · ${results.length}`
-            : locale === 'zh' ? '资料库笔记' : 'Library notes'}
+            : locale === 'zh' ? '工作区笔记' : 'Workspace notes'}
         </h2>
         <div ref={resultsScrollRef} className="library-search-results auto-hide-scrollbar">
           {results.map((document) => (
@@ -6357,8 +6290,8 @@ function StoriesView({
             <strong>{locale === 'zh' ? '添加一则轶事' : 'Add a story'}</strong>
             <small>
               {locale === 'zh'
-                ? '把文章或链接交给 AI，整理后加入资料库'
-                : 'Give an article or link to AI and organize it into the library'}
+                ? '把文章或链接交给 AI，整理后保存到工作区'
+                : 'Give an article or link to AI and save the result in the workspace'}
             </small>
           </span>
         </button>
@@ -6925,6 +6858,13 @@ function formatAgentStatusPhrase(verb: string, locale: Locale): string {
 }
 
 function formatAgentToolPhrase(toolName: string | undefined, locale: Locale): string {
+  const labels: Record<string, { zh: string; en: string }> = {
+    list_workspace: { zh: '正在查看工作区 >', en: 'Inspecting workspace >' },
+    read_workspace_file: { zh: '正在读取文件 >', en: 'Reading file >' },
+    write_workspace_file: { zh: '正在写入文件 >', en: 'Writing file >' },
+    replace_workspace_text: { zh: '正在修改文件 >', en: 'Editing file >' },
+  };
+  if (toolName && labels[toolName]) return labels[toolName][locale];
   const name = toolName?.replaceAll('_', ' ').trim();
   if (!name) return locale === 'zh' ? '正在处理 >' : 'Working >';
   return locale === 'zh' ? `正在执行 ${name} >` : `Running ${name} >`;
@@ -7210,6 +7150,26 @@ function ConversationView({
           if (message.role === 'tool_call') {
             if (message.toolStatus === 'running') return null;
             const toolLabels: Record<string, Record<NonNullable<ChatMessage['toolStatus']>, string>> = {
+              list_workspace: {
+                running: locale === 'zh' ? '正在查看工作区' : 'Inspecting workspace',
+                done: locale === 'zh' ? '已查看工作区' : 'Inspected workspace',
+                failed: locale === 'zh' ? '查看工作区失败' : 'Could not inspect workspace',
+              },
+              read_workspace_file: {
+                running: locale === 'zh' ? '正在读取文件' : 'Reading file',
+                done: locale === 'zh' ? '已读取文件' : 'Read file',
+                failed: locale === 'zh' ? '读取文件失败' : 'Could not read file',
+              },
+              write_workspace_file: {
+                running: locale === 'zh' ? '正在写入文件' : 'Writing file',
+                done: locale === 'zh' ? '已写入文件' : 'Wrote file',
+                failed: locale === 'zh' ? '写入文件失败' : 'Could not write file',
+              },
+              replace_workspace_text: {
+                running: locale === 'zh' ? '正在修改文件' : 'Editing file',
+                done: locale === 'zh' ? '已修改文件' : 'Edited file',
+                failed: locale === 'zh' ? '修改文件失败' : 'Could not edit file',
+              },
               save_note: {
                 running: locale === 'zh' ? '正在保存笔记' : 'Saving note',
                 done: locale === 'zh' ? '已保存笔记' : 'Saved note',

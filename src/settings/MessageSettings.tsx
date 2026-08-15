@@ -319,8 +319,8 @@ export function MessageSettings({ locale }: { locale: Locale }) {
 
       <p className="message-settings-footnote">
         {locale === 'zh'
-          ? '仅接受已绑定账号的私聊。手机端使用与客户端相同的 AI 笔记能力，因此可以按你的要求读取、创建或修改当前本地笔记库；它不能执行终端命令或修改应用设置。电脑需保持开机，Coffee Note 可在后台运行。'
-          : 'Only direct messages from the paired account are accepted. Phone chats use the same AI note capabilities as the desktop app, so they can read, create, or edit the current local library when asked; they cannot run terminal commands or change app settings. Keep this computer on with Coffee Note running in the background.'}
+          ? '仅接受已绑定账号的私聊。手机端使用与客户端相同的 AI 工作区能力，因此可以按你的要求读取、创建或修改当前工作区中的代码、文档和笔记；它不能执行终端命令或修改应用设置。电脑需保持开机，Coffee Note 可在后台运行。'
+          : 'Only direct messages from the paired account are accepted. Phone chats use the same AI workspace capabilities as the desktop app, so they can read, create, or edit code, documents, and notes in the current workspace when asked; they cannot run terminal commands or change app settings. Keep this computer on with Coffee Note running in the background.'}
       </p>
     </div>
   );

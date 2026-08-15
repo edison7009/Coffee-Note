@@ -423,7 +423,7 @@ pub fn message_channel_status(runtime: State<'_, ChannelRuntime>) -> ChannelStat
 pub fn update_message_context(knowledge_root: String, locale: String) -> Result<(), String> {
     let root = PathBuf::from(knowledge_root.trim());
     if !root.is_dir() {
-        return Err("Choose a valid knowledge directory first".to_string());
+        return Err("Choose a valid workspace directory first".to_string());
     }
     let normalized_root = root.to_string_lossy().to_string();
     let normalized_locale = if locale == "en" { "en" } else { "zh" }.to_string();

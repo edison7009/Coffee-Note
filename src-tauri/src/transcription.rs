@@ -346,30 +346,138 @@ async fn transcribe_local(
     let output_base = workspace.join("transcript");
     let wav = workspace.join("audio.wav");
     audio_to_wav(audio, &wav)?;
-    let mut command = Command::new(executable);
-    configure_hidden_command(&mut command);
-    command.arg("-m").arg(model_path);
-    if let Some(language) = local_whisper_language(locale) {
-        command.arg("-l").arg(language);
-    }
-    let output = command
-        .arg("-f")
-        .arg(wav)
-        .arg("-otxt")
-        .arg("-of")
-        .arg(&output_base)
-        .arg("-nt")
-        .arg("-np")
-        .output()
+
+    let initial_output = run_local_whisper(&executable, &model_path, &wav, &output_base, locale)
         .await
         .map_err(|error| format!("Could not start local transcription: {error}"))?;
+    #[cfg(windows)]
+    let (output, used_compatible_backend) =
+        if runtime == "native" && is_cpu_backend_startup_failure(&initial_output) {
+            let compatible_executable =
+                prepare_windows_compatible_cpu_runtime(&executable, &workspace)?;
+            let output = run_local_whisper(
+                &compatible_executable,
+                &model_path,
+                &wav,
+                &output_base,
+                locale,
+            )
+            .await
+            .map_err(|error| {
+                format!("Could not start the compatible local transcription engine: {error}")
+            })?;
+            (output, true)
+        } else {
+            (initial_output, false)
+        };
+    #[cfg(not(windows))]
+    let (output, used_compatible_backend) = (initial_output, false);
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        return Err(local_whisper_failure(&output, used_compatible_backend));
     }
     let transcript = tokio::fs::read_to_string(output_base.with_extension("txt"))
         .await
         .map_err(|error| format!("Could not read local transcription result: {error}"))?;
     usable_local_transcript(&transcript)
+}
+
+async fn run_local_whisper(
+    executable: &Path,
+    model_path: &Path,
+    wav: &Path,
+    output_base: &Path,
+    locale: &str,
+) -> std::io::Result<Output> {
+    let mut command = Command::new(executable);
+    configure_hidden_command(&mut command);
+    if let Some(runtime_dir) = executable.parent() {
+        command.current_dir(runtime_dir);
+    }
+    command.arg("-m").arg(model_path);
+    if let Some(language) = local_whisper_language(locale) {
+        command.arg("-l").arg(language);
+    }
+    command
+        .arg("-f")
+        .arg(wav)
+        .arg("-otxt")
+        .arg("-of")
+        .arg(output_base)
+        .arg("-nt")
+        .arg("-np")
+        .output()
+        .await
+}
+
+fn is_cpu_backend_startup_failure(output: &Output) -> bool {
+    cpu_backend_startup_failure(output.status.success(), &output.stderr)
+}
+
+fn cpu_backend_startup_failure(success: bool, stderr: &[u8]) -> bool {
+    if success {
+        return false;
+    }
+    let stderr = String::from_utf8_lossy(stderr).to_ascii_lowercase();
+    stderr.contains("load_backend: loaded cpu backend")
+        && !stderr.contains("whisper_init_from_file_with_params_no_state")
+}
+
+fn local_whisper_failure(output: &Output, used_compatible_backend: bool) -> String {
+    let status = output
+        .status
+        .code()
+        .map(|code| code.to_string())
+        .unwrap_or_else(|| "terminated by the operating system".to_string());
+    let attempt = if used_compatible_backend {
+        " after retrying with the compatible CPU backend"
+    } else {
+        ""
+    };
+    if is_cpu_backend_startup_failure(output) {
+        return format!(
+            "Local transcription engine stopped immediately after loading its CPU backend{attempt} (status {status}). The backend load succeeded, but the process produced no later diagnostic."
+        );
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let detail = if stderr.is_empty() { stdout } else { stderr };
+    if detail.is_empty() {
+        format!("Local transcription engine exited{attempt} (status {status}) without diagnostics")
+    } else {
+        format!("Local transcription engine exited{attempt} (status {status}): {detail}")
+    }
+}
+
+#[cfg(windows)]
+fn prepare_windows_compatible_cpu_runtime(
+    executable: &Path,
+    workspace: &Path,
+) -> Result<PathBuf, String> {
+    const REQUIRED_FILES: &[&str] = &[
+        "whisper-cli.exe",
+        "whisper.dll",
+        "ggml.dll",
+        "ggml-base.dll",
+        "ggml-cpu-x64.dll",
+    ];
+
+    let source_dir = executable
+        .parent()
+        .ok_or_else(|| "The local transcription runtime path is invalid".to_string())?;
+    let destination = workspace.join("compatible-cpu-runtime");
+    fs::create_dir_all(&destination)
+        .map_err(|error| format!("Could not prepare the compatible CPU backend: {error}"))?;
+    for name in REQUIRED_FILES {
+        let source = source_dir.join(name);
+        if !source.is_file() {
+            return Err(format!(
+                "The compatible CPU backend is incomplete: {name} is missing. Re-download the local engine."
+            ));
+        }
+        fs::copy(&source, destination.join(name))
+            .map_err(|error| format!("Could not prepare the compatible CPU backend: {error}"))?;
+    }
+    Ok(destination.join("whisper-cli.exe"))
 }
 
 fn local_whisper_language(locale: &str) -> Option<&'static str> {
@@ -1576,6 +1684,46 @@ mod tests {
         assert_eq!(local_whisper_language("zh"), Some("zh"));
         assert_eq!(local_whisper_language("en"), Some("en"));
         assert_eq!(local_whisper_language("auto"), None);
+    }
+
+    #[test]
+    fn cpu_backend_retry_only_matches_a_crash_during_backend_startup() {
+        const BACKEND: &[u8] = b"load_backend: loaded CPU backend from ggml-cpu-haswell.dll";
+        assert!(!cpu_backend_startup_failure(true, BACKEND));
+        assert!(cpu_backend_startup_failure(false, BACKEND));
+        assert!(!cpu_backend_startup_failure(
+            false,
+            b"load_backend: loaded CPU backend from ggml-cpu-haswell.dll\nwhisper_init_from_file_with_params_no_state: loading model"
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn compatible_cpu_runtime_contains_only_the_generic_backend() {
+        let root = fixture_root("compatible-cpu");
+        let source = root.join("source");
+        let workspace = root.join("workspace");
+        fs::create_dir_all(&source).expect("source runtime should be created");
+        for name in [
+            "whisper-cli.exe",
+            "whisper.dll",
+            "ggml.dll",
+            "ggml-base.dll",
+            "ggml-cpu-x64.dll",
+            "ggml-cpu-haswell.dll",
+        ] {
+            fs::write(source.join(name), name).expect("runtime fixture should be written");
+        }
+
+        let executable =
+            prepare_windows_compatible_cpu_runtime(&source.join("whisper-cli.exe"), &workspace)
+                .expect("compatible runtime should be prepared");
+        let destination = executable.parent().unwrap();
+        assert!(executable.is_file());
+        assert!(destination.join("ggml-cpu-x64.dll").is_file());
+        assert!(!destination.join("ggml-cpu-haswell.dll").exists());
+
+        fs::remove_dir_all(root).expect("compatible runtime fixture should be removed");
     }
 
     #[test]
