@@ -1,7 +1,7 @@
 [package]
 name = "coffee-note"
-version = "0.1.3"
-description = "Local-first note system with tier-based organization and AI assistance"
+version = "0.1.4"
+description = "Local-first workspace agent with tier-based organization and AI assistance"
 authors = ["Coffee Team"]
 license = "MIT"
 edition = "2021"
