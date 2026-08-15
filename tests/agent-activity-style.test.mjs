@@ -5,21 +5,17 @@ import test from 'node:test';
 const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 
-test('running agent activity mirrors the EchoBird typewriter shimmer and spinner', () => {
+test('running agent activity follows the latest tool with neutral shimmer', () => {
   assert.match(
     css,
-    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--agent-status-accent\)[\s\S]*?background-position:\s*200% center;[^}]*background-size:\s*200% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.4s linear infinite;/s,
+    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--ink\)[\s\S]*?background-position:\s*200% center;[^}]*background-size:\s*200% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.4s linear infinite;/s,
   );
   assert.match(css, /\.agent-turn-status\s*\{[^}]*font-weight:\s*400;/s);
-  assert.match(app, /AGENT_STATUS_VERBS/);
-  assert.match(app, /AGENT_STATUS_GLYPHS/);
-  assert.match(app, /setFrame\(\(value\) => \(value \+ 1\) % AGENT_STATUS_FRAMES\.length\)/);
-  assert.match(app, /'Wrangling'/);
-  assert.match(app, /'炮制'/);
-  assert.match(app, /agent-turn-status-caret/);
-  assert.match(app, /setTimeout\(\(\) => setPhase\('erase'\), 2800\)/);
-  assert.match(app, /setShown\(\(value\) => value\.slice\(0, -1\)\), 45\)/);
-  assert.match(app, /setShown\(target\.slice\(0, shown\.length \+ 1\)\), 70\)/);
+  assert.match(app, /formatAgentToolPhrase/);
+  assert.match(app, /latestRunningTool/);
+  assert.match(app, /toolName=\{latestRunningTool\}/);
+  assert.match(app, /agent-turn-status-shimmer/);
+  assert.match(app, /key=\{toolName\}/);
   assert.match(
     css,
     /@keyframes agent-turn-status-shimmer\s*\{\s*0%\s*\{\s*background-position:\s*200% center;[\s\S]*?100%\s*\{\s*background-position:\s*-200% center;/s,
@@ -32,8 +28,8 @@ test('running agent activity mirrors the EchoBird typewriter shimmer and spinner
   assert.doesNotMatch(app, /activity-dot-spinner/);
 });
 
-test('the active turn clock appears only after fifteen seconds', () => {
-  assert.match(app, /elapsedSeconds >= 15/);
+test('the active turn clock uses the muted tabular style', () => {
+  assert.match(app, /formatAgentRunDuration\(elapsedSeconds, locale\)/);
   assert.match(
     css,
     /\.agent-turn-status-clock\s*\{[^}]*color:\s*var\(--muted\);[^}]*font-size:\s*12px;[^}]*font-variant-numeric:\s*tabular-nums;[^}]*-webkit-text-fill-color:\s*var\(--muted\);/s,
