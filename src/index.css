@@ -693,7 +693,7 @@ body.resizing-panels * {
 
 .tree-chevron {
   flex: 0 0 auto;
-  color: #91a39f;
+  color: var(--muted);
   transition: transform 160ms ease;
 }
 
@@ -884,6 +884,11 @@ body.resizing-panels * {
   white-space: nowrap;
 }
 
+.library-tree .tree-child > svg,
+.tree-folder > svg {
+  flex: 0 0 auto;
+}
+
 .tree-selection-check {
   flex: 0 0 auto;
   margin-left: auto;
@@ -962,7 +967,7 @@ html.tree-drag-active * {
   width: 100%;
   min-height: 31px;
   padding: 4px 8px 4px 0;
-  color: #465c5a;
+  color: #555559;
   background: transparent;
   border: 0;
   border-radius: 6px;
@@ -1018,7 +1023,7 @@ html.tree-drag-active * {
 }
 
 [data-theme='dark'] .tree-folder {
-  color: #b3b7b5;
+  color: #c7c7cc;
 }
 
 /* ── Right-click context menu ────────────────────────────────────────────── */
@@ -5570,7 +5575,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   gap: 7px;
   height: 26px;
   padding: 0;
-  color: var(--agent-status-accent);
+  color: var(--ink);
   font-size: 14px;
   font-weight: 400;
   line-height: 26px;
@@ -5580,7 +5585,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 .agent-turn-status-glyph {
   display: inline-block;
   width: 13px;
-  color: var(--agent-status-accent);
+  color: var(--ink);
   font-size: 16px;
   line-height: 1;
   text-align: center;
@@ -5596,11 +5601,11 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 .agent-turn-status-shimmer {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--agent-status-accent) 65%, white) 0%,
-    color-mix(in srgb, var(--agent-status-accent) 65%, white) 40%,
+    color-mix(in srgb, var(--ink) 65%, white) 0%,
+    color-mix(in srgb, var(--ink) 65%, white) 40%,
     white 50%,
-    color-mix(in srgb, var(--agent-status-accent) 65%, white) 60%,
-    color-mix(in srgb, var(--agent-status-accent) 65%, white) 100%
+    color-mix(in srgb, var(--ink) 65%, white) 60%,
+    color-mix(in srgb, var(--ink) 65%, white) 100%
   );
   background-position: 200% center;
   background-size: 200% 100%;
@@ -5617,7 +5622,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   height: 1em;
   margin-left: 2px;
   align-self: center;
-  background: var(--agent-status-accent);
+  background: var(--ink);
   animation: agent-turn-status-caret-blink 1s steps(2) infinite;
 }
 

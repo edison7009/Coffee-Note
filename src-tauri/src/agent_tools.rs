@@ -22,13 +22,14 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
     vec![
         ToolDef {
             name: "save_note".into(),
-            description: "Save a structured Markdown note to the user's local knowledge library. \
+                description: "Save a structured Markdown note to the user's local knowledge library. \
                 Use this whenever the user wants to record, save, or remember information — \
                 a summary, a finding, a plan, a comparison, a protocol, or any note. \
                 The note is saved as a .md file in the library. \
                 IMPORTANT: you MUST include both a non-empty 'title' and a non-empty 'content' \
                 string in the arguments; calls with missing or empty arguments are rejected. \
-                Choose category: 'inbox' for general notes, 'dossiers' for strategy/compound notes, \
+                Choose category: 'workspace' to save directly into the currently selected library root, \
+                'inbox' for general notes, 'dossiers' for strategy/compound notes, \
                 'cases' for person/protocol notes, 'stories' for anecdote/observation notes."
                 .into(),
             parameters: json!({
@@ -44,8 +45,8 @@ pub fn get_tool_definitions() -> Vec<ToolDef> {
                     },
                     "category": {
                         "type": "string",
-                        "enum": ["inbox", "dossiers", "cases", "stories"],
-                        "description": "Which library folder to save into. Default: inbox"
+                        "enum": ["workspace", "inbox", "dossiers", "cases", "stories"],
+                        "description": "Which library folder to save into. 'workspace' writes into the current workspace root; default: inbox"
                     },
                     "sources": {
                         "type": "array",
@@ -278,21 +279,31 @@ pub async fn execute_tool(
     locale: &str,
     excluded_prefixes: &[String],
     web_reader: &WebReaderSettings,
+    force_save_note_workspace: bool,
 ) -> ToolResult {
+    let args = if name == "save_note" && force_save_note_workspace {
+        let mut value = args.clone();
+        if let Some(object) = value.as_object_mut() {
+            object.insert("category".to_string(), json!("workspace"));
+        }
+        value
+    } else {
+        args.clone()
+    };
     match name {
-        "save_note" => exec_save_note(args, knowledge_root, locale),
-        "update_plan" => exec_update_plan(args, my_info_root, locale),
-        "update_note" => exec_update_note(args, knowledge_root, locale),
-        "update_tier" => exec_update_tier(args, knowledge_root, locale),
+        "save_note" => exec_save_note(&args, knowledge_root, locale),
+        "update_plan" => exec_update_plan(&args, my_info_root, locale),
+        "update_note" => exec_update_note(&args, knowledge_root, locale),
+        "update_tier" => exec_update_tier(&args, knowledge_root, locale),
         "search_library" => {
-            exec_search_library_scoped(args, knowledge_root, locale, excluded_prefixes)
+            exec_search_library_scoped(&args, knowledge_root, locale, excluded_prefixes)
         }
         "read_note" => {
-            exec_read_note_scoped(args, knowledge_root, excluded_prefixes, Some(my_info_root))
+            exec_read_note_scoped(&args, knowledge_root, excluded_prefixes, Some(my_info_root))
         }
-        "read_local_file" => exec_read_local_file(args, locale).await,
-        "web_fetch" => exec_web_fetch(args, web_reader).await,
-        "transcribe_media" => exec_transcribe_media(args, locale, knowledge_root).await,
+        "read_local_file" => exec_read_local_file(&args, locale).await,
+        "web_fetch" => exec_web_fetch(&args, web_reader).await,
+        "transcribe_media" => exec_transcribe_media(&args, locale, knowledge_root).await,
         "suggest_memory" => ToolResult {
             success: true,
             output: "Memory suggestion sent for user confirmation.".into(),
@@ -683,7 +694,7 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
         )
     };
 
-    let valid_categories = ["inbox", "dossiers", "cases", "stories"];
+    let valid_categories = ["workspace", "inbox", "dossiers", "cases", "stories"];
     if !valid_categories.contains(&category) {
         return ToolResult {
             success: false,
@@ -697,7 +708,11 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
     // Sanitize filename
     let safe_name = sanitize_filename(title);
     let filename = format!("{safe_name}.md");
-    let relative = format!("{category}/{filename}");
+    let relative = if category == "workspace" {
+        filename.clone()
+    } else {
+        format!("{category}/{filename}")
+    };
     let file_path = match safe_write_path(root, &relative, ".md") {
         Ok(path) => path,
         Err(error) => {
@@ -1241,6 +1256,27 @@ mod tests {
         assert!(result.success, "{}", result.output);
         assert!(dir.join("inbox").join("健身计划.md").exists());
         assert!(result.output.contains(&dir.to_string_lossy().to_string()));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_note_workspace_writes_directly_into_the_selected_root() {
+        let dir = std::env::temp_dir().join(format!(
+            "ol-save-note-workspace-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        let result = exec_save_note(
+            &json!({
+                "title": "工作区根目录笔记",
+                "content": "# 工作区根目录笔记\n\n直接保存在根目录。",
+                "category": "workspace"
+            }),
+            &dir,
+            "zh",
+        );
+        assert!(result.success, "{}", result.output);
+        assert!(dir.join("工作区根目录笔记.md").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -882,7 +882,9 @@ pub async fn run_agent(
     session_map: SharedSessionMap,
     research_context: Option<String>,
 ) -> Result<(), String> {
-    let knowledge_root = std::path::PathBuf::from(&request.knowledge_root);
+    let knowledge_root = std::path::PathBuf::from(&request.knowledge_root)
+        .canonicalize()
+        .map_err(|error| format!("Selected knowledge directory is unavailable: {error}"))?;
     let my_info_root = crate::my_info_root();
     let mut excluded_prefixes = my_info_exclusion_prefixes(&knowledge_root, &my_info_root);
     if !request.include_priorities {
@@ -894,6 +896,7 @@ pub async fn run_agent(
             .filter_map(|section| my_info_section_path(section, &request.locale))
             .collect::<Vec<_>>()
     });
+    let force_save_note_workspace = request.skill_id.as_deref() == Some("coffee-note-media-transcribe");
 
     let provider = match request.provider.to_lowercase().as_str() {
         "anthropic" => LlmProvider::Anthropic,
@@ -910,6 +913,17 @@ pub async fn run_agent(
 
     let tools = agent_tools::get_tool_definitions();
     let mut system_prompt = build_system_prompt(&request.locale);
+    if request.locale == "en" {
+        system_prompt.push_str(&format!(
+            "\n\nCurrent workspace root: {}",
+            knowledge_root.display()
+        ));
+    } else {
+        system_prompt.push_str(&format!(
+            "\n\n当前工作区根目录：{}",
+            knowledge_root.display()
+        ));
+    }
     if request.source_channel.is_some() {
         let channel_rule = if request.locale == "en" {
             " A linked phone channel is only another conversation entry point. Respond to ordinary text as an ordinary conversation and never save it merely because it arrived from a phone. If a message consists primarily of a public URL, treat that as an implicit request to fetch, organize, and save the source as a local note. For every other save or edit, follow the user's expressed intent and use the same tools and judgment as the desktop chat."
@@ -1391,6 +1405,7 @@ pub async fn run_agent(
                         &loc,
                         &exclusions,
                         &web_reader,
+                        force_save_note_workspace,
                     )
                     .await
                 }));
@@ -1436,6 +1451,7 @@ pub async fn run_agent(
                     &request.locale,
                     &excluded_prefixes,
                     &request.web_reader,
+                    force_save_note_workspace,
                 )
                 .await;
                 if tc.name == "suggest_memory" && result.success {

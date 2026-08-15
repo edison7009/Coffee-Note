@@ -1457,15 +1457,6 @@ function App() {
     storageKey('knowledge-root:v2'),
     '',
   );
-  const isManagedDefaultRoot = (root: string) => {
-    const normalized = root.replace(/\\/g, '/').toLowerCase();
-    return (
-      normalized.endsWith('.coffee-note/我的笔记(演示)') ||
-      normalized.endsWith('.tiernote/演示笔记')
-    );
-  };
-  const normalizedKnowledgeRoot =
-    knowledgeRoot && !isManagedDefaultRoot(knowledgeRoot) ? knowledgeRoot : '';
   const [modelSettings, setModelSettings] = useState<ModelSettings>(createEmptyModelSettings);
   const [messageChannelStatus, setMessageChannelStatus] = useState<MessageChannelStatus>({
     weixin: 'disconnected',
@@ -1544,6 +1535,7 @@ function App() {
   }, [selectedSkillId, skillCatalog.skills]);
 
   const [library, setLibrary] = useState<LibrarySnapshot>(fallbackLibrary);
+  const activeKnowledgeRoot = knowledgeRoot || library.root || '';
   const [loadingLibrary, setLoadingLibrary] = useState(true);
   const [view, setView] = useState<View>('home');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -1560,10 +1552,10 @@ function App() {
   const [multiSelectActive, setMultiSelectActive] = useState(false);
   const [selectedContextNotes, setSelectedContextNotes] = useState<ContextNoteSelection[]>([]);
   const [implicitContextDismissed, setImplicitContextDismissed] = useState(false);
-  const libraryRootRef = useRef(library.root || normalizedKnowledgeRoot || '');
+  const libraryRootRef = useRef(activeKnowledgeRoot);
   const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const libraryGenerationRef = useRef(0);
-  libraryRootRef.current = normalizedKnowledgeRoot || library.root || '';
+  libraryRootRef.current = activeKnowledgeRoot;
   const fileNotePathRef = useRef(fileNotePath);
   fileNotePathRef.current = fileNotePath;
   const fileNoteSourceRef = useRef(fileNoteSource);
@@ -1779,11 +1771,11 @@ function App() {
     let alive = true;
     const generation = ++libraryGenerationRef.current;
     setLoadingLibrary(true);
-    loadLibrary(normalizedKnowledgeRoot || undefined, locale)
+    loadLibrary(knowledgeRoot || undefined, locale)
       .then((snapshot) => {
         if (!alive || generation !== libraryGenerationRef.current) return;
         setLibrary(snapshot);
-        if (!normalizedKnowledgeRoot && snapshot.root) setKnowledgeRoot(snapshot.root);
+        if (!knowledgeRoot && snapshot.root) setKnowledgeRoot(snapshot.root);
       })
       .catch(() => {
         if (alive && generation === libraryGenerationRef.current) {
@@ -1798,7 +1790,7 @@ function App() {
     return () => {
       alive = false;
     };
-  }, [normalizedKnowledgeRoot, locale]);
+  }, [knowledgeRoot, locale]);
 
   useEffect(() => {
     const root = library.root;
@@ -3166,7 +3158,7 @@ function App() {
       <Sidebar
         locale={locale}
         view={view}
-        libraryRoot={normalizedKnowledgeRoot || library.root}
+        libraryRoot={activeKnowledgeRoot}
         activeFilePath={view === 'file' ? fileNotePath : null}
         multiSelectActive={multiSelectActive}
         selectedContextPaths={selectedContextPaths}
@@ -3476,7 +3468,7 @@ function App() {
 
       {librarySearchOpen && (
         <LibrarySearchDialog
-          root={normalizedKnowledgeRoot || library.root}
+          root={activeKnowledgeRoot}
           locale={locale}
           onClose={() => setLibrarySearchOpen(false)}
           onOpenFile={(relativePath) => {
@@ -4529,17 +4521,17 @@ function LibraryTree({
 
   const orderedEntries = useCallback((dirPath: string, entries: DirectoryEntry[]) => {
     const saved = treeOrder[dirPath] || [];
-    if (saved.length === 0) return entries;
     const positions = new Map(saved.map((path, index) => [path, index]));
     return [...entries].sort((left, right) => {
+      if (left.isDir !== right.isDir) return left.isDir ? -1 : 1;
       const leftIndex = positions.get(left.relativePath);
       const rightIndex = positions.get(right.relativePath);
       if (leftIndex !== undefined && rightIndex !== undefined) return leftIndex - rightIndex;
       if (leftIndex !== undefined) return -1;
       if (rightIndex !== undefined) return 1;
-      return 0;
+      return left.name.localeCompare(right.name, locale, { sensitivity: 'base' });
     });
-  }, [treeOrder]);
+  }, [locale, treeOrder]);
 
   const refreshDir = useCallback((dirPath: string) => {
     listDirectory(rootRef.current, dirPath)
@@ -5111,7 +5103,7 @@ function LibraryTree({
         }}
         onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
       >
-        {NOTE_ICONS[entry.icon || ''] || <FileText size={13} />}
+        {NOTE_ICONS[entry.icon || ''] || NOTE_ICONS.filetext}
         <span className="tree-child-label">{title}</span>
         {multiSelectActive && selected && (
           <Check className="tree-selection-check" size={15} strokeWidth={2.5} aria-hidden="true" />
@@ -6932,18 +6924,15 @@ function formatAgentStatusPhrase(verb: string, locale: Locale): string {
   return locale === 'zh' ? `正在${verb}中…` : `${verb}…`;
 }
 
-function AgentTurnStatus({ locale }: { locale: Locale }) {
+function formatAgentToolPhrase(toolName: string | undefined, locale: Locale): string {
+  const name = toolName?.replaceAll('_', ' ').trim();
+  if (!name) return locale === 'zh' ? '正在处理 >' : 'Working >';
+  return locale === 'zh' ? `正在执行 ${name} >` : `Running ${name} >`;
+}
+
+function AgentTurnStatus({ locale, toolName }: { locale: Locale; toolName?: string }) {
   const [startedAt] = useState(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [frame, setFrame] = useState(0);
-  const pickPhrase = () => {
-    const verbs = AGENT_STATUS_VERBS[locale];
-    const verb = verbs[Math.floor(Math.random() * verbs.length)];
-    return formatAgentStatusPhrase(verb, locale);
-  };
-  const [target, setTarget] = useState(() => pickPhrase());
-  const [shown, setShown] = useState(target);
-  const [phase, setPhase] = useState<'show' | 'erase' | 'type'>('show');
 
   useEffect(() => {
     const update = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
@@ -6952,60 +6941,16 @@ function AgentTurnStatus({ locale }: { locale: Locale }) {
     return () => window.clearInterval(timer);
   }, [startedAt]);
 
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => setFrame((value) => (value + 1) % AGENT_STATUS_FRAMES.length),
-      100,
-    );
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const next = pickPhrase();
-    setTarget(next);
-    setShown(next);
-    setPhase('show');
-    // Locale changes should restart the phrase in the new language.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale]);
-
-  useEffect(() => {
-    if (phase === 'show') {
-      const timer = window.setTimeout(() => setPhase('erase'), 2800);
-      return () => window.clearTimeout(timer);
-    }
-    if (phase === 'erase') {
-      if (shown.length === 0) {
-        setTarget(pickPhrase());
-        setPhase('type');
-        return;
-      }
-      const timer = window.setTimeout(() => setShown((value) => value.slice(0, -1)), 45);
-      return () => window.clearTimeout(timer);
-    }
-    if (shown.length >= target.length) {
-      setPhase('show');
-      return;
-    }
-    const timer = window.setTimeout(() => setShown(target.slice(0, shown.length + 1)), 70);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, shown, target]);
+  const phrase = formatAgentToolPhrase(toolName, locale);
 
   return (
     <div className="agent-turn-status" role="status" aria-live="polite">
-      <span className="agent-turn-status-glyph" aria-hidden="true">
-        {AGENT_STATUS_FRAMES[frame]}
-      </span>
       <span className="agent-turn-status-text">
-        <span className="agent-turn-status-shimmer">{shown}</span>
-        {phase !== 'show' && <span className="agent-turn-status-caret" aria-hidden="true" />}
+        <span className="agent-turn-status-shimmer" key={toolName}>{phrase}</span>
       </span>
-      {elapsedSeconds >= 15 && (
-        <span className="agent-turn-status-clock" aria-hidden="true">
-          {formatAgentRunDuration(elapsedSeconds, locale)}
-        </span>
-      )}
+      <span className="agent-turn-status-clock" aria-hidden="true">
+        {formatAgentRunDuration(elapsedSeconds, locale)}
+      </span>
     </div>
   );
 }
@@ -7037,6 +6982,15 @@ function ConversationView({
   const [jumpPreviewTop, setJumpPreviewTop] = useState(0);
   const renderedConversationRef = useRef('');
   const previousScrollHeightRef = useRef(0);
+  const latestRunningTool = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.role === 'tool_call' && message.toolStatus === 'running') {
+        return message.toolName;
+      }
+    }
+    return undefined;
+  }, [messages]);
   const jumpMessages = useMemo(
     () => messages.filter((message) => message.role === 'user'),
     [messages],
@@ -7254,6 +7208,7 @@ function ConversationView({
       <div ref={messageListRef} className="message-list">
         {messages.map((message) => {
           if (message.role === 'tool_call') {
+            if (message.toolStatus === 'running') return null;
             const toolLabels: Record<string, Record<NonNullable<ChatMessage['toolStatus']>, string>> = {
               save_note: {
                 running: locale === 'zh' ? '正在保存笔记' : 'Saving note',
@@ -7419,7 +7374,7 @@ function ConversationView({
             </div>
           );
         })}
-        {busy && <AgentTurnStatus locale={locale} />}
+        {busy && <AgentTurnStatus locale={locale} toolName={latestRunningTool} />}
         <div ref={endRef} />
       </div>
       {textMenu && (
