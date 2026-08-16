@@ -34,7 +34,9 @@ const MAX_RESEARCH_CONTEXT_BYTES: usize = 32_000;
 const LATEST_RELEASE_API: &str =
     "https://api.github.com/repos/edison7009/Coffee-Note/releases/latest";
 const WEBSITE_VERSION_API: &str = "https://note.coffeecli.com/version.json?platform=windows";
+#[cfg(target_os = "windows")]
 const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://note.coffeecli.com/download/windows";
+#[cfg(target_os = "windows")]
 const RELEASE_DOWNLOAD_PREFIX: &str =
     "https://github.com/edison7009/Coffee-Note/releases/download/";
 const TRANSCRIPTION_CONFIG_FILE: &str = "transcription.json";
@@ -141,9 +143,11 @@ struct CaptureRequest {
 #[derive(Debug, Deserialize)]
 struct GithubRelease {
     tag_name: String,
+    #[cfg(target_os = "windows")]
     assets: Vec<GithubReleaseAsset>,
 }
 
+#[cfg(target_os = "windows")]
 #[derive(Debug, Clone, Deserialize)]
 struct GithubReleaseAsset {
     name: String,
@@ -156,6 +160,7 @@ struct WebsiteVersion {
     version: String,
 }
 
+#[cfg(target_os = "windows")]
 #[derive(Debug, Clone, Serialize)]
 struct SelfUpdateProgress {
     status: &'static str,

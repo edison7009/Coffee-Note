@@ -31,9 +31,9 @@ static MEDIA_FETCHER_READY: tokio::sync::OnceCell<PathBuf> = tokio::sync::OnceCe
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-fn configure_hidden_command(command: &mut Command) {
+fn configure_hidden_command(_command: &mut Command) {
     #[cfg(windows)]
-    command.creation_flags(CREATE_NO_WINDOW);
+    _command.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[derive(Default)]
