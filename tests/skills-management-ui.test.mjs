@@ -17,6 +17,9 @@ test('settings includes a dedicated skills page backed by one shared catalog', (
   assert.match(settingsSource, /技能管理/);
   assert.match(settingsSource, /catalog\.categories\.map/);
   assert.match(settingsSource, /visiblePlugins\.map/);
+  assert.match(settingsSource, /className="skills-package-back"/);
+  assert.match(settingsSource, /className="skills-package-grid"/);
+  assert.match(settingsSource, /selectedPluginSkills\.map/);
 });
 
 test('plugin source form only asks for Git address and category', () => {
@@ -31,7 +34,7 @@ test('plugin source form only asks for Git address and category', () => {
   assert.doesNotMatch(settingsSource, /modal-backdrop|aria-modal|title=|window\.confirm|plugin-dialog|askConfirmation/);
   assert.match(settingsSource, /安装技能后，可以完成更复杂、更具挑战的任务。/);
   assert.match(settingsSource, /Coffee Note 仅兼容 Codex 插件市场的技能安装方式。/);
-  assert.match(cssSource, /\.skills-row\s*\{[^}]*grid-template-columns:\s*34px minmax\(0, 1fr\) auto;/s);
+  assert.match(cssSource, /\.skills-package-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/s);
 });
 
 test('skill sources are cached once and metadata stays read only', () => {
@@ -43,6 +46,7 @@ test('skill sources are cached once and metadata stays read only', () => {
     'create_skill_category',
     'rename_skill_category',
     'delete_skill_category',
+    'set_skill_enabled',
   ]) {
     assert.match(rustSource, new RegExp(`pub (?:async )?fn ${command}`));
   }
@@ -55,6 +59,8 @@ test('skill sources are cached once and metadata stays read only', () => {
   assert.match(apiSource, /invoke<SkillCatalog>\('list_skills'\)/);
   assert.match(apiSource, /invoke<SkillCatalog>\('add_skill_source'/);
   assert.match(apiSource, /invoke<SkillCatalog>\('update_skill_source'/);
+  assert.match(apiSource, /invoke<SkillCatalog>\('set_skill_enabled'/);
+  assert.doesNotMatch(rustSource, /MAX_SKILLS_PER_SOURCE|more than \{MAX_SKILLS_PER_SOURCE\} skills/);
 });
 
 test('selected skill is loaded from its source and added to the request prompt', () => {
@@ -74,13 +80,30 @@ test('every plugin row exposes read-only metadata with update and delete actions
     /className="skills-row-actions">\s*\{updatedPluginNotice\?\.pluginId === plugin\.id[\s\S]*className="skills-row-notice"[\s\S]*onClick=\{\(\) => void refreshPlugin\(plugin\)\}/,
   );
   assert.match(cssSource, /\.skills-row-notice\s*\{[^}]*text-overflow:\s*ellipsis;/s);
-  assert.match(cssSource, /\.skills-row-icon\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--ink\) 7%, var\(--secondary-surface\)\)/s);
+  assert.doesNotMatch(cssSource, /\.skills-row-icon\s*\{[^}]*background:/s);
+  assert.match(cssSource, /\.skills-row-icon img\s*\{[^}]*width:\s*30px;[^}]*height:\s*30px;/s);
   assert.match(transcriptionCssSource, /\.transcription-component-mark\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--ink\) 7%, var\(--secondary-surface\)\)/s);
   assert.match(settingsSource, /className="skills-version"/);
   assert.match(settingsSource, /更新中…/);
   assert.match(settingsSource, /<RefreshCw/);
   assert.match(settingsSource, /<Trash2/);
   assert.doesNotMatch(settingsSource, /startEditSkill|updateSkill\(/);
+});
+
+test('skill packages open a two-column detail page with independent skill switches', () => {
+  assert.match(settingsSource, /setSelectedPluginId\(plugin\.id\)/);
+  assert.match(settingsSource, /返回技能管理|Back to skill management/);
+  assert.match(settingsSource, /setSkillEnabled\(skill\.id, skill\.sourceId, !skill\.enabled\)/);
+  assert.match(settingsSource, /已启用 \$\{enabledSkillCount\} \/ \$\{selectedPluginSkills\.length\} 个技能/);
+  assert.match(rustSource, /disabled_skill_ids: BTreeSet<String>/);
+  assert.match(rustSource, /meta\.enabled && !meta\.disabled_skill_ids\.contains\(&id\)/);
+  assert.match(rustSource, /The selected skill is disabled/);
+  assert.match(settingsSource, /skill\.iconId && catalog\.icons\[skill\.iconId\][\s\S]*?<img src=\{catalog\.icons\[skill\.iconId\]\} alt=""/);
+  assert.match(settingsSource, /plugin\.iconId && catalog\.icons\[plugin\.iconId\][\s\S]*?<img src=\{catalog\.icons\[plugin\.iconId\]\} alt=""/);
+  assert.match(rustSource, /icons: BTreeMap<String, String>/);
+  assert.match(rustSource, /const MAX_SKILL_BYTES: u64 = 512 \* 1024/);
+  assert.match(rustSource, /fn nearest_plugin_manifest/);
+  assert.match(rustSource, /fn manifest_icon_data_url/);
 });
 
 test('built-in media skill is visible, toggleable, and has no source actions', () => {

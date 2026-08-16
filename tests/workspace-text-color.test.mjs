@@ -54,6 +54,17 @@ test('tier list dark surfaces remain transparent to the selected color scheme', 
   assert.doesNotMatch(css, /\[data-theme='dark'\] \.tier-(?:map|row|label|items)\s*\{[^}]*(?:#1c1e1d|#252725|#363937|#383b39|rgba\(31, 33, 32)/s);
 });
 
+test('tier dragging uses the shared day and night interaction color', () => {
+  assert.match(
+    css,
+    /\.tier-drag-placeholder\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--switch-on\) 28%, var\(--tertiary-surface\)\);/s,
+  );
+  assert.match(
+    css,
+    /\.tier-item-ghost\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--switch-on\) 28%, var\(--tertiary-surface\)\);/s,
+  );
+});
+
 test('home entry cards and tier list use borderless color-block surfaces', () => {
   assert.match(css, /\.start-cards\s*\{[^}]*gap:\s*16px;/s);
   assert.match(

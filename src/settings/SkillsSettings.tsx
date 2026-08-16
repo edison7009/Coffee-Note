@@ -1,4 +1,4 @@
-import { Check, Pencil, Plus, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Plus, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   addSkillSource,
@@ -7,6 +7,7 @@ import {
   deleteSkillSource,
   moveSkillSource,
   renameSkillCategory,
+  setSkillEnabled,
   setSkillSourceEnabled,
   setBuiltinSkillEnabled,
   updateSkillFromSource,
@@ -15,6 +16,7 @@ import { SettingsSelect } from './SettingsSelect';
 import type {
   Locale,
   SkillCatalog,
+  SkillDefinition,
   SkillPlugin,
   SkillSourceDraft,
 } from '../types';
@@ -51,6 +53,16 @@ function pluginDescription(plugin: SkillPlugin, locale: Locale) {
   return plugin.description;
 }
 
+function childSkillTitle(skill: SkillDefinition, locale: Locale) {
+  if (skill.builtin && locale === 'en') return 'Media to text';
+  return skill.title;
+}
+
+function childSkillDescription(skill: SkillDefinition, locale: Locale) {
+  if (skill.builtin && locale === 'en') return 'Transcribe audio or video and organize it into a note.';
+  return skill.description;
+}
+
 export function SkillsSettings({
   locale,
   catalog,
@@ -73,6 +85,9 @@ export function SkillsSettings({
   } | null>(null);
   const [editingPluginId, setEditingPluginId] = useState<string | null>(null);
   const [editCategoryId, setEditCategoryId] = useState('');
+  const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
+  const [togglingSkillId, setTogglingSkillId] = useState<string | null>(null);
+  const [togglingPluginId, setTogglingPluginId] = useState<string | null>(null);
 
   const activeCategory = catalog.categories.find((category) => category.id === activeCategoryId)
     ?? catalog.categories[0];
@@ -80,12 +95,27 @@ export function SkillsSettings({
     () => catalog.plugins.filter((plugin) => plugin.categoryId === activeCategory?.id),
     [activeCategory?.id, catalog.plugins],
   );
+  const selectedPlugin = catalog.plugins.find((plugin) => plugin.id === selectedPluginId) ?? null;
+  const selectedPluginSkills = useMemo(
+    () => selectedPlugin
+      ? catalog.skills.filter((skill) => selectedPlugin.builtin
+        ? skill.id === selectedPlugin.id
+        : skill.sourceId === selectedPlugin.id)
+      : [],
+    [catalog.skills, selectedPlugin],
+  );
 
   useEffect(() => {
     if (!catalog.categories.some((category) => category.id === activeCategoryId)) {
       setActiveCategoryId(catalog.categories[0]?.id ?? 'copywriting');
     }
   }, [activeCategoryId, catalog.categories]);
+
+  useEffect(() => {
+    if (selectedPluginId && !catalog.plugins.some((plugin) => plugin.id === selectedPluginId)) {
+      setSelectedPluginId(null);
+    }
+  }, [catalog.plugins, selectedPluginId]);
 
   const closeSourceForm = () => {
     setFormOpen(false);
@@ -152,12 +182,29 @@ export function SkillsSettings({
     setUpdatedPluginNotice(null);
     try {
       onCatalogChange(await deleteSkillSource(plugin.id));
+      if (selectedPluginId === plugin.id) setSelectedPluginId(null);
     } catch (nextError) {
       setActionError(String(nextError));
     }
   };
 
+  const toggleSkillEnabled = async (skill: SkillDefinition) => {
+    if (togglingSkillId || togglingPluginId || !selectedPlugin?.enabled) return;
+    setTogglingSkillId(skill.id);
+    setActionError('');
+    setActionNotice('');
+    try {
+      onCatalogChange(await setSkillEnabled(skill.id, skill.sourceId, !skill.enabled));
+    } catch (nextError) {
+      setActionError(String(nextError));
+    } finally {
+      setTogglingSkillId(null);
+    }
+  };
+
   const togglePluginEnabled = async (plugin: SkillPlugin) => {
+    if (togglingPluginId || togglingSkillId) return;
+    setTogglingPluginId(plugin.id);
     setActionError('');
     setActionNotice('');
     setUpdatedPluginNotice(null);
@@ -167,6 +214,8 @@ export function SkillsSettings({
         : setSkillSourceEnabled(plugin.id, !plugin.enabled)));
     } catch (nextError) {
       setActionError(String(nextError));
+    } finally {
+      setTogglingPluginId(null);
     }
   };
 
@@ -244,6 +293,91 @@ export function SkillsSettings({
       setSaving(false);
     }
   };
+
+  if (selectedPlugin) {
+    const enabledSkillCount = selectedPluginSkills.filter((skill) => skill.enabled).length;
+    return (
+      <section className="skills-settings skills-package-detail" aria-labelledby="skills-package-title">
+        <button
+          type="button"
+          className="skills-package-back"
+          onClick={() => {
+            setSelectedPluginId(null);
+            setActionError('');
+            setActionNotice('');
+          }}
+        >
+          <ArrowLeft size={17} />
+          {locale === 'zh' ? '返回技能管理' : 'Back to skill management'}
+        </button>
+
+        <header className="skills-package-heading">
+          <div>
+            <div className="skills-package-title-line">
+              <h2 id="skills-package-title">{pluginName(selectedPlugin, locale)}</h2>
+              {selectedPlugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '内置' : 'Built-in'}</span>}
+              {selectedPlugin.codexCompatible && <span className="skills-built-in-mark">{locale === 'zh' ? 'Codex兼容' : 'Codex compatible'}</span>}
+              {selectedPlugin.version && <span className="skills-version">{selectedPlugin.version}</span>}
+            </div>
+            <small>
+              {locale === 'zh'
+                ? `已启用 ${enabledSkillCount} / ${selectedPluginSkills.length} 个技能`
+                : `${enabledSkillCount} of ${selectedPluginSkills.length} skills enabled`}
+            </small>
+          </div>
+          <div className="skills-package-master">
+            <span>{locale === 'zh' ? '全部技能' : 'All skills'}</span>
+            <button
+              type="button"
+              className="skills-row-enabled"
+              role="switch"
+              aria-checked={selectedPlugin.enabled}
+              disabled={togglingPluginId !== null || togglingSkillId !== null}
+              aria-label={locale === 'zh'
+                ? `${selectedPlugin.enabled ? '停用' : '启用'}技能包 ${selectedPlugin.name}`
+                : `${selectedPlugin.enabled ? 'Disable' : 'Enable'} skill package ${selectedPlugin.name}`}
+              onClick={() => void togglePluginEnabled(selectedPlugin)}
+            >
+              <span aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        {(error || actionError) && <p className="skills-error" role="alert">{actionError || error}</p>}
+
+        <div className="skills-package-grid" aria-live="polite">
+          {selectedPluginSkills.map((skill) => (
+            <article className={`skills-skill-card${skill.enabled ? '' : ' is-disabled'}`} key={skill.id}>
+              <div className="skills-row-icon" aria-hidden="true">
+                {skill.iconId && catalog.icons[skill.iconId]
+                  ? <img src={catalog.icons[skill.iconId]} alt="" />
+                  : <Sparkles size={22} strokeWidth={1.7} />}
+              </div>
+              <div className="skills-skill-copy">
+                <strong>{childSkillTitle(skill, locale)}</strong>
+                <p>{childSkillDescription(skill, locale)}</p>
+              </div>
+              <div className="skills-row-actions">
+                <button
+                  type="button"
+                  className="skills-row-enabled"
+                  role="switch"
+                  aria-checked={skill.enabled}
+                  disabled={!selectedPlugin.enabled || togglingSkillId !== null || togglingPluginId !== null}
+                  aria-label={locale === 'zh'
+                    ? `${skill.enabled ? '停用' : '启用'}技能 ${skill.title}`
+                    : `${skill.enabled ? 'Disable' : 'Enable'} skill ${skill.title}`}
+                  onClick={() => void toggleSkillEnabled(skill)}
+                >
+                  <span aria-hidden="true" />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="skills-settings" aria-labelledby="skills-settings-title">
@@ -409,18 +543,27 @@ export function SkillsSettings({
           return (
             <div className="skills-row-wrap" key={plugin.id}>
               <div className={`skills-row${plugin.enabled ? '' : ' is-disabled'}`}>
-                <div className="skills-row-icon" aria-hidden="true">
-                  <Sparkles size={17} strokeWidth={1.8} />
-                </div>
-                <div className="skills-row-copy">
-                  <div>
-                    <strong>{pluginName(plugin, locale)}</strong>
-                    {plugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '内置' : 'Built-in'}</span>}
-                    {plugin.codexCompatible && <span className="skills-built-in-mark">{locale === 'zh' ? 'Codex兼容' : 'Codex compatible'}</span>}
-                    {plugin.version && <span className="skills-version">{plugin.version}</span>}
+                <button
+                  type="button"
+                  className="skills-row-open"
+                  aria-label={locale === 'zh' ? `打开技能包 ${plugin.name}` : `Open skill package ${plugin.name}`}
+                  onClick={() => setSelectedPluginId(plugin.id)}
+                >
+                  <div className="skills-row-icon" aria-hidden="true">
+                    {plugin.iconId && catalog.icons[plugin.iconId]
+                      ? <img src={catalog.icons[plugin.iconId]} alt="" />
+                      : <Sparkles size={22} strokeWidth={1.7} />}
                   </div>
-                  <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || pluginDescription(plugin, locale)}</p>
-                </div>
+                  <div className="skills-row-copy">
+                    <div>
+                      <strong>{pluginName(plugin, locale)}</strong>
+                      {plugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '内置' : 'Built-in'}</span>}
+                      {plugin.codexCompatible && <span className="skills-built-in-mark">{locale === 'zh' ? 'Codex兼容' : 'Codex compatible'}</span>}
+                      {plugin.version && <span className="skills-version">{plugin.version}</span>}
+                    </div>
+                    <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || pluginDescription(plugin, locale)}</p>
+                  </div>
+                </button>
                 <div className="skills-row-actions">
                   {updatedPluginNotice?.pluginId === plugin.id && (
                     <span className="skills-row-notice" role="status">
@@ -432,6 +575,7 @@ export function SkillsSettings({
                     className="skills-row-enabled"
                     role="switch"
                     aria-checked={plugin.enabled}
+                    disabled={togglingPluginId !== null}
                     aria-label={locale === 'zh'
                       ? `${plugin.enabled ? '停用' : '启用'}插件 ${plugin.name}`
                       : `${plugin.enabled ? 'Disable' : 'Enable'} plugin ${plugin.name}`}

@@ -1,6 +1,7 @@
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -14,8 +15,8 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const INDEX_FILE: &str = "skills.json";
 const INDEX_VERSION: u8 = 2;
-const MAX_SKILL_BYTES: u64 = 128 * 1024;
-const MAX_SKILLS_PER_SOURCE: usize = 64;
+const MAX_SKILL_BYTES: u64 = 512 * 1024;
+const MAX_SKILL_ICON_BYTES: u64 = 3 * 1024 * 1024;
 const FIXED_CATEGORY_IDS: [&str; 4] = ["copywriting", "ppt", "video", "media"];
 const BUILTIN_MEDIA_SKILL_ID: &str = "coffee-note-media-transcribe";
 const BUILTIN_MEDIA_SKILL_PROMPT: &str = "\
@@ -50,6 +51,7 @@ pub struct SkillDefinition {
     source_version: Option<String>,
     enabled: bool,
     builtin: bool,
+    icon_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,6 +68,7 @@ pub struct SkillPlugin {
     error: Option<String>,
     enabled: bool,
     builtin: bool,
+    icon_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -74,6 +77,7 @@ pub struct SkillCatalog {
     categories: Vec<SkillCategory>,
     skills: Vec<SkillDefinition>,
     plugins: Vec<SkillPlugin>,
+    icons: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -96,6 +100,8 @@ struct SkillSourceMeta {
     order: u32,
     #[serde(default = "default_true")]
     enabled: bool,
+    #[serde(default)]
+    disabled_skill_ids: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -126,6 +132,7 @@ struct DiscoveredSkill {
     name: String,
     title: String,
     description: String,
+    icon_key: Option<String>,
 }
 
 #[derive(Debug)]
@@ -134,6 +141,8 @@ struct DiscoveredPackage {
     description: String,
     version: Option<String>,
     skills: Vec<DiscoveredSkill>,
+    icon_key: Option<String>,
+    icons: BTreeMap<String, String>,
 }
 
 fn skills_sources_root() -> PathBuf {
@@ -227,6 +236,7 @@ fn load_index() -> Result<SkillIndex, String> {
                     category_id,
                     order,
                     enabled: true,
+                    disabled_skill_ids: BTreeSet::new(),
                 },
             );
         }
@@ -374,7 +384,7 @@ fn replace_source_cache(id: &str, url: &str) -> Result<DiscoveredPackage, String
         let _ = fs::remove_dir_all(&staging);
         return Err(error);
     }
-    let package = match discover_package(&staging, url) {
+    let package = match discover_package(&staging, url, false) {
         Ok(package) => package,
         Err(error) => {
             let _ = fs::remove_dir_all(&staging);
@@ -429,6 +439,106 @@ fn package_manifest(root: &Path) -> Option<Value> {
     .find_map(|path| read_json(&path))
 }
 
+fn plugin_manifest(root: &Path) -> Option<Value> {
+    read_json(&root.join(".codex-plugin").join("plugin.json"))
+}
+
+fn nearest_plugin_manifest(source_root: &Path, skill_directory: &Path) -> Option<(PathBuf, Value)> {
+    let mut current = skill_directory;
+    loop {
+        if let Some(manifest) = plugin_manifest(current) {
+            return Some((current.to_path_buf(), manifest));
+        }
+        if current == source_root {
+            return None;
+        }
+        current = current.parent()?;
+        if !current.starts_with(source_root) {
+            return None;
+        }
+    }
+}
+
+fn manifest_icon_data_url(plugin_root: &Path, manifest: &Value) -> Option<String> {
+    let interface = manifest.get("interface")?;
+    ["composerIcon", "logo"].into_iter().find_map(|key| {
+        interface
+            .get(key)
+            .and_then(Value::as_str)
+            .and_then(|value| icon_file_data_url(plugin_root, value))
+    })
+}
+
+fn icon_file_data_url(plugin_root: &Path, icon_value: &str) -> Option<String> {
+    let relative = icon_value.trim().trim_start_matches("./");
+    let relative_path = Path::new(relative);
+    if relative.is_empty()
+        || relative_path.is_absolute()
+        || relative_path.components().any(|component| {
+            !matches!(
+                component,
+                std::path::Component::Normal(_) | std::path::Component::CurDir
+            )
+        })
+    {
+        return None;
+    }
+    let canonical_root = plugin_root.canonicalize().ok()?;
+    let icon_path = plugin_root.join(relative_path).canonicalize().ok()?;
+    if !icon_path.starts_with(&canonical_root) {
+        return None;
+    }
+    let metadata = fs::metadata(&icon_path).ok()?;
+    if !metadata.is_file() || metadata.len() > MAX_SKILL_ICON_BYTES {
+        return None;
+    }
+    let mime = match icon_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
+        _ => return None,
+    };
+    let bytes = fs::read(icon_path).ok()?;
+    Some(format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
+fn plugin_icon_key(source_root: &Path, plugin_root: &Path) -> String {
+    let relative = plugin_root
+        .strip_prefix(source_root)
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+    if relative.is_empty() {
+        "root".to_string()
+    } else {
+        relative
+    }
+}
+
+fn cache_plugin_icon(
+    source_root: &Path,
+    plugin_root: &Path,
+    manifest: &Value,
+    icons: &mut BTreeMap<String, String>,
+) -> Option<String> {
+    let key = plugin_icon_key(source_root, plugin_root);
+    if icons.contains_key(&key) {
+        return Some(key);
+    }
+    let data_url = manifest_icon_data_url(plugin_root, manifest)?;
+    icons.insert(key.clone(), data_url);
+    Some(key)
+}
+
 fn collect_skill_files(root: &Path) -> Result<Vec<PathBuf>, String> {
     fn visit(root: &Path, current: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
         for entry in fs::read_dir(current)
@@ -455,11 +565,6 @@ fn collect_skill_files(root: &Path) -> Result<Vec<PathBuf>, String> {
                     .map_err(|_| "A skill path escaped its source directory".to_string())?
                     .to_path_buf();
                 output.push(relative);
-                if output.len() > MAX_SKILLS_PER_SOURCE {
-                    return Err(format!(
-                        "This repository contains more than {MAX_SKILLS_PER_SOURCE} skills"
-                    ));
-                }
             }
         }
         Ok(())
@@ -525,8 +630,18 @@ fn git_version(root: &Path) -> Option<String> {
     .filter(|value| !value.is_empty())
 }
 
-fn discover_package(root: &Path, source_url: &str) -> Result<DiscoveredPackage, String> {
+fn discover_package(
+    root: &Path,
+    source_url: &str,
+    include_icons: bool,
+) -> Result<DiscoveredPackage, String> {
     let manifest = package_manifest(root);
+    let mut icons = BTreeMap::new();
+    let package_icon_key = include_icons
+        .then(|| plugin_manifest(root))
+        .flatten()
+        .as_ref()
+        .and_then(|manifest| cache_plugin_icon(root, root, manifest, &mut icons));
     let skill_paths = collect_skill_files(root)?;
     if skill_paths.is_empty() {
         return Err("The repository does not contain a Codex-compatible SKILL.md".to_string());
@@ -543,11 +658,18 @@ fn discover_package(root: &Path, source_url: &str) -> Result<DiscoveredPackage, 
         })?;
         let directory = full_path.parent().unwrap_or(root);
         let name = frontmatter.name.trim().to_string();
+        let icon_key = include_icons
+            .then(|| nearest_plugin_manifest(root, directory))
+            .flatten()
+            .and_then(|(plugin_root, manifest)| {
+                cache_plugin_icon(root, &plugin_root, &manifest, &mut icons)
+            });
         skills.push(DiscoveredSkill {
             relative_path,
             title: skill_display_name(directory, &name),
             name,
             description: frontmatter.description.trim().to_string(),
+            icon_key,
         });
     }
 
@@ -585,6 +707,8 @@ fn discover_package(root: &Path, source_url: &str) -> Result<DiscoveredPackage, 
         description: manifest_description.unwrap_or(fallback_description),
         version: version.or_else(|| git_version(root)),
         skills,
+        icon_key: package_icon_key,
+        icons,
     })
 }
 
@@ -633,6 +757,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
             .then_with(|| left.0.cmp(right.0))
     });
 
+    let mut icons = BTreeMap::new();
     let mut skills = vec![SkillDefinition {
         id: BUILTIN_MEDIA_SKILL_ID.into(),
         title: "媒体转文字".into(),
@@ -644,6 +769,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
         source_version: None,
         enabled: index.builtin_media_enabled,
         builtin: true,
+        icon_id: None,
     }];
     let mut plugins = vec![SkillPlugin {
         id: BUILTIN_MEDIA_SKILL_ID.into(),
@@ -657,30 +783,42 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
         error: None,
         enabled: index.builtin_media_enabled,
         builtin: true,
+        icon_id: None,
     }];
     for (source_id, meta) in sources {
         let root = skills_sources_root().join(source_id);
-        match discover_package(&root, &meta.source_url) {
+        match discover_package(&root, &meta.source_url, true) {
             Ok(package) => {
                 let ids = skill_ids(source_id, &package);
-                skills.extend(
-                    package
-                        .skills
-                        .iter()
-                        .zip(ids)
-                        .map(|(skill, id)| SkillDefinition {
-                            id,
-                            title: skill.title.clone(),
-                            description: skill.description.clone(),
-                            category_id: meta.category_id.clone(),
-                            codex_compatible: true,
-                            source_id: source_id.clone(),
-                            source_url: meta.source_url.clone(),
-                            source_version: package.version.clone(),
-                            enabled: meta.enabled,
-                            builtin: false,
-                        }),
-                );
+                for (key, data_url) in &package.icons {
+                    icons
+                        .entry(format!("{source_id}:{key}"))
+                        .or_insert_with(|| data_url.clone());
+                }
+                skills.extend(package.skills.iter().zip(ids).map(|(skill, id)| {
+                    let enabled = meta.enabled && !meta.disabled_skill_ids.contains(&id);
+                    let icon_id = skill
+                        .icon_key
+                        .as_ref()
+                        .map(|key| format!("{source_id}:{key}"));
+                    SkillDefinition {
+                        id,
+                        title: skill.title.clone(),
+                        description: skill.description.clone(),
+                        category_id: meta.category_id.clone(),
+                        codex_compatible: true,
+                        source_id: source_id.clone(),
+                        source_url: meta.source_url.clone(),
+                        source_version: package.version.clone(),
+                        enabled,
+                        builtin: false,
+                        icon_id,
+                    }
+                }));
+                let package_icon_id = package
+                    .icon_key
+                    .as_ref()
+                    .map(|key| format!("{source_id}:{key}"));
                 plugins.push(SkillPlugin {
                     id: source_id.clone(),
                     name: package.name,
@@ -693,6 +831,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                     error: None,
                     enabled: meta.enabled,
                     builtin: false,
+                    icon_id: package_icon_id,
                 });
             }
             Err(error) => plugins.push(SkillPlugin {
@@ -707,6 +846,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                 error: Some(error),
                 enabled: meta.enabled,
                 builtin: false,
+                icon_id: None,
             }),
         }
     }
@@ -714,6 +854,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
         categories,
         skills,
         plugins,
+        icons,
     }
 }
 
@@ -754,6 +895,7 @@ fn add_skill_source_blocking(draft: SkillSourceDraft) -> Result<SkillCatalog, St
             category_id: draft.category_id,
             order: next_source_order(&index),
             enabled: true,
+            disabled_skill_ids: BTreeSet::new(),
         },
     );
     save_index(&index)?;
@@ -823,6 +965,46 @@ pub fn set_skill_source_enabled(id: String, enabled: bool) -> Result<SkillCatalo
         .get_mut(&id)
         .ok_or_else(|| "Skill source not found".to_string())?;
     source.enabled = enabled;
+    if enabled {
+        source.disabled_skill_ids.clear();
+    }
+    save_index(&index)?;
+    Ok(catalog_from_index(&index))
+}
+
+#[tauri::command]
+pub fn set_skill_enabled(
+    id: String,
+    source_id: String,
+    enabled: bool,
+) -> Result<SkillCatalog, String> {
+    if id == BUILTIN_MEDIA_SKILL_ID {
+        return set_builtin_skill_enabled(enabled);
+    }
+
+    let mut index = ensure_store()?;
+    let source_url = index
+        .sources
+        .get(&source_id)
+        .map(|source| source.source_url.clone())
+        .ok_or_else(|| "Skill source not found".to_string())?;
+    let root = source_dir(&source_id)?;
+    let package = discover_package(&root, &source_url, false)?;
+    if !skill_ids(&source_id, &package)
+        .iter()
+        .any(|skill_id| skill_id == &id)
+    {
+        return Err("Skill not found in the selected source".to_string());
+    }
+    let source = index
+        .sources
+        .get_mut(&source_id)
+        .ok_or_else(|| "Skill source not found".to_string())?;
+    if enabled {
+        source.disabled_skill_ids.remove(&id);
+    } else {
+        source.disabled_skill_ids.insert(id);
+    }
     save_index(&index)?;
     Ok(catalog_from_index(&index))
 }
@@ -922,10 +1104,13 @@ pub fn load_skill_prompt(id: &str) -> Result<String, String> {
             continue;
         }
         let root = source_dir(source_id)?;
-        let Ok(package) = discover_package(&root, &meta.source_url) else {
+        let Ok(package) = discover_package(&root, &meta.source_url, false) else {
             continue;
         };
         let ids = skill_ids(source_id, &package);
+        if meta.disabled_skill_ids.contains(id) {
+            return Err("The selected skill is disabled".to_string());
+        }
         if let Some(skill) = package
             .skills
             .iter()
@@ -1005,12 +1190,90 @@ mod tests {
             "---\nname: research-brief\ndescription: Use primary sources.\nversion: 1.2.0\n---\n\nDo the research.\n",
         )
         .expect("fixture skill should be written");
-        let package = discover_package(&root, "https://example.com/research.git")
+        let package = discover_package(&root, "https://example.com/research.git", false)
             .expect("source metadata should parse");
         assert_eq!(package.name, "research-brief");
         assert_eq!(package.description, "Use primary sources.");
         assert_eq!(package.version.as_deref(), Some("1.2.0"));
         assert_eq!(package.skills.len(), 1);
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn repositories_can_contain_hundreds_of_skills() {
+        let root =
+            std::env::temp_dir().join(format!("coffee-note-large-skill-test-{}", Uuid::new_v4()));
+        for index in 0..200 {
+            let directory = root.join(format!("skill-{index}"));
+            fs::create_dir_all(&directory).expect("fixture directory should be created");
+            fs::write(
+                directory.join("SKILL.md"),
+                format!(
+                    "---\nname: skill-{index}\ndescription: Skill number {index}.\n---\n\nDo skill {index}.\n"
+                ),
+            )
+            .expect("fixture skill should be written");
+        }
+        let package = discover_package(&root, "https://example.com/large-market.git", false)
+            .expect("large skill markets should not be truncated");
+        assert_eq!(package.skills.len(), 200);
+        fs::remove_dir_all(root).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn official_large_skill_files_fit_within_the_supported_budget() {
+        assert!(std::hint::black_box(MAX_SKILL_BYTES) >= 146_014);
+        assert!(std::hint::black_box(MAX_SKILL_ICON_BYTES) >= 2_034_876);
+    }
+
+    #[test]
+    fn nested_codex_plugins_supply_icons_to_their_skills() {
+        let root =
+            std::env::temp_dir().join(format!("coffee-note-skill-icon-test-{}", Uuid::new_v4()));
+        let plugin_root = root.join("plugins").join("shopify");
+        let skill_root = plugin_root.join("skills").join("shopify-hydrogen");
+        let second_skill_root = plugin_root.join("skills").join("shopify-theme-check");
+        fs::create_dir_all(plugin_root.join(".codex-plugin"))
+            .expect("plugin manifest directory should be created");
+        fs::create_dir_all(plugin_root.join("assets"))
+            .expect("plugin asset directory should be created");
+        fs::create_dir_all(&skill_root).expect("skill directory should be created");
+        fs::create_dir_all(&second_skill_root).expect("second skill directory should be created");
+        fs::write(
+            plugin_root.join(".codex-plugin").join("plugin.json"),
+            r#"{"name":"shopify","interface":{"composerIcon":"./assets/missing.svg","logo":"./assets/logo.svg"}}"#,
+        )
+        .expect("plugin manifest should be written");
+        fs::write(
+            plugin_root.join("assets").join("logo.svg"),
+            r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8"/></svg>"#,
+        )
+        .expect("plugin icon should be written");
+        fs::write(
+            skill_root.join("SKILL.md"),
+            "---\nname: shopify-hydrogen\ndescription: Build storefronts.\n---\n\nBuild a storefront.\n",
+        )
+        .expect("skill should be written");
+        fs::write(
+            second_skill_root.join("SKILL.md"),
+            "---\nname: shopify-theme-check\ndescription: Review storefront themes.\n---\n\nReview a storefront theme.\n",
+        )
+        .expect("second skill should be written");
+
+        let package = discover_package(&root, "https://github.com/openai/plugins", true)
+            .expect("nested plugin should be discovered");
+        assert_eq!(package.skills.len(), 2);
+        assert_eq!(package.icons.len(), 1);
+        let icon_key = package.skills[0]
+            .icon_key
+            .as_deref()
+            .expect("nested skill should reference its plugin icon");
+        assert_eq!(package.skills[1].icon_key.as_deref(), Some(icon_key));
+        assert!(package
+            .icons
+            .get(icon_key)
+            .map(String::as_str)
+            .is_some_and(|icon| icon.starts_with("data:image/svg+xml;base64,")));
         fs::remove_dir_all(root).expect("fixture should be removed");
     }
 }

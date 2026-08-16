@@ -275,6 +275,7 @@ export interface SkillDefinition {
   sourceVersion?: string;
   enabled: boolean;
   builtin?: boolean;
+  iconId?: string;
 }
 
 export interface WeixinMessageSettings {
@@ -335,12 +336,14 @@ export interface SkillPlugin {
   error?: string;
   enabled: boolean;
   builtin?: boolean;
+  iconId?: string;
 }
 
 export interface SkillCatalog {
   categories: SkillCategory[];
   skills: SkillDefinition[];
   plugins: SkillPlugin[];
+  icons: Record<string, string>;
 }
 
 export interface SkillSourceDraft {

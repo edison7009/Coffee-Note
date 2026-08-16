@@ -89,6 +89,15 @@ test('desktop modal backdrops dim without blurring the workspace', () => {
   assert.match(modalBackdropRules, /background:\s*rgba/);
 });
 
+test('borderless modal headers use typography without leading icons', () => {
+  const dialogHeader = appSource.slice(
+    appSource.indexOf('function DialogHeader('),
+    appSource.indexOf('function RightRail('),
+  );
+  assert.doesNotMatch(dialogHeader, /\bicon\b|dialog-titlebar-main|dialog-titlebar-blue/);
+  assert.doesNotMatch(styles, /\.dialog-titlebar-icon|\.dialog-titlebar-blue/);
+});
+
 test('settings scrollbars stay thin and low contrast', () => {
   assert.match(styles, /\.settings-workspace-scroll,[\s\S]*\.settings-provider-list\s*\{[^}]*scrollbar-color:[^}]*26%[^}]*scrollbar-width:\s*thin;/);
   assert.match(styles, /\.settings-workspace-scroll::\-webkit-scrollbar[\s\S]*width:\s*8px;/);

@@ -68,6 +68,7 @@ const fallbackSkillCatalog: SkillCatalog = {
     enabled: true,
     builtin: true,
   }],
+  icons: {},
 };
 
 function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
@@ -90,6 +91,7 @@ function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
     ...catalog,
     skills: [skill, ...catalog.skills.filter((item) => item.id !== skill.id)],
     plugins: [plugin, ...catalog.plugins.filter((item) => item.id !== plugin.id)],
+    icons: catalog.icons ?? {},
   };
 }
 
@@ -287,6 +289,22 @@ export async function setSkillSourceEnabled(id: string, enabled: boolean): Promi
     return writeFallbackSkillCatalog(catalog);
   }
   return invoke<SkillCatalog>('set_skill_source_enabled', { id, enabled });
+}
+
+export async function setSkillEnabled(id: string, sourceId: string, enabled: boolean): Promise<SkillCatalog> {
+  if (!isTauri) {
+    const catalog = readFallbackSkillCatalog();
+    const skill = catalog.skills.find((item) => item.id === id);
+    if (!skill) throw new Error('Skill not found');
+    if (!skill.builtin && skill.sourceId !== sourceId) throw new Error('Skill not found in the selected source');
+    skill.enabled = enabled;
+    if (skill.builtin) {
+      const plugin = catalog.plugins.find((item) => item.id === id);
+      if (plugin) plugin.enabled = enabled;
+    }
+    return writeFallbackSkillCatalog(catalog);
+  }
+  return invoke<SkillCatalog>('set_skill_enabled', { id, sourceId, enabled });
 }
 
 export async function loadMessageSettings(): Promise<MessageSettingsConfig | null> {

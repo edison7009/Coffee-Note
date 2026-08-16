@@ -198,6 +198,7 @@ import {
   stepBack,
   stepForward,
 } from './navigationHistory';
+import { getTierInsertionIndex } from './tierDropTarget';
 import { defaultPaneSizes, normalizePaneSizes, type PaneSizes } from './paneSizes';
 import {
   enabledMyInfoSections,
@@ -1468,7 +1469,7 @@ function App() {
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog>({});
   const [modelCatalogError, setModelCatalogError] = useState('');
   const [modelCatalogLoading, setModelCatalogLoading] = useState(true);
-  const [skillCatalog, setSkillCatalog] = useState<SkillCatalog>({ categories: [], skills: [], plugins: [] });
+  const [skillCatalog, setSkillCatalog] = useState<SkillCatalog>({ categories: [], skills: [], plugins: [], icons: {} });
   const [skillCatalogError, setSkillCatalogError] = useState('');
   const [skillCatalogLoading, setSkillCatalogLoading] = useState(true);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
@@ -5165,7 +5166,6 @@ function LibraryTree({
               onMouseDown={(event) => event.stopPropagation()}
             >
               <DialogHeader
-                icon={<Pencil size={21} />}
                 title={t('menuRename')}
                 titleId="rename-title"
                 onClose={cancelRename}
@@ -5848,24 +5848,36 @@ function HomeView({
   };
 
   const pointerDropTarget = (clientX: number, clientY: number) => {
-    const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
-    if (hit?.closest('[data-tier-placeholder]')) return dropTargetRef.current;
-    const item = hit?.closest<HTMLElement>('[data-tier-item]');
-    if (item) {
-      const tier = item.dataset.tier as TierId;
-      const index = Number(item.dataset.tierIndex);
+    const map = tierMapRef.current;
+    if (!map) return null;
+    const mapBounds = map.getBoundingClientRect();
+    if (
+      clientX < mapBounds.left
+      || clientX > mapBounds.right
+      || clientY < mapBounds.top
+      || clientY > mapBounds.bottom
+    ) return null;
+
+    const row = Array.from(
+      map.querySelectorAll<HTMLElement>('.tier-items[data-tier-row]'),
+    ).find((candidate) => {
+      const bounds = candidate.getBoundingClientRect();
+      return clientY >= bounds.top && clientY <= bounds.bottom;
+    });
+    if (!row) return null;
+    const cards = Array.from(row.querySelectorAll<HTMLElement>('[data-tier-item]')).map((item) => {
       const bounds = item.getBoundingClientRect();
       return {
-        tier,
-        index: index + (clientX >= bounds.left + bounds.width / 2 ? 1 : 0),
+        index: Number(item.dataset.tierIndex),
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.width,
+        height: bounds.height,
       };
-    }
-
-    const row = hit?.closest<HTMLElement>('[data-tier-row]');
-    if (!row) return null;
+    });
     return {
       tier: row.dataset.tierRow as TierId,
-      index: Number(row.dataset.tierCount),
+      index: getTierInsertionIndex(clientX, clientY, cards),
     };
   };
 
@@ -6057,7 +6069,6 @@ function HomeView({
               }
               cards.push(
                 <button
-                  data-tier={tier}
                   data-tier-index={index}
                   data-tier-item={note.id}
                   key={note.id}
@@ -6088,8 +6099,6 @@ function HomeView({
             return (
               <div
                 className="tier-row"
-                data-tier-count={notes.length}
-                data-tier-row={tier}
                 key={tier}
               >
                 <div
@@ -6102,7 +6111,6 @@ function HomeView({
                   className={`tier-items${draggedId ? ' is-dragging' : ''}${
                     dropTarget?.tier === tier ? ' drag-over' : ''
                   }`}
-                  data-tier-count={notes.length}
                   data-tier-row={tier}
                 >
                   {cards.length ? cards : <span className="tier-empty">{t('tierEmpty')}</span>}
@@ -8228,30 +8236,23 @@ function ChatComposer({
 }
 
 function DialogHeader({
-  icon,
   title,
   titleId,
   subtitle,
   onClose,
   closeLabel = 'Close',
-  tone = 'teal',
 }: {
-  icon: ReactNode;
   title: string;
   titleId?: string;
   subtitle?: string;
   onClose?: () => void;
   closeLabel?: string;
-  tone?: 'teal' | 'blue';
 }) {
   return (
-    <header className={`dialog-titlebar dialog-titlebar-${tone}`}>
-      <div className="dialog-titlebar-main">
-        <span className="dialog-titlebar-icon">{icon}</span>
-        <div className="dialog-titlebar-copy">
-          <h2 id={titleId}>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
-        </div>
+    <header className="dialog-titlebar">
+      <div className="dialog-titlebar-copy">
+        <h2 id={titleId}>{title}</h2>
+        {subtitle && <p>{subtitle}</p>}
       </div>
       {onClose && (
         <button type="button" className="dialog-titlebar-close" onClick={onClose} aria-label={closeLabel}>
@@ -9418,7 +9419,6 @@ function AddMaterialDialog({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <DialogHeader
-          icon={<FilePlus2 size={21} />}
           title={t('addMaterial')}
           titleId="add-material-title"
           onClose={onClose}
@@ -9566,12 +9566,10 @@ function CaptureGuideDialog({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <DialogHeader
-          icon={<Bot size={21} />}
           title={t('captureTitle')}
           titleId="capture-title"
           onClose={onClose}
           closeLabel={locale === 'zh' ? '关闭' : 'Close'}
-          tone="blue"
         />
 
         <div className="capture-guide">
