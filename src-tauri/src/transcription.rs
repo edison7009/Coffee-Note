@@ -31,9 +31,9 @@ static MEDIA_FETCHER_READY: tokio::sync::OnceCell<PathBuf> = tokio::sync::OnceCe
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-fn configure_hidden_command(command: &mut Command) {
+fn configure_hidden_command(_command: &mut Command) {
     #[cfg(windows)]
-    command.creation_flags(CREATE_NO_WINDOW);
+    _command.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[derive(Default)]
@@ -1208,7 +1208,9 @@ fn media_download_directory(knowledge_root: &Path) -> Result<PathBuf, String> {
         .canonicalize()
         .map_err(|error| format!("Could not access the Downloads folder: {error}"))?;
     if !canonical_downloads.starts_with(&canonical_root) {
-        return Err("The Downloads folder must stay inside the selected AI work directory".to_string());
+        return Err(
+            "The Downloads folder must stay inside the selected AI work directory".to_string(),
+        );
     }
     Ok(canonical_downloads)
 }

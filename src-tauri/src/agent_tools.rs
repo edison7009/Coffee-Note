@@ -538,6 +538,10 @@ fn validate_workspace_relative_path(path: &str, allow_empty: bool) -> Result<Vec
             Err("Path must be relative to the selected workspace".to_string())
         };
     }
+    let bytes = normalized.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        return Err("Path must stay inside the selected workspace".to_string());
+    }
     let mut parts = Vec::new();
     for component in Path::new(&normalized).components() {
         match component {
@@ -2037,6 +2041,10 @@ mod tests {
             exec_update_note(&json!({"path": "C:/escape.md", "content": "x"}), &dir, "zh");
         assert!(!absolute.success);
         assert!(absolute.output.contains("Invalid 'path'"));
+        let drive_relative =
+            exec_update_note(&json!({"path": "C:escape.md", "content": "x"}), &dir, "zh");
+        assert!(!drive_relative.success);
+        assert!(drive_relative.output.contains("Invalid 'path'"));
         let _ = fs::remove_dir_all(&dir);
     }
 
