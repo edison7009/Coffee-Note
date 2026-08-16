@@ -418,7 +418,8 @@ fn load_transcription_config() -> Result<Option<TranscriptionSettingsConfig>, St
     load_transcription_config_from(&transcription_config_path())
 }
 
-pub(crate) fn load_transcription_config_for_agent() -> Result<Option<TranscriptionSettingsConfig>, String> {
+pub(crate) fn load_transcription_config_for_agent(
+) -> Result<Option<TranscriptionSettingsConfig>, String> {
     load_transcription_config_from(&transcription_config_path())
 }
 
@@ -1976,15 +1977,29 @@ fn find_capture_url(input: &str) -> Option<&str> {
         let rest = &input[start..];
         let end = rest
             .find(|character: char| {
-                character.is_whitespace()
-                    || "，。！？；：、\"'<>()[]（）【】{}".contains(character)
+                character.is_whitespace() || "，。！？；：、\"'<>()[]（）【】{}".contains(character)
             })
             .unwrap_or(rest.len());
         let candidate = rest[..end].trim_end_matches(|character: char| {
             matches!(
                 character,
-                ',' | '.' | ';' | ':' | '，' | '。' | '！' | '？' | '；' | '：'
-                    | '、' | ')' | ']' | '}' | '>' | '"' | '\'' | '…'
+                ',' | '.'
+                    | ';'
+                    | ':'
+                    | '，'
+                    | '。'
+                    | '！'
+                    | '？'
+                    | '；'
+                    | '：'
+                    | '、'
+                    | ')'
+                    | ']'
+                    | '}'
+                    | '>'
+                    | '"'
+                    | '\''
+                    | '…'
             )
         });
         if !candidate.is_empty() {
@@ -2340,7 +2355,11 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         let material = match content.kind {
             file_reader::ContentKind::Text | file_reader::ContentKind::Transcript => content.text,
             file_reader::ContentKind::Image => {
-                format!("[Image file: {}]\n{}", content.label, content.image_path.unwrap_or_default())
+                format!(
+                    "[Image file: {}]\n{}",
+                    content.label,
+                    content.image_path.unwrap_or_default()
+                )
             }
             file_reader::ContentKind::Unsupported => {
                 return Err(format!(
@@ -3099,7 +3118,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
         // release asset if it returns an HTML page (e.g. a static-host SPA
         // fallback for /download/windows) instead of a real installer.
         let website_download = client.get(WEBSITE_WINDOWS_DOWNLOAD).send().await;
-        let website_html = website_download.as_ref().map_or(false, |response| {
+        let website_html = website_download.as_ref().is_ok_and(|response| {
             response
                 .headers()
                 .get(reqwest::header::CONTENT_TYPE)
@@ -3107,11 +3126,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
                 .is_some_and(|content_type| content_type.contains("text/html"))
         });
         let (mut response, expected_asset_size) = match website_download {
-            Ok(response)
-                if response.status().is_success() && !website_html =>
-            {
-                (response, 0)
-            }
+            Ok(response) if response.status().is_success() && !website_html => (response, 0),
             _ => {
                 let release = latest_release(&client).await?;
                 let asset = release

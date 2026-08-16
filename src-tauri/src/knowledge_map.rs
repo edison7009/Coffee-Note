@@ -511,7 +511,7 @@ fn graph_scores(
     let mut frontier = vec![seed_index];
     let mut visited = HashSet::from([seed_index]);
 
-    for depth in 1..=2 {
+    for &hop_weight in GRAPH_HOP_WEIGHTS.iter().skip(1) {
         let mut next = Vec::new();
         for current in frontier {
             for neighbor in graph_neighbors(index, current) {
@@ -522,7 +522,7 @@ fn graph_scores(
                     continue;
                 }
                 let weighted = seed_score
-                    .saturating_mul(GRAPH_HOP_WEIGHTS[depth])
+                    .saturating_mul(hop_weight)
                     .saturating_div(GRAPH_HOP_WEIGHTS[0]);
                 let entry = combined.entry(neighbor).or_insert((0, true));
                 entry.0 = entry.0.saturating_add(weighted.max(1));
@@ -625,10 +625,10 @@ pub fn graph_diagnostics(root: &Path, locale: &str) -> GraphDiagnostics {
         .notes
         .iter()
         .flat_map(|note| {
-            note.links.iter().filter_map(|target| {
-                (!index.by_path.contains_key(target))
-                    .then(|| format!("{} -> {}", note.path, target))
-            })
+            note.links
+                .iter()
+                .filter(|target| !index.by_path.contains_key(target.as_str()))
+                .map(|target| format!("{} -> {}", note.path, target))
         })
         .collect::<Vec<_>>();
     broken_links.sort();
@@ -637,10 +637,10 @@ pub fn graph_diagnostics(root: &Path, locale: &str) -> GraphDiagnostics {
         .notes
         .iter()
         .enumerate()
-        .filter_map(|(note_index, note)| {
-            (note.links.is_empty() && index.incoming[note_index].is_empty())
-                .then(|| note.path.clone())
+        .filter(|(note_index, note)| {
+            note.links.is_empty() && index.incoming[*note_index].is_empty()
         })
+        .map(|(_, note)| note.path.clone())
         .collect::<Vec<_>>();
     orphan_notes.sort();
 

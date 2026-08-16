@@ -259,8 +259,8 @@ fn read_zip_entry(path: &Path, entry: &str) -> Result<String, String> {
 /// Read a single entry from a zip file; None if the entry does not exist.
 fn read_zip_entry_opt(path: &Path, entry: &str) -> Result<Option<String>, String> {
     let file = fs::File::open(path).map_err(|error| format!("Could not open file: {error}"))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|error| format!("Not a valid Office file: {error}"))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|error| format!("Not a valid Office file: {error}"))?;
     let mut found = None;
     for i in 0..archive.len() {
         let mut item = archive
@@ -322,7 +322,10 @@ fn extract_shared_strings(xml: &str) -> Vec<String> {
     let bytes = xml.as_bytes();
     while idx < bytes.len() {
         if bytes[idx] == b'<' {
-            let end = xml[idx..].find('>').map(|v| idx + v + 1).unwrap_or(bytes.len());
+            let end = xml[idx..]
+                .find('>')
+                .map(|v| idx + v + 1)
+                .unwrap_or(bytes.len());
             let tag = &xml[idx..end];
             if tag.starts_with("<si") {
                 in_si = true;
@@ -360,7 +363,10 @@ fn extract_sheet_rows(xml: &str, shared: &[String]) -> String {
     let bytes = xml.as_bytes();
     while idx < bytes.len() {
         if bytes[idx] == b'<' {
-            let end = xml[idx..].find('>').map(|v| idx + v + 1).unwrap_or(bytes.len());
+            let end = xml[idx..]
+                .find('>')
+                .map(|v| idx + v + 1)
+                .unwrap_or(bytes.len());
             let tag = &xml[idx..end];
             if tag.starts_with("<row") {
                 in_row = true;
