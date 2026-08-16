@@ -44,3 +44,30 @@ test('tool rows and conversation history use static aligned activity marks', () 
     /\.conversation-history-working-dot\s*\{[^}]*width:\s*7px;[^}]*height:\s*7px;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--switch-on\);/s,
   );
 });
+
+test('conversation history gives titles the full row and overlays delete on hover', () => {
+  assert.match(
+    css,
+    /\.conversation-history-item > button:first-child,[\s\S]*?\.conversation-history-rename\s*\{[^}]*padding:\s*8px 12px;/s,
+  );
+  assert.match(
+    css,
+    /\.conversation-history-delete,[\s\S]*?\.conversation-history-working\s*\{[^}]*position:\s*absolute;[^}]*top:\s*50%;[^}]*right:\s*5px;/s,
+  );
+  assert.match(
+    css,
+    /\.conversation-history-delete\s*\{[^}]*background:\s*var\(--tertiary-surface\);[^}]*opacity:\s*0;/s,
+  );
+  assert.match(
+    css,
+    /\.conversation-history-item:hover \.conversation-history-delete,[\s\S]*?\.conversation-history-item:focus-within \.conversation-history-delete\s*\{[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/s,
+  );
+  assert.match(
+    css,
+    /\.conversation-history-delete:hover:not\(:disabled\)\s*\{[^}]*background:\s*color-mix\(in srgb, #a33a3a 9%, var\(--tertiary-surface\)\);/s,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.conversation-history-delete:hover:not\(:disabled\)\s*\{[^}]*background:[^;}]*transparent;/s,
+  );
+});

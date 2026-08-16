@@ -15,14 +15,14 @@ test('main and contextual rail use a softer content ink than the navigation shel
   assert.match(css, /\[data-theme='dark'\] \.message-content,[\s\S]*?color:\s*var\(--ink\);/s);
 });
 
-test('conversation selection uses one shared neutral surface with regular text', () => {
+test('conversation selection follows the chosen surface scheme with regular text', () => {
   assert.match(
     css,
-    /\.conversation-history-item:hover,[\s\S]*?\.conversation-history-item\.unread\s*\{\s*background:\s*var\(--control-hover\);/s,
+    /\.conversation-history-item:hover,[\s\S]*?\.conversation-history-item\.unread\s*\{\s*background:\s*color-mix\(in srgb, var\(--sidebar-surface\) 38%, var\(--canvas\)\);/s,
   );
   assert.match(
     css,
-    /\[data-theme='dark'\] \.conversation-history-item:hover,[\s\S]*?\[data-theme='dark'\] \.conversation-history-item\.unread\s*\{[^}]*background:\s*var\(--accent-soft\);/s,
+    /\[data-theme='dark'\] \.conversation-history-item:hover,[\s\S]*?\[data-theme='dark'\] \.conversation-history-item\.unread\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--sidebar-surface\) 38%, var\(--canvas\)\);/s,
   );
   assert.doesNotMatch(
     css,

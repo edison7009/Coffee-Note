@@ -7560,7 +7560,7 @@ textarea,
 .conversation-history-item.active,
 .conversation-history-item.working,
 .conversation-history-item.unread {
-  background: var(--control-hover);
+  background: color-mix(in srgb, var(--sidebar-surface) 38%, var(--canvas));
 }
 
 .conversation-history-item > button:first-child,
@@ -7573,7 +7573,7 @@ textarea,
   gap: 2px;
   width: 100%;
   min-height: 50px;
-  padding: 8px 46px 8px 12px;
+  padding: 8px 12px;
   border: 0;
   border-radius: inherit;
   background: transparent;
@@ -7615,7 +7615,7 @@ textarea,
 [data-theme='dark'] .conversation-history-item.working,
 [data-theme='dark'] .conversation-history-item.unread {
   color: var(--ink);
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--sidebar-surface) 38%, var(--canvas));
 }
 
 [data-theme='dark'] .message.user .message-content {
@@ -7645,7 +7645,7 @@ textarea,
 .conversation-history-delete {
   border: 0;
   border-radius: 7px;
-  background: transparent;
+  background: var(--tertiary-surface);
   color: var(--muted);
   opacity: 0;
   pointer-events: none;
@@ -7677,12 +7677,12 @@ textarea,
 
 .conversation-history-delete:hover:not(:disabled) {
   color: #a33a3a;
-  background: color-mix(in srgb, #a33a3a 9%, transparent);
+  background: color-mix(in srgb, #a33a3a 9%, var(--tertiary-surface));
 }
 
 [data-theme='dark'] .conversation-history-delete:hover:not(:disabled) {
   color: #f0a0a0;
-  background: rgba(240, 160, 160, 0.1);
+  background: color-mix(in srgb, #f0a0a0 10%, var(--tertiary-surface));
 }
 
 .dialog-titlebar-copy p {
