@@ -3,11 +3,7 @@ dist/
 src-tauri/target/
 tmp/
 references/
-docs/
 设计思路/
-CODEX_HANDOFF.md
-AGENTS.md
-DESIGN.md
 .DS_Store
 Thumbs.db
 *.log
