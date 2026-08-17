@@ -60,6 +60,9 @@ jobs:
       - name: Install Rust 1.93
         uses: dtolnay/rust-toolchain@1.93
 
+      - name: Prepare video runtime
+        run: npm run video-runtime:prepare
+
       - name: Check Rust backend
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
@@ -173,6 +176,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Prepare video runtime
+        run: npm run video-runtime:prepare
 
       - name: Build and upload bundles
         uses: tauri-apps/tauri-action@v0
