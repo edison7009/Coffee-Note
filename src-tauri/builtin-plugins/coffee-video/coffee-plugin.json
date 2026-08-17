@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "coffee-video",
+  "name": "文字生成视频",
+  "description": "把文案或笔记拆成分镜，生成画面与旁白并合成为可分享的 MP4 视频。",
+  "version": "1.0.0",
+  "publisher": "Coffee Note",
+  "categoryId": "video",
+  "runtime": {
+    "id": "coffee-video-engine",
+    "lifecycle": "application",
+    "shared": true,
+    "prewarm": true
+  },
+  "skills": [
+    {
+      "id": "coffee-note-video-create",
+      "path": "skills/create-video/SKILL.md",
+      "title": "文字生成视频",
+      "description": "从文案、笔记或对话内容生成带旁白和字幕的 MP4 视频。"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ mod memory;
 mod presentation;
 mod skills;
 mod transcription;
+mod video;
 mod web_reader;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -286,7 +287,7 @@ struct TranscriptionCheckResult {
     message: String,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ImageProviderConfig {
     #[serde(default)]
@@ -299,9 +300,11 @@ struct ImageProviderConfig {
     model: String,
     #[serde(default)]
     api_key: String,
+    #[serde(default)]
+    voice: String,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ImageCapabilityConfig {
     #[serde(default)]
@@ -315,6 +318,8 @@ struct ImageCapabilityConfig {
 struct ImageSettingsConfig {
     recognition: ImageCapabilityConfig,
     generation: ImageCapabilityConfig,
+    #[serde(default)]
+    speech: ImageCapabilityConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -576,10 +581,8 @@ fn load_image_settings_from(path: &Path) -> Result<Option<ImageSettingsConfig>, 
         StoredImageSettingsConfig::Current(config) => config,
         StoredImageSettingsConfig::Legacy(recognition) => ImageSettingsConfig {
             recognition,
-            generation: ImageCapabilityConfig {
-                active_provider: String::new(),
-                providers: BTreeMap::new(),
-            },
+            generation: ImageCapabilityConfig::default(),
+            speech: ImageCapabilityConfig::default(),
         },
     }))
 }
@@ -773,6 +776,51 @@ async fn check_image_generation(
     })
 }
 
+async fn check_speech_generation(
+    provider: &ImageProviderConfig,
+    mut endpoint: reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<ImageCheckResult, String> {
+    if provider.protocol != "openai-speech" {
+        return Err("Unsupported speech generation API protocol".to_string());
+    }
+    if provider.provider_id == "custom" {
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Configuration is complete; no paid speech was generated".to_string(),
+        });
+    }
+    let mut segments = endpoint
+        .path_segments_mut()
+        .map_err(|_| "Speech API URL cannot be used for model discovery".to_string())?;
+    segments.pop_if_empty();
+    segments.pop();
+    segments.pop();
+    segments.push("models");
+    segments.push(provider.model.trim());
+    drop(segments);
+    let response = client
+        .get(endpoint)
+        .bearer_auth(provider.api_key.trim())
+        .header("User-Agent", MODEL_APP_TITLE)
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the speech service: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Ok(ImageCheckResult {
+            ok: false,
+            message: image_api_error_message(&body)
+                .unwrap_or_else(|| format!("The speech service returned HTTP {status}")),
+        });
+    }
+    Ok(ImageCheckResult {
+        ok: true,
+        message: "Credentials and speech model are reachable".to_string(),
+    })
+}
+
 #[tauri::command]
 async fn check_image_settings(
     config: ImageSettingsConfig,
@@ -781,7 +829,8 @@ async fn check_image_settings(
     let capability = match mode.as_str() {
         "recognition" => &config.recognition,
         "generation" => &config.generation,
-        _ => return Err("Unsupported image capability".to_string()),
+        "speech" => &config.speech,
+        _ => return Err("Unsupported generation capability".to_string()),
     };
     let provider = capability
         .providers
@@ -802,10 +851,11 @@ async fn check_image_settings(
         .timeout(Duration::from_secs(45))
         .build()
         .map_err(|error| format!("Could not create the image service client: {error}"))?;
-    if mode == "recognition" {
-        check_image_recognition(provider, endpoint, &client).await
-    } else {
-        check_image_generation(provider, endpoint, &client).await
+    match mode.as_str() {
+        "recognition" => check_image_recognition(provider, endpoint, &client).await,
+        "generation" => check_image_generation(provider, endpoint, &client).await,
+        "speech" => check_speech_generation(provider, endpoint, &client).await,
+        _ => unreachable!(),
     }
 }
 
@@ -815,7 +865,8 @@ fn configured_image_provider(mode: &str) -> Result<ImageProviderConfig, String> 
     let capability = match mode {
         "recognition" => settings.recognition,
         "generation" => settings.generation,
-        _ => return Err("Unsupported image capability".to_string()),
+        "speech" => settings.speech,
+        _ => return Err("Unsupported generation capability".to_string()),
     };
     let provider = capability
         .providers
@@ -834,6 +885,80 @@ fn configured_image_provider(mode: &str) -> Result<ImageProviderConfig, String> 
         return Err(format!("The image {mode} API URL must use HTTP or HTTPS"));
     }
     Ok(provider)
+}
+
+trait EmptyFallback {
+    fn if_empty<'a>(&'a self, fallback: &'a str) -> &'a str;
+}
+
+impl EmptyFallback for str {
+    fn if_empty<'a>(&'a self, fallback: &'a str) -> &'a str {
+        if self.is_empty() {
+            fallback
+        } else {
+            self
+        }
+    }
+}
+
+pub(crate) async fn generate_speech_audio(
+    text: &str,
+    voice_override: Option<&str>,
+) -> Result<Vec<u8>, String> {
+    let provider = configured_image_provider("speech")?;
+    if provider.protocol != "openai-speech" {
+        return Err("The selected speech generation protocol is unsupported".to_string());
+    }
+    let text = text.trim();
+    let text_length = text.chars().count();
+    if text_length == 0 || text_length > 4_096 {
+        return Err("narration must contain between 1 and 4096 characters".to_string());
+    }
+    let configured_voice = provider.voice.trim().if_empty("alloy");
+    let voice = voice_override
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(configured_voice);
+    if voice.chars().count() > 64 {
+        return Err("voice must contain 64 characters or fewer".to_string());
+    }
+    let endpoint = reqwest::Url::parse(provider.endpoint.trim())
+        .map_err(|_| "Configure a valid speech API URL first".to_string())?;
+    let payload = json!({
+        "model": provider.model.trim(),
+        "input": text,
+        "voice": voice,
+        "response_format": "mp3"
+    });
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|error| format!("Could not create the speech client: {error}"))?;
+    let response = client
+        .post(endpoint)
+        .bearer_auth(provider.api_key.trim())
+        .header("User-Agent", MODEL_APP_TITLE)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the speech service: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(image_api_error_message(&body)
+            .unwrap_or_else(|| format!("The speech service returned HTTP {status}")));
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("Could not read the speech response: {error}"))?;
+    if bytes.is_empty() {
+        return Err("The speech service returned no audio".to_string());
+    }
+    if bytes.len() > 25 * 1024 * 1024 {
+        return Err("The generated speech audio exceeds the 25 MB limit".to_string());
+    }
+    Ok(bytes.to_vec())
 }
 
 pub(crate) fn image_tool_availability() -> ImageToolAvailability {
@@ -4106,6 +4231,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(agent_loop::create_session_map())
         .manage(channels::ChannelRuntime::default())
         .invoke_handler(tauri::generate_handler![
@@ -4730,6 +4856,7 @@ mod tests {
             endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
             model: "gpt-5.6-luna".to_string(),
             api_key: "local-vision-key".to_string(),
+            voice: String::new(),
         };
         let generation_provider = ImageProviderConfig {
             provider_id: "openai".to_string(),
@@ -4737,6 +4864,15 @@ mod tests {
             endpoint: "https://api.openai.com/v1/images/generations".to_string(),
             model: "gpt-image-2".to_string(),
             api_key: "local-generation-key".to_string(),
+            voice: String::new(),
+        };
+        let speech_provider = ImageProviderConfig {
+            provider_id: "openai".to_string(),
+            protocol: "openai-speech".to_string(),
+            endpoint: "https://api.openai.com/v1/audio/speech".to_string(),
+            model: "gpt-4o-mini-tts".to_string(),
+            api_key: "local-speech-key".to_string(),
+            voice: "alloy".to_string(),
         };
         let config = ImageSettingsConfig {
             recognition: ImageCapabilityConfig {
@@ -4753,6 +4889,10 @@ mod tests {
                     generation_provider,
                 )]),
             },
+            speech: ImageCapabilityConfig {
+                active_provider: speech_provider.provider_id.clone(),
+                providers: BTreeMap::from([(speech_provider.provider_id.clone(), speech_provider)]),
+            },
         };
 
         save_image_settings_to(&path, &config).expect("image settings should save");
@@ -4763,6 +4903,7 @@ mod tests {
         let contents = fs::read_to_string(&path).unwrap();
         assert!(contents.contains("local-vision-key"));
         assert!(contents.contains("local-generation-key"));
+        assert!(contents.contains("local-speech-key"));
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
@@ -4777,6 +4918,7 @@ mod tests {
             endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
             model: "gpt-5.6-luna".to_string(),
             api_key: "legacy-vision-key".to_string(),
+            voice: String::new(),
         };
         let legacy = ImageCapabilityConfig {
             active_provider: provider.provider_id.clone(),
@@ -4792,6 +4934,7 @@ mod tests {
         assert_eq!(loaded.recognition, legacy);
         assert!(loaded.generation.active_provider.is_empty());
         assert!(loaded.generation.providers.is_empty());
+        assert!(loaded.speech.providers.is_empty());
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }

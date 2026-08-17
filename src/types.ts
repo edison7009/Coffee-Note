@@ -224,12 +224,13 @@ export interface TranscriptionCheckResult {
   message: string;
 }
 
-export type ImageCapabilityMode = 'recognition' | 'generation';
+export type ImageCapabilityMode = 'recognition' | 'generation' | 'speech';
 export type ImageProviderProtocol =
   | 'openai-compatible'
   | 'openai-images'
   | 'openrouter-images'
-  | 'gemini-interactions';
+  | 'gemini-interactions'
+  | 'openai-speech';
 
 export interface ImageProviderConfig {
   providerId: string;
@@ -237,6 +238,7 @@ export interface ImageProviderConfig {
   endpoint: string;
   model: string;
   apiKey: string;
+  voice?: string;
 }
 
 export interface ImageCapabilityConfig {
@@ -247,6 +249,7 @@ export interface ImageCapabilityConfig {
 export interface ImageSettingsConfig {
   recognition: ImageCapabilityConfig;
   generation: ImageCapabilityConfig;
+  speech: ImageCapabilityConfig;
 }
 
 export interface ImageCheckResult {

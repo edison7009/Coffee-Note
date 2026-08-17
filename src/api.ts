@@ -550,6 +550,7 @@ export async function loadImageSettings(): Promise<ImageSettingsConfig | null> {
       return {
         recognition,
         generation: { activeProvider: '', providers: {} },
+        speech: { activeProvider: '', providers: {} },
       };
     } catch {
       return null;

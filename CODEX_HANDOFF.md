@@ -81,7 +81,7 @@ or temporary deployment credentials.
   overwriting an existing deck.
 - **Image recognition and generation (2026-08-17):** Settings includes one dedicated
   Recognition and generation destination beside Audio to text. Its internal Image
-  recognition and Image generation tabs reuse the same compact switcher and store
+  recognition, Image generation, and Speech generation tabs reuse the same compact switcher and store
   separate service, model, endpoint, and API-key records in local app data. An
   image-capable active chat model remains the first choice for recognition; the
   recognition configuration is its fallback. Image-generation skills use the
@@ -90,6 +90,16 @@ or temporary deployment credentials.
   saved non-destructively in the selected workspace and can be passed directly to the
   presentation tool by relative path. This version is cloud-only and does not expose
   an unfinished local OCR tab.
+- **Built-in text-to-video fallback (2026-08-17):** The bundled `Coffee Video`
+  package lives under `src-tauri/builtin-plugins/coffee-video/`. Its skill plans a
+  small storyboard, calls the guarded `generate_image` tool once per scene, then
+  calls `create_video` once. The application generates scene narration through the
+  locally configured OpenAI-compatible speech endpoint and combines the images,
+  narration, burned ASS captions, and restrained pan/zoom motion with a bundled
+  FFmpeg sidecar. It writes a new workspace-root `.mp4` without overwriting an
+  existing file. This is the dependable baseline rather than a diffusion video
+  model. Git-installed community skills can improve copy, shot planning, and prompts,
+  but remain prompt-only and cannot execute their own scripts, hooks, or runtimes.
 - **Ambient Home weather (2026-08-09):** The open area to the right of the Home
   greeting holds only a compact animated condition image: no city, temperature,
   forecast text, provider name, or enclosing card appears on Home. Explicit click
@@ -150,7 +160,8 @@ or temporary deployment credentials.
   context compaction. Rust also owns Library Graph, My Contexts routing, note
   tools, web reading, memory suggestions, and channel delivery. Skills and Git
   plugin sources remain supported as prompt/tool extensions through `skills.rs`;
-  there is no Node sidecar, runtime archive, or private console launcher.
+  there is no Node agent sidecar, runtime archive, or private console launcher. The
+  video encoder is a narrowly invoked application-managed binary, not an agent runtime.
 - **Capture recognition preference (2026-08-14):** The Import Your Materials dialog
   stores its last cloud/local speech-recognition choice under the local UI key
   `coffee-note:capture-transcription-mode:v1` and restores it the next time the dialog

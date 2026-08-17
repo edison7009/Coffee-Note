@@ -922,6 +922,7 @@ pub async fn run_agent(
     let tools = agent_tools::get_tool_definitions(agent_tools::ToolAvailability {
         media_transcription: crate::skills::builtin_tool_enabled("transcribe_media")?,
         presentation: crate::skills::builtin_tool_enabled("create_presentation")?,
+        video: crate::skills::builtin_tool_enabled("create_video")?,
         image_recognition: image_tools.recognition,
         image_generation: image_tools.generation,
     });
@@ -1406,11 +1407,13 @@ pub async fn run_agent(
                 let loc = request.locale.clone();
                 let exclusions = excluded_prefixes.clone();
                 let web_reader = request.web_reader.clone();
+                let app_handle = app.clone();
                 handles.push(tokio::spawn(async move {
                     // Arguments were validated above; `{}` is only an
                     // unreachable safety net.
                     let parsed: Value = serde_json::from_str(&args).unwrap_or(json!({}));
                     agent_tools::execute_tool(
+                        &app_handle,
                         &name,
                         &parsed,
                         &kr,
@@ -1456,6 +1459,7 @@ pub async fn run_agent(
                 // safety net.
                 let parsed: Value = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
                 let result = agent_tools::execute_tool(
+                    &app,
                     &tc.name,
                     &parsed,
                     &knowledge_root,

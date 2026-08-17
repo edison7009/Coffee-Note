@@ -33,6 +33,12 @@ const BUILTIN_PRESENTATION_SKILL_PROMPT: &str =
 const BUILTIN_PRESENTATION_DECK_SPEC: &str = include_str!(
     "../builtin-plugins/coffee-presentation/skills/create-presentation/references/deck-spec.md"
 );
+const BUILTIN_VIDEO_PLUGIN_ID: &str = "coffee-video";
+const BUILTIN_VIDEO_SKILL_ID: &str = "coffee-note-video-create";
+const BUILTIN_VIDEO_PLUGIN_MANIFEST: &str =
+    include_str!("../builtin-plugins/coffee-video/coffee-plugin.json");
+const BUILTIN_VIDEO_SKILL_PROMPT: &str =
+    include_str!("../builtin-plugins/coffee-video/skills/create-video/SKILL.md");
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,18 +106,22 @@ fn default_true() -> bool {
 }
 
 fn default_builtin_plugins() -> BTreeMap<String, BuiltinPluginState> {
-    [BUILTIN_MEDIA_PLUGIN_ID, BUILTIN_PRESENTATION_PLUGIN_ID]
-        .into_iter()
-        .map(|id| {
-            (
-                id.to_string(),
-                BuiltinPluginState {
-                    enabled: true,
-                    disabled_skill_ids: BTreeSet::new(),
-                },
-            )
-        })
-        .collect()
+    [
+        BUILTIN_MEDIA_PLUGIN_ID,
+        BUILTIN_PRESENTATION_PLUGIN_ID,
+        BUILTIN_VIDEO_PLUGIN_ID,
+    ]
+    .into_iter()
+    .map(|id| {
+        (
+            id.to_string(),
+            BuiltinPluginState {
+                enabled: true,
+                disabled_skill_ids: BTreeSet::new(),
+            },
+        )
+    })
+    .collect()
 }
 
 fn builtin_media_manifest() -> BuiltinPluginManifest {
@@ -137,8 +147,23 @@ fn builtin_presentation_manifest() -> BuiltinPluginManifest {
     manifest
 }
 
+fn builtin_video_manifest() -> BuiltinPluginManifest {
+    let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_VIDEO_PLUGIN_MANIFEST)
+        .expect("the bundled Coffee Video manifest must be valid JSON");
+    debug_assert_eq!(manifest.schema_version, 1);
+    debug_assert_eq!(manifest.id, BUILTIN_VIDEO_PLUGIN_ID);
+    debug_assert_eq!(manifest.runtime.lifecycle, "application");
+    debug_assert!(manifest.runtime.shared);
+    debug_assert!(manifest.runtime.prewarm);
+    manifest
+}
+
 fn builtin_manifests() -> Vec<BuiltinPluginManifest> {
-    vec![builtin_media_manifest(), builtin_presentation_manifest()]
+    vec![
+        builtin_media_manifest(),
+        builtin_presentation_manifest(),
+        builtin_video_manifest(),
+    ]
 }
 
 fn builtin_skill_prompt(plugin_id: &str, skill_id: &str, path: &str) -> Option<String> {
@@ -153,6 +178,9 @@ fn builtin_skill_prompt(plugin_id: &str, skill_id: &str, path: &str) -> Option<S
         ) => Some(format!(
             "{BUILTIN_PRESENTATION_SKILL_PROMPT}\n\n<bundled_reference path=\"references/deck-spec.md\">\n{BUILTIN_PRESENTATION_DECK_SPEC}\n</bundled_reference>"
         )),
+        (BUILTIN_VIDEO_PLUGIN_ID, BUILTIN_VIDEO_SKILL_ID, "skills/create-video/SKILL.md") => {
+            Some(BUILTIN_VIDEO_SKILL_PROMPT.to_string())
+        }
         _ => None,
     }
 }
@@ -1219,6 +1247,7 @@ pub(crate) fn builtin_tool_enabled(tool_name: &str) -> Result<bool, String> {
             BUILTIN_PRESENTATION_PLUGIN_ID,
             BUILTIN_PRESENTATION_SKILL_ID,
         ),
+        "create_video" => (BUILTIN_VIDEO_PLUGIN_ID, BUILTIN_VIDEO_SKILL_ID),
         _ => return Ok(true),
     };
     let index = ensure_store()?;
@@ -1415,6 +1444,16 @@ mod tests {
         .expect("bundled presentation prompt should load");
         assert!(prompt.contains("<bundled_reference"));
         assert!(prompt.contains("Presentation specification"));
+    }
+
+    #[test]
+    fn bundled_video_plugin_uses_the_guarded_shared_runtime() {
+        let plugin = builtin_video_manifest();
+        assert_eq!(plugin.id, BUILTIN_VIDEO_PLUGIN_ID);
+        assert_eq!(plugin.skills[0].id, BUILTIN_VIDEO_SKILL_ID);
+        assert_eq!(plugin.runtime.id, "coffee-video-engine");
+        assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("create_video"));
+        assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("Never install a"));
     }
 
     #[test]

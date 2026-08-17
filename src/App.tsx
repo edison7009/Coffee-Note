@@ -6886,6 +6886,7 @@ function formatAgentToolPhrase(toolName: string | undefined, locale: Locale): st
     read_workspace_file: { zh: '正在读取文件 >', en: 'Reading file >' },
     write_workspace_file: { zh: '正在写入文件 >', en: 'Writing file >' },
     replace_workspace_text: { zh: '正在修改文件 >', en: 'Editing file >' },
+    create_video: { zh: '正在合成视频 >', en: 'Composing video >' },
   };
   if (toolName && labels[toolName]) return labels[toolName][locale];
   const name = toolName?.replaceAll('_', ' ').trim();
@@ -7202,6 +7203,11 @@ function ConversationView({
                 running: locale === 'zh' ? '正在生成演示文稿' : 'Creating presentation',
                 done: locale === 'zh' ? '已生成演示文稿' : 'Created presentation',
                 failed: locale === 'zh' ? '生成演示文稿失败' : 'Could not create presentation',
+              },
+              create_video: {
+                running: locale === 'zh' ? '正在合成视频' : 'Composing video',
+                done: locale === 'zh' ? '已生成视频' : 'Created video',
+                failed: locale === 'zh' ? '生成视频失败' : 'Could not create video',
               },
               recognize_image: {
                 running: locale === 'zh' ? '正在识别图片' : 'Recognizing image',

@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
+    "video-runtime:prepare": "node scripts/prepare-video-runtime.mjs",
     "catalog:build": "node scripts/build-local-catalog.mjs",
     "library:check": "node scripts/check-bilingual-library.mjs",
     "preview": "vite preview",
@@ -32,6 +33,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@tauri-apps/cli": "^2.8.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

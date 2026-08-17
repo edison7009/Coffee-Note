@@ -1,4 +1,4 @@
-import { ExternalLink, ImagePlus, ScanSearch } from 'lucide-react';
+import { AudioLines, ExternalLink, ImagePlus, ScanSearch } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   checkImageSettings,
@@ -24,6 +24,7 @@ interface ImageProviderPreset {
   endpoint: string;
   model: string;
   website: string;
+  voice?: string;
 }
 
 const RECOGNITION_PROVIDERS: ImageProviderPreset[] = [
@@ -96,8 +97,31 @@ const GENERATION_PROVIDERS: ImageProviderPreset[] = [
   },
 ];
 
+const SPEECH_PROVIDERS: ImageProviderPreset[] = [
+  {
+    id: 'openai',
+    name: { zh: 'OpenAI', en: 'OpenAI' },
+    protocol: 'openai-speech',
+    endpoint: 'https://api.openai.com/v1/audio/speech',
+    model: 'gpt-4o-mini-tts',
+    voice: 'alloy',
+    website: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'custom',
+    name: { zh: '自定义服务', en: 'Custom service' },
+    protocol: 'openai-speech',
+    endpoint: '',
+    model: '',
+    voice: 'alloy',
+    website: '',
+  },
+];
+
 function providerPresets(mode: ImageCapabilityMode): ImageProviderPreset[] {
-  return mode === 'recognition' ? RECOGNITION_PROVIDERS : GENERATION_PROVIDERS;
+  if (mode === 'recognition') return RECOGNITION_PROVIDERS;
+  if (mode === 'generation') return GENERATION_PROVIDERS;
+  return SPEECH_PROVIDERS;
 }
 
 function defaultCapability(mode: ImageCapabilityMode): ImageCapabilityConfig {
@@ -110,6 +134,7 @@ function defaultCapability(mode: ImageCapabilityMode): ImageCapabilityConfig {
       endpoint: provider.endpoint,
       model: provider.model,
       apiKey: '',
+      voice: provider.voice ?? '',
     }])),
   };
 }
@@ -118,6 +143,7 @@ function defaultSettings(): ImageSettingsConfig {
   return {
     recognition: defaultCapability('recognition'),
     generation: defaultCapability('generation'),
+    speech: defaultCapability('speech'),
   };
 }
 
@@ -138,6 +164,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
   const [endpoint, setEndpoint] = useState(initialSettings.current.recognition.providers.openai.endpoint);
   const [model, setModel] = useState(initialSettings.current.recognition.providers.openai.model);
   const [apiKey, setApiKey] = useState('');
+  const [voice, setVoice] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [testing, setTesting] = useState(false);
   const [tested, setTested] = useState(false);
@@ -157,6 +184,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
     setEndpoint(active.endpoint);
     setModel(active.model);
     setApiKey(active.apiKey);
+    setVoice(active.voice ?? '');
   };
 
   const currentProvider = (): ImageProviderConfig => {
@@ -168,6 +196,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
       endpoint,
       model,
       apiKey,
+      voice,
     };
   };
 
@@ -191,6 +220,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
       const settings = {
         recognition: mergeCapability(defaults.recognition, stored?.recognition),
         generation: mergeCapability(defaults.generation, stored?.generation),
+        speech: mergeCapability(defaults.speech, stored?.speech),
       };
       settingsRef.current = settings;
       showCapability('recognition', settings);
@@ -212,7 +242,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
       });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [activeTab, apiKey, endpoint, loaded, model, providerId]);
+  }, [activeTab, apiKey, endpoint, loaded, model, providerId, voice]);
 
   useEffect(() => {
     if (!loaded) return undefined;
@@ -242,6 +272,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
     setEndpoint(stored?.endpoint ?? preset.endpoint);
     setModel(stored?.model ?? preset.model);
     setApiKey(stored?.apiKey ?? '');
+    setVoice(stored?.voice ?? preset.voice ?? '');
     setTested(false);
     setError('');
   };
@@ -266,6 +297,11 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
   };
 
   const isRecognition = activeTab === 'recognition';
+  const isGeneration = activeTab === 'generation';
+  const isSpeech = activeTab === 'speech';
+  const capabilityLabel = locale === 'zh'
+    ? (isRecognition ? '图片识别' : isGeneration ? '图片生成' : '语音生成')
+    : (isRecognition ? 'Image recognition' : isGeneration ? 'Image generation' : 'Speech generation');
 
   return (
     <div className="transcription-settings-group image-settings-group">
@@ -274,33 +310,37 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
           <h2>{locale === 'zh' ? '识别与生成' : 'Recognition and generation'}</h2>
           <p>
             {locale === 'zh'
-              ? '分别配置图片识别与图片生成模型，供相关技能按需调用。'
-              : 'Configure image recognition and generation models for the skills that need them.'}
+              ? '分别配置图片识别、图片生成与语音生成服务，供相关技能按需调用。'
+              : 'Configure image recognition, image generation, and speech generation for the skills that need them.'}
           </p>
         </div>
       </header>
 
-      <nav className="transcription-tabs" aria-label={locale === 'zh' ? '图片能力类型' : 'Image capability type'}>
+      <nav className="transcription-tabs" aria-label={locale === 'zh' ? '识别与生成能力类型' : 'Recognition and generation capability'}>
         <button type="button" className={isRecognition ? 'active' : ''} onClick={() => selectTab('recognition')}>
           <ScanSearch size={16} strokeWidth={1.8} />
           {locale === 'zh' ? '图片识别' : 'Image recognition'}
         </button>
-        <button type="button" className={!isRecognition ? 'active' : ''} onClick={() => selectTab('generation')}>
+        <button type="button" className={isGeneration ? 'active' : ''} onClick={() => selectTab('generation')}>
           <ImagePlus size={16} strokeWidth={1.8} />
           {locale === 'zh' ? '图片生成' : 'Image generation'}
+        </button>
+        <button type="button" className={isSpeech ? 'active' : ''} onClick={() => selectTab('speech')}>
+          <AudioLines size={16} strokeWidth={1.8} />
+          {locale === 'zh' ? '语音生成' : 'Speech generation'}
         </button>
       </nav>
 
       <section className="transcription-api-settings image-api-settings">
         <div className="transcription-api-form">
           <label>
-            <span>{locale === 'zh' ? (isRecognition ? '图片识别服务' : '图片生成服务') : (isRecognition ? 'Recognition service' : 'Generation service')}</span>
+            <span>{capabilityLabel}{locale === 'zh' ? '服务' : ' service'}</span>
             <span className="transcription-provider-select">
               <SettingsSelect
                 value={providerId}
                 options={presets.map((provider) => ({ value: provider.id, label: provider.name[locale] }))}
                 onChange={selectProvider}
-                ariaLabel={locale === 'zh' ? (isRecognition ? '选择图片识别服务' : '选择图片生成服务') : (isRecognition ? 'Choose image recognition service' : 'Choose image generation service')}
+                ariaLabel={locale === 'zh' ? `选择${capabilityLabel}服务` : `Choose ${capabilityLabel.toLowerCase()} service`}
               />
               {selectedProvider.website && (
                 <button
@@ -315,14 +355,25 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
             </span>
           </label>
           <label>
-            <span>{locale === 'zh' ? (isRecognition ? '图片识别模型' : '图片生成模型') : (isRecognition ? 'Recognition model' : 'Generation model')}</span>
+            <span>{capabilityLabel}{locale === 'zh' ? '模型' : ' model'}</span>
             <input
               value={model}
               onChange={(event) => { setModel(event.target.value); setTested(false); }}
-              placeholder={locale === 'zh' ? (isRecognition ? '输入支持图片的模型 ID' : '输入图片生成模型 ID') : (isRecognition ? 'Enter an image-capable model ID' : 'Enter an image generation model ID')}
+              placeholder={locale === 'zh' ? `输入${capabilityLabel}模型 ID` : `Enter a ${capabilityLabel.toLowerCase()} model ID`}
               spellCheck={false}
             />
           </label>
+          {isSpeech && (
+            <label>
+              <span>{locale === 'zh' ? '声音 ID' : 'Voice ID'}</span>
+              <input
+                value={voice}
+                onChange={(event) => { setVoice(event.target.value); setTested(false); }}
+                placeholder="alloy"
+                spellCheck={false}
+              />
+            </label>
+          )}
           <label>
             <span>{locale === 'zh' ? 'API 地址' : 'API URL'}</span>
             <input value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setTested(false); }} placeholder="https://…" spellCheck={false} />
@@ -339,7 +390,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
             {testing
               ? (locale === 'zh' ? '检查中…' : 'Checking…')
               : tested
-                ? (locale === 'zh' ? (isRecognition ? '图片识别可用' : '配置与模型可访问') : (isRecognition ? 'Image recognition available' : 'Configuration verified'))
+                ? (locale === 'zh' ? `${capabilityLabel}可用` : `${capabilityLabel} available`)
                 : (locale === 'zh' ? '检查配置' : 'Check configuration')}
           </button>
         </div>

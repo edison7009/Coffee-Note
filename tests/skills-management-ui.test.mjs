@@ -14,6 +14,9 @@ const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', imp
 const presentationSource = await readFile(new URL('../src-tauri/src/presentation.rs', import.meta.url), 'utf8');
 const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/coffee-plugin.json', import.meta.url), 'utf8');
 const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/skills/create-presentation/SKILL.md', import.meta.url), 'utf8');
+const videoSource = await readFile(new URL('../src-tauri/src/video.rs', import.meta.url), 'utf8');
+const videoManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/coffee-plugin.json', import.meta.url), 'utf8');
+const videoSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/skills/create-video/SKILL.md', import.meta.url), 'utf8');
 
 test('settings includes a plugin market backed by one shared catalog', () => {
   assert.match(appSource, /type SettingsSectionId = 'model' \| 'skills' \| 'transcription' \| 'multimodal' \| 'appearance'/);
@@ -96,16 +99,16 @@ test('every plugin row exposes read-only metadata with update and delete actions
   assert.doesNotMatch(settingsSource, /startEditSkill|updateSkill\(/);
 });
 
-test('settings separates cloud image recognition and generation without an unfinished OCR tab', () => {
+test('settings separates image recognition, image generation, and speech generation', () => {
   assert.match(appSource, /id: 'multimodal'.*识别与生成/s);
   assert.match(appSource, /<MultimodalSettings locale=\{locale\}/);
   assert.match(multimodalSettingsSource, /识别与生成/);
   assert.match(multimodalSettingsSource, /图片识别/);
   assert.match(multimodalSettingsSource, /图片生成/);
+  assert.match(multimodalSettingsSource, /语音生成/);
   assert.match(multimodalSettingsSource, /activeTab === 'recognition'/);
   assert.match(multimodalSettingsSource, /selectTab\('generation'\)/);
-  assert.match(multimodalSettingsSource, /图片识别服务/);
-  assert.match(multimodalSettingsSource, /图片生成服务/);
+  assert.match(multimodalSettingsSource, /selectTab\('speech'\)/);
   assert.match(multimodalSettingsSource, /API 地址/);
   assert.match(multimodalSettingsSource, /API Key/);
   assert.match(multimodalSettingsSource, /checkImageSettings\(settings, activeTab\)/);
@@ -120,12 +123,26 @@ test('settings separates cloud image recognition and generation without an unfin
   assert.match(multimodalSettingsSource, /openai-images/);
   assert.match(multimodalSettingsSource, /openrouter-images/);
   assert.match(multimodalSettingsSource, /gemini-interactions/);
-  assert.match(multimodalSettingsSource, /配置与模型可访问/);
+  assert.match(multimodalSettingsSource, /openai-speech/);
   assert.match(appBackendSource, /async fn recognize_workspace_image/);
   assert.match(appBackendSource, /async fn generate_workspace_image/);
   assert.match(agentSource, /image_tool_availability/);
   assert.match(agentSource, /image_recognition: image_tools\.recognition/);
   assert.match(agentSource, /image_generation: image_tools\.generation/);
+});
+
+test('video is a bundled fallback plugin backed by guarded shared tools', () => {
+  assert.match(videoManifest, /"id": "coffee-video"/);
+  assert.match(videoManifest, /"id": "coffee-video-engine"/);
+  assert.match(videoManifest, /"categoryId": "video"/);
+  assert.match(videoSkill, /generate_image/);
+  assert.match(videoSkill, /create_video/);
+  assert.match(videoSkill, /Never install a/);
+  assert.match(videoSource, /sidecar\("coffee-video-ffmpeg"\)/);
+  assert.match(videoSource, /generate_speech_audio/);
+  assert.match(videoSource, /subtitles=scene\.ass/);
+  assert.match(agentSource, /video: crate::skills::builtin_tool_enabled\("create_video"\)/);
+  assert.match(appSource, /create_video/);
 });
 
 test('plugin packages open a two-column detail page with independent skill switches', () => {

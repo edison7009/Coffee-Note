@@ -67,10 +67,11 @@
   are editable 16:9 `.pptx` files with restrained typography, one message per slide,
   deliberate layouts, and density limits that prevent obviously overflowing content.
 - Settings exposes Recognition and generation as a separate destination next to
-  Audio to text. Its Image recognition and Image generation tabs mirror the compact
-  Audio to text switcher and keep independent provider, model, endpoint, and locally
-  saved API-key records. Recognition is a fallback when the active model cannot
-  accept images; generation is the shared provider for image-generation skills.
+  Audio to text. Its Image recognition, Image generation, and Speech generation tabs
+  mirror the compact Audio to text switcher and keep independent provider, model,
+  endpoint, and locally saved API-key records. Recognition is a fallback when the
+  active model cannot accept images; image and speech generation are shared providers
+  for media-generation skills.
   Expose each Agent tool only when its configuration is complete, save generated
   images to a unique workspace path, and allow presentation skills to reuse that
   relative path. Do not add a local OCR tab before that runtime exists.
@@ -283,4 +284,5 @@
 | 2026-08-16 | Make Tier drag channels geometrically continuous | Visual spacing remains airy, but every wrapped line is divided at card center lines so each pixel maps to a deterministic insertion slot. A gap must never fall through to the row-end position. |
 | 2026-08-17 | Establish the plugin-market architecture | Plugins are distribution units, skills are Agent actions, and shared runtimes are managed once by the application. Coffee Media is the first manifest-driven official plugin; Git skill sources remain prompt-only community extensions. |
 | 2026-08-17 | Generate presentations in the shared native runtime | Coffee Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
-| 2026-08-17 | Separate image recognition and generation settings | Keep one Recognition and generation destination with two compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; generation uses an independently configured provider. Local OCR remains a later capability. |
+| 2026-08-17 | Separate recognition and generation providers | Keep one Recognition and generation destination with three compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; image and speech generation use independently configured providers. Local OCR remains a later capability. |
+| 2026-08-17 | Ship Coffee Video as the safe fallback video workflow | The built-in plugin turns copy into scene images, configured speech, burned captions, restrained motion, and an MP4 through an application-managed encoder. Community Git skills may improve storyboards and prompts but only call the same guarded tools; they cannot execute bundled scripts or runtimes. |

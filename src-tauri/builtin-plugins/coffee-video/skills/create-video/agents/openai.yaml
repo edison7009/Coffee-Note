@@ -1,0 +1,4 @@
+interface:
+  display_name: "文字生成视频"
+  short_description: "从文案生成带旁白和字幕的 MP4"
+  default_prompt: "把选中的内容制作成结构清晰、画面一致的旁白视频。"

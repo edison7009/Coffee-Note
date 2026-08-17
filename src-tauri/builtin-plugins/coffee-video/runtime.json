@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "coffee-video-engine",
+  "lifecycle": "application",
+  "shared": true,
+  "prewarm": true,
+  "capabilities": [
+    "video.storyboard",
+    "video.narration",
+    "video.compose"
+  ],
+  "resources": {
+    "encoder": "bundled-ffmpeg",
+    "speech": "configured-openai-speech",
+    "format": "mp4"
+  }
+}
