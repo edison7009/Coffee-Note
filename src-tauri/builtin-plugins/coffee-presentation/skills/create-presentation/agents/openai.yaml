@@ -1,0 +1,4 @@
+interface:
+  display_name: "生成演示文稿"
+  short_description: "把笔记与资料整理为结构清晰、可编辑的 PowerPoint 演示文稿"
+  default_prompt: "Use $create-presentation to turn the selected notes into a concise editable presentation."

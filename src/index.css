@@ -8094,9 +8094,11 @@ textarea,
 
 .settings-page .settings-panel-skills,
 .settings-page .settings-panel-transcription,
+.settings-page .settings-panel-multimodal,
 .settings-page .settings-panel-appearance,
 [data-theme='dark'] .settings-page .settings-panel-skills,
 [data-theme='dark'] .settings-page .settings-panel-transcription,
+[data-theme='dark'] .settings-page .settings-panel-multimodal,
 [data-theme='dark'] .settings-page .settings-panel-appearance {
   width: min(1120px, 100%);
 }
@@ -8734,7 +8736,7 @@ textarea,
     grid-template-columns: 1fr;
   }
 
-  .skills-row-actions {
+  .skills-row > .skills-row-actions {
     grid-column: 1;
     justify-content: flex-start;
   }

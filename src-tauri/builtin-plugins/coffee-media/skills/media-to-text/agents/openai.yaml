@@ -1,0 +1,4 @@
+interface:
+  display_name: "媒体转文字"
+  short_description: "把音视频链接或本地媒体转换并整理为可编辑的文字笔记"
+  default_prompt: "Use $media-to-text to transcribe this media and organize it into a readable note."

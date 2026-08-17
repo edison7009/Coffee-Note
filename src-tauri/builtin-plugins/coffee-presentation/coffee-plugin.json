@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "coffee-presentation",
+  "name": "演示文稿",
+  "description": "把笔记、资料和想法整理为结构清晰、可继续编辑的 PowerPoint 演示文稿。",
+  "version": "1.0.0",
+  "publisher": "Coffee Note",
+  "categoryId": "ppt",
+  "runtime": {
+    "id": "presentation-engine",
+    "lifecycle": "application",
+    "shared": true,
+    "prewarm": true
+  },
+  "skills": [
+    {
+      "id": "coffee-note-presentation-create",
+      "path": "skills/create-presentation/SKILL.md",
+      "title": "生成演示文稿",
+      "description": "从笔记、选中文档或对话内容生成可编辑的 .pptx 文件。"
+    }
+  ]
+}

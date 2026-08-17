@@ -5,16 +5,21 @@ import test from 'node:test';
 const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const apiSource = await readFile(new URL('../src/api.ts', import.meta.url), 'utf8');
 const settingsSource = await readFile(new URL('../src/settings/SkillsSettings.tsx', import.meta.url), 'utf8');
+const multimodalSettingsSource = await readFile(new URL('../src/settings/MultimodalSettings.tsx', import.meta.url), 'utf8');
 const cssSource = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const transcriptionCssSource = await readFile(new URL('../src/transcriptionSettings.css', import.meta.url), 'utf8');
 const rustSource = await readFile(new URL('../src-tauri/src/skills.rs', import.meta.url), 'utf8');
+const appBackendSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
+const presentationSource = await readFile(new URL('../src-tauri/src/presentation.rs', import.meta.url), 'utf8');
+const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/coffee-plugin.json', import.meta.url), 'utf8');
+const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/skills/create-presentation/SKILL.md', import.meta.url), 'utf8');
 
-test('settings includes a dedicated skills page backed by one shared catalog', () => {
-  assert.match(appSource, /type SettingsSectionId = 'model' \| 'skills' \| 'transcription' \| 'appearance'/);
+test('settings includes a plugin market backed by one shared catalog', () => {
+  assert.match(appSource, /type SettingsSectionId = 'model' \| 'skills' \| 'transcription' \| 'multimodal' \| 'appearance'/);
   assert.match(appSource, /<SkillsSettings/);
   assert.match(appSource, /listSkills\(\)/);
-  assert.match(settingsSource, /技能管理/);
+  assert.match(settingsSource, /插件市场/);
   assert.match(settingsSource, /catalog\.categories\.map/);
   assert.match(settingsSource, /visiblePlugins\.map/);
   assert.match(settingsSource, /className="skills-package-back"/);
@@ -32,8 +37,8 @@ test('plugin source form only asks for Git address and category', () => {
   assert.doesNotMatch(settingsSource, /draft\.(title|description|instructions|version)/);
   assert.match(settingsSource, /编辑技能插件|Edit skill plugin/);
   assert.doesNotMatch(settingsSource, /modal-backdrop|aria-modal|title=|window\.confirm|plugin-dialog|askConfirmation/);
-  assert.match(settingsSource, /安装技能后，可以完成更复杂、更具挑战的任务。/);
-  assert.match(settingsSource, /Coffee Note 仅兼容 Codex 插件市场的技能安装方式。/);
+  assert.match(settingsSource, /一个插件可以包含多个小技能/);
+  assert.match(settingsSource, /支持 Coffee 插件清单/);
   assert.match(cssSource, /\.skills-package-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/s);
 });
 
@@ -47,6 +52,7 @@ test('skill sources are cached once and metadata stays read only', () => {
     'rename_skill_category',
     'delete_skill_category',
     'set_skill_enabled',
+    'set_builtin_plugin_enabled',
   ]) {
     assert.match(rustSource, new RegExp(`pub (?:async )?fn ${command}`));
   }
@@ -90,9 +96,41 @@ test('every plugin row exposes read-only metadata with update and delete actions
   assert.doesNotMatch(settingsSource, /startEditSkill|updateSkill\(/);
 });
 
-test('skill packages open a two-column detail page with independent skill switches', () => {
+test('settings separates cloud image recognition and generation without an unfinished OCR tab', () => {
+  assert.match(appSource, /id: 'multimodal'.*识别与生成/s);
+  assert.match(appSource, /<MultimodalSettings locale=\{locale\}/);
+  assert.match(multimodalSettingsSource, /识别与生成/);
+  assert.match(multimodalSettingsSource, /图片识别/);
+  assert.match(multimodalSettingsSource, /图片生成/);
+  assert.match(multimodalSettingsSource, /activeTab === 'recognition'/);
+  assert.match(multimodalSettingsSource, /selectTab\('generation'\)/);
+  assert.match(multimodalSettingsSource, /图片识别服务/);
+  assert.match(multimodalSettingsSource, /图片生成服务/);
+  assert.match(multimodalSettingsSource, /API 地址/);
+  assert.match(multimodalSettingsSource, /API Key/);
+  assert.match(multimodalSettingsSource, /checkImageSettings\(settings, activeTab\)/);
+  assert.doesNotMatch(multimodalSettingsSource, /本地 OCR|local OCR/);
+  assert.match(appBackendSource, /const IMAGE_SETTINGS_CONFIG_FILE: &str = "image-models\.json"/);
+  assert.match(appBackendSource, /fn load_image_settings/);
+  assert.match(appBackendSource, /fn save_image_settings/);
+  assert.match(appBackendSource, /async fn check_image_settings/);
+  assert.match(appBackendSource, /"type": "image_url"/);
+  assert.match(appBackendSource, /fn image_generation_model_url/);
+  assert.match(appBackendSource, /client\s*\.get\(model_url\)/);
+  assert.match(multimodalSettingsSource, /openai-images/);
+  assert.match(multimodalSettingsSource, /openrouter-images/);
+  assert.match(multimodalSettingsSource, /gemini-interactions/);
+  assert.match(multimodalSettingsSource, /配置与模型可访问/);
+  assert.match(appBackendSource, /async fn recognize_workspace_image/);
+  assert.match(appBackendSource, /async fn generate_workspace_image/);
+  assert.match(agentSource, /image_tool_availability/);
+  assert.match(agentSource, /image_recognition: image_tools\.recognition/);
+  assert.match(agentSource, /image_generation: image_tools\.generation/);
+});
+
+test('plugin packages open a two-column detail page with independent skill switches', () => {
   assert.match(settingsSource, /setSelectedPluginId\(plugin\.id\)/);
-  assert.match(settingsSource, /返回技能管理|Back to skill management/);
+  assert.match(settingsSource, /返回插件市场|Back to plugin market/);
   assert.match(settingsSource, /setSkillEnabled\(skill\.id, skill\.sourceId, !skill\.enabled\)/);
   assert.match(settingsSource, /已启用 \$\{enabledSkillCount\} \/ \$\{selectedPluginSkills\.length\} 个技能/);
   assert.match(rustSource, /disabled_skill_ids: BTreeSet<String>/);
@@ -107,14 +145,43 @@ test('skill packages open a two-column detail page with independent skill switch
 });
 
 test('built-in media skill is visible, toggleable, and has no source actions', () => {
-  assert.match(apiSource, /setBuiltinSkillEnabled/);
-  assert.match(rustSource, /pub fn set_builtin_skill_enabled/);
-  assert.match(rustSource, /builtin_media_enabled/);
+  assert.match(apiSource, /setBuiltinPluginEnabled/);
+  assert.match(rustSource, /pub fn set_builtin_plugin_enabled/);
+  assert.match(rustSource, /builtin_plugins/);
   assert.match(settingsSource, /plugin\.builtin/);
   assert.match(settingsSource, /skills-built-in-mark/);
-  assert.match(settingsSource, /id === 'media'.*Media to text/s);
-  assert.match(settingsSource, /Codex兼容.*Codex compatible/s);
-  assert.match(settingsSource, /plugin\.builtin\s*\?\s*setBuiltinSkillEnabled/);
+  assert.match(settingsSource, /id === 'media'.*Audio & video/s);
+  assert.match(settingsSource, /plugin\.builtin\s*\?\s*setBuiltinPluginEnabled/);
   assert.match(settingsSource, /!plugin\.builtin/);
   assert.match(appSource, /captureMediaSkillDisabled/);
+});
+
+test('plugin market is one workspace and keeps runtime details internal', () => {
+  assert.doesNotMatch(settingsSource, /activeView|skills-view-tabs|已安装插件|Installed plugins/);
+  assert.doesNotMatch(settingsSource, /plugin\.publisher|plugin\.runtimeId|selectedPlugin\.permissions/);
+  assert.doesNotMatch(cssSource, /\.skills-row-meta|\.skills-package-facts|\.skills-permissions/);
+  assert.doesNotMatch(cssSource, /\.skills-market-installed/);
+  assert.match(rustSource, /coffee-plugin\.json/);
+  assert.match(rustSource, /runtime_id: Option<String>/);
+});
+
+test('presentation is a bundled plugin backed by one reusable native runtime', () => {
+  assert.match(presentationManifest, /"id": "coffee-presentation"/);
+  assert.match(presentationManifest, /"id": "presentation-engine"/);
+  assert.match(presentationManifest, /"lifecycle": "application"/);
+  assert.match(presentationManifest, /"shared": true/);
+  assert.match(presentationManifest, /"prewarm": true/);
+  assert.match(presentationSkill, /create_presentation/);
+  assert.match(presentationSkill, /Never install a package/);
+  assert.match(presentationSource, /fn write_pptx/);
+  assert.match(presentationSource, /SLIDE_WIDTH: i64 = 12_192_000/);
+  assert.match(presentationSource, /"minimal".*"business".*"dark"/s);
+  assert.match(presentationSource, /a:normAutofit/);
+  assert.match(presentationSource, /reserve_output_file/);
+  assert.match(agentSource, /skill_prompt/);
+  assert.match(agentSource, /presentation: crate::skills::builtin_tool_enabled\("create_presentation"\)/);
+  assert.match(rustSource, /pub\(crate\) fn builtin_tool_enabled/);
+  assert.match(appSource, /create_presentation/);
+  assert.match(appSource, /recognize_image/);
+  assert.match(appSource, /generate_image/);
 });

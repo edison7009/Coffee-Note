@@ -224,6 +224,36 @@ export interface TranscriptionCheckResult {
   message: string;
 }
 
+export type ImageCapabilityMode = 'recognition' | 'generation';
+export type ImageProviderProtocol =
+  | 'openai-compatible'
+  | 'openai-images'
+  | 'openrouter-images'
+  | 'gemini-interactions';
+
+export interface ImageProviderConfig {
+  providerId: string;
+  protocol: ImageProviderProtocol;
+  endpoint: string;
+  model: string;
+  apiKey: string;
+}
+
+export interface ImageCapabilityConfig {
+  activeProvider: string;
+  providers: Record<string, ImageProviderConfig>;
+}
+
+export interface ImageSettingsConfig {
+  recognition: ImageCapabilityConfig;
+  generation: ImageCapabilityConfig;
+}
+
+export interface ImageCheckResult {
+  ok: boolean;
+  message: string;
+}
+
 export interface TranscriptionResourceStatus {
   id: string;
   kind: 'runtime' | 'model';
@@ -276,6 +306,7 @@ export interface SkillDefinition {
   enabled: boolean;
   builtin?: boolean;
   iconId?: string;
+  runtimeId?: string;
 }
 
 export interface WeixinMessageSettings {
@@ -337,6 +368,9 @@ export interface SkillPlugin {
   enabled: boolean;
   builtin?: boolean;
   iconId?: string;
+  publisher: string;
+  origin: 'bundled' | 'git';
+  runtimeId?: string;
 }
 
 export interface SkillCatalog {

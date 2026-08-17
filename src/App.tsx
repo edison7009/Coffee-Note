@@ -60,6 +60,7 @@ import {
   Redo2,
   RefreshCw,
   Search,
+  Images,
   ExternalLink,
   Undo2,
 } from 'lucide-react';
@@ -155,6 +156,7 @@ import { WeatherAmbient } from './home/WeatherAmbient';
 import { translate, type TranslationKey } from './i18n';
 import { WeatherLocationSettings } from './settings/WeatherLocationSettings';
 import { TranscriptionSettings } from './settings/TranscriptionSettings';
+import { MultimodalSettings } from './settings/MultimodalSettings';
 import { SkillsSettings } from './settings/SkillsSettings';
 import { MessageSettings } from './settings/MessageSettings';
 import './settings/MessageSettings.css';
@@ -712,7 +714,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'appearance' | 'messages';
+type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'multimodal' | 'appearance' | 'messages';
 type ResizeSide = 'left' | 'right';
 type SurfaceSchemeId =
   | 'openscience'
@@ -7196,6 +7198,21 @@ function ConversationView({
                 done: locale === 'zh' ? '已保存笔记' : 'Saved note',
                 failed: locale === 'zh' ? '保存笔记失败' : 'Could not save note',
               },
+              create_presentation: {
+                running: locale === 'zh' ? '正在生成演示文稿' : 'Creating presentation',
+                done: locale === 'zh' ? '已生成演示文稿' : 'Created presentation',
+                failed: locale === 'zh' ? '生成演示文稿失败' : 'Could not create presentation',
+              },
+              recognize_image: {
+                running: locale === 'zh' ? '正在识别图片' : 'Recognizing image',
+                done: locale === 'zh' ? '已识别图片' : 'Recognized image',
+                failed: locale === 'zh' ? '识别图片失败' : 'Could not recognize image',
+              },
+              generate_image: {
+                running: locale === 'zh' ? '正在生成图片' : 'Generating image',
+                done: locale === 'zh' ? '已生成图片' : 'Generated image',
+                failed: locale === 'zh' ? '生成图片失败' : 'Could not generate image',
+              },
               update_note: {
                 running: locale === 'zh' ? '正在更新笔记' : 'Updating note',
                 done: locale === 'zh' ? '已更新笔记' : 'Updated note',
@@ -9207,8 +9224,9 @@ function SettingsPage({
   }> = [
     { id: 'appearance', label: t('settingsAppearance'), icon: <Settings2 size={18} strokeWidth={1.8} /> },
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
-    { id: 'skills', label: locale === 'zh' ? '技能' : 'Skills', icon: <Sparkles size={18} strokeWidth={1.8} /> },
+    { id: 'skills', label: locale === 'zh' ? '插件' : 'Plugins', icon: <Sparkles size={18} strokeWidth={1.8} /> },
     { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
+    { id: 'multimodal', label: locale === 'zh' ? '识别与生成' : 'Recognition and generation', icon: <Images size={18} strokeWidth={1.8} /> },
     { id: 'messages', label: locale === 'zh' ? '消息' : 'Message', icon: <MessageCircleMore size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
@@ -9351,6 +9369,10 @@ function SettingsPage({
 
             {visibleSection === 'transcription' && (
               <TranscriptionSettings locale={locale} initialTab={transcriptionInitialTab} />
+            )}
+
+            {visibleSection === 'multimodal' && (
+              <MultimodalSettings locale={locale} />
             )}
 
             {visibleSection === 'messages' && (

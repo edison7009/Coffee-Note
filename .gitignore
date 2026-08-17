@@ -3,6 +3,8 @@ dist/
 src-tauri/target/
 tmp/
 references/
+!src-tauri/builtin-plugins/**/references/
+!src-tauri/builtin-plugins/**/references/**
 设计思路/
 .DS_Store
 Thumbs.db

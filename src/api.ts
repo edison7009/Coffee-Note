@@ -15,6 +15,10 @@ import type {
   MemorySuggestion,
   ModelCatalog,
   ModelSettings,
+  ImageCapabilityConfig,
+  ImageCapabilityMode,
+  ImageCheckResult,
+  ImageSettingsConfig,
   PrepareCaptureRequest,
   SkillCatalog,
   SkillSourceDraft,
@@ -34,6 +38,8 @@ import { readStorageValue, storageKey, writeStorageValue } from './storage';
 
 const MODEL_CONFIG_KEY = storageKey('model-config');
 const TRANSCRIPTION_CONFIG_KEY = storageKey('transcription-config');
+const IMAGE_SETTINGS_CONFIG_KEY = storageKey('image-settings');
+const LEGACY_MULTIMODAL_CONFIG_KEY = storageKey('multimodal-config');
 const CAPTURES_KEY = storageKey('captures');
 const SKILLS_KEY = storageKey('skill-sources-v2');
 
@@ -42,7 +48,7 @@ const fallbackSkillCatalog: SkillCatalog = {
     { id: 'copywriting', label: '文案编写', fixed: true },
     { id: 'ppt', label: '制作PPT', fixed: true },
     { id: 'video', label: '制作视频', fixed: true },
-    { id: 'media', label: '媒体转文字', fixed: true },
+    { id: 'media', label: '音视频', fixed: true },
   ],
   skills: [
     {
@@ -51,46 +57,106 @@ const fallbackSkillCatalog: SkillCatalog = {
       description: '把视频或音频链接、本地媒体文件转成文字，并整理成笔记。',
       categoryId: 'media',
       codexCompatible: true,
-      sourceId: 'builtin',
+      sourceId: 'coffee-media',
       sourceUrl: '',
+      sourceVersion: '1.0.0',
       enabled: true,
       builtin: true,
+      runtimeId: 'media-transcription',
+    },
+    {
+      id: 'coffee-note-presentation-create',
+      title: '生成演示文稿',
+      description: '从笔记、选中文档或对话内容生成可编辑的 .pptx 文件。',
+      categoryId: 'ppt',
+      codexCompatible: true,
+      sourceId: 'coffee-presentation',
+      sourceUrl: '',
+      sourceVersion: '1.0.0',
+      enabled: true,
+      builtin: true,
+      runtimeId: 'presentation-engine',
     },
   ],
-  plugins: [{
-    id: 'coffee-note-media-transcribe',
-    name: '媒体转文字',
-    description: 'Coffee Note 自带的媒体转文字技能。',
-    categoryId: 'media',
-    codexCompatible: true,
-    sourceUrl: '',
-    skillCount: 1,
-    enabled: true,
-    builtin: true,
-  }],
+  plugins: [
+    {
+      id: 'coffee-media',
+      name: '媒体处理',
+      description: '把音视频内容转换为可编辑、可继续整理的本地文字。',
+      version: '1.0.0',
+      categoryId: 'media',
+      codexCompatible: true,
+      sourceUrl: '',
+      skillCount: 1,
+      enabled: true,
+      builtin: true,
+      publisher: 'Coffee Note',
+      origin: 'bundled',
+      runtimeId: 'media-transcription',
+    },
+    {
+      id: 'coffee-presentation',
+      name: '演示文稿',
+      description: '把笔记、资料和想法整理为结构清晰、可继续编辑的 PowerPoint 演示文稿。',
+      version: '1.0.0',
+      categoryId: 'ppt',
+      codexCompatible: true,
+      sourceUrl: '',
+      skillCount: 1,
+      enabled: true,
+      builtin: true,
+      publisher: 'Coffee Note',
+      origin: 'bundled',
+      runtimeId: 'presentation-engine',
+    },
+  ],
   icons: {},
 };
 
 function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
-  const builtinSkill = catalog.skills.find((skill) => skill.id === 'coffee-note-media-transcribe');
-  const builtinPlugin = catalog.plugins.find((plugin) => plugin.id === 'coffee-note-media-transcribe');
-  const enabled = builtinSkill?.enabled !== false && builtinPlugin?.enabled !== false;
-  const skill = {
-    ...fallbackSkillCatalog.skills[0],
-    ...builtinSkill,
-    enabled,
-    builtin: true,
-  };
-  const plugin = {
-    ...fallbackSkillCatalog.plugins[0],
-    ...builtinPlugin,
-    enabled,
-    builtin: true,
-  };
+  const builtinPlugins = fallbackSkillCatalog.plugins.map((fallback) => {
+    const existing = catalog.plugins.find((plugin) => (
+      plugin.id === fallback.id
+      || (fallback.id === 'coffee-media' && plugin.id === 'coffee-note-media-transcribe')
+    ));
+    return {
+      ...fallback,
+      ...existing,
+      id: fallback.id,
+      builtin: true,
+      publisher: existing?.publisher ?? 'Coffee Note',
+      origin: 'bundled' as const,
+    };
+  });
+  const builtinSkills = fallbackSkillCatalog.skills.map((fallback) => {
+    const existing = catalog.skills.find((skill) => skill.id === fallback.id);
+    const plugin = builtinPlugins.find((item) => item.id === fallback.sourceId);
+    return {
+      ...fallback,
+      ...existing,
+      enabled: existing?.enabled !== false && plugin?.enabled !== false,
+      builtin: true,
+      sourceId: fallback.sourceId,
+    };
+  });
+  const builtinSkillIds = new Set(builtinSkills.map((skill) => skill.id));
+  const builtinPluginIds = new Set(builtinPlugins.flatMap((plugin) => (
+    plugin.id === 'coffee-media' ? [plugin.id, 'coffee-note-media-transcribe'] : [plugin.id]
+  )));
+  const fixedCategoryIds = new Set(fallbackSkillCatalog.categories.map((category) => category.id));
+  const categories = [
+    ...fallbackSkillCatalog.categories.map((fallback) => ({
+      ...fallback,
+      ...catalog.categories.find((category) => category.id === fallback.id),
+      fixed: true,
+    })),
+    ...catalog.categories.filter((category) => !fixedCategoryIds.has(category.id)),
+  ];
   return {
     ...catalog,
-    skills: [skill, ...catalog.skills.filter((item) => item.id !== skill.id)],
-    plugins: [plugin, ...catalog.plugins.filter((item) => item.id !== plugin.id)],
+    categories,
+    skills: [...builtinSkills, ...catalog.skills.filter((item) => !builtinSkillIds.has(item.id))],
+    plugins: [...builtinPlugins, ...catalog.plugins.filter((item) => !builtinPluginIds.has(item.id))],
     icons: catalog.icons ?? {},
   };
 }
@@ -103,6 +169,8 @@ function readFallbackSkillCatalog(): SkillCatalog {
     catalog.plugins = (catalog.plugins ?? []).map((plugin) => ({
       ...plugin,
       enabled: plugin.enabled !== false,
+      publisher: plugin.publisher || (plugin.builtin ? 'Coffee Note' : 'Community'),
+      origin: plugin.origin || (plugin.builtin ? 'bundled' : 'git'),
     }));
     catalog.skills = (catalog.skills ?? []).map((skill) => ({
       ...skill,
@@ -233,6 +301,8 @@ export async function addSkillSource(draft: SkillSourceDraft): Promise<SkillCata
       sourceUrl,
       skillCount: 1,
       enabled: true,
+      publisher: 'Community',
+      origin: 'git',
     });
     return writeFallbackSkillCatalog(catalog);
   }
@@ -299,7 +369,7 @@ export async function setSkillEnabled(id: string, sourceId: string, enabled: boo
     if (!skill.builtin && skill.sourceId !== sourceId) throw new Error('Skill not found in the selected source');
     skill.enabled = enabled;
     if (skill.builtin) {
-      const plugin = catalog.plugins.find((item) => item.id === id);
+      const plugin = catalog.plugins.find((item) => item.id === skill.sourceId);
       if (plugin) plugin.enabled = enabled;
     }
     return writeFallbackSkillCatalog(catalog);
@@ -380,17 +450,22 @@ export async function listenMessageConversationUpdated(
   return listen<string>('message-conversation-updated', (event) => handler(event.payload));
 }
 
-export async function setBuiltinSkillEnabled(enabled: boolean): Promise<SkillCatalog> {
+export async function setBuiltinPluginEnabled(id: string, enabled: boolean): Promise<SkillCatalog> {
   if (!isTauri) {
     const catalog = readFallbackSkillCatalog();
-    const skill = catalog.skills.find((item) => item.id === 'coffee-note-media-transcribe');
-    const plugin = catalog.plugins.find((item) => item.id === 'coffee-note-media-transcribe');
-    if (!skill || !plugin) throw new Error('Built-in media skill not found');
-    skill.enabled = enabled;
+    const plugin = catalog.plugins.find((item) => item.id === id && item.builtin);
+    if (!plugin) throw new Error('Built-in plugin not found');
     plugin.enabled = enabled;
+    catalog.skills
+      .filter((item) => item.sourceId === id)
+      .forEach((skill) => { skill.enabled = enabled; });
     return writeFallbackSkillCatalog(catalog);
   }
-  return invoke<SkillCatalog>('set_builtin_skill_enabled', { enabled });
+  return invoke<SkillCatalog>('set_builtin_plugin_enabled', { id, enabled });
+}
+
+export async function setBuiltinSkillEnabled(enabled: boolean): Promise<SkillCatalog> {
+  return setBuiltinPluginEnabled('coffee-media', enabled);
 }
 
 export async function createSkillCategory(label: string): Promise<SkillCatalog> {
@@ -462,6 +537,44 @@ export async function checkTranscriptionConfig(config: TranscriptionSettingsConf
     return { ok: true, message: 'Browser preview configuration accepted.' };
   }
   return invoke<TranscriptionCheckResult>('check_transcription_config', { config });
+}
+
+export async function loadImageSettings(): Promise<ImageSettingsConfig | null> {
+  if (!isTauri) {
+    try {
+      const stored = readStorageValue(IMAGE_SETTINGS_CONFIG_KEY);
+      if (stored) return JSON.parse(stored) as ImageSettingsConfig;
+      const legacy = readStorageValue(LEGACY_MULTIMODAL_CONFIG_KEY);
+      if (!legacy) return null;
+      const recognition = JSON.parse(legacy) as ImageCapabilityConfig;
+      return {
+        recognition,
+        generation: { activeProvider: '', providers: {} },
+      };
+    } catch {
+      return null;
+    }
+  }
+  return invoke<ImageSettingsConfig | null>('load_image_settings');
+}
+
+export async function persistImageSettings(config: ImageSettingsConfig): Promise<void> {
+  if (!isTauri) {
+    writeStorageValue(IMAGE_SETTINGS_CONFIG_KEY, JSON.stringify(config));
+    return;
+  }
+  await invoke('save_image_settings', { config });
+}
+
+export async function checkImageSettings(
+  config: ImageSettingsConfig,
+  mode: ImageCapabilityMode,
+): Promise<ImageCheckResult> {
+  if (!isTauri) {
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    return { ok: true, message: 'Browser preview configuration accepted.' };
+  }
+  return invoke<ImageCheckResult>('check_image_settings', { config, mode });
 }
 
 export async function listTranscriptionResources(): Promise<TranscriptionResourceStatus[]> {

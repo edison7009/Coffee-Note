@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "media-transcription",
+  "lifecycle": "application",
+  "shared": true,
+  "prewarm": true,
+  "capabilities": [
+    "media.fetch",
+    "media.decode",
+    "speech.transcribe"
+  ],
+  "resources": {
+    "fetcher": "managed",
+    "speechRuntime": "user-selectable",
+    "speechModel": "user-selectable"
+  }
+}

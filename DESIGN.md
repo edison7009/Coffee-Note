@@ -53,6 +53,27 @@
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
 - Keep the left navigation pane within its 210-380px range. The right contextual rail has no product-level maximum; its only upper bound is the remaining window width after preserving the main workspace's 560px minimum.
 - Treat AI chat as one workspace mode, not the visual identity of the whole product.
+- Treat Plugins as one Plugin market workspace. Categories filter package types;
+  installation and enabled state appear directly on package rows and detail pages.
+  Do not add a parallel Installed tab. A plugin row represents one installable
+  package and opens an uncapped list of independently switchable
+  skills. Keep publisher and runtime identifiers internal instead of adding metadata
+  rows to the package UI. Do not add per-plugin access controls or capability-access
+  metadata; built-in capabilities use normal application access. Plugin and skill
+  switches still control capability availability: remove disabled Agent tools from
+  model requests and reject direct execution attempts in the backend.
+- Presentation generation uses the application-managed native runtime. Skills define
+  narrative and slide intent; they do not install their own renderer. Generated decks
+  are editable 16:9 `.pptx` files with restrained typography, one message per slide,
+  deliberate layouts, and density limits that prevent obviously overflowing content.
+- Settings exposes Recognition and generation as a separate destination next to
+  Audio to text. Its Image recognition and Image generation tabs mirror the compact
+  Audio to text switcher and keep independent provider, model, endpoint, and locally
+  saved API-key records. Recognition is a fallback when the active model cannot
+  accept images; generation is the shared provider for image-generation skills.
+  Expose each Agent tool only when its configuration is complete, save generated
+  images to a unique workspace path, and allow presentation skills to reuse that
+  relative path. Do not add a local OCR tab before that runtime exists.
 - Treat Settings as another global workspace mode, opened from the Settings text
   action immediately to the right of Help in the title-bar menu. Do not duplicate
   this action beside the window controls.
@@ -260,3 +281,6 @@
 | 2026-08-16 | Treat Skills as two-level management | The first level manages installed packages and source actions; opening a package reveals an uncapped two-column list of its concrete skills with independent switches and a clear back action. This separates installation from capability control and remains usable for repositories containing hundreds of skills without implying an in-app download marketplace. |
 | 2026-08-16 | Preserve official plugin artwork in Skills | Package and child-skill rows use the nearest Codex plugin manifest's compact icon directly, without a second backing tile or border, and fall back to the standalone neutral skill mark. This makes large official collections scannable without adding labels or card decoration. |
 | 2026-08-16 | Make Tier drag channels geometrically continuous | Visual spacing remains airy, but every wrapped line is divided at card center lines so each pixel maps to a deterministic insertion slot. A gap must never fall through to the row-end position. |
+| 2026-08-17 | Establish the plugin-market architecture | Plugins are distribution units, skills are Agent actions, and shared runtimes are managed once by the application. Coffee Media is the first manifest-driven official plugin; Git skill sources remain prompt-only community extensions. |
+| 2026-08-17 | Generate presentations in the shared native runtime | Coffee Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
+| 2026-08-17 | Separate image recognition and generation settings | Keep one Recognition and generation destination with two compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; generation uses an independently configured provider. Local OCR remains a later capability. |

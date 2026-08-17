@@ -1,3 +1,4 @@
+use base64::Engine;
 use chrono::Local;
 use tauri::State;
 
@@ -10,6 +11,7 @@ mod json_repair;
 mod knowledge_map;
 mod llm_stream;
 mod memory;
+mod presentation;
 mod skills;
 mod transcription;
 mod web_reader;
@@ -17,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
@@ -40,6 +42,9 @@ const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://note.coffeecli.com/download/wind
 const RELEASE_DOWNLOAD_PREFIX: &str =
     "https://github.com/edison7009/Coffee-Note/releases/download/";
 const TRANSCRIPTION_CONFIG_FILE: &str = "transcription.json";
+const IMAGE_SETTINGS_CONFIG_FILE: &str = "image-models.json";
+const LEGACY_MULTIMODAL_CONFIG_FILE: &str = "multimodal.json";
+const MAX_AGENT_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
 const TIER_ORDER_RELATIVE_PATH: &str = ".coffee-note/tier-order.json";
 pub(crate) const MODEL_APP_URL: &str = "https://note.coffeecli.com";
@@ -281,6 +286,62 @@ struct TranscriptionCheckResult {
     message: String,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageProviderConfig {
+    #[serde(default)]
+    provider_id: String,
+    #[serde(default)]
+    protocol: String,
+    #[serde(default)]
+    endpoint: String,
+    #[serde(default)]
+    model: String,
+    #[serde(default)]
+    api_key: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageCapabilityConfig {
+    #[serde(default)]
+    active_provider: String,
+    #[serde(default)]
+    providers: BTreeMap<String, ImageProviderConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageSettingsConfig {
+    recognition: ImageCapabilityConfig,
+    generation: ImageCapabilityConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum StoredImageSettingsConfig {
+    Current(ImageSettingsConfig),
+    Legacy(ImageCapabilityConfig),
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageCheckResult {
+    ok: bool,
+    message: String,
+}
+
+pub(crate) struct ImageToolAvailability {
+    pub recognition: bool,
+    pub generation: bool,
+}
+
+pub(crate) struct GeneratedImageOutput {
+    pub path: PathBuf,
+    pub relative_path: String,
+    pub format: &'static str,
+}
+
 fn default_reasoning_effort() -> String {
     "medium".to_string()
 }
@@ -391,6 +452,14 @@ fn transcription_config_path() -> PathBuf {
         .join(TRANSCRIPTION_CONFIG_FILE)
 }
 
+fn image_settings_config_path() -> PathBuf {
+    app_data_dir().join(IMAGE_SETTINGS_CONFIG_FILE)
+}
+
+fn legacy_multimodal_config_path() -> PathBuf {
+    app_data_dir().join(LEGACY_MULTIMODAL_CONFIG_FILE)
+}
+
 fn load_transcription_config_from(
     path: &Path,
 ) -> Result<Option<TranscriptionSettingsConfig>, String> {
@@ -493,6 +562,608 @@ async fn check_transcription_config(
         ok: true,
         message: "Transcription service is reachable".to_string(),
     })
+}
+
+fn load_image_settings_from(path: &Path) -> Result<Option<ImageSettingsConfig>, String> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("Could not read image model config: {error}"))?;
+    let stored: StoredImageSettingsConfig = serde_json::from_str(&contents)
+        .map_err(|error| format!("Could not parse image model config: {error}"))?;
+    Ok(Some(match stored {
+        StoredImageSettingsConfig::Current(config) => config,
+        StoredImageSettingsConfig::Legacy(recognition) => ImageSettingsConfig {
+            recognition,
+            generation: ImageCapabilityConfig {
+                active_provider: String::new(),
+                providers: BTreeMap::new(),
+            },
+        },
+    }))
+}
+
+fn save_image_settings_to(path: &Path, config: &ImageSettingsConfig) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Could not create image model config directory: {error}"))?;
+    }
+    let contents = serde_json::to_string_pretty(config)
+        .map_err(|error| format!("Could not serialize image model config: {error}"))?;
+    fs::write(path, format!("{contents}\n"))
+        .map_err(|error| format!("Could not write image model config: {error}"))
+}
+
+#[tauri::command]
+fn load_image_settings() -> Result<Option<ImageSettingsConfig>, String> {
+    let current_path = image_settings_config_path();
+    if current_path.is_file() {
+        load_image_settings_from(&current_path)
+    } else {
+        load_image_settings_from(&legacy_multimodal_config_path())
+    }
+}
+
+#[tauri::command]
+fn save_image_settings(config: ImageSettingsConfig) -> Result<(), String> {
+    save_image_settings_to(&image_settings_config_path(), &config)
+}
+
+fn image_api_error_message(body: &str) -> Option<String> {
+    let value: Value = serde_json::from_str(body).ok()?;
+    value
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("error").and_then(Value::as_str))
+        .map(str::to_string)
+}
+
+async fn check_image_recognition(
+    provider: &ImageProviderConfig,
+    endpoint: reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<ImageCheckResult, String> {
+    if provider.protocol != "openai-compatible" {
+        return Err("Unsupported image recognition API protocol".to_string());
+    }
+    const CHECK_IMAGE: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZtwAAAABJRU5ErkJggg==";
+    let payload = json!({
+        "model": provider.model.trim(),
+        "messages": [{
+            "role": "user",
+            "content": [
+                { "type": "text", "text": "Reply with OK if this image input is readable." },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": format!("data:image/png;base64,{CHECK_IMAGE}"),
+                        "detail": "low"
+                    }
+                }
+            ]
+        }],
+        "stream": false
+    });
+    let response = client
+        .post(endpoint)
+        .bearer_auth(provider.api_key.trim())
+        .header("User-Agent", MODEL_APP_TITLE)
+        .header("HTTP-Referer", MODEL_APP_URL)
+        .header("X-OpenRouter-Title", MODEL_APP_TITLE)
+        .header("X-Title", MODEL_APP_TITLE)
+        .header("x-goog-api-client", "coffee-note/openai-compatible")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the image recognition service: {error}"))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        let detail = image_api_error_message(&body)
+            .unwrap_or_else(|| format!("The image recognition service returned HTTP {status}"));
+        return Ok(ImageCheckResult {
+            ok: false,
+            message: detail,
+        });
+    }
+    let valid_response = serde_json::from_str::<Value>(&body)
+        .ok()
+        .and_then(|value| value.get("choices").and_then(Value::as_array).cloned())
+        .is_some_and(|choices| !choices.is_empty());
+    Ok(ImageCheckResult {
+        ok: valid_response,
+        message: if valid_response {
+            "Image recognition is available".to_string()
+        } else {
+            "The service did not return a compatible image response".to_string()
+        },
+    })
+}
+
+fn image_generation_model_url(
+    mut endpoint: reqwest::Url,
+    protocol: &str,
+    model: &str,
+) -> Result<reqwest::Url, String> {
+    let mut segments = endpoint
+        .path_segments_mut()
+        .map_err(|_| "Image generation API URL cannot be used for model discovery".to_string())?;
+    segments.pop_if_empty();
+    match protocol {
+        "openai-images" => {
+            segments.pop();
+            segments.pop();
+            segments.push("models");
+            segments.push(model);
+        }
+        "openrouter-images" => {
+            segments.push("models");
+        }
+        "gemini-interactions" => {
+            segments.pop();
+            segments.push("models");
+            segments.push(model);
+        }
+        _ => return Err("Unsupported image generation API protocol".to_string()),
+    }
+    drop(segments);
+    Ok(endpoint)
+}
+
+async fn check_image_generation(
+    provider: &ImageProviderConfig,
+    endpoint: reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<ImageCheckResult, String> {
+    if provider.provider_id == "custom" {
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Configuration is complete; no paid image was generated".to_string(),
+        });
+    }
+    let model_url =
+        image_generation_model_url(endpoint, &provider.protocol, provider.model.trim())?;
+    let mut request = client
+        .get(model_url)
+        .header("User-Agent", MODEL_APP_TITLE)
+        .header("HTTP-Referer", MODEL_APP_URL)
+        .header("X-OpenRouter-Title", MODEL_APP_TITLE)
+        .header("X-Title", MODEL_APP_TITLE);
+    request = if provider.protocol == "gemini-interactions" {
+        request
+            .header("x-goog-api-key", provider.api_key.trim())
+            .header("x-goog-api-client", "coffee-note/image-generation")
+    } else {
+        request.bearer_auth(provider.api_key.trim())
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the image generation service: {error}"))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        let detail = image_api_error_message(&body)
+            .unwrap_or_else(|| format!("The image generation service returned HTTP {status}"));
+        return Ok(ImageCheckResult {
+            ok: false,
+            message: detail,
+        });
+    }
+    if provider.protocol == "openrouter-images" {
+        let model_found = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|value| value.get("data").and_then(Value::as_array).cloned())
+            .is_some_and(|models| {
+                models.iter().any(|model| {
+                    model.get("id").and_then(Value::as_str) == Some(provider.model.trim())
+                })
+            });
+        if !model_found {
+            return Ok(ImageCheckResult {
+                ok: false,
+                message: "The selected image generation model was not found".to_string(),
+            });
+        }
+    }
+    Ok(ImageCheckResult {
+        ok: true,
+        message: "Credentials and image model are reachable".to_string(),
+    })
+}
+
+#[tauri::command]
+async fn check_image_settings(
+    config: ImageSettingsConfig,
+    mode: String,
+) -> Result<ImageCheckResult, String> {
+    let capability = match mode.as_str() {
+        "recognition" => &config.recognition,
+        "generation" => &config.generation,
+        _ => return Err("Unsupported image capability".to_string()),
+    };
+    let provider = capability
+        .providers
+        .get(&capability.active_provider)
+        .ok_or_else(|| "Choose an image service".to_string())?;
+    let endpoint = reqwest::Url::parse(provider.endpoint.trim())
+        .map_err(|_| "Enter a valid image API URL".to_string())?;
+    if !matches!(endpoint.scheme(), "http" | "https") {
+        return Err("Image API URL must use HTTP or HTTPS".to_string());
+    }
+    if provider.api_key.trim().is_empty() {
+        return Err("An API key is required".to_string());
+    }
+    if provider.model.trim().is_empty() {
+        return Err("An image model is required".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(45))
+        .build()
+        .map_err(|error| format!("Could not create the image service client: {error}"))?;
+    if mode == "recognition" {
+        check_image_recognition(provider, endpoint, &client).await
+    } else {
+        check_image_generation(provider, endpoint, &client).await
+    }
+}
+
+fn configured_image_provider(mode: &str) -> Result<ImageProviderConfig, String> {
+    let settings =
+        load_image_settings()?.ok_or_else(|| format!("Configure an image {mode} service first"))?;
+    let capability = match mode {
+        "recognition" => settings.recognition,
+        "generation" => settings.generation,
+        _ => return Err("Unsupported image capability".to_string()),
+    };
+    let provider = capability
+        .providers
+        .get(&capability.active_provider)
+        .cloned()
+        .ok_or_else(|| format!("Choose an image {mode} service first"))?;
+    if provider.api_key.trim().is_empty() {
+        return Err(format!("Configure an image {mode} API key first"));
+    }
+    if provider.endpoint.trim().is_empty() || provider.model.trim().is_empty() {
+        return Err(format!("Configure an image {mode} API URL and model first"));
+    }
+    let endpoint = reqwest::Url::parse(provider.endpoint.trim())
+        .map_err(|_| format!("Configure a valid image {mode} API URL first"))?;
+    if !matches!(endpoint.scheme(), "http" | "https") {
+        return Err(format!("The image {mode} API URL must use HTTP or HTTPS"));
+    }
+    Ok(provider)
+}
+
+pub(crate) fn image_tool_availability() -> ImageToolAvailability {
+    ImageToolAvailability {
+        recognition: configured_image_provider("recognition").is_ok(),
+        generation: configured_image_provider("generation").is_ok(),
+    }
+}
+
+fn workspace_image_path(workspace_root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let relative = relative.trim();
+    if relative.is_empty() {
+        return Err("imagePath is required".to_string());
+    }
+    let relative_path = Path::new(relative);
+    if relative_path.is_absolute()
+        || relative_path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err("imagePath must be relative to the workspace".to_string());
+    }
+    let canonical_root = workspace_root
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the workspace: {error}"))?;
+    let path = canonical_root.join(relative_path);
+    let canonical = path
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve {relative}: {error}"))?;
+    if !canonical.starts_with(&canonical_root) || !canonical.is_file() {
+        return Err("imagePath must point to a workspace image".to_string());
+    }
+    let metadata = canonical
+        .metadata()
+        .map_err(|error| format!("Could not inspect {relative}: {error}"))?;
+    if metadata.len() > MAX_AGENT_IMAGE_BYTES {
+        return Err(format!(
+            "The image exceeds the {MAX_AGENT_IMAGE_BYTES}-byte limit"
+        ));
+    }
+    Ok(canonical)
+}
+
+fn recognition_image_mime(path: &Path) -> Result<&'static str, String> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => Ok("image/png"),
+        "jpg" | "jpeg" => Ok("image/jpeg"),
+        "webp" => Ok("image/webp"),
+        _ => Err("imagePath must point to a PNG, JPEG, or WebP image".to_string()),
+    }
+}
+
+fn chat_completion_text(value: &Value) -> Option<String> {
+    let content = value.pointer("/choices/0/message/content")?;
+    if let Some(text) = content.as_str() {
+        return Some(text.trim().to_string()).filter(|text| !text.is_empty());
+    }
+    let text = content
+        .as_array()?
+        .iter()
+        .filter_map(|item| item.get("text").and_then(Value::as_str))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(text.trim().to_string()).filter(|text| !text.is_empty())
+}
+
+pub(crate) async fn recognize_workspace_image(
+    workspace_root: &Path,
+    image_path: &str,
+    prompt: &str,
+) -> Result<String, String> {
+    let provider = configured_image_provider("recognition")?;
+    if provider.protocol != "openai-compatible" {
+        return Err("The selected image recognition protocol is unsupported".to_string());
+    }
+    let prompt = prompt.trim();
+    if prompt.is_empty() || prompt.chars().count() > 6_000 {
+        return Err("prompt must contain between 1 and 6000 characters".to_string());
+    }
+    let path = workspace_image_path(workspace_root, image_path)?;
+    let mime = recognition_image_mime(&path)?;
+    let bytes = fs::read(&path).map_err(|error| format!("Could not read the image: {error}"))?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    let endpoint = reqwest::Url::parse(provider.endpoint.trim())
+        .map_err(|_| "Configure a valid image recognition API URL first".to_string())?;
+    let payload = json!({
+        "model": provider.model.trim(),
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {
+                    "url": format!("data:{mime};base64,{encoded}"),
+                    "detail": "auto"
+                }}
+            ]
+        }],
+        "stream": false
+    });
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|error| format!("Could not create the image client: {error}"))?;
+    let response = client
+        .post(endpoint)
+        .bearer_auth(provider.api_key.trim())
+        .header("User-Agent", MODEL_APP_TITLE)
+        .header("HTTP-Referer", MODEL_APP_URL)
+        .header("X-OpenRouter-Title", MODEL_APP_TITLE)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the image recognition service: {error}"))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(image_api_error_message(&body)
+            .unwrap_or_else(|| format!("The image recognition service returned HTTP {status}")));
+    }
+    let value: Value = serde_json::from_str(&body)
+        .map_err(|error| format!("The image recognition response was invalid: {error}"))?;
+    chat_completion_text(&value)
+        .ok_or_else(|| "The image recognition service returned no text".to_string())
+}
+
+fn generated_image_payload(value: &Value) -> Option<(&str, Option<&str>)> {
+    if let Some(encoded) = value.pointer("/data/0/b64_json").and_then(Value::as_str) {
+        let media_type = value.pointer("/data/0/media_type").and_then(Value::as_str);
+        return Some((encoded, media_type));
+    }
+    value
+        .get("steps")
+        .and_then(Value::as_array)?
+        .iter()
+        .filter_map(|step| step.get("content").and_then(Value::as_array))
+        .flatten()
+        .find_map(|content| {
+            if content.get("type").and_then(Value::as_str) != Some("image") {
+                return None;
+            }
+            Some((
+                content.get("data")?.as_str()?,
+                content.get("mime_type").and_then(Value::as_str),
+            ))
+        })
+}
+
+fn decode_generated_image(value: &Value) -> Result<(Vec<u8>, &'static str), String> {
+    let (encoded, media_type) = generated_image_payload(value)
+        .ok_or_else(|| "The image generation service returned no image data".to_string())?;
+    if encoded.len() > (MAX_AGENT_IMAGE_BYTES as usize * 4 / 3) + 8 {
+        return Err("The generated image is too large".to_string());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|error| format!("Could not decode the generated image: {error}"))?;
+    if bytes.len() as u64 > MAX_AGENT_IMAGE_BYTES {
+        return Err("The generated image is too large".to_string());
+    }
+    let format = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        "png"
+    } else if bytes.starts_with(&[0xff, 0xd8]) {
+        "jpg"
+    } else {
+        return Err(format!(
+            "The generated image format {} is unsupported; choose a PNG or JPEG model",
+            media_type.unwrap_or("unknown")
+        ));
+    };
+    Ok((bytes, format))
+}
+
+fn generated_image_stem(file_name: Option<&str>) -> Result<String, String> {
+    let requested = file_name
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .unwrap_or("generated-image");
+    let path = Path::new(requested);
+    if path.components().count() != 1 {
+        return Err("fileName must be a workspace-root filename".to_string());
+    }
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("generated-image")
+        .chars()
+        .map(|ch| match ch {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
+            ch if ch.is_control() => '-',
+            _ => ch,
+        })
+        .collect::<String>();
+    let stem = stem
+        .trim()
+        .trim_matches('.')
+        .chars()
+        .take(80)
+        .collect::<String>();
+    if stem.is_empty() {
+        Ok("generated-image".to_string())
+    } else {
+        Ok(stem)
+    }
+}
+
+fn save_generated_image(
+    workspace_root: &Path,
+    file_name: Option<&str>,
+    bytes: &[u8],
+    format: &'static str,
+) -> Result<GeneratedImageOutput, String> {
+    fs::create_dir_all(workspace_root)
+        .map_err(|error| format!("Could not create the workspace: {error}"))?;
+    let root = workspace_root
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the workspace: {error}"))?;
+    let stem = generated_image_stem(file_name)?;
+    for number in 1..=999 {
+        let relative_path = if number == 1 {
+            format!("{stem}.{format}")
+        } else {
+            format!("{stem}-{number}.{format}")
+        };
+        let path = root.join(&relative_path);
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path);
+        match file {
+            Ok(mut file) => {
+                if let Err(error) = file.write_all(bytes) {
+                    drop(file);
+                    let _ = fs::remove_file(&path);
+                    return Err(format!("Could not save the generated image: {error}"));
+                }
+                return Ok(GeneratedImageOutput {
+                    path,
+                    relative_path,
+                    format,
+                });
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("Could not create the generated image: {error}")),
+        }
+    }
+    Err("Could not choose an available generated-image filename".to_string())
+}
+
+pub(crate) async fn generate_workspace_image(
+    workspace_root: &Path,
+    prompt: &str,
+    file_name: Option<&str>,
+    aspect_ratio: &str,
+) -> Result<GeneratedImageOutput, String> {
+    let provider = configured_image_provider("generation")?;
+    let prompt = prompt.trim();
+    if prompt.is_empty() || prompt.chars().count() > 6_000 {
+        return Err("prompt must contain between 1 and 6000 characters".to_string());
+    }
+    if !matches!(aspect_ratio, "1:1" | "16:9" | "9:16") {
+        return Err("aspectRatio must be 1:1, 16:9, or 9:16".to_string());
+    }
+    let endpoint = reqwest::Url::parse(provider.endpoint.trim())
+        .map_err(|_| "Configure a valid image generation API URL first".to_string())?;
+    let payload = match provider.protocol.as_str() {
+        "openai-images" => json!({
+            "model": provider.model.trim(),
+            "prompt": prompt,
+            "size": match aspect_ratio {
+                "16:9" => "1536x1024",
+                "9:16" => "1024x1536",
+                _ => "1024x1024",
+            }
+        }),
+        "openrouter-images" => json!({
+            "model": provider.model.trim(),
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+        }),
+        "gemini-interactions" => json!({
+            "model": provider.model.trim(),
+            "input": prompt,
+            "response_format": {
+                "type": "image",
+                "mime_type": "image/png",
+                "aspect_ratio": aspect_ratio,
+            }
+        }),
+        _ => return Err("The selected image generation protocol is unsupported".to_string()),
+    };
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(180))
+        .build()
+        .map_err(|error| format!("Could not create the image client: {error}"))?;
+    let mut request = client
+        .post(endpoint)
+        .header("User-Agent", MODEL_APP_TITLE)
+        .header("HTTP-Referer", MODEL_APP_URL)
+        .header("X-OpenRouter-Title", MODEL_APP_TITLE)
+        .json(&payload);
+    request = if provider.protocol == "gemini-interactions" {
+        request.header("x-goog-api-key", provider.api_key.trim())
+    } else {
+        request.bearer_auth(provider.api_key.trim())
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the image generation service: {error}"))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(image_api_error_message(&body)
+            .unwrap_or_else(|| format!("The image generation service returned HTTP {status}")));
+    }
+    let value: Value = serde_json::from_str(&body)
+        .map_err(|error| format!("The image generation response was invalid: {error}"))?;
+    let (bytes, format) = decode_generated_image(&value)?;
+    save_generated_image(workspace_root, file_name, &bytes, format)
 }
 
 fn load_model_config_from(path: &Path) -> Result<Option<ModelSettings>, String> {
@@ -3442,6 +4113,8 @@ pub fn run() {
             save_model_config,
             load_transcription_config,
             save_transcription_config,
+            load_image_settings,
+            save_image_settings,
             channels::load_message_settings,
             channels::message_channel_status,
             channels::update_message_context,
@@ -3452,6 +4125,7 @@ pub fn run() {
             channels::connect_telegram,
             channels::disconnect_telegram,
             check_transcription_config,
+            check_image_settings,
             transcription::list_transcription_resources,
             transcription::download_transcription_resource,
             transcription::cancel_transcription_download,
@@ -3464,6 +4138,7 @@ pub fn run() {
             skills::move_skill_source,
             skills::set_skill_source_enabled,
             skills::set_skill_enabled,
+            skills::set_builtin_plugin_enabled,
             skills::set_builtin_skill_enabled,
             skills::create_skill_category,
             skills::rename_skill_category,
@@ -4043,6 +4718,156 @@ mod tests {
             .contains("local-test-key"));
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn image_settings_round_trip_both_capabilities_outside_the_library() {
+        let root = temp_fixture("image-settings");
+        let path = root.join("image-models.json");
+        let recognition_provider = ImageProviderConfig {
+            provider_id: "openai".to_string(),
+            protocol: "openai-compatible".to_string(),
+            endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
+            model: "gpt-5.6-luna".to_string(),
+            api_key: "local-vision-key".to_string(),
+        };
+        let generation_provider = ImageProviderConfig {
+            provider_id: "openai".to_string(),
+            protocol: "openai-images".to_string(),
+            endpoint: "https://api.openai.com/v1/images/generations".to_string(),
+            model: "gpt-image-2".to_string(),
+            api_key: "local-generation-key".to_string(),
+        };
+        let config = ImageSettingsConfig {
+            recognition: ImageCapabilityConfig {
+                active_provider: recognition_provider.provider_id.clone(),
+                providers: BTreeMap::from([(
+                    recognition_provider.provider_id.clone(),
+                    recognition_provider,
+                )]),
+            },
+            generation: ImageCapabilityConfig {
+                active_provider: generation_provider.provider_id.clone(),
+                providers: BTreeMap::from([(
+                    generation_provider.provider_id.clone(),
+                    generation_provider,
+                )]),
+            },
+        };
+
+        save_image_settings_to(&path, &config).expect("image settings should save");
+        let loaded = load_image_settings_from(&path)
+            .expect("image settings should load")
+            .expect("image settings should exist");
+        assert_eq!(loaded, config);
+        let contents = fs::read_to_string(&path).unwrap();
+        assert!(contents.contains("local-vision-key"));
+        assert!(contents.contains("local-generation-key"));
+
+        fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn legacy_multimodal_config_migrates_to_recognition() {
+        let root = temp_fixture("legacy-image-settings");
+        let path = root.join("multimodal.json");
+        let provider = ImageProviderConfig {
+            provider_id: "openai".to_string(),
+            protocol: "openai-compatible".to_string(),
+            endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
+            model: "gpt-5.6-luna".to_string(),
+            api_key: "legacy-vision-key".to_string(),
+        };
+        let legacy = ImageCapabilityConfig {
+            active_provider: provider.provider_id.clone(),
+            providers: BTreeMap::from([(provider.provider_id.clone(), provider)]),
+        };
+        fs::create_dir_all(&root).expect("fixture directory should be created");
+        fs::write(&path, serde_json::to_string_pretty(&legacy).unwrap())
+            .expect("legacy config should be written");
+
+        let loaded = load_image_settings_from(&path)
+            .expect("legacy config should load")
+            .expect("legacy config should exist");
+        assert_eq!(loaded.recognition, legacy);
+        assert!(loaded.generation.active_provider.is_empty());
+        assert!(loaded.generation.providers.is_empty());
+
+        fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn image_generation_checks_use_model_metadata_urls() {
+        assert_eq!(
+            image_generation_model_url(
+                reqwest::Url::parse("https://api.openai.com/v1/images/generations").unwrap(),
+                "openai-images",
+                "gpt-image-2",
+            )
+            .unwrap()
+            .as_str(),
+            "https://api.openai.com/v1/models/gpt-image-2",
+        );
+        assert_eq!(
+            image_generation_model_url(
+                reqwest::Url::parse("https://openrouter.ai/api/v1/images").unwrap(),
+                "openrouter-images",
+                "google/gemini-3.1-flash-image",
+            )
+            .unwrap()
+            .as_str(),
+            "https://openrouter.ai/api/v1/images/models",
+        );
+        assert_eq!(
+            image_generation_model_url(
+                reqwest::Url::parse(
+                    "https://generativelanguage.googleapis.com/v1beta/interactions",
+                )
+                .unwrap(),
+                "gemini-interactions",
+                "gemini-3.1-flash-image",
+            )
+            .unwrap()
+            .as_str(),
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image",
+        );
+    }
+
+    #[test]
+    fn generated_image_responses_decode_for_supported_providers() {
+        let png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        let (openai_bytes, openai_format) = decode_generated_image(&json!({
+            "data": [{"b64_json": png}]
+        }))
+        .expect("OpenAI-compatible image should decode");
+        assert_eq!(openai_format, "png");
+        assert!(openai_bytes.starts_with(b"\x89PNG"));
+
+        let (gemini_bytes, gemini_format) = decode_generated_image(&json!({
+            "steps": [{
+                "content": [{"type": "image", "data": png, "mime_type": "image/png"}]
+            }]
+        }))
+        .expect("Gemini image should decode");
+        assert_eq!(gemini_format, "png");
+        assert_eq!(gemini_bytes, openai_bytes);
+    }
+
+    #[test]
+    fn generated_images_use_safe_non_destructive_workspace_paths() {
+        let root = temp_fixture("generated-image-output");
+        fs::create_dir_all(&root).expect("fixture directory should be created");
+        let png = base64::engine::general_purpose::STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+            .expect("fixture image should decode");
+        let first = save_generated_image(&root, Some("slide-visual.png"), &png, "png")
+            .expect("first image should save");
+        let second = save_generated_image(&root, Some("slide-visual.png"), &png, "png")
+            .expect("second image should save");
+        assert_eq!(first.relative_path, "slide-visual.png");
+        assert_eq!(second.relative_path, "slide-visual-2.png");
+        assert!(save_generated_image(&root, Some("../escape.png"), &png, "png").is_err());
+        fs::remove_dir_all(root).expect("fixture should be removed");
     }
 
     #[test]

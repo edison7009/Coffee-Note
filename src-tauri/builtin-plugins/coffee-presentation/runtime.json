@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "presentation-engine",
+  "lifecycle": "application",
+  "shared": true,
+  "prewarm": true,
+  "capabilities": [
+    "presentation.plan",
+    "presentation.compose",
+    "presentation.package"
+  ],
+  "resources": {
+    "generator": "native",
+    "format": "pptx",
+    "officeInstallation": "not-required"
+  }
+}

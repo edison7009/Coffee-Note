@@ -9,7 +9,7 @@ import {
   renameSkillCategory,
   setSkillEnabled,
   setSkillSourceEnabled,
-  setBuiltinSkillEnabled,
+  setBuiltinPluginEnabled,
   updateSkillFromSource,
 } from '../api';
 import { SettingsSelect } from './SettingsSelect';
@@ -39,27 +39,31 @@ function categoryLabel(id: string, fallback: string, locale: Locale) {
   if (id === 'copywriting') return 'Copywriting';
   if (id === 'ppt') return 'Presentations';
   if (id === 'video') return 'Video';
-  if (id === 'media') return 'Media to text';
+  if (id === 'media') return 'Audio & video';
   return fallback;
 }
 
 function pluginName(plugin: SkillPlugin, locale: Locale) {
-  if (plugin.builtin && locale === 'en') return 'Media to text';
+  if (locale === 'en' && plugin.id === 'coffee-media') return 'Coffee Media';
+  if (locale === 'en' && plugin.id === 'coffee-presentation') return 'Presentations';
   return plugin.name;
 }
 
 function pluginDescription(plugin: SkillPlugin, locale: Locale) {
-  if (plugin.builtin && locale === 'en') return 'Coffee Note built-in media transcription skill.';
+  if (locale === 'en' && plugin.id === 'coffee-media') return 'Turn audio and video into editable local text.';
+  if (locale === 'en' && plugin.id === 'coffee-presentation') return 'Turn notes and source material into editable PowerPoint presentations.';
   return plugin.description;
 }
 
 function childSkillTitle(skill: SkillDefinition, locale: Locale) {
-  if (skill.builtin && locale === 'en') return 'Media to text';
+  if (locale === 'en' && skill.id === 'coffee-note-media-transcribe') return 'Media to text';
+  if (locale === 'en' && skill.id === 'coffee-note-presentation-create') return 'Create presentation';
   return skill.title;
 }
 
 function childSkillDescription(skill: SkillDefinition, locale: Locale) {
-  if (skill.builtin && locale === 'en') return 'Transcribe audio or video and organize it into a note.';
+  if (locale === 'en' && skill.id === 'coffee-note-media-transcribe') return 'Transcribe audio or video and organize it into a note.';
+  if (locale === 'en' && skill.id === 'coffee-note-presentation-create') return 'Create an editable .pptx file from notes, documents, or conversation content.';
   return skill.description;
 }
 
@@ -70,7 +74,7 @@ export function SkillsSettings({
   error,
   onCatalogChange,
 }: SkillsSettingsProps) {
-  const [activeCategoryId, setActiveCategoryId] = useState('copywriting');
+  const [activeCategoryId, setActiveCategoryId] = useState('media');
   const [draft, setDraft] = useState<SkillSourceDraft>(EMPTY_DRAFT);
   const [formOpen, setFormOpen] = useState(false);
   const [categoryMode, setCategoryMode] = useState<'create' | 'rename' | null>(null);
@@ -98,16 +102,14 @@ export function SkillsSettings({
   const selectedPlugin = catalog.plugins.find((plugin) => plugin.id === selectedPluginId) ?? null;
   const selectedPluginSkills = useMemo(
     () => selectedPlugin
-      ? catalog.skills.filter((skill) => selectedPlugin.builtin
-        ? skill.id === selectedPlugin.id
-        : skill.sourceId === selectedPlugin.id)
+      ? catalog.skills.filter((skill) => skill.sourceId === selectedPlugin.id)
       : [],
     [catalog.skills, selectedPlugin],
   );
 
   useEffect(() => {
     if (!catalog.categories.some((category) => category.id === activeCategoryId)) {
-      setActiveCategoryId(catalog.categories[0]?.id ?? 'copywriting');
+      setActiveCategoryId(catalog.categories[0]?.id ?? 'media');
     }
   }, [activeCategoryId, catalog.categories]);
 
@@ -210,7 +212,7 @@ export function SkillsSettings({
     setUpdatedPluginNotice(null);
     try {
       onCatalogChange(await (plugin.builtin
-        ? setBuiltinSkillEnabled(!plugin.enabled)
+        ? setBuiltinPluginEnabled(plugin.id, !plugin.enabled)
         : setSkillSourceEnabled(plugin.id, !plugin.enabled)));
     } catch (nextError) {
       setActionError(String(nextError));
@@ -308,15 +310,14 @@ export function SkillsSettings({
           }}
         >
           <ArrowLeft size={17} />
-          {locale === 'zh' ? '返回技能管理' : 'Back to skill management'}
+          {locale === 'zh' ? '返回插件市场' : 'Back to plugin market'}
         </button>
 
         <header className="skills-package-heading">
           <div>
             <div className="skills-package-title-line">
               <h2 id="skills-package-title">{pluginName(selectedPlugin, locale)}</h2>
-              {selectedPlugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '内置' : 'Built-in'}</span>}
-              {selectedPlugin.codexCompatible && <span className="skills-built-in-mark">{locale === 'zh' ? 'Codex兼容' : 'Codex compatible'}</span>}
+              {selectedPlugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '官方预装' : 'Official'}</span>}
               {selectedPlugin.version && <span className="skills-version">{selectedPlugin.version}</span>}
             </div>
             <small>
@@ -383,11 +384,11 @@ export function SkillsSettings({
     <section className="skills-settings" aria-labelledby="skills-settings-title">
       <header className="skills-settings-heading">
         <div>
-          <h2 id="skills-settings-title">{locale === 'zh' ? '技能管理' : 'Skill management'}</h2>
+          <h2 id="skills-settings-title">{locale === 'zh' ? '插件市场' : 'Plugin market'}</h2>
           <p>
             {locale === 'zh'
-              ? '安装技能后，可以完成更复杂、更具挑战的任务。'
-              : 'Install skills to handle more complex and demanding tasks.'}
+              ? '一个插件可以包含多个小技能；Agent 会按任务组合调用。'
+              : 'Each plugin can provide multiple skills that the Agent composes for a task.'}
           </p>
         </div>
         <button type="button" className="skills-primary-action" onClick={startAddSource}>
@@ -511,8 +512,8 @@ export function SkillsSettings({
           </div>
           <p className="skills-source-note">
             {locale === 'zh'
-              ? 'Coffee Note 仅兼容 Codex 插件市场的技能安装方式。'
-              : 'Coffee Note only supports the Codex plugin marketplace format for installing skills.'}
+              ? '支持 Coffee 插件清单，以及包含一个或多个 SKILL.md 的 Git 技能包。第三方代码和运行时不会自动执行。'
+              : 'Supports Coffee manifests and Git packages containing one or more SKILL.md files. Third-party code and runtimes are never executed automatically.'}
           </p>
           <div className="skills-editor-footer">
             <div>
@@ -536,7 +537,7 @@ export function SkillsSettings({
         ) : visiblePlugins.length === 0 ? (
           <div className="skills-empty">
             <Sparkles size={20} />
-            <span>{locale === 'zh' ? '这个分类还没有技能插件。' : 'There are no skill plugins in this category.'}</span>
+            <span>{locale === 'zh' ? '这个分类还没有插件。' : 'There are no plugins in this category.'}</span>
           </div>
         ) : visiblePlugins.map((plugin) => {
           const isEditing = editingPluginId === plugin.id;
@@ -557,8 +558,8 @@ export function SkillsSettings({
                   <div className="skills-row-copy">
                     <div>
                       <strong>{pluginName(plugin, locale)}</strong>
-                      {plugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '内置' : 'Built-in'}</span>}
-                      {plugin.codexCompatible && <span className="skills-built-in-mark">{locale === 'zh' ? 'Codex兼容' : 'Codex compatible'}</span>}
+                      {plugin.builtin && <span className="skills-built-in-mark">{locale === 'zh' ? '官方' : 'Official'}</span>}
+                      {!plugin.builtin && <span className="skills-built-in-mark">Git</span>}
                       {plugin.version && <span className="skills-version">{plugin.version}</span>}
                     </div>
                     <p className={plugin.error ? 'skills-row-error' : ''}>{plugin.error || pluginDescription(plugin, locale)}</p>

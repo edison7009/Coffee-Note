@@ -14,21 +14,25 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const INDEX_FILE: &str = "skills.json";
-const INDEX_VERSION: u8 = 2;
+const INDEX_VERSION: u8 = 3;
 const MAX_SKILL_BYTES: u64 = 512 * 1024;
 const MAX_SKILL_ICON_BYTES: u64 = 3 * 1024 * 1024;
 const FIXED_CATEGORY_IDS: [&str; 4] = ["copywriting", "ppt", "video", "media"];
+const BUILTIN_MEDIA_PLUGIN_ID: &str = "coffee-media";
 const BUILTIN_MEDIA_SKILL_ID: &str = "coffee-note-media-transcribe";
-const BUILTIN_MEDIA_SKILL_PROMPT: &str = "\
-你是 Coffee Note 的“媒体转文字”内置技能。\n\
-\n\
-当用户粘贴抖音、TikTok、Bilibili、YouTube、小红书、X/Twitter 等媒体链接，或给出本地音频/视频文件路径时：\n\
-1. 先从用户输入中提取媒体链接或文件路径；\n\
-2. 调用 transcribe_media 工具获取文字稿；\n\
-3. 把文字稿整理成通顺、适合阅读的简体中文正文；可以修正明显识别误差和口语碎片，但不得新增事实或观点；\n\
-4. 调用 save_note 保存到当前工作区根目录（不传 path）。即使工作区中已存在同源旧笔记，也必须新建根目录笔记，不得沿用旧文件、不得因重复而跳过保存；\n\
-5. 只有转写成功且取得正文后才能保存笔记；转写失败时不得创建或更新占位笔记；\n\
-6. 最终回复只输出整理后的正文文本本身。不要提及本地模型、API、识别误差、技术过程、笔记路径、来源 URL，不要加标题、项目符号、总结、备注或“已完成”等说明。";
+const BUILTIN_MEDIA_PLUGIN_MANIFEST: &str =
+    include_str!("../builtin-plugins/coffee-media/coffee-plugin.json");
+const BUILTIN_MEDIA_SKILL_PROMPT: &str =
+    include_str!("../builtin-plugins/coffee-media/skills/media-to-text/SKILL.md");
+const BUILTIN_PRESENTATION_PLUGIN_ID: &str = "coffee-presentation";
+const BUILTIN_PRESENTATION_SKILL_ID: &str = "coffee-note-presentation-create";
+const BUILTIN_PRESENTATION_PLUGIN_MANIFEST: &str =
+    include_str!("../builtin-plugins/coffee-presentation/coffee-plugin.json");
+const BUILTIN_PRESENTATION_SKILL_PROMPT: &str =
+    include_str!("../builtin-plugins/coffee-presentation/skills/create-presentation/SKILL.md");
+const BUILTIN_PRESENTATION_DECK_SPEC: &str = include_str!(
+    "../builtin-plugins/coffee-presentation/skills/create-presentation/references/deck-spec.md"
+);
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,6 +56,7 @@ pub struct SkillDefinition {
     enabled: bool,
     builtin: bool,
     icon_id: Option<String>,
+    runtime_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,6 +74,9 @@ pub struct SkillPlugin {
     enabled: bool,
     builtin: bool,
     icon_id: Option<String>,
+    publisher: String,
+    origin: String,
+    runtime_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -91,6 +99,64 @@ fn default_true() -> bool {
     true
 }
 
+fn default_builtin_plugins() -> BTreeMap<String, BuiltinPluginState> {
+    [BUILTIN_MEDIA_PLUGIN_ID, BUILTIN_PRESENTATION_PLUGIN_ID]
+        .into_iter()
+        .map(|id| {
+            (
+                id.to_string(),
+                BuiltinPluginState {
+                    enabled: true,
+                    disabled_skill_ids: BTreeSet::new(),
+                },
+            )
+        })
+        .collect()
+}
+
+fn builtin_media_manifest() -> BuiltinPluginManifest {
+    let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_MEDIA_PLUGIN_MANIFEST)
+        .expect("the bundled Coffee Media manifest must be valid JSON");
+    debug_assert_eq!(manifest.schema_version, 1);
+    debug_assert_eq!(manifest.id, BUILTIN_MEDIA_PLUGIN_ID);
+    debug_assert_eq!(manifest.runtime.lifecycle, "application");
+    debug_assert!(manifest.runtime.shared);
+    debug_assert!(manifest.runtime.prewarm);
+    manifest
+}
+
+fn builtin_presentation_manifest() -> BuiltinPluginManifest {
+    let manifest: BuiltinPluginManifest =
+        serde_json::from_str(BUILTIN_PRESENTATION_PLUGIN_MANIFEST)
+            .expect("the bundled Coffee Presentation manifest must be valid JSON");
+    debug_assert_eq!(manifest.schema_version, 1);
+    debug_assert_eq!(manifest.id, BUILTIN_PRESENTATION_PLUGIN_ID);
+    debug_assert_eq!(manifest.runtime.lifecycle, "application");
+    debug_assert!(manifest.runtime.shared);
+    debug_assert!(manifest.runtime.prewarm);
+    manifest
+}
+
+fn builtin_manifests() -> Vec<BuiltinPluginManifest> {
+    vec![builtin_media_manifest(), builtin_presentation_manifest()]
+}
+
+fn builtin_skill_prompt(plugin_id: &str, skill_id: &str, path: &str) -> Option<String> {
+    match (plugin_id, skill_id, path) {
+        (BUILTIN_MEDIA_PLUGIN_ID, BUILTIN_MEDIA_SKILL_ID, "skills/media-to-text/SKILL.md") => {
+            Some(BUILTIN_MEDIA_SKILL_PROMPT.to_string())
+        }
+        (
+            BUILTIN_PRESENTATION_PLUGIN_ID,
+            BUILTIN_PRESENTATION_SKILL_ID,
+            "skills/create-presentation/SKILL.md",
+        ) => Some(format!(
+            "{BUILTIN_PRESENTATION_SKILL_PROMPT}\n\n<bundled_reference path=\"references/deck-spec.md\">\n{BUILTIN_PRESENTATION_DECK_SPEC}\n</bundled_reference>"
+        )),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SkillSourceMeta {
@@ -106,14 +172,55 @@ struct SkillSourceMeta {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct BuiltinPluginState {
+    #[serde(default = "default_true")]
+    enabled: bool,
+    #[serde(default)]
+    disabled_skill_ids: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SkillIndex {
     version: u8,
-    #[serde(default = "default_true")]
-    builtin_media_enabled: bool,
+    #[serde(default = "default_builtin_plugins")]
+    builtin_plugins: BTreeMap<String, BuiltinPluginState>,
     #[serde(default)]
     custom_categories: Vec<SkillCategory>,
     #[serde(default)]
     sources: BTreeMap<String, SkillSourceMeta>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuiltinRuntimeManifest {
+    id: String,
+    lifecycle: String,
+    shared: bool,
+    prewarm: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuiltinSkillManifest {
+    id: String,
+    path: String,
+    title: String,
+    description: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuiltinPluginManifest {
+    schema_version: u8,
+    id: String,
+    name: String,
+    description: String,
+    version: String,
+    publisher: String,
+    category_id: String,
+    runtime: BuiltinRuntimeManifest,
+    skills: Vec<BuiltinSkillManifest>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -172,7 +279,7 @@ fn fixed_categories() -> Vec<SkillCategory> {
         },
         SkillCategory {
             id: "media".into(),
-            label: "媒体转文字".into(),
+            label: "音视频".into(),
             fixed: true,
         },
     ]
@@ -181,7 +288,7 @@ fn fixed_categories() -> Vec<SkillCategory> {
 fn empty_index() -> SkillIndex {
     SkillIndex {
         version: INDEX_VERSION,
-        builtin_media_enabled: true,
+        builtin_plugins: default_builtin_plugins(),
         custom_categories: Vec::new(),
         sources: BTreeMap::new(),
     }
@@ -203,9 +310,40 @@ fn load_index() -> Result<SkillIndex, String> {
         .map_err(|error| format!("Could not read the skills index: {error}"))?;
     let value: Value = serde_json::from_str(&contents)
         .map_err(|error| format!("Could not parse the skills index: {error}"))?;
-    if value.get("version").and_then(Value::as_u64).unwrap_or(1) >= INDEX_VERSION as u64 {
-        return serde_json::from_value(value)
-            .map_err(|error| format!("Could not parse the skills index: {error}"));
+    let stored_version = value.get("version").and_then(Value::as_u64).unwrap_or(1);
+    if stored_version >= 2 {
+        let legacy_media_enabled = value
+            .get("builtinMediaEnabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let mut index: SkillIndex = serde_json::from_value(value)
+            .map_err(|error| format!("Could not parse the skills index: {error}"))?;
+        index.version = INDEX_VERSION;
+        let mut changed = stored_version < INDEX_VERSION as u64;
+        if stored_version < INDEX_VERSION as u64 {
+            index.builtin_plugins.insert(
+                BUILTIN_MEDIA_PLUGIN_ID.to_string(),
+                BuiltinPluginState {
+                    enabled: legacy_media_enabled,
+                    disabled_skill_ids: BTreeSet::new(),
+                },
+            );
+        }
+        for manifest in builtin_manifests() {
+            if let std::collections::btree_map::Entry::Vacant(entry) =
+                index.builtin_plugins.entry(manifest.id)
+            {
+                entry.insert(BuiltinPluginState {
+                    enabled: true,
+                    disabled_skill_ids: BTreeSet::new(),
+                });
+                changed = true;
+            }
+        }
+        if changed {
+            save_index(&index)?;
+        }
+        return Ok(index);
     }
 
     let mut index = empty_index();
@@ -430,6 +568,7 @@ fn json_string(value: &Value, names: &[&str]) -> Option<String> {
 
 fn package_manifest(root: &Path) -> Option<Value> {
     [
+        root.join("coffee-plugin.json"),
         root.join("reasonix-plugin.json"),
         root.join(".codex-plugin").join("plugin.json"),
         root.join(".claude-plugin").join("plugin.json"),
@@ -758,33 +897,50 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
     });
 
     let mut icons = BTreeMap::new();
-    let mut skills = vec![SkillDefinition {
-        id: BUILTIN_MEDIA_SKILL_ID.into(),
-        title: "媒体转文字".into(),
-        description: "把视频或音频链接、本地媒体文件转成文字，并整理成笔记。".into(),
-        category_id: "media".into(),
-        codex_compatible: true,
-        source_id: "builtin".into(),
-        source_url: String::new(),
-        source_version: None,
-        enabled: index.builtin_media_enabled,
-        builtin: true,
-        icon_id: None,
-    }];
-    let mut plugins = vec![SkillPlugin {
-        id: BUILTIN_MEDIA_SKILL_ID.into(),
-        name: "媒体转文字".into(),
-        description: "Coffee Note 自带的媒体转文字技能。".into(),
-        version: None,
-        category_id: "media".into(),
-        codex_compatible: true,
-        source_url: String::new(),
-        skill_count: 1,
-        error: None,
-        enabled: index.builtin_media_enabled,
-        builtin: true,
-        icon_id: None,
-    }];
+    let mut skills = Vec::new();
+    let mut plugins = Vec::new();
+    for builtin in builtin_manifests() {
+        let builtin_state =
+            index
+                .builtin_plugins
+                .get(&builtin.id)
+                .cloned()
+                .unwrap_or(BuiltinPluginState {
+                    enabled: true,
+                    disabled_skill_ids: BTreeSet::new(),
+                });
+        skills.extend(builtin.skills.iter().map(|skill| SkillDefinition {
+            id: skill.id.clone(),
+            title: skill.title.clone(),
+            description: skill.description.clone(),
+            category_id: builtin.category_id.clone(),
+            codex_compatible: true,
+            source_id: builtin.id.clone(),
+            source_url: String::new(),
+            source_version: Some(builtin.version.clone()),
+            enabled: builtin_state.enabled && !builtin_state.disabled_skill_ids.contains(&skill.id),
+            builtin: true,
+            icon_id: None,
+            runtime_id: Some(builtin.runtime.id.clone()),
+        }));
+        plugins.push(SkillPlugin {
+            id: builtin.id.clone(),
+            name: builtin.name,
+            description: builtin.description,
+            version: Some(builtin.version),
+            category_id: builtin.category_id,
+            codex_compatible: true,
+            source_url: String::new(),
+            skill_count: builtin.skills.len(),
+            error: None,
+            enabled: builtin_state.enabled,
+            builtin: true,
+            icon_id: None,
+            publisher: builtin.publisher,
+            origin: "bundled".into(),
+            runtime_id: Some(builtin.runtime.id),
+        });
+    }
     for (source_id, meta) in sources {
         let root = skills_sources_root().join(source_id);
         match discover_package(&root, &meta.source_url, true) {
@@ -813,6 +969,7 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                         enabled,
                         builtin: false,
                         icon_id,
+                        runtime_id: None,
                     }
                 }));
                 let package_icon_id = package
@@ -832,6 +989,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                     enabled: meta.enabled,
                     builtin: false,
                     icon_id: package_icon_id,
+                    publisher: "Community".into(),
+                    origin: "git".into(),
+                    runtime_id: None,
                 });
             }
             Err(error) => plugins.push(SkillPlugin {
@@ -847,6 +1007,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                 enabled: meta.enabled,
                 builtin: false,
                 icon_id: None,
+                publisher: "Community".into(),
+                origin: "git".into(),
+                runtime_id: None,
             }),
         }
     }
@@ -978,8 +1141,25 @@ pub fn set_skill_enabled(
     source_id: String,
     enabled: bool,
 ) -> Result<SkillCatalog, String> {
-    if id == BUILTIN_MEDIA_SKILL_ID {
-        return set_builtin_skill_enabled(enabled);
+    if let Some(plugin) = builtin_manifests()
+        .into_iter()
+        .find(|plugin| plugin.skills.iter().any(|skill| skill.id == id))
+    {
+        if source_id != plugin.id {
+            return Err("Skill not found in the selected plugin".to_string());
+        }
+        let mut index = ensure_store()?;
+        let state = index
+            .builtin_plugins
+            .get_mut(&plugin.id)
+            .ok_or_else(|| "Built-in plugin state is unavailable".to_string())?;
+        if enabled {
+            state.disabled_skill_ids.remove(&id);
+        } else {
+            state.disabled_skill_ids.insert(id);
+        }
+        save_index(&index)?;
+        return Ok(catalog_from_index(&index));
     }
 
     let mut index = ensure_store()?;
@@ -1010,11 +1190,42 @@ pub fn set_skill_enabled(
 }
 
 #[tauri::command]
-pub fn set_builtin_skill_enabled(enabled: bool) -> Result<SkillCatalog, String> {
+pub fn set_builtin_plugin_enabled(id: String, enabled: bool) -> Result<SkillCatalog, String> {
+    if !builtin_manifests().iter().any(|plugin| plugin.id == id) {
+        return Err("Built-in plugin not found".to_string());
+    }
     let mut index = ensure_store()?;
-    index.builtin_media_enabled = enabled;
+    let state = index
+        .builtin_plugins
+        .get_mut(&id)
+        .ok_or_else(|| "Built-in plugin state is unavailable".to_string())?;
+    state.enabled = enabled;
+    if enabled {
+        state.disabled_skill_ids.clear();
+    }
     save_index(&index)?;
     Ok(catalog_from_index(&index))
+}
+
+#[tauri::command]
+pub fn set_builtin_skill_enabled(enabled: bool) -> Result<SkillCatalog, String> {
+    set_builtin_plugin_enabled(BUILTIN_MEDIA_PLUGIN_ID.to_string(), enabled)
+}
+
+pub(crate) fn builtin_tool_enabled(tool_name: &str) -> Result<bool, String> {
+    let (plugin_id, skill_id) = match tool_name {
+        "transcribe_media" => (BUILTIN_MEDIA_PLUGIN_ID, BUILTIN_MEDIA_SKILL_ID),
+        "create_presentation" => (
+            BUILTIN_PRESENTATION_PLUGIN_ID,
+            BUILTIN_PRESENTATION_SKILL_ID,
+        ),
+        _ => return Ok(true),
+    };
+    let index = ensure_store()?;
+    Ok(index
+        .builtin_plugins
+        .get(plugin_id)
+        .is_some_and(|state| state.enabled && !state.disabled_skill_ids.contains(skill_id)))
 }
 
 fn normalize_category_label(label: String) -> Result<String, String> {
@@ -1092,11 +1303,25 @@ pub fn delete_skill_category(id: String) -> Result<SkillCatalog, String> {
 }
 
 pub fn load_skill_prompt(id: &str) -> Result<String, String> {
-    if id == BUILTIN_MEDIA_SKILL_ID {
-        if !ensure_store()?.builtin_media_enabled {
-            return Err("The built-in media skill is disabled".to_string());
+    if let Some(manifest) = builtin_manifests()
+        .into_iter()
+        .find(|plugin| plugin.skills.iter().any(|skill| skill.id == id))
+    {
+        let index = ensure_store()?;
+        let state = index
+            .builtin_plugins
+            .get(&manifest.id)
+            .ok_or_else(|| "The built-in plugin is unavailable".to_string())?;
+        if !state.enabled || state.disabled_skill_ids.contains(id) {
+            return Err("The built-in skill is disabled".to_string());
         }
-        return Ok(BUILTIN_MEDIA_SKILL_PROMPT.to_string());
+        let skill = manifest
+            .skills
+            .iter()
+            .find(|skill| skill.id == id)
+            .ok_or_else(|| "The bundled skill manifest is invalid".to_string())?;
+        return builtin_skill_prompt(&manifest.id, id, &skill.path)
+            .ok_or_else(|| "The bundled skill path is invalid".to_string());
     }
     let index = ensure_store()?;
     for (source_id, meta) in &index.sources {
@@ -1155,9 +1380,41 @@ mod tests {
 
     #[test]
     fn media_skill_never_saves_a_placeholder_after_transcription_failure() {
-        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("转写失败时不得创建或更新占位笔记"));
-        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("不传 path"));
-        assert!(!BUILTIN_MEDIA_SKILL_PROMPT.contains("category 固定"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("Stop without writing a file"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("without `path`"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("Never install a downloader"));
+    }
+
+    #[test]
+    fn bundled_media_plugin_declares_a_shared_prewarmed_runtime() {
+        let plugin = builtin_media_manifest();
+        assert_eq!(plugin.id, BUILTIN_MEDIA_PLUGIN_ID);
+        assert_eq!(plugin.skills[0].id, BUILTIN_MEDIA_SKILL_ID);
+        assert_eq!(plugin.runtime.id, "media-transcription");
+        assert_eq!(plugin.runtime.lifecycle, "application");
+        assert!(plugin.runtime.shared);
+        assert!(plugin.runtime.prewarm);
+    }
+
+    #[test]
+    fn bundled_presentation_plugin_uses_the_native_shared_runtime() {
+        let plugin = builtin_presentation_manifest();
+        assert_eq!(plugin.id, BUILTIN_PRESENTATION_PLUGIN_ID);
+        assert_eq!(plugin.skills[0].id, BUILTIN_PRESENTATION_SKILL_ID);
+        assert_eq!(plugin.runtime.id, "presentation-engine");
+        assert_eq!(plugin.runtime.lifecycle, "application");
+        assert!(plugin.runtime.shared);
+        assert!(plugin.runtime.prewarm);
+        assert!(BUILTIN_PRESENTATION_SKILL_PROMPT.contains("create_presentation"));
+        assert!(BUILTIN_PRESENTATION_SKILL_PROMPT.contains("Never install a package"));
+        let prompt = builtin_skill_prompt(
+            BUILTIN_PRESENTATION_PLUGIN_ID,
+            BUILTIN_PRESENTATION_SKILL_ID,
+            "skills/create-presentation/SKILL.md",
+        )
+        .expect("bundled presentation prompt should load");
+        assert!(prompt.contains("<bundled_reference"));
+        assert!(prompt.contains("Presentation specification"));
     }
 
     #[test]

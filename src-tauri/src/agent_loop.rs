@@ -918,7 +918,13 @@ pub async fn run_agent(
         reasoning_effort: request.reasoning_effort.clone(),
     })?;
 
-    let tools = agent_tools::get_tool_definitions();
+    let image_tools = crate::image_tool_availability();
+    let tools = agent_tools::get_tool_definitions(agent_tools::ToolAvailability {
+        media_transcription: crate::skills::builtin_tool_enabled("transcribe_media")?,
+        presentation: crate::skills::builtin_tool_enabled("create_presentation")?,
+        image_recognition: image_tools.recognition,
+        image_generation: image_tools.generation,
+    });
     let mut system_prompt = build_system_prompt(&request.locale);
     if request.locale == "en" {
         system_prompt.push_str(&format!(

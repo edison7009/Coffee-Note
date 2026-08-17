@@ -51,6 +51,45 @@ or temporary deployment credentials.
 
 ## Desktop redesign direction (2026-08-07)
 
+- **Plugin platform foundation (2026-08-17):** Coffee Note treats plugins as the
+  install/update unit, skills as the Agent invocation unit, and runtimes as shared
+  application-managed infrastructure. Settings > Plugins is the Plugin market;
+  categories filter plugin types, while enabled and installed state lives on the
+  package row and detail page instead of a separate Installed view. The bundled
+  `Coffee Media` package is the first manifest-driven
+  official plugin: its media-to-text skill, publisher, version, and
+  prewarmed `media-transcription` runtime are declared under
+  `src-tauri/builtin-plugins/coffee-media/` instead of being duplicated as a Rust
+  prompt constant. Official plugins may bundle many independently switchable skills;
+  a skill must never install its own runtime. Git skill packages remain supported as
+  prompt-only community extensions, and Coffee Note never automatically executes
+  their scripts, hooks, MCP servers, or runtime declarations.
+- Plugin details expose the package and its independently switchable skills only.
+  Publisher and runtime identifiers remain internal metadata. Plugin manifests and
+  UI do not carry per-plugin access metadata; built-in capabilities use the
+  application's normal workspace access. Disabling a built-in plugin or one of its
+  skills removes the corresponding Agent tool and the backend rejects direct calls
+  as a second guard.
+- **Native presentation plugin (2026-08-17):** The bundled `Coffee Presentation`
+  package lives under `src-tauri/builtin-plugins/coffee-presentation/`. Its
+  `create-presentation` skill sends a complete structured deck to the shared,
+  prewarmed `presentation-engine` runtime. The runtime is compiled into the desktop
+  app, writes editable widescreen `.pptx` packages without installing PowerPoint,
+  Node, Python, or a per-skill environment, and currently supports minimal,
+  business, and dark themes plus title, section, content, two-column, quote, and
+  workspace-image layouts. Generated files use a new filename instead of silently
+  overwriting an existing deck.
+- **Image recognition and generation (2026-08-17):** Settings includes one dedicated
+  Recognition and generation destination beside Audio to text. Its internal Image
+  recognition and Image generation tabs reuse the same compact switcher and store
+  separate service, model, endpoint, and API-key records in local app data. An
+  image-capable active chat model remains the first choice for recognition; the
+  recognition configuration is its fallback. Image-generation skills use the
+  generation configuration. The Agent exposes `recognize_image` and `generate_image`
+  only when their respective configuration is complete; generated PNG/JPEG files are
+  saved non-destructively in the selected workspace and can be passed directly to the
+  presentation tool by relative path. This version is cloud-only and does not expose
+  an unfinished local OCR tab.
 - **Ambient Home weather (2026-08-09):** The open area to the right of the Home
   greeting holds only a compact animated condition image: no city, temperature,
   forecast text, provider name, or enclosing card appears on Home. Explicit click
