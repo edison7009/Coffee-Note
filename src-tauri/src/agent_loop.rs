@@ -921,6 +921,8 @@ pub async fn run_agent(
     let image_tools = crate::image_tool_availability();
     let tools = agent_tools::get_tool_definitions(agent_tools::ToolAvailability {
         media_transcription: crate::skills::builtin_tool_enabled("transcribe_media")?,
+        document_docx: crate::skills::builtin_tool_enabled("create_docx")?,
+        document_pdf: crate::skills::builtin_tool_enabled("create_pdf")?,
         presentation: crate::skills::builtin_tool_enabled("create_presentation")?,
         video: crate::skills::builtin_tool_enabled("create_video")?,
         image_recognition: image_tools.recognition,

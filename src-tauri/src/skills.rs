@@ -24,6 +24,15 @@ const BUILTIN_MEDIA_PLUGIN_MANIFEST: &str =
     include_str!("../builtin-plugins/coffee-media/coffee-plugin.json");
 const BUILTIN_MEDIA_SKILL_PROMPT: &str =
     include_str!("../builtin-plugins/coffee-media/skills/media-to-text/SKILL.md");
+const BUILTIN_DOCUMENT_PLUGIN_ID: &str = "coffee-documents";
+const BUILTIN_DOCX_SKILL_ID: &str = "coffee-note-document-create-docx";
+const BUILTIN_PDF_SKILL_ID: &str = "coffee-note-document-create-pdf";
+const BUILTIN_DOCUMENT_PLUGIN_MANIFEST: &str =
+    include_str!("../builtin-plugins/coffee-documents/coffee-plugin.json");
+const BUILTIN_DOCX_SKILL_PROMPT: &str =
+    include_str!("../builtin-plugins/coffee-documents/skills/create-docx/SKILL.md");
+const BUILTIN_PDF_SKILL_PROMPT: &str =
+    include_str!("../builtin-plugins/coffee-documents/skills/create-pdf/SKILL.md");
 const BUILTIN_PRESENTATION_PLUGIN_ID: &str = "coffee-presentation";
 const BUILTIN_PRESENTATION_SKILL_ID: &str = "coffee-note-presentation-create";
 const BUILTIN_PRESENTATION_PLUGIN_MANIFEST: &str =
@@ -108,6 +117,7 @@ fn default_true() -> bool {
 fn default_builtin_plugins() -> BTreeMap<String, BuiltinPluginState> {
     [
         BUILTIN_MEDIA_PLUGIN_ID,
+        BUILTIN_DOCUMENT_PLUGIN_ID,
         BUILTIN_PRESENTATION_PLUGIN_ID,
         BUILTIN_VIDEO_PLUGIN_ID,
     ]
@@ -147,6 +157,17 @@ fn builtin_presentation_manifest() -> BuiltinPluginManifest {
     manifest
 }
 
+fn builtin_document_manifest() -> BuiltinPluginManifest {
+    let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_DOCUMENT_PLUGIN_MANIFEST)
+        .expect("the bundled Coffee Documents manifest must be valid JSON");
+    debug_assert_eq!(manifest.schema_version, 1);
+    debug_assert_eq!(manifest.id, BUILTIN_DOCUMENT_PLUGIN_ID);
+    debug_assert_eq!(manifest.runtime.lifecycle, "application");
+    debug_assert!(manifest.runtime.shared);
+    debug_assert!(manifest.runtime.prewarm);
+    manifest
+}
+
 fn builtin_video_manifest() -> BuiltinPluginManifest {
     let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_VIDEO_PLUGIN_MANIFEST)
         .expect("the bundled Coffee Video manifest must be valid JSON");
@@ -161,6 +182,7 @@ fn builtin_video_manifest() -> BuiltinPluginManifest {
 fn builtin_manifests() -> Vec<BuiltinPluginManifest> {
     vec![
         builtin_media_manifest(),
+        builtin_document_manifest(),
         builtin_presentation_manifest(),
         builtin_video_manifest(),
     ]
@@ -171,6 +193,16 @@ fn builtin_skill_prompt(plugin_id: &str, skill_id: &str, path: &str) -> Option<S
         (BUILTIN_MEDIA_PLUGIN_ID, BUILTIN_MEDIA_SKILL_ID, "skills/media-to-text/SKILL.md") => {
             Some(BUILTIN_MEDIA_SKILL_PROMPT.to_string())
         }
+        (
+            BUILTIN_DOCUMENT_PLUGIN_ID,
+            BUILTIN_DOCX_SKILL_ID,
+            "skills/create-docx/SKILL.md",
+        ) => Some(BUILTIN_DOCX_SKILL_PROMPT.to_string()),
+        (
+            BUILTIN_DOCUMENT_PLUGIN_ID,
+            BUILTIN_PDF_SKILL_ID,
+            "skills/create-pdf/SKILL.md",
+        ) => Some(BUILTIN_PDF_SKILL_PROMPT.to_string()),
         (
             BUILTIN_PRESENTATION_PLUGIN_ID,
             BUILTIN_PRESENTATION_SKILL_ID,
@@ -1243,6 +1275,19 @@ pub fn set_builtin_skill_enabled(enabled: bool) -> Result<SkillCatalog, String> 
 pub(crate) fn builtin_tool_enabled(tool_name: &str) -> Result<bool, String> {
     let (plugin_id, skill_id) = match tool_name {
         "transcribe_media" => (BUILTIN_MEDIA_PLUGIN_ID, BUILTIN_MEDIA_SKILL_ID),
+        "create_document" => {
+            let index = ensure_store()?;
+            return Ok(index
+                .builtin_plugins
+                .get(BUILTIN_DOCUMENT_PLUGIN_ID)
+                .is_some_and(|state| {
+                    state.enabled
+                        && (!state.disabled_skill_ids.contains(BUILTIN_DOCX_SKILL_ID)
+                            || !state.disabled_skill_ids.contains(BUILTIN_PDF_SKILL_ID))
+                }));
+        }
+        "create_docx" => (BUILTIN_DOCUMENT_PLUGIN_ID, BUILTIN_DOCX_SKILL_ID),
+        "create_pdf" => (BUILTIN_DOCUMENT_PLUGIN_ID, BUILTIN_PDF_SKILL_ID),
         "create_presentation" => (
             BUILTIN_PRESENTATION_PLUGIN_ID,
             BUILTIN_PRESENTATION_SKILL_ID,
@@ -1444,6 +1489,20 @@ mod tests {
         .expect("bundled presentation prompt should load");
         assert!(prompt.contains("<bundled_reference"));
         assert!(prompt.contains("Presentation specification"));
+    }
+
+    #[test]
+    fn bundled_document_plugin_exposes_docx_and_pdf_on_one_native_runtime() {
+        let plugin = builtin_document_manifest();
+        assert_eq!(plugin.id, BUILTIN_DOCUMENT_PLUGIN_ID);
+        assert_eq!(plugin.runtime.id, "document-engine");
+        assert_eq!(plugin.skills.len(), 2);
+        assert_eq!(plugin.skills[0].id, BUILTIN_DOCX_SKILL_ID);
+        assert_eq!(plugin.skills[1].id, BUILTIN_PDF_SKILL_ID);
+        assert!(BUILTIN_DOCX_SKILL_PROMPT.contains("create_document"));
+        assert!(BUILTIN_DOCX_SKILL_PROMPT.contains("format` set to `docx"));
+        assert!(BUILTIN_PDF_SKILL_PROMPT.contains("create_document"));
+        assert!(BUILTIN_PDF_SKILL_PROMPT.contains("format` set to `pdf"));
     }
 
     #[test]

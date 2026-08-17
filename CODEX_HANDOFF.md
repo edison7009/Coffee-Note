@@ -79,6 +79,16 @@ or temporary deployment credentials.
   business, and dark themes plus title, section, content, two-column, quote, and
   workspace-image layouts. Generated files use a new filename instead of silently
   overwriting an existing deck.
+- **Native document plugin (2026-08-17):** The bundled `Coffee Documents` package
+  lives under `src-tauri/builtin-plugins/coffee-documents/` and exposes independent
+  `create-docx` and `create-pdf` skills on one prewarmed `document-engine`. Both
+  submit a complete semantic block list to the guarded `create_document` tool.
+  `src-tauri/src/document.rs` writes editable Open XML `.docx` packages and lays out
+  `.pdf` files with a local TrueType font; neither path requires Word, LibreOffice,
+  Python, Node, or a per-skill runtime. Output filenames are reserved with
+  create-new semantics. The DOCX package organization was informed by the Apache-2.0
+  OfficeCLI project at `E:\Coffee-Note-Skills\OfficeCLI`; its notice is retained in
+  `THIRD_PARTY_NOTICES.md`. PDF generation uses the MIT-licensed `printpdf` crate.
 - **Image recognition and generation (2026-08-17):** Settings includes one dedicated
   Recognition and generation destination beside Audio to text. Its internal Image
   recognition, Image generation, and Speech generation tabs reuse the same compact switcher and store
@@ -100,6 +110,11 @@ or temporary deployment credentials.
   existing file. This is the dependable baseline rather than a diffusion video
   model. Git-installed community skills can improve copy, shot planning, and prompts,
   but remain prompt-only and cannot execute their own scripts, hooks, or runtimes.
+- **Note creation shortcuts (2026-08-17):** Every concrete note view exposes
+  Generate DOCX, Generate PDF, Generate PPT, and Generate video beside Copy full text. Clicking one selects the
+  matching enabled bundled skill in the shared composer, focuses the input, keeps
+  the current note attached as context, and deliberately does not send anything.
+  The old disabled Mobile long image placeholder was removed.
 - **Ambient Home weather (2026-08-09):** The open area to the right of the Home
   greeting holds only a compact animated condition image: no city, temperature,
   forecast text, provider name, or enclosing card appears on Home. Explicit click

@@ -66,6 +66,16 @@
   narrative and slide intent; they do not install their own renderer. Generated decks
   are editable 16:9 `.pptx` files with restrained typography, one message per slide,
   deliberate layouts, and density limits that prevent obviously overflowing content.
+- Document generation uses one application-managed native runtime shared by the
+  Generate DOCX and Generate PDF skills. Both accept the same semantic block model.
+  DOCX output is an editable Open XML package; PDF is laid out locally with a system
+  TrueType font and does not require Word or LibreOffice. Both reserve a unique file
+  in the workspace instead of overwriting an existing export.
+- A concrete note page keeps four creation shortcuts beneath its title: Generate DOCX,
+  Generate PDF, Generate PPT, and Generate video. Each shortcut selects the matching enabled built-in skill and
+  focuses the composer while preserving the current note as context. It never sends
+  a request automatically. Do not restore the unrelated disabled Mobile long image
+  placeholder in this row.
 - Settings exposes Recognition and generation as a separate destination next to
   Audio to text. Its Image recognition, Image generation, and Speech generation tabs
   mirror the compact Audio to text switcher and keep independent provider, model,
@@ -286,3 +296,6 @@
 | 2026-08-17 | Generate presentations in the shared native runtime | Coffee Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
 | 2026-08-17 | Separate recognition and generation providers | Keep one Recognition and generation destination with three compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; image and speech generation use independently configured providers. Local OCR remains a later capability. |
 | 2026-08-17 | Ship Coffee Video as the safe fallback video workflow | The built-in plugin turns copy into scene images, configured speech, burned captions, restrained motion, and an MP4 through an application-managed encoder. Community Git skills may improve storyboards and prompts but only call the same guarded tools; they cannot execute bundled scripts or runtimes. |
+| 2026-08-17 | Make note creation actions skill shortcuts | Generate PPT and Generate video beneath a note title select their corresponding one-shot built-in skill and focus the composer without sending. The current note remains explicit context. Remove the disabled Mobile long image placeholder instead of expanding the row with an unrelated future export. |
+| 2026-08-17 | Generate DOCX and PDF through one native document runtime | Coffee Documents contains two independently switchable skills that submit the same heading/paragraph/list/quote model. The app writes editable Open XML DOCX and locally typeset PDF files without requiring an Office installation, while preserving OfficeCLI attribution for the Open XML reference work. |
+| 2026-08-17 | Extend note creation shortcuts to document exports | Generate DOCX and Generate PDF join PPT and video beneath the note title. All four actions only select a bundled skill and focus the existing composer; none sends automatically. |

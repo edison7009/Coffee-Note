@@ -17,6 +17,10 @@ const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/c
 const videoSource = await readFile(new URL('../src-tauri/src/video.rs', import.meta.url), 'utf8');
 const videoManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/coffee-plugin.json', import.meta.url), 'utf8');
 const videoSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/skills/create-video/SKILL.md', import.meta.url), 'utf8');
+const documentSource = await readFile(new URL('../src-tauri/src/document.rs', import.meta.url), 'utf8');
+const documentManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/coffee-plugin.json', import.meta.url), 'utf8');
+const docxSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/skills/create-docx/SKILL.md', import.meta.url), 'utf8');
+const pdfSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/skills/create-pdf/SKILL.md', import.meta.url), 'utf8');
 
 test('settings includes a plugin market backed by one shared catalog', () => {
   assert.match(appSource, /type SettingsSectionId = 'model' \| 'skills' \| 'transcription' \| 'multimodal' \| 'appearance'/);
@@ -201,4 +205,23 @@ test('presentation is a bundled plugin backed by one reusable native runtime', (
   assert.match(appSource, /create_presentation/);
   assert.match(appSource, /recognize_image/);
   assert.match(appSource, /generate_image/);
+});
+
+test('documents are two bundled skills backed by one native DOCX and PDF runtime', () => {
+  assert.match(documentManifest, /"id": "coffee-documents"/);
+  assert.match(documentManifest, /"id": "document-engine"/);
+  assert.match(documentManifest, /coffee-note-document-create-docx/);
+  assert.match(documentManifest, /coffee-note-document-create-pdf/);
+  assert.match(documentManifest, /"skillCount"|"skills"/);
+  assert.match(docxSkill, /create_document/);
+  assert.match(docxSkill, /format` set to `docx/);
+  assert.match(pdfSkill, /create_document/);
+  assert.match(pdfSkill, /format` set to `pdf/);
+  assert.match(documentSource, /fn write_docx/);
+  assert.match(documentSource, /fn write_pdf/);
+  assert.match(documentSource, /WordprocessingML|word\/document\.xml/);
+  assert.match(documentSource, /add_external_font_with_subsetting/);
+  assert.match(agentSource, /document_docx: crate::skills::builtin_tool_enabled\("create_docx"\)/);
+  assert.match(agentSource, /document_pdf: crate::skills::builtin_tool_enabled\("create_pdf"\)/);
+  assert.match(appSource, /create_document/);
 });

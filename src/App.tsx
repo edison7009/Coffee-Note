@@ -21,7 +21,6 @@ import {
   MessageCircleMore,
   Minus,
   Monitor,
-  Smartphone,
   Moon,
   ChevronDown,
   NotebookPen,
@@ -33,6 +32,7 @@ import {
   Presentation,
   Video,
   FileText,
+  FileDown,
   FileUp,
   Folder,
   FolderPlus,
@@ -226,17 +226,43 @@ import {
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://note.coffeecli.com/';
 const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
+const BUILTIN_DOCX_SKILL_ID = 'coffee-note-document-create-docx';
+const BUILTIN_PDF_SKILL_ID = 'coffee-note-document-create-pdf';
+const BUILTIN_PRESENTATION_SKILL_ID = 'coffee-note-presentation-create';
+const BUILTIN_VIDEO_SKILL_ID = 'coffee-note-video-create';
 const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 const CAPTURE_TRANSCRIPTION_MODE_KEY = storageKey('capture-transcription-mode:v1');
 
 function skillTitle(skill: SkillDefinition, locale: Locale) {
-  if (skill.builtin && locale === 'en') return 'Media to text';
+  if (skill.builtin && locale === 'en') {
+    if (skill.id === BUILTIN_MEDIA_SKILL_ID) return 'Media to text';
+    if (skill.id === BUILTIN_DOCX_SKILL_ID) return 'Create DOCX';
+    if (skill.id === BUILTIN_PDF_SKILL_ID) return 'Create PDF';
+    if (skill.id === BUILTIN_PRESENTATION_SKILL_ID) return 'Create presentation';
+    if (skill.id === BUILTIN_VIDEO_SKILL_ID) return 'Create video';
+  }
   return skill.title;
 }
 
 function skillDescription(skill: SkillDefinition, locale: Locale) {
-  if (skill.builtin && locale === 'en') return 'Transcribe media links or local files into notes.';
+  if (skill.builtin && locale === 'en') {
+    if (skill.id === BUILTIN_MEDIA_SKILL_ID) {
+      return 'Transcribe media links or local files into notes.';
+    }
+    if (skill.id === BUILTIN_DOCX_SKILL_ID) {
+      return 'Turn the current content into an editable Word document.';
+    }
+    if (skill.id === BUILTIN_PDF_SKILL_ID) {
+      return 'Turn the current content into a polished shareable PDF.';
+    }
+    if (skill.id === BUILTIN_PRESENTATION_SKILL_ID) {
+      return 'Turn the current content into an editable PowerPoint presentation.';
+    }
+    if (skill.id === BUILTIN_VIDEO_SKILL_ID) {
+      return 'Turn the current content into a narrated MP4 video.';
+    }
+  }
   return skill.description;
 }
 
@@ -2387,6 +2413,21 @@ function App() {
     if (selectedContextNotes.length > 0) cancelMultiSelect();
   };
 
+  const selectNoteCreationSkill = (skillId: string) => {
+    const skill = skillCatalog.skills.find((candidate) => candidate.id === skillId);
+    if (!skill?.enabled) {
+      setToast({
+        message: locale === 'zh'
+          ? '请先在插件市场启用对应的内置技能'
+          : 'Enable the matching built-in skill in the plugin market first.',
+        kind: 'status',
+      });
+      return;
+    }
+    setSelectedSkillId(skillId);
+    window.requestAnimationFrame(() => chatComposerRef.current?.focus());
+  };
+
   const handleSwitchRoot = async () => {
     if (!isTauri) return;
     const selected = await chooseKnowledgeFolder();
@@ -3284,6 +3325,7 @@ function App() {
                     })
                   }
                   onDeleteNote={handleDeleteNote}
+                  onSelectCreationSkill={selectNoteCreationSkill}
                   onSetTier={(nextTier) =>
                     selectedPerson.filePath && handleSetTier(selectedPerson.filePath, nextTier)
                   }
@@ -3321,6 +3363,7 @@ function App() {
                     })
                   }
                   onDeleteNote={handleDeleteNote}
+                  onSelectCreationSkill={selectNoteCreationSkill}
                   onSetTier={(nextTier) =>
                     selectedStory.filePath && handleSetTier(selectedStory.filePath, nextTier)
                   }
@@ -3367,6 +3410,7 @@ function App() {
                     })
                   }
                   onDeleteNote={handleDeleteNote}
+                  onSelectCreationSkill={selectNoteCreationSkill}
                   onSetTier={(nextTier) => handleSetTier(fileNotePath, nextTier)}
                   onActivateReaderCommands={() => setActiveTextSurface('reader')}
                   onRegisterReaderCommands={(controller) => {
@@ -6479,6 +6523,7 @@ function NoteView({
   isEditing,
   onToggleEdit,
   onDeleteNote,
+  onSelectCreationSkill,
   onSetTier,
   onActivateReaderCommands,
   onRegisterReaderCommands,
@@ -6497,6 +6542,7 @@ function NoteView({
   isEditing: boolean;
   onToggleEdit: () => void;
   onDeleteNote: (relativePath: string) => void;
+  onSelectCreationSkill: (skillId: string) => void;
   onSetTier?: (tier: string) => void;
   onActivateReaderCommands?: () => void;
   onRegisterReaderCommands?: (controller: TextCommandController | null) => void;
@@ -6664,27 +6710,40 @@ function NoteView({
             </button>
             <button
               type="button"
-              className="note-action note-action-future"
-              disabled
-              aria-label={translate(locale, 'mobileLongImage')}
+              className="note-action"
+              disabled={loading || !markdown.trim()}
+              aria-label={translate(locale, 'generateDocx')}
+              onClick={() => onSelectCreationSkill(BUILTIN_DOCX_SKILL_ID)}
             >
-              <Smartphone size={14} />
-              <span>{translate(locale, 'mobileLongImage')}</span>
+              <FileText size={14} />
+              <span>{translate(locale, 'generateDocx')}</span>
             </button>
             <button
               type="button"
-              className="note-action note-action-future"
-              disabled
+              className="note-action"
+              disabled={loading || !markdown.trim()}
+              aria-label={translate(locale, 'generatePdf')}
+              onClick={() => onSelectCreationSkill(BUILTIN_PDF_SKILL_ID)}
+            >
+              <FileDown size={14} />
+              <span>{translate(locale, 'generatePdf')}</span>
+            </button>
+            <button
+              type="button"
+              className="note-action"
+              disabled={loading || !markdown.trim()}
               aria-label={translate(locale, 'generatePpt')}
+              onClick={() => onSelectCreationSkill(BUILTIN_PRESENTATION_SKILL_ID)}
             >
               <Presentation size={14} />
               <span>{translate(locale, 'generatePpt')}</span>
             </button>
             <button
               type="button"
-              className="note-action note-action-future"
-              disabled
+              className="note-action"
+              disabled={loading || !markdown.trim()}
               aria-label={translate(locale, 'generateVideo')}
+              onClick={() => onSelectCreationSkill(BUILTIN_VIDEO_SKILL_ID)}
             >
               <Video size={14} />
               <span>{translate(locale, 'generateVideo')}</span>
@@ -6886,6 +6945,7 @@ function formatAgentToolPhrase(toolName: string | undefined, locale: Locale): st
     read_workspace_file: { zh: '正在读取文件 >', en: 'Reading file >' },
     write_workspace_file: { zh: '正在写入文件 >', en: 'Writing file >' },
     replace_workspace_text: { zh: '正在修改文件 >', en: 'Editing file >' },
+    create_document: { zh: '正在生成文档 >', en: 'Creating document >' },
     create_video: { zh: '正在合成视频 >', en: 'Composing video >' },
   };
   if (toolName && labels[toolName]) return labels[toolName][locale];
@@ -7203,6 +7263,11 @@ function ConversationView({
                 running: locale === 'zh' ? '正在生成演示文稿' : 'Creating presentation',
                 done: locale === 'zh' ? '已生成演示文稿' : 'Created presentation',
                 failed: locale === 'zh' ? '生成演示文稿失败' : 'Could not create presentation',
+              },
+              create_document: {
+                running: locale === 'zh' ? '正在生成文档' : 'Creating document',
+                done: locale === 'zh' ? '已生成文档' : 'Created document',
+                failed: locale === 'zh' ? '生成文档失败' : 'Could not create document',
               },
               create_video: {
                 running: locale === 'zh' ? '正在合成视频' : 'Composing video',

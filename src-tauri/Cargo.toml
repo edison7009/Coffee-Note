@@ -41,6 +41,7 @@ flate2 = "1"
 symphonia = { version = "0.5", features = ["aac", "flac", "isomp4", "mp3", "ogg", "vorbis", "wav"] }
 hound = "3"
 base64 = "0.22"
+printpdf = { version = "0.7", default-features = false, features = ["font_subsetting"] }
 
 [dev-dependencies]
 quick-xml = "0.41"

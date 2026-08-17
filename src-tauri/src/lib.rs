@@ -6,6 +6,7 @@ mod agent_loop;
 mod agent_tools;
 mod channels;
 mod conversations;
+mod document;
 mod file_reader;
 mod json_repair;
 mod knowledge_map;

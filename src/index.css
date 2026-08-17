@@ -1889,10 +1889,6 @@ html.tree-drag-active * {
   cursor: default;
 }
 
-.note-action-future:disabled {
-  opacity: 0.36;
-}
-
 .note-action.copy-full {
   min-width: 88px;
   justify-content: center;

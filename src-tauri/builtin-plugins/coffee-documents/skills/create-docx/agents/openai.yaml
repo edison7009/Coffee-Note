@@ -1,0 +1,4 @@
+interface:
+  display_name: "生成 DOCX"
+  short_description: "把笔记与资料整理为结构清晰、可继续编辑的 Word 文档"
+  default_prompt: "Use $create-docx to turn the selected note into a polished editable DOCX document."

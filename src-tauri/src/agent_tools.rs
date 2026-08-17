@@ -22,6 +22,8 @@ pub struct ToolResult {
 #[derive(Clone, Copy)]
 pub struct ToolAvailability {
     pub media_transcription: bool,
+    pub document_docx: bool,
+    pub document_pdf: bool,
     pub presentation: bool,
     pub video: bool,
     pub image_recognition: bool,
@@ -31,6 +33,13 @@ pub struct ToolAvailability {
 // ── Tool definitions sent to the LLM ──
 
 pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
+    let mut document_formats = Vec::new();
+    if availability.document_docx {
+        document_formats.push("docx");
+    }
+    if availability.document_pdf {
+        document_formats.push("pdf");
+    }
     let mut tools = vec![
         ToolDef {
             name: "list_workspace".into(),
@@ -328,6 +337,49 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
             }),
         },
         ToolDef {
+            name: "create_document".into(),
+            description: "Create a polished DOCX or PDF file in the selected workspace from a complete structured document. Submit the document once with headings, paragraphs, bullet lists, quotes, and optional page breaks. DOCX output remains editable; PDF output is laid out locally without requiring Microsoft Office or LibreOffice. The runtime validates content and chooses a non-destructive filename.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Document title and default filename"},
+                    "format": {
+                        "type": "string",
+                        "enum": document_formats,
+                        "description": "Required output format"
+                    },
+                    "fileName": {"type": "string", "description": "Optional workspace-root filename with the matching extension"},
+                    "subtitle": {"type": "string", "description": "Optional document subtitle"},
+                    "author": {"type": "string", "description": "Optional author name"},
+                    "blocks": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 200,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": ["heading", "paragraph", "bullets", "quote", "page-break"]
+                                },
+                                "text": {"type": "string", "description": "Text for a heading, paragraph, or quote"},
+                                "level": {"type": "integer", "minimum": 1, "maximum": 3, "description": "Heading level; default 1"},
+                                "items": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 30,
+                                    "items": {"type": "string"},
+                                    "description": "Items for a bullets block"
+                                }
+                            },
+                            "required": ["type"]
+                        }
+                    }
+                },
+                "required": ["title", "format", "blocks"]
+            }),
+        },
+        ToolDef {
             name: "create_presentation".into(),
             description: "Create a native editable PowerPoint .pptx file in the selected workspace. Submit the complete deck in one call. Supports minimal, business, and dark themes; title, section, content, two-column, and quote layouts; and optional workspace-relative PNG/JPEG images. The runtime validates content density and chooses a non-destructive filename.".into(),
             parameters: json!({
@@ -493,6 +545,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
     ];
     tools.retain(|tool| match tool.name.as_str() {
         "transcribe_media" => availability.media_transcription,
+        "create_document" => availability.document_docx || availability.document_pdf,
         "create_presentation" => availability.presentation,
         "create_video" => availability.video,
         "recognize_image" => availability.image_recognition,
@@ -514,6 +567,28 @@ pub async fn execute_tool(
     excluded_prefixes: &[String],
     web_reader: &WebReaderSettings,
 ) -> ToolResult {
+    if name == "create_document" {
+        let capability = match args.get("format").and_then(Value::as_str) {
+            Some(format) if format.eq_ignore_ascii_case("docx") => "create_docx",
+            Some(format) if format.eq_ignore_ascii_case("pdf") => "create_pdf",
+            _ => "create_document",
+        };
+        match crate::skills::builtin_tool_enabled(capability) {
+            Ok(true) => {}
+            Ok(false) => {
+                return ToolResult {
+                    success: false,
+                    output: format!("The plugin skill that provides {capability} is disabled."),
+                }
+            }
+            Err(error) => {
+                return ToolResult {
+                    success: false,
+                    output: format!("Could not verify the plugin state: {error}"),
+                }
+            }
+        }
+    }
     if matches!(
         name,
         "transcribe_media" | "create_presentation" | "create_video"
@@ -552,6 +627,7 @@ pub async fn execute_tool(
         "read_local_file" => exec_read_local_file(args, locale).await,
         "web_fetch" => exec_web_fetch(args, web_reader).await,
         "transcribe_media" => exec_transcribe_media(args, locale, workspace_root).await,
+        "create_document" => exec_create_document(args, workspace_root),
         "create_presentation" => exec_create_presentation(args, workspace_root),
         "create_video" => exec_create_video(app, args, workspace_root).await,
         "recognize_image" => exec_recognize_image(args, workspace_root).await,
@@ -683,6 +759,37 @@ fn exec_create_presentation(args: &Value, workspace_root: &Path) -> ToolResult {
         Err(error) => ToolResult {
             success: false,
             output: format!("Could not create the presentation: {error}"),
+        },
+    }
+}
+
+fn exec_create_document(args: &Value, workspace_root: &Path) -> ToolResult {
+    let request = match serde_json::from_value::<crate::document::DocumentRequest>(args.clone()) {
+        Ok(request) => request,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!(
+                    "Invalid create_document arguments: {error}. Retry with a title, format, and complete blocks array."
+                ),
+            }
+        }
+    };
+    match crate::document::create_document(request, workspace_root) {
+        Ok(output) => ToolResult {
+            success: true,
+            output: json!({
+                "path": output.path.to_string_lossy(),
+                "format": output.format,
+                "editable": output.editable,
+                "blockCount": output.block_count,
+                "pageCount": output.page_count,
+            })
+            .to_string(),
+        },
+        Err(error) => ToolResult {
+            success: false,
+            output: format!("Could not create the document: {error}"),
         },
     }
 }
@@ -1980,6 +2087,8 @@ mod tests {
     fn tool_definitions_expose_general_workspace_operations_without_note_categories() {
         let tools = get_tool_definitions(ToolAvailability {
             media_transcription: true,
+            document_docx: true,
+            document_pdf: true,
             presentation: true,
             video: true,
             image_recognition: true,
@@ -1990,6 +2099,7 @@ mod tests {
             "read_workspace_file",
             "write_workspace_file",
             "replace_workspace_text",
+            "create_document",
             "create_presentation",
             "create_video",
             "recognize_image",
@@ -2012,6 +2122,8 @@ mod tests {
     fn capability_tools_follow_runtime_availability() {
         let tools = get_tool_definitions(ToolAvailability {
             media_transcription: false,
+            document_docx: false,
+            document_pdf: false,
             presentation: false,
             video: false,
             image_recognition: true,
@@ -2020,6 +2132,7 @@ mod tests {
         assert!(tools.iter().any(|tool| tool.name == "recognize_image"));
         for hidden in [
             "transcribe_media",
+            "create_document",
             "create_presentation",
             "create_video",
             "generate_image",
@@ -2029,6 +2142,27 @@ mod tests {
                 "{hidden} should be hidden"
             );
         }
+    }
+
+    #[test]
+    fn document_definition_only_exposes_enabled_formats() {
+        let tools = get_tool_definitions(ToolAvailability {
+            media_transcription: false,
+            document_docx: true,
+            document_pdf: false,
+            presentation: false,
+            video: false,
+            image_recognition: false,
+            image_generation: false,
+        });
+        let document = tools
+            .iter()
+            .find(|tool| tool.name == "create_document")
+            .expect("DOCX should keep the shared document tool available");
+        assert_eq!(
+            document.parameters.pointer("/properties/format/enum"),
+            Some(&json!(["docx"]))
+        );
     }
 
     #[test]

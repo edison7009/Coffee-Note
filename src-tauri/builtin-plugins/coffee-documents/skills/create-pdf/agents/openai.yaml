@@ -1,0 +1,4 @@
+interface:
+  display_name: "生成 PDF"
+  short_description: "把笔记与资料整理为排版清晰、可直接分享的 PDF"
+  default_prompt: "Use $create-pdf to turn the selected note into a polished shareable PDF document."
