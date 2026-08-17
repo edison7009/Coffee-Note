@@ -108,6 +108,8 @@ import {
   loadModelCatalog,
   listSkills,
   loadLibrary,
+  loadTranscriptionConfig,
+  listTranscriptionResources,
   moveTierItem,
   onSelfUpdateProgress,
   openExternalUrl,
@@ -213,6 +215,11 @@ import {
   storageKey,
   writeStorageValue,
 } from './storage';
+import {
+  transcriptionAvailability,
+  type TranscriptionAvailability,
+  type TranscriptionMode,
+} from './transcriptionAvailability';
 
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://note.coffeecli.com/';
@@ -220,8 +227,6 @@ const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
 const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 const CAPTURE_TRANSCRIPTION_MODE_KEY = storageKey('capture-transcription-mode:v1');
-
-type TranscriptionMode = 'api' | 'local';
 
 function skillTitle(skill: SkillDefinition, locale: Locale) {
   if (skill.builtin && locale === 'en') return 'Media to text';
@@ -1622,6 +1627,7 @@ function App() {
   const readerTextCommandsRef = useRef<TextCommandController | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('appearance');
+  const [transcriptionSettingsTab, setTranscriptionSettingsTab] = useState<TranscriptionMode>('api');
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [librarySearchOpen, setLibrarySearchOpen] = useState(false);
@@ -3133,6 +3139,7 @@ function App() {
       {settingsOpen ? (
         <SettingsPage
           initialSection={settingsSection}
+          transcriptionInitialTab={transcriptionSettingsTab}
           locale={locale}
           config={modelSettings}
           catalog={modelCatalog}
@@ -3450,6 +3457,12 @@ function App() {
           onOpenSkillSettings={() => {
             setCaptureGuideOpen(false);
             setSettingsSection('skills');
+            setSettingsOpen(true);
+          }}
+          onOpenTranscriptionSettings={(mode) => {
+            setCaptureGuideOpen(false);
+            setTranscriptionSettingsTab(mode);
+            setSettingsSection('transcription');
             setSettingsOpen(true);
           }}
           onClose={() => setCaptureGuideOpen(false)}
@@ -9138,6 +9151,7 @@ function ModelSettingsSection({
 
 function SettingsPage({
   initialSection,
+  transcriptionInitialTab,
   locale,
   config,
   catalog,
@@ -9160,6 +9174,7 @@ function SettingsPage({
   t,
 }: {
   initialSection: SettingsSectionId;
+  transcriptionInitialTab: TranscriptionMode;
   locale: Locale;
   config: ModelSettings;
   catalog: ModelCatalog;
@@ -9335,7 +9350,7 @@ function SettingsPage({
             )}
 
             {visibleSection === 'transcription' && (
-              <TranscriptionSettings locale={locale} />
+              <TranscriptionSettings locale={locale} initialTab={transcriptionInitialTab} />
             )}
 
             {visibleSection === 'messages' && (
@@ -9502,6 +9517,7 @@ function CaptureGuideDialog({
   onSendToChat,
   mediaSkillEnabled,
   onOpenSkillSettings,
+  onOpenTranscriptionSettings,
   t,
 }: {
   locale: Locale;
@@ -9510,6 +9526,7 @@ function CaptureGuideDialog({
   onSendToChat: (input: string, transcriptionMode: TranscriptionMode) => Promise<void>;
   mediaSkillEnabled: boolean;
   onOpenSkillSettings: () => void;
+  onOpenTranscriptionSettings: (mode: TranscriptionMode) => void;
   t: (key: TranslationKey) => string;
 }) {
   const [source, setSource] = useState('');
@@ -9520,6 +9537,33 @@ function CaptureGuideDialog({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [availability, setAvailability] = useState<TranscriptionAvailability | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void Promise.allSettled([
+      loadTranscriptionConfig(),
+      listTranscriptionResources(),
+    ]).then(([configResult, resourcesResult]) => {
+      if (!alive) return;
+      const transcriptionConfig = configResult.status === 'fulfilled' ? configResult.value : null;
+      const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : [];
+      setAvailability(transcriptionAvailability(transcriptionConfig, resources));
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const configuredModes = availability
+    ? (['api', 'local'] as TranscriptionMode[]).filter((mode) => availability[mode])
+    : [];
+  const onlyConfiguredMode = configuredModes.length === 1 ? configuredModes[0] : null;
+  const selectedTranscriptionMode = onlyConfiguredMode ?? transcriptionMode;
+
+  useEffect(() => {
+    if (onlyConfiguredMode && transcriptionMode !== onlyConfiguredMode) {
+      setTranscriptionMode(onlyConfiguredMode);
+    }
+  }, [onlyConfiguredMode, setTranscriptionMode, transcriptionMode]);
 
   const send = async () => {
     const clean = (selectedFile ?? source).trim();
@@ -9546,7 +9590,7 @@ function CaptureGuideDialog({
     setBusy(true);
     setError('');
     try {
-      await onSendToChat(clean, transcriptionMode);
+      await onSendToChat(clean, selectedTranscriptionMode);
     } catch (requestError) {
       setError(
         `${t('capturePrepareFailed')}: ${String(requestError).replace(/^Error:\s*/i, '')}`,
@@ -9587,26 +9631,35 @@ function CaptureGuideDialog({
             <span className="capture-transcription-hint">{t('captureTranscriptionHint')}</span>
             <span className="capture-transcription-options">
               <span className="capture-transcription-prefix">{t('captureTranscriptionPrefix')}</span>
-              <label className={transcriptionMode === 'api' ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="capture-transcription-mode"
-                  value="api"
-                  checked={transcriptionMode === 'api'}
-                  onChange={() => setTranscriptionMode('api')}
-                />
-                <span>{t('captureTranscriptionApi')}</span>
-              </label>
-              <label className={transcriptionMode === 'local' ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="capture-transcription-mode"
-                  value="local"
-                  checked={transcriptionMode === 'local'}
-                  onChange={() => setTranscriptionMode('local')}
-                />
-                <span>{t('captureTranscriptionLocal')}</span>
-              </label>
+              {!availability ? (
+                <span className="capture-transcription-loading">{t('captureTranscriptionChecking')}</span>
+              ) : (['api', 'local'] as TranscriptionMode[]).map((mode) => (
+                availability[mode] ? (
+                  <label
+                    className={`${selectedTranscriptionMode === mode ? 'selected' : ''}${onlyConfiguredMode === mode ? ' fixed' : ''}`}
+                    key={mode}
+                  >
+                    <input
+                      type="radio"
+                      name="capture-transcription-mode"
+                      value={mode}
+                      checked={selectedTranscriptionMode === mode}
+                      disabled={onlyConfiguredMode === mode}
+                      onChange={() => setTranscriptionMode(mode)}
+                    />
+                    <span>{t(mode === 'api' ? 'captureTranscriptionApi' : 'captureTranscriptionLocal')}</span>
+                  </label>
+                ) : (
+                  <button
+                    type="button"
+                    className="capture-transcription-configure"
+                    onClick={() => onOpenTranscriptionSettings(mode)}
+                    key={mode}
+                  >
+                    {t(mode === 'api' ? 'captureConfigureTranscriptionApi' : 'captureConfigureTranscriptionLocal')}
+                  </button>
+                )
+              ))}
             </span>
           </fieldset>
 

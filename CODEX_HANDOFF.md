@@ -115,7 +115,14 @@ or temporary deployment credentials.
 - **Capture recognition preference (2026-08-14):** The Import Your Materials dialog
   stores its last cloud/local speech-recognition choice under the local UI key
   `coffee-note:capture-transcription-mode:v1` and restores it the next time the dialog
-  or desktop app opens.
+  or desktop app opens. The dialog only presents usable recognition modes as radio
+  choices: an unconfigured mode is an explicit link to the matching cloud/local tab
+  in Settings > Audio to text; if exactly one mode is usable it is automatically
+  selected and fixed, and the remembered two-way choice applies only when both modes
+  are usable. A hosted mode requires complete endpoint, model, and API-key fields;
+  a local mode requires both the selected runtime and selected model to be installed.
+  Local availability fails closed when live resource status cannot be read; a saved
+  selection alone must never make a partially installed local setup appear usable.
 - **Media environment prewarm (2026-08-14):** Media-to-text is a frequently reused
   built-in capability. After launch, Coffee Note silently prepares the pinned media
   fetcher in the current user's app-data directory, verifies and reuses an existing

@@ -4472,6 +4472,7 @@ html.tree-drag-active * {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin: 10px 0 0;
   padding: 0;
@@ -4482,15 +4483,16 @@ html.tree-drag-active * {
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .capture-transcription-options {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
   margin-left: auto;
-  white-space: nowrap;
 }
 
 .capture-transcription-choice .capture-transcription-prefix {
@@ -4511,6 +4513,30 @@ html.tree-drag-active * {
 
 .capture-transcription-choice label.selected {
   color: var(--ink);
+}
+
+.capture-transcription-choice label.fixed {
+  cursor: default;
+}
+
+.capture-transcription-configure {
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 32%, transparent);
+  text-underline-offset: 3px;
+  cursor: default;
+}
+
+.capture-transcription-loading {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .capture-transcription-choice input {

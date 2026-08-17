@@ -270,7 +270,13 @@ function platformLabel(platform: ReturnType<typeof currentPlatform>, locale: Loc
   return locale === 'zh' ? 'Windows · 64 位' : 'Windows · 64-bit';
 }
 
-export function TranscriptionSettings({ locale }: { locale: Locale }) {
+export function TranscriptionSettings({
+  locale,
+  initialTab = 'api',
+}: {
+  locale: Locale;
+  initialTab?: 'api' | 'local';
+}) {
   const platform = useMemo(currentPlatform, []);
   const runtimes = useMemo(() => runtimeComponents(platform), [platform]);
   const [runtimeStates, setRuntimeStates] = useState<Record<string, ComponentState>>(() =>
@@ -282,7 +288,7 @@ export function TranscriptionSettings({ locale }: { locale: Locale }) {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [activeRuntime, setActiveRuntime] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'api' | 'local'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'local'>(initialTab);
   const [apiProvider, setApiProvider] = useState('siliconflow');
   const [apiUrl, setApiUrl] = useState(TRANSCRIPTION_API_PROVIDERS[0].endpoint);
   const [apiModel, setApiModel] = useState(TRANSCRIPTION_API_PROVIDERS[0].model);

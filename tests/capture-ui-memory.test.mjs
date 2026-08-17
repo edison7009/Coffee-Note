@@ -14,7 +14,18 @@ test('the import dialog remembers its last speech recognition mode', () => {
     appSource,
     /useStoredState<TranscriptionMode>\(\s*CAPTURE_TRANSCRIPTION_MODE_KEY,\s*'api',\s*\)/s,
   );
-  assert.match(appSource, /onChange=\{\(\) => setTranscriptionMode\('local'\)\}/);
+  assert.match(appSource, /onChange=\{\(\) => setTranscriptionMode\(mode\)\}/);
+});
+
+test('the import dialog only offers configured transcription modes', () => {
+  assert.match(appSource, /loadTranscriptionConfig\(\)/);
+  assert.match(appSource, /listTranscriptionResources\(\)/);
+  assert.match(appSource, /const onlyConfiguredMode = configuredModes\.length === 1/);
+  assert.match(appSource, /disabled=\{onlyConfiguredMode === mode\}/);
+  assert.match(appSource, /captureConfigureTranscriptionApi/);
+  assert.match(appSource, /captureConfigureTranscriptionLocal/);
+  assert.match(appSource, /setSettingsSection\('transcription'\)/);
+  assert.match(appSource, /resourcesResult\.status === 'fulfilled' \? resourcesResult\.value : \[\]/);
 });
 
 test('the import dialog radio controls follow the selected surface scheme', () => {
