@@ -43,7 +43,7 @@
   /* ===== Nav — Coffee CLI style, no overlay bar ===== */
   .nav {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 1rem 4rem; width: 100%;
+    padding: 1rem clamp(1.5rem, 2vw, 2rem); width: 100%;
     position: relative; z-index: 40;
   }
   .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.2rem; letter-spacing: -0.02em; }
@@ -336,7 +336,7 @@
 <header class="hero wrap">
   <img class="hero-side-art hero-side-art-left" src="brand/hero-history.webp" alt="" aria-hidden="true">
   <img class="hero-side-art hero-side-art-right" src="brand/hero-present.webp" alt="" aria-hidden="true">
-  <p class="site-highlight-note"><span class="site-highlight-copy" data-i18n="siteHighlight">Everything is a note. Notes create everything — the future of AI notes, built on a minimal Agent Loop.</span></p>
+  <p class="site-highlight-note"><span class="site-highlight-copy" data-i18n="siteHighlight">Everything is a note. Notes create everything — rebuilding the Agent Loop from first principles to shape the future of AI notes.</span></p>
   <h1 data-i18n="heroTitle">The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span></h1>
   <p class="lead" data-i18n="heroLead">DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save</p>
   <div class="install-row">
@@ -582,7 +582,7 @@
   const I18N = {
     en: {
       docTitle: 'Coffee Note — The AI note tool that saves you money, deeply optimized for DeepSeek',
-      siteHighlight: 'Everything is a note. Notes create everything — the future of AI notes, built on a minimal Agent Loop.',
+      siteHighlight: 'Everything is a note. Notes create everything — rebuilding the Agent Loop from first principles to shape the future of AI notes.',
       heroTitle: 'The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span>',
       heroLead: 'DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save',
       getBtn: 'Get Coffee Note',
@@ -643,7 +643,7 @@
     },
     zh: {
       docTitle: 'Coffee Note — 帮你省钱的 AI 笔记工具，深度优化 DeepSeek',
-      siteHighlight: '一切皆笔记，笔记生万物：基于极简 Agent Loop 打造未来 AI 笔记系统',
+      siteHighlight: '一切皆笔记，笔记生万物 — 以第一性原理重构 Agent Loop，打造未来 AI 笔记系统',
       heroTitle: '帮你省钱的 AI 笔记工具<br><span class="hero-accent">深度优化 DeepSeek</span>',
       heroLead: 'DeepSeek 高效缓存 · 粘贴抖音/小红书/B站地址转文字 · 生成PPT或视频 · 越用越省钱',
       getBtn: '获取 Coffee Note',
