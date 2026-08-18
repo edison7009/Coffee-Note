@@ -120,19 +120,22 @@
 
   .hero {
     padding: 40px 0 56px;
-    isolation: isolate;
   }
-  .hero-side-art {
+  .site-side-art {
     position: fixed;
-    top: 80px;
-    width: clamp(300px, 24vw, 460px);
-    height: auto;
-    max-height: calc(100vh - 80px);
+    inset: 80px 0 0;
     z-index: 0;
-    opacity: 0.82;
-    mix-blend-mode: screen;
     pointer-events: none;
     user-select: none;
+  }
+  .hero-side-art {
+    position: absolute;
+    top: 0;
+    width: clamp(300px, 24vw, 460px);
+    height: auto;
+    max-height: 100%;
+    opacity: 0.82;
+    mix-blend-mode: screen;
   }
   .hero-side-art-left {
     left: 0;
@@ -140,7 +143,6 @@
   .hero-side-art-right {
     right: 0;
   }
-  .hero > :not(.hero-side-art) { position: relative; z-index: 1; }
   .hero h1 {
     font-size: clamp(34px, 4.6vw, 56px);
     font-weight: 700; line-height: 1.15; letter-spacing: -0.02em;
@@ -227,7 +229,7 @@
   .metrics {
     width: 1080px; max-width: 100%; margin: 0 auto;
     display: grid; grid-template-columns: repeat(3, 1fr);
-    padding: 30px 0;
+    padding: 30px 0; position: relative; z-index: 1;
   }
   .metric {
     display: flex; flex-direction: column; align-items: center;
@@ -267,6 +269,7 @@
   footer {
     padding: 26px 4rem; display: flex; justify-content: space-between;
     align-items: center; color: var(--muted); font-size: 0.82rem; flex-wrap: wrap; gap: 10px;
+    position: relative; z-index: 1;
   }
   footer a { color: var(--muted); text-decoration: none; }
   footer a:hover { color: var(--brand); }
@@ -307,6 +310,11 @@
 </head>
 <body>
 
+<div class="site-side-art" aria-hidden="true">
+  <img class="hero-side-art hero-side-art-left" src="brand/hero-history.webp" alt="">
+  <img class="hero-side-art hero-side-art-right" src="brand/hero-present.webp" alt="">
+</div>
+
 <!-- ===== Nav ===== -->
 <nav class="nav">
   <div class="logo">
@@ -338,8 +346,6 @@
 
 <!-- ===== Hero ===== -->
 <header class="hero wrap">
-  <img class="hero-side-art hero-side-art-left" src="brand/hero-history.webp" alt="" aria-hidden="true">
-  <img class="hero-side-art hero-side-art-right" src="brand/hero-present.webp" alt="" aria-hidden="true">
   <p class="site-highlight-note"><span class="site-highlight-copy" data-i18n="siteHighlight">Everything is a note. Notes create everything — rebuilding the Agent Loop from first principles to shape the future of AI notes.</span></p>
   <h1 data-i18n="heroTitle">The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span></h1>
   <p class="lead" data-i18n="heroLead">DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save</p>
