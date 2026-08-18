@@ -338,7 +338,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
         },
         ToolDef {
             name: "create_document".into(),
-            description: "Create a polished DOCX or PDF file in the selected workspace from a complete structured document. Submit the document once with headings, paragraphs, bullet lists, quotes, and optional page breaks. DOCX output remains editable; PDF output is laid out locally without requiring Microsoft Office or LibreOffice. The runtime validates content and chooses a non-destructive filename.".into(),
+            description: "Create a polished DOCX or PDF file in the user's configured generated-files directory from a complete structured document. Submit the document once with headings, paragraphs, bullet lists, quotes, and optional page breaks. DOCX output remains editable; PDF output is laid out locally without requiring Microsoft Office or LibreOffice. The runtime validates content and chooses a non-destructive filename.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -348,7 +348,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
                         "enum": document_formats,
                         "description": "Required output format"
                     },
-                    "fileName": {"type": "string", "description": "Optional workspace-root filename with the matching extension"},
+                    "fileName": {"type": "string", "description": "Optional filename with the matching extension; the save directory comes from Settings"},
                     "subtitle": {"type": "string", "description": "Optional document subtitle"},
                     "author": {"type": "string", "description": "Optional author name"},
                     "blocks": {
@@ -381,7 +381,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
         },
         ToolDef {
             name: "create_presentation".into(),
-            description: "Create a native editable PowerPoint .pptx file in the selected workspace. Submit the complete deck in one call. Supports minimal, business, and dark themes; title, section, content, two-column, and quote layouts; and optional workspace-relative PNG/JPEG images. The runtime validates content density and chooses a non-destructive filename.".into(),
+            description: "Create a native editable PowerPoint .pptx file in the user's configured generated-files directory. Submit the complete deck in one call. Supports minimal, business, and dark themes; title, section, content, two-column, and quote layouts; and optional workspace-relative PNG/JPEG images. The runtime validates content density and chooses a non-destructive filename.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -391,7 +391,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
                     },
                     "fileName": {
                         "type": "string",
-                        "description": "Optional workspace-root .pptx filename"
+                        "description": "Optional .pptx filename; the save directory comes from Settings"
                     },
                     "theme": {
                         "type": "string",
@@ -435,12 +435,12 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
         },
         ToolDef {
             name: "create_video".into(),
-            description: "Compose an MP4 video from an ordered list of workspace images, generated narration, burned-in captions, and restrained pan/zoom motion. Generate every scene image first, then submit the complete timeline in one call. The runtime uses the user's configured speech service and the bundled Coffee Video encoder.".into(),
+            description: "Compose an MP4 video in the user's configured generated-files directory from an ordered list of workspace images, generated narration, burned-in captions, and restrained pan/zoom motion. Generate every scene image first, then submit the complete timeline in one call. The runtime uses the user's configured speech service and the bundled Coffee Video encoder.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "Video title and default filename"},
-                    "fileName": {"type": "string", "description": "Optional workspace-root .mp4 filename"},
+                    "fileName": {"type": "string", "description": "Optional .mp4 filename; the save directory comes from Settings"},
                     "aspectRatio": {
                         "type": "string",
                         "enum": ["16:9", "9:16", "1:1"],
@@ -672,11 +672,20 @@ async fn exec_create_video(
             }
         }
     };
-    match crate::video::create_video(app, request, workspace_root).await {
+    let output_root = match crate::generated_files::output_directory() {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!("Could not resolve the generated-files directory: {error}"),
+            }
+        }
+    };
+    match crate::video::create_video_in(app, request, workspace_root, &output_root).await {
         Ok(output) => ToolResult {
             success: true,
             output: json!({
-                "path": output.path.to_string_lossy(),
+                "path": crate::generated_files::user_facing_path(&output.path),
                 "relativePath": output.relative_path,
                 "sceneCount": output.scene_count,
                 "aspectRatio": output.aspect_ratio,
@@ -726,7 +735,7 @@ async fn exec_generate_image(args: &Value, workspace_root: &Path) -> ToolResult 
         Ok(output) => ToolResult {
             success: true,
             output: json!({
-                "path": output.path.to_string_lossy(),
+                "path": crate::generated_files::user_facing_path(&output.path),
                 "relativePath": output.relative_path,
                 "format": output.format,
             })
@@ -753,10 +762,19 @@ fn exec_create_presentation(args: &Value, workspace_root: &Path) -> ToolResult {
             }
         }
     };
-    match crate::presentation::create_presentation(request, workspace_root) {
+    let output_root = match crate::generated_files::output_directory() {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!("Could not resolve the generated-files directory: {error}"),
+            }
+        }
+    };
+    match crate::presentation::create_presentation_in(request, workspace_root, &output_root) {
         Ok(output) => {
             let mut result = json!({
-                "path": output.path.to_string_lossy(),
+                "path": crate::generated_files::user_facing_path(&output.path),
                 "slideCount": output.slide_count,
                 "format": "pptx",
                 "editable": true,
@@ -776,7 +794,7 @@ fn exec_create_presentation(args: &Value, workspace_root: &Path) -> ToolResult {
     }
 }
 
-fn exec_create_document(args: &Value, workspace_root: &Path) -> ToolResult {
+fn exec_create_document(args: &Value, _workspace_root: &Path) -> ToolResult {
     let request = match serde_json::from_value::<crate::document::DocumentRequest>(args.clone()) {
         Ok(request) => request,
         Err(error) => {
@@ -788,11 +806,20 @@ fn exec_create_document(args: &Value, workspace_root: &Path) -> ToolResult {
             }
         }
     };
-    match crate::document::create_document(request, workspace_root) {
+    let output_root = match crate::generated_files::output_directory() {
+        Ok(path) => path,
+        Err(error) => {
+            return ToolResult {
+                success: false,
+                output: format!("Could not resolve the generated-files directory: {error}"),
+            }
+        }
+    };
+    match crate::document::create_document(request, &output_root) {
         Ok(output) => ToolResult {
             success: true,
             output: json!({
-                "path": output.path.to_string_lossy(),
+                "path": crate::generated_files::user_facing_path(&output.path),
                 "format": output.format,
                 "editable": output.editable,
                 "blockCount": output.block_count,

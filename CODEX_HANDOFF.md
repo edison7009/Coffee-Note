@@ -28,6 +28,14 @@ or temporary deployment credentials.
 
 ## Workspace Agent foundation (2026-08-15)
 
+- **Generated file destination (2026-08-18):** PPTX, DOCX, PDF, and MP4 outputs use
+  the generated-files directory stored in current-user app data, defaulting to the
+  current user's Desktop. Settings > General lets the user choose a different folder
+  or restore the Desktop default. Completed generation tool rows show the backend-returned
+  absolute path with Copy path and Show in folder actions; do not rely on model prose to
+  tell users where a file was saved. Workspace-relative source images remain in the selected
+  workspace and presentation/video runtimes resolve those inputs separately from the output folder.
+
 - The selected directory is the workspace. It may be a code repository, writing
   project, note collection, or any other folder. Never infer a required note
   hierarchy and never create `inbox`, `dossiers`, or another category directory
@@ -89,27 +97,32 @@ or temporary deployment credentials.
   create-new semantics. DOCX generation writes the standard Open XML package
   structure directly with the Rust `zip` crate. PDF generation uses the
   MIT-licensed `printpdf` crate.
-- **Image recognition and generation (2026-08-17):** Settings includes one dedicated
-  Recognition and generation destination beside Audio to text. Its internal Image
-  recognition, Image generation, and Speech generation tabs reuse the same compact switcher and store
+- **Multimodal model settings (2026-08-17):** Settings includes one dedicated
+  Multimodal models destination beside Audio to text. Its internal Image recognition,
+  Image generation, Speech generation, and Video generation tabs reuse the same compact switcher and store
   separate service, model, endpoint, and API-key records in local app data. An
   image-capable active chat model remains the first choice for recognition; the
   recognition configuration is its fallback. Image-generation skills use the
-  generation configuration. The Agent exposes `recognize_image` and `generate_image`
+  generation configuration. Video generation keeps an independent external-provider
+  record without replacing Coffee Video's native fallback. The Agent exposes `recognize_image` and `generate_image`
   only when their respective configuration is complete; generated PNG/JPEG files are
   saved non-destructively in the selected workspace and can be passed directly to the
   presentation tool by relative path. This version is cloud-only and does not expose
   an unfinished local OCR tab.
-- **Built-in text-to-video fallback (2026-08-17):** The bundled `Coffee Video`
-  package lives under `src-tauri/builtin-plugins/coffee-video/`. Its skill plans a
-  small storyboard, calls the guarded `generate_image` tool once per scene, then
-  calls `create_video` once. The application generates scene narration through the
+- **Built-in storyboard director and text-to-video fallback (2026-08-17):** The bundled
+  `Coffee Video` package lives under `src-tauri/builtin-plugins/coffee-video/`. It exposes
+  a storyboard-only director skill and a render skill; both receive the same bundled,
+  model-neutral cinematic specification. They establish a director brief, beat map,
+  continuity bible, motivated camera language, and paired keyframe/motion prompts before
+  generation. The render skill calls the guarded `generate_image` tool once per scene,
+  then calls `create_video` once. The application generates scene narration through the
   locally configured OpenAI-compatible speech endpoint and combines the images,
   narration, burned ASS captions, and restrained pan/zoom motion with a bundled
   FFmpeg sidecar. It writes a new workspace-root `.mp4` without overwriting an
   existing file. This is the dependable baseline rather than a diffusion video
-  model. Git-installed community skills can improve copy, shot planning, and prompts,
-  but remain prompt-only and cannot execute their own scripts, hooks, or runtimes.
+  model. The storyboard method is provider-independent so its motion prompts can also be
+  adapted to a configured video model. Git-installed community skills remain prompt-only
+  and cannot execute their own scripts, hooks, or runtimes.
 - **Note creation shortcuts (2026-08-17):** Every concrete note view exposes
   Generate DOCX, Generate PDF, Generate PPT, and Generate video beside Copy full text. Clicking one selects the
   matching enabled bundled skill in the shared composer, focuses the input, keeps

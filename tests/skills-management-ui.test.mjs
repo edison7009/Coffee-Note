@@ -17,6 +17,8 @@ const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/c
 const videoSource = await readFile(new URL('../src-tauri/src/video.rs', import.meta.url), 'utf8');
 const videoManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/coffee-plugin.json', import.meta.url), 'utf8');
 const videoSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/skills/create-video/SKILL.md', import.meta.url), 'utf8');
+const storyboardSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/skills/storyboard-director/SKILL.md', import.meta.url), 'utf8');
+const storyboardSpec = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/references/cinematic-storyboard.md', import.meta.url), 'utf8');
 const documentSource = await readFile(new URL('../src-tauri/src/document.rs', import.meta.url), 'utf8');
 const documentManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/coffee-plugin.json', import.meta.url), 'utf8');
 const docxSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/skills/create-docx/SKILL.md', import.meta.url), 'utf8');
@@ -103,16 +105,18 @@ test('every plugin row exposes read-only metadata with update and delete actions
   assert.doesNotMatch(settingsSource, /startEditSkill|updateSkill\(/);
 });
 
-test('settings separates image recognition, image generation, and speech generation', () => {
-  assert.match(appSource, /id: 'multimodal'.*识别与生成/s);
+test('multimodal model settings separate recognition, image, speech, and video generation', () => {
+  assert.match(appSource, /id: 'multimodal'.*多模态模型/s);
   assert.match(appSource, /<MultimodalSettings locale=\{locale\}/);
-  assert.match(multimodalSettingsSource, /识别与生成/);
+  assert.match(multimodalSettingsSource, /多模态模型/);
   assert.match(multimodalSettingsSource, /图片识别/);
   assert.match(multimodalSettingsSource, /图片生成/);
   assert.match(multimodalSettingsSource, /语音生成/);
+  assert.match(multimodalSettingsSource, /视频生成/);
   assert.match(multimodalSettingsSource, /activeTab === 'recognition'/);
   assert.match(multimodalSettingsSource, /selectTab\('generation'\)/);
   assert.match(multimodalSettingsSource, /selectTab\('speech'\)/);
+  assert.match(multimodalSettingsSource, /selectTab\('video'\)/);
   assert.match(multimodalSettingsSource, /API 地址/);
   assert.match(multimodalSettingsSource, /API Key/);
   assert.match(multimodalSettingsSource, /checkImageSettings\(settings, activeTab\)/);
@@ -128,6 +132,10 @@ test('settings separates image recognition, image generation, and speech generat
   assert.match(multimodalSettingsSource, /openrouter-images/);
   assert.match(multimodalSettingsSource, /gemini-interactions/);
   assert.match(multimodalSettingsSource, /openai-speech/);
+  assert.match(multimodalSettingsSource, /openai-video/);
+  assert.match(multimodalSettingsSource, /https:\/\/api\.openai\.com\/v1\/videos/);
+  assert.match(appBackendSource, /async fn check_video_generation/);
+  assert.match(appBackendSource, /"video" => \(&config\.video, "video generation"\)/);
   assert.match(appBackendSource, /async fn recognize_workspace_image/);
   assert.match(appBackendSource, /async fn generate_workspace_image/);
   assert.match(agentSource, /image_tool_availability/);
@@ -139,9 +147,19 @@ test('video is a bundled fallback plugin backed by guarded shared tools', () => 
   assert.match(videoManifest, /"id": "coffee-video"/);
   assert.match(videoManifest, /"id": "coffee-video-engine"/);
   assert.match(videoManifest, /"categoryId": "video"/);
+  assert.match(videoManifest, /"id": "coffee-note-video-storyboard"/);
+  assert.match(videoManifest, /电影分镜导演/);
   assert.match(videoSkill, /generate_image/);
   assert.match(videoSkill, /create_video/);
   assert.match(videoSkill, /Never install a/);
+  assert.match(videoSkill, /Cinematic storyboard specification/);
+  assert.match(storyboardSkill, /name: storyboard-director/);
+  assert.match(storyboardSkill, /keyframe prompt/);
+  assert.match(storyboardSkill, /motion prompt/);
+  assert.match(storyboardSpec, /Movement is a response to change/);
+  assert.match(storyboardSpec, /continuity bible/i);
+  assert.match(rustSource, /BUILTIN_VIDEO_STORYBOARD_SPEC/);
+  assert.match(rustSource, /coffee-note-video-storyboard/);
   assert.match(videoSource, /sidecar\("coffee-video-ffmpeg"\)/);
   assert.match(videoSource, /generate_speech_audio/);
   assert.match(videoSource, /subtitles=scene\.ass/);

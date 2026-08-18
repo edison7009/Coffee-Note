@@ -19,6 +19,7 @@ import type {
   ImageCapabilityMode,
   ImageCheckResult,
   ImageSettingsConfig,
+  GeneratedFilesSettings,
   PrepareCaptureRequest,
   SkillCatalog,
   SkillSourceDraft,
@@ -402,6 +403,34 @@ export async function setSkillSourceEnabled(id: string, enabled: boolean): Promi
   return invoke<SkillCatalog>('set_skill_source_enabled', { id, enabled });
 }
 
+export async function loadGeneratedFilesSettings(): Promise<GeneratedFilesSettings> {
+  if (!isTauri) {
+    return { directory: 'Desktop', usesDesktopDefault: true };
+  }
+  return invoke<GeneratedFilesSettings>('load_generated_files_settings');
+}
+
+export async function chooseGeneratedFilesDirectory(
+  currentDirectory?: string,
+): Promise<string | null> {
+  if (!isTauri) return null;
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    defaultPath: currentDirectory,
+  });
+  return typeof selected === 'string' ? selected : null;
+}
+
+export async function saveGeneratedFilesDirectory(
+  directory: string | null,
+): Promise<GeneratedFilesSettings> {
+  if (!isTauri) {
+    return { directory: directory || 'Desktop', usesDesktopDefault: !directory };
+  }
+  return invoke<GeneratedFilesSettings>('save_generated_files_directory', { directory });
+}
+
 export async function setSkillEnabled(id: string, sourceId: string, enabled: boolean): Promise<SkillCatalog> {
   if (!isTauri) {
     const catalog = readFallbackSkillCatalog();
@@ -592,6 +621,7 @@ export async function loadImageSettings(): Promise<ImageSettingsConfig | null> {
         recognition,
         generation: { activeProvider: '', providers: {} },
         speech: { activeProvider: '', providers: {} },
+        video: { activeProvider: '', providers: {} },
       };
     } catch {
       return null;

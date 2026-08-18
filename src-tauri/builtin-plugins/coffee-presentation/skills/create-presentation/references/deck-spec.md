@@ -5,7 +5,7 @@ The `create_presentation` tool accepts a complete deck in one call.
 ## Deck fields
 
 - `title`: Required presentation title.
-- `fileName`: Optional workspace-root filename ending in `.pptx`.
+- `fileName`: Optional filename ending in `.pptx`; the save directory comes from Settings.
 - `theme`: Optional `minimal`, `business`, or `dark`; default `minimal`.
 - `slides`: Required array containing 1–30 slides.
 

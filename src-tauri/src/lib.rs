@@ -8,6 +8,7 @@ mod channels;
 mod conversations;
 mod document;
 mod file_reader;
+mod generated_files;
 mod json_repair;
 mod knowledge_map;
 mod llm_stream;
@@ -321,6 +322,8 @@ struct ImageSettingsConfig {
     generation: ImageCapabilityConfig,
     #[serde(default)]
     speech: ImageCapabilityConfig,
+    #[serde(default)]
+    video: ImageCapabilityConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -584,6 +587,7 @@ fn load_image_settings_from(path: &Path) -> Result<Option<ImageSettingsConfig>, 
             recognition,
             generation: ImageCapabilityConfig::default(),
             speech: ImageCapabilityConfig::default(),
+            video: ImageCapabilityConfig::default(),
         },
     }))
 }
@@ -822,31 +826,80 @@ async fn check_speech_generation(
     })
 }
 
+async fn check_video_generation(
+    provider: &ImageProviderConfig,
+    mut endpoint: reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<ImageCheckResult, String> {
+    if provider.protocol != "openai-video" {
+        return Err("Unsupported video generation API protocol".to_string());
+    }
+    if provider.provider_id == "custom" {
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Configuration is complete; no paid video was generated".to_string(),
+        });
+    }
+    let mut segments = endpoint
+        .path_segments_mut()
+        .map_err(|_| "Video API URL cannot be used for model discovery".to_string())?;
+    segments.pop_if_empty();
+    segments.pop();
+    segments.push("models");
+    segments.push(provider.model.trim());
+    drop(segments);
+    let response = client
+        .get(endpoint)
+        .bearer_auth(provider.api_key.trim())
+        .header("User-Agent", MODEL_APP_TITLE)
+        .header("HTTP-Referer", MODEL_APP_URL)
+        .header("X-Title", MODEL_APP_TITLE)
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the video generation service: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Ok(ImageCheckResult {
+            ok: false,
+            message: image_api_error_message(&body)
+                .unwrap_or_else(|| format!("The video service returned HTTP {status}")),
+        });
+    }
+    Ok(ImageCheckResult {
+        ok: true,
+        message: "Credentials and video model are reachable".to_string(),
+    })
+}
+
 #[tauri::command]
 async fn check_image_settings(
     config: ImageSettingsConfig,
     mode: String,
 ) -> Result<ImageCheckResult, String> {
-    let capability = match mode.as_str() {
-        "recognition" => &config.recognition,
-        "generation" => &config.generation,
-        "speech" => &config.speech,
+    let (capability, capability_label) = match mode.as_str() {
+        "recognition" => (&config.recognition, "image recognition"),
+        "generation" => (&config.generation, "image generation"),
+        "speech" => (&config.speech, "speech generation"),
+        "video" => (&config.video, "video generation"),
         _ => return Err("Unsupported generation capability".to_string()),
     };
     let provider = capability
         .providers
         .get(&capability.active_provider)
-        .ok_or_else(|| "Choose an image service".to_string())?;
+        .ok_or_else(|| format!("Choose a {capability_label} service"))?;
     let endpoint = reqwest::Url::parse(provider.endpoint.trim())
-        .map_err(|_| "Enter a valid image API URL".to_string())?;
+        .map_err(|_| format!("Enter a valid {capability_label} API URL"))?;
     if !matches!(endpoint.scheme(), "http" | "https") {
-        return Err("Image API URL must use HTTP or HTTPS".to_string());
+        return Err(format!(
+            "The {capability_label} API URL must use HTTP or HTTPS"
+        ));
     }
     if provider.api_key.trim().is_empty() {
         return Err("An API key is required".to_string());
     }
     if provider.model.trim().is_empty() {
-        return Err("An image model is required".to_string());
+        return Err(format!("A {capability_label} model is required"));
     }
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(45))
@@ -856,6 +909,7 @@ async fn check_image_settings(
         "recognition" => check_image_recognition(provider, endpoint, &client).await,
         "generation" => check_image_generation(provider, endpoint, &client).await,
         "speech" => check_speech_generation(provider, endpoint, &client).await,
+        "video" => check_video_generation(provider, endpoint, &client).await,
         _ => unreachable!(),
     }
 }
@@ -867,6 +921,7 @@ fn configured_image_provider(mode: &str) -> Result<ImageProviderConfig, String> 
         "recognition" => settings.recognition,
         "generation" => settings.generation,
         "speech" => settings.speech,
+        "video" => settings.video,
         _ => return Err("Unsupported generation capability".to_string()),
     };
     let provider = capability
@@ -4242,6 +4297,8 @@ pub fn run() {
             save_transcription_config,
             load_image_settings,
             save_image_settings,
+            generated_files::load_generated_files_settings,
+            generated_files::save_generated_files_directory,
             channels::load_message_settings,
             channels::message_channel_status,
             channels::update_message_context,
@@ -4848,7 +4905,7 @@ mod tests {
     }
 
     #[test]
-    fn image_settings_round_trip_both_capabilities_outside_the_library() {
+    fn image_settings_round_trip_all_capabilities_outside_the_library() {
         let root = temp_fixture("image-settings");
         let path = root.join("image-models.json");
         let recognition_provider = ImageProviderConfig {
@@ -4875,6 +4932,14 @@ mod tests {
             api_key: "local-speech-key".to_string(),
             voice: "alloy".to_string(),
         };
+        let video_provider = ImageProviderConfig {
+            provider_id: "openai".to_string(),
+            protocol: "openai-video".to_string(),
+            endpoint: "https://api.openai.com/v1/videos".to_string(),
+            model: "sora-2".to_string(),
+            api_key: "local-video-key".to_string(),
+            voice: String::new(),
+        };
         let config = ImageSettingsConfig {
             recognition: ImageCapabilityConfig {
                 active_provider: recognition_provider.provider_id.clone(),
@@ -4894,6 +4959,10 @@ mod tests {
                 active_provider: speech_provider.provider_id.clone(),
                 providers: BTreeMap::from([(speech_provider.provider_id.clone(), speech_provider)]),
             },
+            video: ImageCapabilityConfig {
+                active_provider: video_provider.provider_id.clone(),
+                providers: BTreeMap::from([(video_provider.provider_id.clone(), video_provider)]),
+            },
         };
 
         save_image_settings_to(&path, &config).expect("image settings should save");
@@ -4905,6 +4974,7 @@ mod tests {
         assert!(contents.contains("local-vision-key"));
         assert!(contents.contains("local-generation-key"));
         assert!(contents.contains("local-speech-key"));
+        assert!(contents.contains("local-video-key"));
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
@@ -4936,6 +5006,7 @@ mod tests {
         assert!(loaded.generation.active_provider.is_empty());
         assert!(loaded.generation.providers.is_empty());
         assert!(loaded.speech.providers.is_empty());
+        assert!(loaded.video.providers.is_empty());
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }

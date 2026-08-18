@@ -5598,6 +5598,76 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   animation: agent-turn-status-spinner 0.9s steps(10, end) infinite;
 }
 
+.generated-file-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 6px 0 12px 20px;
+  padding: 11px 13px;
+  color: var(--ink);
+  background: var(--secondary-surface, var(--paper));
+  border-radius: 7px;
+}
+
+.generated-file-result-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.generated-file-result-copy span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.generated-file-result-copy strong {
+  overflow-wrap: anywhere;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.generated-file-result-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.generated-file-result-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.generated-file-result-actions button:hover {
+  background: var(--control-hover);
+}
+
+@media (max-width: 760px) {
+  .generated-file-result {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .generated-file-result-actions {
+    justify-content: flex-start;
+  }
+}
+
 .agent-turn-status-text {
   display: inline-flex;
   align-items: baseline;

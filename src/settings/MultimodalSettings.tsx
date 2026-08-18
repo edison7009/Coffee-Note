@@ -1,4 +1,4 @@
-import { AudioLines, ExternalLink, ImagePlus, ScanSearch } from 'lucide-react';
+import { AudioLines, ExternalLink, ImagePlus, ScanSearch, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   checkImageSettings,
@@ -118,10 +118,30 @@ const SPEECH_PROVIDERS: ImageProviderPreset[] = [
   },
 ];
 
+const VIDEO_PROVIDERS: ImageProviderPreset[] = [
+  {
+    id: 'openai',
+    name: { zh: 'OpenAI', en: 'OpenAI' },
+    protocol: 'openai-video',
+    endpoint: 'https://api.openai.com/v1/videos',
+    model: 'sora-2',
+    website: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'custom',
+    name: { zh: '自定义服务', en: 'Custom service' },
+    protocol: 'openai-video',
+    endpoint: '',
+    model: '',
+    website: '',
+  },
+];
+
 function providerPresets(mode: ImageCapabilityMode): ImageProviderPreset[] {
   if (mode === 'recognition') return RECOGNITION_PROVIDERS;
   if (mode === 'generation') return GENERATION_PROVIDERS;
-  return SPEECH_PROVIDERS;
+  if (mode === 'speech') return SPEECH_PROVIDERS;
+  return VIDEO_PROVIDERS;
 }
 
 function defaultCapability(mode: ImageCapabilityMode): ImageCapabilityConfig {
@@ -144,6 +164,7 @@ function defaultSettings(): ImageSettingsConfig {
     recognition: defaultCapability('recognition'),
     generation: defaultCapability('generation'),
     speech: defaultCapability('speech'),
+    video: defaultCapability('video'),
   };
 }
 
@@ -221,6 +242,7 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
         recognition: mergeCapability(defaults.recognition, stored?.recognition),
         generation: mergeCapability(defaults.generation, stored?.generation),
         speech: mergeCapability(defaults.speech, stored?.speech),
+        video: mergeCapability(defaults.video, stored?.video),
       };
       settingsRef.current = settings;
       showCapability('recognition', settings);
@@ -299,24 +321,25 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
   const isRecognition = activeTab === 'recognition';
   const isGeneration = activeTab === 'generation';
   const isSpeech = activeTab === 'speech';
+  const isVideo = activeTab === 'video';
   const capabilityLabel = locale === 'zh'
-    ? (isRecognition ? '图片识别' : isGeneration ? '图片生成' : '语音生成')
-    : (isRecognition ? 'Image recognition' : isGeneration ? 'Image generation' : 'Speech generation');
+    ? (isRecognition ? '图片识别' : isGeneration ? '图片生成' : isSpeech ? '语音生成' : '视频生成')
+    : (isRecognition ? 'Image recognition' : isGeneration ? 'Image generation' : isSpeech ? 'Speech generation' : 'Video generation');
 
   return (
     <div className="transcription-settings-group image-settings-group">
       <header className="transcription-settings-header">
         <div>
-          <h2>{locale === 'zh' ? '识别与生成' : 'Recognition and generation'}</h2>
+          <h2>{locale === 'zh' ? '多模态模型' : 'Multimodal models'}</h2>
           <p>
             {locale === 'zh'
-              ? '分别配置图片识别、图片生成与语音生成服务，供相关技能按需调用。'
-              : 'Configure image recognition, image generation, and speech generation for the skills that need them.'}
+              ? '分别配置图片识别、图片生成、语音生成与视频生成服务，供相关技能按需调用。'
+              : 'Configure image recognition, image generation, speech generation, and video generation for the skills that need them.'}
           </p>
         </div>
       </header>
 
-      <nav className="transcription-tabs" aria-label={locale === 'zh' ? '识别与生成能力类型' : 'Recognition and generation capability'}>
+      <nav className="transcription-tabs" aria-label={locale === 'zh' ? '多模态模型能力类型' : 'Multimodal model capability'}>
         <button type="button" className={isRecognition ? 'active' : ''} onClick={() => selectTab('recognition')}>
           <ScanSearch size={16} strokeWidth={1.8} />
           {locale === 'zh' ? '图片识别' : 'Image recognition'}
@@ -328,6 +351,10 @@ export function MultimodalSettings({ locale }: { locale: Locale }) {
         <button type="button" className={isSpeech ? 'active' : ''} onClick={() => selectTab('speech')}>
           <AudioLines size={16} strokeWidth={1.8} />
           {locale === 'zh' ? '语音生成' : 'Speech generation'}
+        </button>
+        <button type="button" className={isVideo ? 'active' : ''} onClick={() => selectTab('video')}>
+          <Video size={16} strokeWidth={1.8} />
+          {locale === 'zh' ? '视频生成' : 'Video generation'}
         </button>
       </nav>
 

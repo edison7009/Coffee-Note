@@ -111,7 +111,11 @@ fn safe_video_stem(title: &str, file_name: Option<&str>) -> Result<String, Strin
     })
 }
 
-fn available_output_path(root: &Path, stem: &str) -> Result<(PathBuf, String), String> {
+fn save_rendered_video(
+    root: &Path,
+    stem: &str,
+    rendered: &Path,
+) -> Result<(PathBuf, String), String> {
     for number in 1..=999 {
         let relative = if number == 1 {
             format!("{stem}.mp4")
@@ -119,8 +123,29 @@ fn available_output_path(root: &Path, stem: &str) -> Result<(PathBuf, String), S
             format!("{stem}-{number}.mp4")
         };
         let path = root.join(&relative);
-        if !path.exists() {
-            return Ok((path, relative));
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut destination) => {
+                let mut source = match fs::File::open(rendered) {
+                    Ok(source) => source,
+                    Err(error) => {
+                        drop(destination);
+                        let _ = fs::remove_file(&path);
+                        return Err(format!("Could not read the completed video: {error}"));
+                    }
+                };
+                if let Err(error) = std::io::copy(&mut source, &mut destination) {
+                    drop(destination);
+                    let _ = fs::remove_file(&path);
+                    return Err(format!("Could not save the completed video: {error}"));
+                }
+                return Ok((path, relative));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("Could not reserve the video file: {error}")),
         }
     }
     Err("Could not choose an available video filename".to_string())
@@ -193,6 +218,7 @@ async fn render_video(
     app: &tauri::AppHandle,
     request: &VideoRequest,
     workspace_root: &Path,
+    output_root: &Path,
     temp_root: &Path,
 ) -> Result<VideoOutput, String> {
     let title = request.title.trim();
@@ -209,8 +235,12 @@ async fn render_video(
     let root = workspace_root
         .canonicalize()
         .map_err(|error| format!("Could not resolve the workspace: {error}"))?;
+    fs::create_dir_all(output_root)
+        .map_err(|error| format!("Could not create the generated-files directory: {error}"))?;
+    let output_root = output_root
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the generated-files directory: {error}"))?;
     let stem = safe_video_stem(title, request.file_name.as_deref())?;
-    let (output_path, relative_path) = available_output_path(&root, &stem)?;
 
     let mut segments = Vec::with_capacity(request.scenes.len());
     for (index, scene) in request.scenes.iter().enumerate() {
@@ -314,8 +344,7 @@ async fn render_video(
         ],
     )
     .await?;
-    fs::rename(&rendered, &output_path)
-        .map_err(|error| format!("Could not save the completed video: {error}"))?;
+    let (output_path, relative_path) = save_rendered_video(&output_root, &stem, &rendered)?;
     Ok(VideoOutput {
         path: output_path,
         relative_path,
@@ -325,15 +354,16 @@ async fn render_video(
     })
 }
 
-pub async fn create_video(
+pub async fn create_video_in(
     app: &tauri::AppHandle,
     request: VideoRequest,
     workspace_root: &Path,
+    output_root: &Path,
 ) -> Result<VideoOutput, String> {
     let temp_root = std::env::temp_dir().join(format!("coffee-note-video-{}", Uuid::new_v4()));
     fs::create_dir_all(&temp_root)
         .map_err(|error| format!("Could not prepare the video workspace: {error}"))?;
-    let result = render_video(app, &request, workspace_root, &temp_root).await;
+    let result = render_video(app, &request, workspace_root, output_root, &temp_root).await;
     let _ = fs::remove_dir_all(&temp_root);
     result
 }
@@ -359,5 +389,23 @@ mod tests {
     fn output_names_are_sanitized() {
         assert_eq!(safe_video_stem("A:B", None).unwrap(), "A-B");
         assert!(safe_video_stem("A", Some("folder/video.mp4")).is_err());
+    }
+
+    #[test]
+    fn completed_videos_copy_non_destructively_to_the_output_directory() {
+        let fixture = std::env::temp_dir().join(format!("coffee-video-copy-{}", Uuid::new_v4()));
+        let output = fixture.join("output");
+        let rendered = fixture.join("rendered.mp4");
+        fs::create_dir_all(&output).expect("output fixture should exist");
+        fs::write(&rendered, b"video bytes").expect("rendered fixture should exist");
+
+        let first = save_rendered_video(&output, "demo", &rendered).expect("first copy");
+        let second = save_rendered_video(&output, "demo", &rendered).expect("second copy");
+        assert_eq!(first.1, "demo.mp4");
+        assert_eq!(second.1, "demo-2.mp4");
+        assert_eq!(fs::read(first.0).expect("first output"), b"video bytes");
+        assert_eq!(fs::read(second.0).expect("second output"), b"video bytes");
+
+        fs::remove_dir_all(fixture).expect("fixture should be removed");
     }
 }

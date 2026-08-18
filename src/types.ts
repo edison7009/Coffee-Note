@@ -224,13 +224,14 @@ export interface TranscriptionCheckResult {
   message: string;
 }
 
-export type ImageCapabilityMode = 'recognition' | 'generation' | 'speech';
+export type ImageCapabilityMode = 'recognition' | 'generation' | 'speech' | 'video';
 export type ImageProviderProtocol =
   | 'openai-compatible'
   | 'openai-images'
   | 'openrouter-images'
   | 'gemini-interactions'
-  | 'openai-speech';
+  | 'openai-speech'
+  | 'openai-video';
 
 export interface ImageProviderConfig {
   providerId: string;
@@ -250,11 +251,17 @@ export interface ImageSettingsConfig {
   recognition: ImageCapabilityConfig;
   generation: ImageCapabilityConfig;
   speech: ImageCapabilityConfig;
+  video: ImageCapabilityConfig;
 }
 
 export interface ImageCheckResult {
   ok: boolean;
   message: string;
+}
+
+export interface GeneratedFilesSettings {
+  directory: string;
+  usesDesktopDefault: boolean;
 }
 
 export interface TranscriptionResourceStatus {

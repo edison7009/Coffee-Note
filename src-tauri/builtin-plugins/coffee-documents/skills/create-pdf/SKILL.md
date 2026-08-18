@@ -20,5 +20,5 @@ or LibreOffice.
    and avoid isolated headings at the bottom of a page.
 6. Call `create_document` exactly once with `format` set to `pdf` and the complete ordered
    `blocks` array. Never request DOCX from this skill.
-7. Return the saved `.pdf` path, block count, and page count. Do not claim it was visually
+7. Return the full absolute saved `.pdf` path, block count, and page count. Do not claim it was visually
    inspected unless a rendered preview was actually checked.

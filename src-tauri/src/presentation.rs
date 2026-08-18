@@ -98,9 +98,18 @@ impl DeckTheme {
     }
 }
 
+#[cfg(test)]
 pub fn create_presentation(
     request: PresentationRequest,
     workspace_root: &Path,
+) -> Result<PresentationOutput, String> {
+    create_presentation_in(request, workspace_root, workspace_root)
+}
+
+pub fn create_presentation_in(
+    request: PresentationRequest,
+    workspace_root: &Path,
+    output_root: &Path,
 ) -> Result<PresentationOutput, String> {
     let title = normalize_text(&request.title);
     if title.is_empty() {
@@ -127,6 +136,11 @@ pub fn create_presentation(
     let canonical_root = workspace_root
         .canonicalize()
         .map_err(|error| format!("Could not resolve the workspace directory: {error}"))?;
+    fs::create_dir_all(output_root)
+        .map_err(|error| format!("Could not create the generated-files directory: {error}"))?;
+    let canonical_output_root = output_root
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the generated-files directory: {error}"))?;
     let mut warnings = Vec::new();
     let mut media_index = 0usize;
     let mut images = Vec::with_capacity(slides.len());
@@ -151,7 +165,7 @@ pub fn create_presentation(
     }
 
     let (output_path, output_file) =
-        reserve_output_file(&canonical_root, request.file_name.as_deref(), &title)?;
+        reserve_output_file(&canonical_output_root, request.file_name.as_deref(), &title)?;
     if let Err(error) = write_pptx(output_file, &title, &slides, &images, theme) {
         let _ = fs::remove_file(&output_path);
         return Err(error);

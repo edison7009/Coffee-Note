@@ -69,19 +69,23 @@
 - Document generation uses one application-managed native runtime shared by the
   Generate DOCX and Generate PDF skills. Both accept the same semantic block model.
   DOCX output is an editable Open XML package; PDF is laid out locally with a system
-  TrueType font and does not require Word or LibreOffice. Both reserve a unique file
-  in the workspace instead of overwriting an existing export.
+  TrueType font and does not require Word or LibreOffice. Generated PPTX, DOCX, PDF,
+  and MP4 files reserve unique names in the generated-files directory instead of
+  overwriting existing exports. Settings > General exposes that directory and defaults
+  it to the current user's Desktop. Successful generation tool results always show the
+  full path with Copy path and Show in folder actions.
 - A concrete note page keeps four creation shortcuts beneath its title: Generate DOCX,
   Generate PDF, Generate PPT, and Generate video. Each shortcut selects the matching enabled built-in skill and
   focuses the composer while preserving the current note as context. It never sends
   a request automatically. Do not restore the unrelated disabled Mobile long image
   placeholder in this row.
-- Settings exposes Recognition and generation as a separate destination next to
-  Audio to text. Its Image recognition, Image generation, and Speech generation tabs
-  mirror the compact Audio to text switcher and keep independent provider, model,
+- Settings exposes Multimodal models as a separate destination next to Audio to text.
+  Its Image recognition, Image generation, Speech generation, and Video generation
+  tabs mirror the compact Audio to text switcher and keep independent provider, model,
   endpoint, and locally saved API-key records. Recognition is a fallback when the
-  active model cannot accept images; image and speech generation are shared providers
-  for media-generation skills.
+  active model cannot accept images; image, speech, and video generation keep independent
+  provider configurations for media-generation skills. Video configuration does not
+  replace Coffee Video's dependable native fallback.
   Expose each Agent tool only when its configuration is complete, save generated
   images to a unique workspace path, and allow presentation skills to reuse that
   relative path. Do not add a local OCR tab before that runtime exists.
@@ -297,8 +301,10 @@
 | 2026-08-16 | Make Tier drag channels geometrically continuous | Visual spacing remains airy, but every wrapped line is divided at card center lines so each pixel maps to a deterministic insertion slot. A gap must never fall through to the row-end position. |
 | 2026-08-17 | Establish the plugin-market architecture | Plugins are distribution units, skills are Agent actions, and shared runtimes are managed once by the application. Coffee Media is the first manifest-driven official plugin; Git skill sources remain prompt-only community extensions. |
 | 2026-08-17 | Generate presentations in the shared native runtime | Coffee Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
-| 2026-08-17 | Separate recognition and generation providers | Keep one Recognition and generation destination with three compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; image and speech generation use independently configured providers. Local OCR remains a later capability. |
+| 2026-08-17 | Separate recognition and generation providers | Keep one Multimodal models destination with four compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; image, speech, and video generation use independently configured providers. Local OCR remains a later capability. |
 | 2026-08-17 | Ship Coffee Video as the safe fallback video workflow | The built-in plugin turns copy into scene images, configured speech, burned captions, restrained motion, and an MP4 through an application-managed encoder. Community Git skills may improve storyboards and prompts but only call the same guarded tools; they cannot execute bundled scripts or runtimes. |
 | 2026-08-17 | Make note creation actions skill shortcuts | Generate PPT and Generate video beneath a note title select their corresponding one-shot built-in skill and focus the composer without sending. The current note remains explicit context. Remove the disabled Mobile long image placeholder instead of expanding the row with an unrelated future export. |
 | 2026-08-17 | Generate DOCX and PDF through one native document runtime | Coffee Documents contains two independently switchable skills that submit the same heading/paragraph/list/quote model. The app writes editable Open XML DOCX and locally typeset PDF files without requiring an Office installation. |
 | 2026-08-17 | Extend note creation shortcuts to document exports | Generate DOCX and Generate PDF join PPT and video beneath the note title. All four actions only select a bundled skill and focus the existing composer; none sends automatically. |
+| 2026-08-18 | Make generated file destinations explicit | PPTX, DOCX, PDF, and MP4 default to the current user's Desktop, while Settings > General allows a custom directory. The conversation renders the backend-returned absolute path with direct copy and reveal actions so file discovery never depends on model wording. |
+| 2026-08-18 | Direct the storyboard before generating assets | Coffee Video exposes both Cinematic storyboard director and Text to video skills. Both share one provider-neutral specification: director brief, beat map, continuity bible, motivated camera movement, concrete physical action, and paired keyframe/motion prompts. Storyboard-only requests stop before generation; rendered videos map the same plan onto guarded Coffee Video tools. |

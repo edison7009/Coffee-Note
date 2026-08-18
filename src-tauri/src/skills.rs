@@ -44,10 +44,15 @@ const BUILTIN_PRESENTATION_DECK_SPEC: &str = include_str!(
 );
 const BUILTIN_VIDEO_PLUGIN_ID: &str = "coffee-video";
 const BUILTIN_VIDEO_SKILL_ID: &str = "coffee-note-video-create";
+const BUILTIN_VIDEO_STORYBOARD_SKILL_ID: &str = "coffee-note-video-storyboard";
 const BUILTIN_VIDEO_PLUGIN_MANIFEST: &str =
     include_str!("../builtin-plugins/coffee-video/coffee-plugin.json");
 const BUILTIN_VIDEO_SKILL_PROMPT: &str =
     include_str!("../builtin-plugins/coffee-video/skills/create-video/SKILL.md");
+const BUILTIN_VIDEO_STORYBOARD_SKILL_PROMPT: &str =
+    include_str!("../builtin-plugins/coffee-video/skills/storyboard-director/SKILL.md");
+const BUILTIN_VIDEO_STORYBOARD_SPEC: &str =
+    include_str!("../builtin-plugins/coffee-video/references/cinematic-storyboard.md");
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -211,8 +216,17 @@ fn builtin_skill_prompt(plugin_id: &str, skill_id: &str, path: &str) -> Option<S
             "{BUILTIN_PRESENTATION_SKILL_PROMPT}\n\n<bundled_reference path=\"references/deck-spec.md\">\n{BUILTIN_PRESENTATION_DECK_SPEC}\n</bundled_reference>"
         )),
         (BUILTIN_VIDEO_PLUGIN_ID, BUILTIN_VIDEO_SKILL_ID, "skills/create-video/SKILL.md") => {
-            Some(BUILTIN_VIDEO_SKILL_PROMPT.to_string())
+            Some(format!(
+                "{BUILTIN_VIDEO_SKILL_PROMPT}\n\n<bundled_reference path=\"references/cinematic-storyboard.md\">\n{BUILTIN_VIDEO_STORYBOARD_SPEC}\n</bundled_reference>"
+            ))
         }
+        (
+            BUILTIN_VIDEO_PLUGIN_ID,
+            BUILTIN_VIDEO_STORYBOARD_SKILL_ID,
+            "skills/storyboard-director/SKILL.md",
+        ) => Some(format!(
+            "{BUILTIN_VIDEO_STORYBOARD_SKILL_PROMPT}\n\n<bundled_reference path=\"references/cinematic-storyboard.md\">\n{BUILTIN_VIDEO_STORYBOARD_SPEC}\n</bundled_reference>"
+        )),
         _ => None,
     }
 }
@@ -1510,9 +1524,28 @@ mod tests {
         let plugin = builtin_video_manifest();
         assert_eq!(plugin.id, BUILTIN_VIDEO_PLUGIN_ID);
         assert_eq!(plugin.skills[0].id, BUILTIN_VIDEO_SKILL_ID);
+        assert_eq!(plugin.skills[1].id, BUILTIN_VIDEO_STORYBOARD_SKILL_ID);
+        assert_eq!(plugin.skills.len(), 2);
         assert_eq!(plugin.runtime.id, "coffee-video-engine");
         assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("create_video"));
         assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("Never install a"));
+        assert!(BUILTIN_VIDEO_STORYBOARD_SKILL_PROMPT.contains("continuity bible"));
+        let render_prompt = builtin_skill_prompt(
+            BUILTIN_VIDEO_PLUGIN_ID,
+            BUILTIN_VIDEO_SKILL_ID,
+            "skills/create-video/SKILL.md",
+        )
+        .expect("bundled video prompt should load");
+        let storyboard_prompt = builtin_skill_prompt(
+            BUILTIN_VIDEO_PLUGIN_ID,
+            BUILTIN_VIDEO_STORYBOARD_SKILL_ID,
+            "skills/storyboard-director/SKILL.md",
+        )
+        .expect("bundled storyboard prompt should load");
+        assert!(render_prompt.contains("<bundled_reference"));
+        assert!(storyboard_prompt.contains("Camera grammar"));
+        assert!(storyboard_prompt.contains("keyframe prompt"));
+        assert!(storyboard_prompt.contains("motion prompt"));
     }
 
     #[test]

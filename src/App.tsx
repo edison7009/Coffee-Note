@@ -159,6 +159,7 @@ import { TranscriptionSettings } from './settings/TranscriptionSettings';
 import { MultimodalSettings } from './settings/MultimodalSettings';
 import { SkillsSettings } from './settings/SkillsSettings';
 import { MessageSettings } from './settings/MessageSettings';
+import { GeneratedFilesSettings } from './settings/GeneratedFilesSettings';
 import './settings/MessageSettings.css';
 import type {
   AgentEvent,
@@ -4136,6 +4137,27 @@ interface CtxMenuActions {
   onShowInFolder: (menu: CtxMenuState) => void;
 }
 
+function generatedFileFromTool(message: ChatMessage): { path: string; format: string } | null {
+  if (
+    message.role !== 'tool_call'
+    || message.toolStatus !== 'done'
+    || !message.toolOutput
+    || !['create_document', 'create_presentation', 'create_video'].includes(message.toolName || '')
+  ) {
+    return null;
+  }
+  try {
+    const result = JSON.parse(message.toolOutput) as { path?: unknown; format?: unknown };
+    if (typeof result.path !== 'string' || !result.path.trim()) return null;
+    return {
+      path: result.path,
+      format: typeof result.format === 'string' ? result.format.toUpperCase() : 'FILE',
+    };
+  } catch {
+    return null;
+  }
+}
+
 type TreeOrder = Record<string, string[]>;
 type TreeDragEntry = Pick<DirectoryEntry, 'relativePath' | 'isDir'>;
 type TreeDropPosition = 'before' | 'inside' | 'after';
@@ -7336,49 +7358,69 @@ function ConversationView({
               ) : (
                 <Wrench size={13} />
               );
+            const generatedFile = generatedFileFromTool(message);
             return (
-              <details
-                className={`tool-activity is-${status}`}
-                key={message.id}
-                data-conversation-copy
-              >
-                <summary className="tool-activity-summary">
-                  <span className="tool-activity-status" aria-hidden="true">{statusIcon}</span>
-                  <span className="tool-activity-label">{label}</span>
-                  <ChevronRight className="tool-activity-chevron" size={14} aria-hidden="true" />
-                </summary>
-                <div className="tool-activity-body">
-                  {message.toolArgs && (
-                    <div className="tool-activity-section">
-                      <span className="tool-activity-section-label">
-                        {locale === 'zh' ? '输入' : 'Input'}
+              <React.Fragment key={message.id}>
+                <details
+                  className={`tool-activity is-${status}`}
+                  data-conversation-copy
+                >
+                  <summary className="tool-activity-summary">
+                    <span className="tool-activity-status" aria-hidden="true">{statusIcon}</span>
+                    <span className="tool-activity-label">{label}</span>
+                    <ChevronRight className="tool-activity-chevron" size={14} aria-hidden="true" />
+                  </summary>
+                  <div className="tool-activity-body">
+                    {message.toolArgs && (
+                      <div className="tool-activity-section">
+                        <span className="tool-activity-section-label">
+                          {locale === 'zh' ? '输入' : 'Input'}
+                        </span>
+                        <pre className="tool-activity-data">{message.toolArgs}</pre>
+                      </div>
+                    )}
+                    {message.toolOutput && (
+                      <div className="tool-activity-section">
+                        <span className="tool-activity-section-label">
+                          {status === 'failed'
+                            ? locale === 'zh' ? '错误' : 'Error'
+                            : locale === 'zh' ? '结果' : 'Result'}
+                        </span>
+                        <pre className={`tool-activity-data ${status === 'failed' ? 'failed' : ''}`}>
+                          {message.toolOutput.length > 2000
+                            ? message.toolOutput.slice(0, 2000) + '\n…'
+                            : message.toolOutput}
+                        </pre>
+                      </div>
+                    )}
+                    {!message.toolArgs && !message.toolOutput && (
+                      <span className="tool-activity-empty">
+                        {status === 'running'
+                          ? locale === 'zh' ? '正在准备详情…' : 'Preparing details…'
+                          : locale === 'zh' ? '没有更多详情' : 'No additional details'}
                       </span>
-                      <pre className="tool-activity-data">{message.toolArgs}</pre>
+                    )}
+                  </div>
+                </details>
+                {generatedFile && (
+                  <div className="generated-file-result" data-conversation-copy>
+                    <div className="generated-file-result-copy">
+                      <span>{locale === 'zh' ? `${generatedFile.format} 已保存到` : `${generatedFile.format} saved to`}</span>
+                      <strong>{generatedFile.path}</strong>
                     </div>
-                  )}
-                  {message.toolOutput && (
-                    <div className="tool-activity-section">
-                      <span className="tool-activity-section-label">
-                        {status === 'failed'
-                          ? locale === 'zh' ? '错误' : 'Error'
-                          : locale === 'zh' ? '结果' : 'Result'}
-                      </span>
-                      <pre className={`tool-activity-data ${status === 'failed' ? 'failed' : ''}`}>
-                        {message.toolOutput.length > 2000
-                          ? message.toolOutput.slice(0, 2000) + '\n…'
-                          : message.toolOutput}
-                      </pre>
+                    <div className="generated-file-result-actions">
+                      <button type="button" onClick={() => void writeClipboardText(generatedFile.path)}>
+                        <Copy size={14} strokeWidth={1.8} />
+                        {locale === 'zh' ? '复制路径' : 'Copy path'}
+                      </button>
+                      <button type="button" onClick={() => void revealInFolder(generatedFile.path)}>
+                        <FolderOpen size={14} strokeWidth={1.8} />
+                        {locale === 'zh' ? '打开所在文件夹' : 'Show in folder'}
+                      </button>
                     </div>
-                  )}
-                  {!message.toolArgs && !message.toolOutput && (
-                    <span className="tool-activity-empty">
-                      {status === 'running'
-                        ? locale === 'zh' ? '正在准备详情…' : 'Preparing details…'
-                        : locale === 'zh' ? '没有更多详情' : 'No additional details'}
-                    </span>
-                  )}
-                </div>
-              </details>
+                  </div>
+                )}
+              </React.Fragment>
             );
           }
           if (message.role === 'memory_suggestion' && message.memorySuggestion) {
@@ -9295,7 +9337,7 @@ function SettingsPage({
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
     { id: 'skills', label: locale === 'zh' ? '插件' : 'Plugins', icon: <Sparkles size={18} strokeWidth={1.8} /> },
     { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
-    { id: 'multimodal', label: locale === 'zh' ? '识别与生成' : 'Recognition and generation', icon: <Images size={18} strokeWidth={1.8} /> },
+    { id: 'multimodal', label: locale === 'zh' ? '多模态模型' : 'Multimodal models', icon: <Images size={18} strokeWidth={1.8} /> },
     { id: 'messages', label: locale === 'zh' ? '消息' : 'Message', icon: <MessageCircleMore size={18} strokeWidth={1.8} /> },
   ];
   const currentSection = settingsSections.find((section) => section.id === activeSection)
@@ -9432,6 +9474,7 @@ function SettingsPage({
                     <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
                   </div>
                 </section>
+                <GeneratedFilesSettings locale={locale} />
                 <WeatherLocationSettings locale={locale} />
               </div>
             )}

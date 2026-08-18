@@ -18,5 +18,5 @@ start a separate service, generate source code for the user to run, or invoke Mi
 5. Use `page-break` sparingly for a major new section that should start on a fresh page.
 6. Call `create_document` exactly once with `format` set to `docx` and the complete ordered
    `blocks` array. Never request PDF from this skill.
-7. Return the saved `.docx` path and block count. Say that it is editable, but do not claim it
+7. Return the full absolute saved `.docx` path and block count. Say that it is editable, but do not claim it
    was visually inspected unless a rendered preview was actually checked.

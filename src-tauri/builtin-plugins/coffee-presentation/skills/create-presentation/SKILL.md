@@ -20,5 +20,5 @@ start a separate service, or generate source code for the user to run.
    `content` for most explanatory slides.
 6. Call `create_presentation` exactly once with the complete deck. Read
    [deck-spec.md](references/deck-spec.md) before using non-default layouts or images.
-7. Return the saved `.pptx` path, slide count, and any runtime warning. Do not claim that the
+7. Return the full absolute saved `.pptx` path, slide count, and any runtime warning. Do not claim that the
    file was visually inspected unless a rendered preview was actually checked.

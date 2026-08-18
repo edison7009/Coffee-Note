@@ -1,0 +1,4 @@
+interface:
+  display_name: "电影分镜导演"
+  short_description: "把想法拆成专业、连贯、可生成的镜头"
+  default_prompt: "把选中的内容设计成有叙事节奏、专业镜头语言和视觉连续性的分镜。"
