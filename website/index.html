@@ -113,6 +113,45 @@
     margin-bottom: 22px; white-space: nowrap;
   }
   .site-highlight-copy { min-width: 0; }
+  .slogan-bridge {
+    position: relative;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 14px;
+  }
+  .slogan-bridge::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 165, 132, 0.76) 24%, rgba(212, 165, 132, 0.76) 76%, transparent);
+  }
+  .slogan-bridge::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    border: 1px solid #e2b493;
+    border-radius: 50%;
+    background: #21150f;
+    box-shadow: 0 0 0 3px rgba(212, 165, 132, 0.12), 0 0 12px rgba(212, 165, 132, 0.42);
+    transform: translateX(-50%);
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
   .site-highlight-note strong { color: #f0c7a9; font-weight: 700; }
 
   /* ===== Layout ===== */
@@ -346,7 +385,12 @@
 
 <!-- ===== Hero ===== -->
 <header class="hero wrap">
-  <p class="site-highlight-note"><span class="site-highlight-copy" data-i18n="siteHighlight">Everything is a note. Notes create everything — rebuilding the Agent Loop from first principles to shape the future of AI notes.</span></p>
+  <p class="site-highlight-note">
+    <span class="site-highlight-copy" data-i18n="siteHighlightLead">Everything is a note. Notes create everything</span>
+    <span class="visually-hidden"> — </span>
+    <span class="slogan-bridge" aria-hidden="true"></span>
+    <span class="site-highlight-copy" data-i18n="siteHighlightTail">rebuilding the Agent Loop from first principles to shape the future of AI notes.</span>
+  </p>
   <h1 data-i18n="heroTitle">The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span></h1>
   <p class="lead" data-i18n="heroLead">DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save</p>
   <div class="install-row">
@@ -592,7 +636,8 @@
   const I18N = {
     en: {
       docTitle: 'Coffee Note — The AI note tool that saves you money, deeply optimized for DeepSeek',
-      siteHighlight: 'Everything is a note. Notes create everything — rebuilding the Agent Loop from first principles to shape the future of AI notes.',
+      siteHighlightLead: 'Everything is a note. Notes create everything',
+      siteHighlightTail: 'rebuilding the Agent Loop from first principles to shape the future of AI notes.',
       heroTitle: 'The AI note tool that saves you money<br><span class="hero-accent">deeply optimized for DeepSeek</span>',
       heroLead: 'DeepSeek efficient caching · Paste TikTok / YouTube / X URL into text · Generate PPT or video · The more you use, the more you save',
       getBtn: 'Get Coffee Note',
@@ -653,7 +698,8 @@
     },
     zh: {
       docTitle: 'Coffee Note — 帮你省钱的 AI 笔记工具，深度优化 DeepSeek',
-      siteHighlight: '一切皆笔记，笔记生万物 — 以第一性原理重构 Agent Loop，打造未来 AI 笔记系统',
+      siteHighlightLead: '一切皆笔记，笔记生万物',
+      siteHighlightTail: '以第一性原理重构 Agent Loop，打造未来 AI 笔记系统',
       heroTitle: '帮你省钱的 AI 笔记工具<br><span class="hero-accent">深度优化 DeepSeek</span>',
       heroLead: 'DeepSeek 高效缓存 · 粘贴抖音/小红书/B站地址转文字 · 生成PPT或视频 · 越用越省钱',
       getBtn: '获取 Coffee Note',
