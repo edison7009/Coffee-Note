@@ -1,20 +1,5 @@
 # Third-party notices
 
-## OfficeCLI
-
-Coffee Note's native DOCX generator was informed by the Open XML package structure
-and document defaults used by OfficeCLI. Coffee Note contains its own Rust
-implementation and does not bundle the OfficeCLI executable or its .NET runtime.
-
-OfficeCLI
-Copyright 2026 OfficeCLI (https://OfficeCLI.AI)
-
-Created and maintained by goworm. Licensed under the Apache License, Version 2.0:
-https://github.com/iOfficeAI/OfficeCLI/blob/main/LICENSE
-
-The upstream NOTICE is retained here as required attribution under Section 4 of the
-Apache License, Version 2.0.
-
 ## printpdf
 
 Coffee Note uses printpdf 0.7 to write PDF files and subset local TrueType fonts.

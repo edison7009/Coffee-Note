@@ -86,9 +86,9 @@ or temporary deployment credentials.
   `src-tauri/src/document.rs` writes editable Open XML `.docx` packages and lays out
   `.pdf` files with a local TrueType font; neither path requires Word, LibreOffice,
   Python, Node, or a per-skill runtime. Output filenames are reserved with
-  create-new semantics. The DOCX package organization was informed by the Apache-2.0
-  OfficeCLI project at `E:\Coffee-Note-Skills\OfficeCLI`; its notice is retained in
-  `THIRD_PARTY_NOTICES.md`. PDF generation uses the MIT-licensed `printpdf` crate.
+  create-new semantics. DOCX generation writes the standard Open XML package
+  structure directly with the Rust `zip` crate. PDF generation uses the
+  MIT-licensed `printpdf` crate.
 - **Image recognition and generation (2026-08-17):** Settings includes one dedicated
   Recognition and generation destination beside Audio to text. Its internal Image
   recognition, Image generation, and Speech generation tabs reuse the same compact switcher and store
