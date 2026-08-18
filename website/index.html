@@ -123,10 +123,11 @@
     isolation: isolate;
   }
   .hero-side-art {
-    position: absolute;
-    top: 12px;
+    position: fixed;
+    top: 80px;
     width: clamp(300px, 24vw, 460px);
     height: auto;
+    max-height: calc(100vh - 80px);
     z-index: 0;
     opacity: 0.82;
     mix-blend-mode: screen;
@@ -134,10 +135,10 @@
     user-select: none;
   }
   .hero-side-art-left {
-    left: calc((100vw - 100%) / -2);
+    left: 0;
   }
   .hero-side-art-right {
-    right: calc((100vw - 100%) / -2);
+    right: 0;
   }
   .hero > :not(.hero-side-art) { position: relative; z-index: 1; }
   .hero h1 {
