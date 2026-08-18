@@ -14,17 +14,11 @@ struct StoredGeneratedFilesSettings {
 #[serde(rename_all = "camelCase")]
 pub struct GeneratedFilesSettings {
     pub directory: String,
-    pub uses_desktop_default: bool,
+    pub uses_workspace_default: bool,
 }
 
 fn config_path() -> PathBuf {
     crate::app_data_dir().join(GENERATED_FILES_CONFIG)
-}
-
-fn desktop_directory() -> Result<PathBuf, String> {
-    dirs::desktop_dir()
-        .or_else(|| dirs::home_dir().map(|home| home.join("Desktop")))
-        .ok_or_else(|| "Could not find the current user's Desktop directory".to_string())
 }
 
 fn read_config(path: &Path) -> Result<Option<StoredGeneratedFilesSettings>, String> {
@@ -79,47 +73,61 @@ fn save_config(path: &Path, directory: &Path) -> Result<(), String> {
         .map_err(|error| format!("Could not write generated-files settings: {error}"))
 }
 
-fn current_settings_from(path: &Path) -> Result<GeneratedFilesSettings, String> {
+fn current_settings_from(
+    path: &Path,
+    workspace_root: &Path,
+) -> Result<GeneratedFilesSettings, String> {
     let stored = read_config(path)?;
-    let (directory, uses_desktop_default) = match stored {
+    let (directory, uses_workspace_default) = match stored {
         Some(settings) => (settings.directory, false),
-        None => (validate_directory(desktop_directory()?)?, true),
+        None => (validate_directory(workspace_root.to_path_buf())?, true),
     };
     Ok(GeneratedFilesSettings {
         directory: directory.to_string_lossy().into_owned(),
-        uses_desktop_default,
+        uses_workspace_default,
     })
 }
 
-pub fn output_directory() -> Result<PathBuf, String> {
-    let settings = current_settings_from(&config_path())?;
+pub fn output_directory(workspace_root: &Path) -> Result<PathBuf, String> {
+    let settings = current_settings_from(&config_path(), workspace_root)?;
     validate_directory(PathBuf::from(settings.directory))
 }
 
 #[tauri::command]
-pub fn load_generated_files_settings() -> Result<GeneratedFilesSettings, String> {
-    current_settings_from(&config_path())
+pub fn load_generated_files_settings(
+    workspace_root: String,
+) -> Result<GeneratedFilesSettings, String> {
+    current_settings_from(&config_path(), Path::new(&workspace_root))
 }
 
 #[tauri::command]
 pub fn save_generated_files_directory(
     directory: Option<String>,
+    workspace_root: String,
 ) -> Result<GeneratedFilesSettings, String> {
-    let path = config_path();
+    save_generated_files_directory_to(&config_path(), directory, Path::new(&workspace_root))
+}
+
+fn save_generated_files_directory_to(
+    path: &Path,
+    directory: Option<String>,
+    workspace_root: &Path,
+) -> Result<GeneratedFilesSettings, String> {
+    let workspace_root = validate_directory(workspace_root.to_path_buf())?;
     match directory.map(|value| value.trim().to_string()) {
         Some(value) if !value.is_empty() => {
             let directory = validate_directory(PathBuf::from(value))?;
-            save_config(&path, &directory)?;
+            save_config(path, &directory)?;
         }
         _ => {
             if path.exists() {
-                fs::remove_file(&path).map_err(|error| {
-                    format!("Could not restore the Desktop save location: {error}")
+                fs::remove_file(path).map_err(|error| {
+                    format!("Could not restore the workspace save location: {error}")
                 })?;
             }
         }
     }
-    current_settings_from(&path)
+    current_settings_from(path, &workspace_root)
 }
 
 #[cfg(test)]
@@ -136,11 +144,50 @@ mod tests {
 
         let output = validate_directory(output).expect("output should validate");
         save_config(&settings_path, &output).expect("settings should save");
-        let settings = current_settings_from(&settings_path).expect("settings should load");
-        assert!(!settings.uses_desktop_default);
+        let settings =
+            current_settings_from(&settings_path, &fixture).expect("settings should load");
+        assert!(!settings.uses_workspace_default);
         assert_eq!(PathBuf::from(settings.directory), output);
         assert!(validate_directory(PathBuf::from("relative-output")).is_err());
 
+        fs::remove_dir_all(fixture).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn missing_config_defaults_to_the_current_workspace() {
+        let fixture = std::env::temp_dir().join(format!("coffee-note-output-{}", Uuid::new_v4()));
+        let workspace = fixture.join("workspace");
+        let settings_path = fixture.join("generated-files.json");
+        fs::create_dir_all(&workspace).expect("fixture workspace should exist");
+
+        let settings = current_settings_from(&settings_path, &workspace)
+            .expect("workspace default should load");
+
+        assert!(settings.uses_workspace_default);
+        assert_eq!(
+            PathBuf::from(settings.directory),
+            validate_directory(workspace).expect("workspace should validate")
+        );
+        fs::remove_dir_all(fixture).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn invalid_workspace_does_not_erase_a_custom_directory() {
+        let fixture = std::env::temp_dir().join(format!("coffee-note-output-{}", Uuid::new_v4()));
+        let custom = fixture.join("custom");
+        let settings_path = fixture.join("generated-files.json");
+        fs::create_dir_all(&custom).expect("fixture custom directory should exist");
+        save_config(&settings_path, &custom).expect("custom settings should save");
+
+        let result =
+            save_generated_files_directory_to(&settings_path, None, Path::new("missing-workspace"));
+
+        assert!(result.is_err());
+        assert!(settings_path.is_file());
+        let stored = read_config(&settings_path)
+            .expect("settings should remain readable")
+            .expect("custom settings should remain present");
+        assert_eq!(stored.directory, custom);
         fs::remove_dir_all(fixture).expect("fixture should be removed");
     }
 

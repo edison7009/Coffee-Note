@@ -72,8 +72,9 @@
   TrueType font and does not require Word or LibreOffice. Generated PPTX, DOCX, PDF,
   and MP4 files reserve unique names in the generated-files directory instead of
   overwriting existing exports. Settings > General exposes that directory and defaults
-  it to the current user's Desktop. Successful generation tool results always show the
-  full path with Copy path and Show in folder actions.
+  it directly to the current selected workspace root. A fixed custom directory is an
+  explicit opt-out for users who want a note-only workspace. Successful generation
+  tool results always show the full path with Copy path and Show in folder actions.
 - A concrete note page keeps four creation shortcuts beneath its title: Generate DOCX,
   Generate PDF, Generate PPT, and Generate video. Each shortcut selects the matching enabled built-in skill and
   focuses the composer while preserving the current note as context. It never sends
@@ -310,3 +311,4 @@
 | 2026-08-17 | Extend note creation shortcuts to document exports | Generate DOCX and Generate PDF join PPT and video beneath the note title. All four actions only select a bundled skill and focus the existing composer; none sends automatically. |
 | 2026-08-18 | Make generated file destinations explicit | PPTX, DOCX, PDF, and MP4 default to the current user's Desktop, while Settings > General allows a custom directory. The conversation renders the backend-returned absolute path with direct copy and reveal actions so file discovery never depends on model wording. |
 | 2026-08-18 | Direct the storyboard before generating assets | Coffee Video exposes both Cinematic storyboard director and Text to video skills. Both share one provider-neutral specification: director brief, beat map, continuity bible, motivated camera movement, concrete physical action, and paired keyframe/motion prompts. Storyboard-only requests stop before generation; rendered videos map the same plan onto guarded Coffee Video tools. |
+| 2026-08-19 | Follow the selected workspace for generated files | With the complete file tree now showing ordinary files, PPTX, DOCX, PDF, and MP4 default directly to the selected workspace root and automatically follow workspace switches. A fixed custom directory remains available for people who want their workspace to contain notes only. |

@@ -672,7 +672,7 @@ async fn exec_create_video(
             }
         }
     };
-    let output_root = match crate::generated_files::output_directory() {
+    let output_root = match crate::generated_files::output_directory(workspace_root) {
         Ok(path) => path,
         Err(error) => {
             return ToolResult {
@@ -762,7 +762,7 @@ fn exec_create_presentation(args: &Value, workspace_root: &Path) -> ToolResult {
             }
         }
     };
-    let output_root = match crate::generated_files::output_directory() {
+    let output_root = match crate::generated_files::output_directory(workspace_root) {
         Ok(path) => path,
         Err(error) => {
             return ToolResult {
@@ -794,7 +794,7 @@ fn exec_create_presentation(args: &Value, workspace_root: &Path) -> ToolResult {
     }
 }
 
-fn exec_create_document(args: &Value, _workspace_root: &Path) -> ToolResult {
+fn exec_create_document(args: &Value, workspace_root: &Path) -> ToolResult {
     let request = match serde_json::from_value::<crate::document::DocumentRequest>(args.clone()) {
         Ok(request) => request,
         Err(error) => {
@@ -806,7 +806,7 @@ fn exec_create_document(args: &Value, _workspace_root: &Path) -> ToolResult {
             }
         }
     };
-    let output_root = match crate::generated_files::output_directory() {
+    let output_root = match crate::generated_files::output_directory(workspace_root) {
         Ok(path) => path,
         Err(error) => {
             return ToolResult {

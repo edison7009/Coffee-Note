@@ -261,7 +261,7 @@ export interface ImageCheckResult {
 
 export interface GeneratedFilesSettings {
   directory: string;
-  usesDesktopDefault: boolean;
+  usesWorkspaceDefault: boolean;
 }
 
 export interface TranscriptionResourceStatus {

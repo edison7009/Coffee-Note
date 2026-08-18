@@ -403,11 +403,13 @@ export async function setSkillSourceEnabled(id: string, enabled: boolean): Promi
   return invoke<SkillCatalog>('set_skill_source_enabled', { id, enabled });
 }
 
-export async function loadGeneratedFilesSettings(): Promise<GeneratedFilesSettings> {
+export async function loadGeneratedFilesSettings(
+  workspaceRoot: string,
+): Promise<GeneratedFilesSettings> {
   if (!isTauri) {
-    return { directory: 'Desktop', usesDesktopDefault: true };
+    return { directory: workspaceRoot || 'Workspace', usesWorkspaceDefault: true };
   }
-  return invoke<GeneratedFilesSettings>('load_generated_files_settings');
+  return invoke<GeneratedFilesSettings>('load_generated_files_settings', { workspaceRoot });
 }
 
 export async function chooseGeneratedFilesDirectory(
@@ -424,11 +426,18 @@ export async function chooseGeneratedFilesDirectory(
 
 export async function saveGeneratedFilesDirectory(
   directory: string | null,
+  workspaceRoot: string,
 ): Promise<GeneratedFilesSettings> {
   if (!isTauri) {
-    return { directory: directory || 'Desktop', usesDesktopDefault: !directory };
+    return {
+      directory: directory || workspaceRoot || 'Workspace',
+      usesWorkspaceDefault: !directory,
+    };
   }
-  return invoke<GeneratedFilesSettings>('save_generated_files_directory', { directory });
+  return invoke<GeneratedFilesSettings>('save_generated_files_directory', {
+    directory,
+    workspaceRoot,
+  });
 }
 
 export async function setSkillEnabled(id: string, sourceId: string, enabled: boolean): Promise<SkillCatalog> {

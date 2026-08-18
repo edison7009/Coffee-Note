@@ -8,14 +8,20 @@ import {
 import type { GeneratedFilesSettings as GeneratedFilesSettingsValue, Locale } from '../types';
 import './GeneratedFilesSettings.css';
 
-export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
+export function GeneratedFilesSettings({
+  locale,
+  workspaceRoot,
+}: {
+  locale: Locale;
+  workspaceRoot: string;
+}) {
   const [settings, setSettings] = useState<GeneratedFilesSettingsValue | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
-    void loadGeneratedFilesSettings()
+    void loadGeneratedFilesSettings(workspaceRoot)
       .then((value) => {
         if (active) setSettings(value);
       })
@@ -25,7 +31,7 @@ export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [workspaceRoot]);
 
   const chooseDirectory = async () => {
     setError('');
@@ -33,7 +39,7 @@ export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
       const directory = await chooseGeneratedFilesDirectory(settings?.directory);
       if (!directory) return;
       setSaving(true);
-      setSettings(await saveGeneratedFilesDirectory(directory));
+      setSettings(await saveGeneratedFilesDirectory(directory, workspaceRoot));
     } catch (reason) {
       setError(String(reason));
     } finally {
@@ -41,11 +47,11 @@ export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
     }
   };
 
-  const restoreDesktop = async () => {
+  const restoreWorkspace = async () => {
     setError('');
     setSaving(true);
     try {
-      setSettings(await saveGeneratedFilesDirectory(null));
+      setSettings(await saveGeneratedFilesDirectory(null, workspaceRoot));
     } catch (reason) {
       setError(String(reason));
     } finally {
@@ -59,16 +65,16 @@ export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
         <h2>{locale === 'zh' ? '默认生成保存位置' : 'Default generated-file location'}</h2>
         <p>
           {locale === 'zh'
-            ? 'PPT、DOCX、PDF 和视频会保存到这里；未自定义时使用当前用户的桌面。'
-            : 'Presentations, DOCX, PDF, and video files are saved here. The current user’s Desktop is used by default.'}
+            ? 'PPT、DOCX、PDF 和视频会保存到这里；未自定义时跟随当前工作区。'
+            : 'Presentations, DOCX, PDF, and video files are saved here. The current workspace is used by default.'}
         </p>
       </div>
       <div className="generated-files-location">
         <div className="generated-files-path" aria-live="polite">
           <span>{locale === 'zh' ? '当前路径' : 'Current path'}</span>
           <strong>{settings?.directory || (locale === 'zh' ? '正在读取…' : 'Loading…')}</strong>
-          {settings?.usesDesktopDefault && (
-            <small>{locale === 'zh' ? '桌面（默认）' : 'Desktop (default)'}</small>
+          {settings?.usesWorkspaceDefault && (
+            <small>{locale === 'zh' ? '当前工作区（默认）' : 'Current workspace (default)'}</small>
           )}
         </div>
         <div className="generated-files-actions">
@@ -76,10 +82,10 @@ export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
             <FolderOpen size={16} strokeWidth={1.8} />
             {locale === 'zh' ? '选择文件夹' : 'Choose folder'}
           </button>
-          {(!settings || !settings.usesDesktopDefault) && (
-            <button type="button" onClick={() => void restoreDesktop()} disabled={saving}>
+          {settings && !settings.usesWorkspaceDefault && (
+            <button type="button" onClick={() => void restoreWorkspace()} disabled={saving}>
               <RotateCcw size={15} strokeWidth={1.8} />
-              {locale === 'zh' ? '恢复桌面' : 'Use Desktop'}
+              {locale === 'zh' ? '跟随当前工作区' : 'Use current workspace'}
             </button>
           )}
         </div>

@@ -28,10 +28,11 @@ or temporary deployment credentials.
 
 ## Workspace Agent foundation (2026-08-15)
 
-- **Generated file destination (2026-08-18):** PPTX, DOCX, PDF, and MP4 outputs use
-  the generated-files directory stored in current-user app data, defaulting to the
-  current user's Desktop. Settings > General lets the user choose a different folder
-  or restore the Desktop default. Completed generation tool rows show the backend-returned
+- **Generated file destination (updated 2026-08-19):** PPTX, DOCX, PDF, and MP4 outputs use
+  the current selected workspace root by default, so switching workspaces also changes
+  the default output location. Settings > General lets the user choose a fixed custom
+  folder or restore the current-workspace default. Existing custom paths stored in
+  current-user app data remain unchanged. Completed generation tool rows show the backend-returned
   absolute path with Copy path and Show in folder actions; do not rely on model prose to
   tell users where a file was saved. Workspace-relative source images remain in the selected
   workspace and presentation/video runtimes resolve those inputs separately from the output folder.

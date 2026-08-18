@@ -3264,6 +3264,7 @@ function App() {
           initialSection={settingsSection}
           transcriptionInitialTab={transcriptionSettingsTab}
           locale={locale}
+          workspaceRoot={activeKnowledgeRoot}
           config={modelSettings}
           catalog={modelCatalog}
           catalogLoading={modelCatalogLoading}
@@ -9616,6 +9617,7 @@ function SettingsPage({
   initialSection,
   transcriptionInitialTab,
   locale,
+  workspaceRoot,
   config,
   catalog,
   catalogLoading,
@@ -9639,6 +9641,7 @@ function SettingsPage({
   initialSection: SettingsSectionId;
   transcriptionInitialTab: TranscriptionMode;
   locale: Locale;
+  workspaceRoot: string;
   config: ModelSettings;
   catalog: ModelCatalog;
   catalogLoading: boolean;
@@ -9766,7 +9769,7 @@ function SettingsPage({
                     <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
                   </div>
                 </section>
-                <GeneratedFilesSettings locale={locale} />
+                <GeneratedFilesSettings locale={locale} workspaceRoot={workspaceRoot} />
                 <WeatherLocationSettings locale={locale} />
               </div>
             )}
