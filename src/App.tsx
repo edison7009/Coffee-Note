@@ -6932,9 +6932,6 @@ const AGENT_STATUS_VERBS: Record<Locale, string[]> = {
   ],
 };
 
-const AGENT_STATUS_GLYPHS = ['·', '✢', '*', '✶', '✻', '✽'];
-const AGENT_STATUS_FRAMES = [...AGENT_STATUS_GLYPHS, ...[...AGENT_STATUS_GLYPHS].reverse()];
-
 function formatAgentStatusPhrase(verb: string, locale: Locale): string {
   return locale === 'zh' ? `正在${verb}中…` : `${verb}…`;
 }
@@ -6969,6 +6966,7 @@ function AgentTurnStatus({ locale, toolName }: { locale: Locale; toolName?: stri
 
   return (
     <div className="agent-turn-status" role="status" aria-live="polite">
+      <span className="agent-turn-status-spinner" aria-hidden="true" />
       <span className="agent-turn-status-text">
         <span className="agent-turn-status-shimmer" key={toolName}>{phrase}</span>
       </span>

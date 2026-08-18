@@ -151,8 +151,10 @@ or temporary deployment credentials.
   ID) are plain text: no cursor change, no hover effects, no tooltip.
 - **AI activity rows (2026-08-14):** Thinking and tool calls in AI chat render as
   compact, unframed disclosure rows rather than stacked full-width cards. Tool rows
-  use small static status icons and aligned 26px summaries. While a turn is active,
-  one separate EchoBird-style line appears after the activity stream. Its warm
+  use static status marks and switch to a checkmark on completion or a failure mark;
+  summaries stay aligned to 26px. While a turn is active, one separate EchoBird-style
+  line appears after the activity stream with Coffee-CLI's compact Braille-dot spinner
+  on its left. Its warm
   orange label cycles the complete supported-language verb lists with the left
   flower glyph sequence, typewriter erase/type timing, 2.4-second text shimmer,
   and a caret during rewrites. Elapsed time appears only after 15 seconds and stays

@@ -14,6 +14,7 @@ test('running agent activity follows the latest tool with neutral shimmer', () =
   assert.match(app, /formatAgentToolPhrase/);
   assert.match(app, /latestRunningTool/);
   assert.match(app, /toolName=\{latestRunningTool\}/);
+  assert.match(app, /<span className="agent-turn-status-spinner" aria-hidden="true" \/>/);
   assert.match(app, /agent-turn-status-shimmer/);
   assert.match(app, /key=\{toolName\}/);
   assert.match(
@@ -22,7 +23,11 @@ test('running agent activity follows the latest tool with neutral shimmer', () =
   );
   assert.match(
     css,
-    /@media \(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.agent-turn-status-shimmer,[\s\S]*?\.agent-turn-status-caret\s*\{[^}]*animation:\s*none;/s,
+    /\.agent-turn-status-spinner::after\s*\{[^}]*content:\s*'⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';[^}]*animation:\s*agent-turn-status-spinner 0\.9s steps\(10, end\) infinite;/s,
+  );
+  assert.match(
+    css,
+    /@media \(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.agent-turn-status-spinner::after,[\s\S]*?\.agent-turn-status-caret\s*\{[^}]*animation:\s*none;/s,
   );
   assert.doesNotMatch(css, /activity-dot-spinner/);
   assert.doesNotMatch(app, /activity-dot-spinner/);
@@ -36,8 +41,12 @@ test('the active turn clock uses the muted tabular style', () => {
   );
 });
 
-test('tool rows and conversation history use static aligned activity marks', () => {
+test('tool rows keep static aligned marks and settle to completion checks', () => {
   assert.match(app, /<Wrench size=\{13\} \/>/);
+  assert.match(app, /status === 'done'[\s\S]*?<Check size=\{13\} \/>/s);
+  assert.match(app, /status === 'failed'[\s\S]*?<X size=\{13\} \/>/s);
+  assert.doesNotMatch(app, /tool-activity-spinner/);
+  assert.doesNotMatch(css, /tool-activity-spinner/);
   assert.match(app, /className="conversation-history-working-dot"/);
   assert.match(
     css,

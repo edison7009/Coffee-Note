@@ -160,10 +160,12 @@
   future latency, speed, turn, or step metrics join this same grammar once the
   backend reports them.
 - Render AI thinking and tool activity as compact, unframed disclosure rows rather
-  than full-width cards. Tool rows use small static status icons, with aligned
-  26px summaries; clicking the chevron reveals arguments and results inline.
+  than full-width cards. Tool rows use static status marks and become a checkmark on
+  completion or a clear failure mark. Keep summaries aligned to 26px; clicking the
+  chevron reveals arguments and results inline.
   While the turn is active, keep one separate EchoBird-style status line after
-  the activity stream. It uses Coffee Note's warm orange status color, the complete
+  the activity stream. Its left edge uses Coffee-CLI's compact Braille-dot spinner.
+  It uses Coffee Note's warm orange status color, the complete
   supported-language verb lists, the left flower glyph sequence, typewriter erase/type
   timing, a caret during rewrites, and the EchoBird left-to-right text shimmer. Add
   an elapsed clock only after 15 seconds; the muted elapsed clock does not shimmer.
@@ -249,6 +251,7 @@
 - **Timing:** 90ms for hover/focus changes, 150-200ms for panels and dialogs.
 - **Behavior:** No decorative movement, scale-on-hover, or animated gradients. Respect reduced-motion settings.
 - **AI activity:** Tool rows and history indicators stay static. The active turn's
+  separate line animates its compact Braille-dot status, while its
   EchoBird-style status line is the chat animation exception: its warm orange text
   shimmer runs linearly for 2.4 seconds while the left flower glyph and rewrite caret
   follow the matching typewriter cycle. The elapsed-time text updates once per second

@@ -5579,14 +5579,23 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   white-space: nowrap;
 }
 
-.agent-turn-status-glyph {
+.agent-turn-status-spinner {
   display: inline-block;
-  width: 13px;
+  flex: 0 0 auto;
+  width: 1ch;
+  overflow: hidden;
   color: var(--ink);
-  font-size: 16px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 13px;
   line-height: 1;
-  text-align: center;
-  animation: agent-turn-status-glyph-pulse 1.2s ease-in-out infinite;
+  white-space: nowrap;
+  transform: translateY(0.04em);
+}
+
+.agent-turn-status-spinner::after {
+  display: inline-block;
+  content: '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+  animation: agent-turn-status-spinner 0.9s steps(10, end) infinite;
 }
 
 .agent-turn-status-text {
@@ -5641,16 +5650,9 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   }
 }
 
-@keyframes agent-turn-status-glyph-pulse {
-  0%,
-  100% {
-    opacity: 0.65;
-    transform: scale(0.9);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
+@keyframes agent-turn-status-spinner {
+  to {
+    transform: translateX(-10ch);
   }
 }
 
@@ -5667,6 +5669,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .agent-turn-status-spinner::after,
   .agent-turn-status-shimmer,
   .agent-turn-status-caret {
     background-position: 0 center;
