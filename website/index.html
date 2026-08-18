@@ -104,13 +104,13 @@
   /* ===== Site highlight — the hero's primary product statement ===== */
   .site-highlight-note {
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-    max-width: min(100%, 760px); min-width: 0; min-height: 40px; padding: 8px 18px;
+    width: max-content; max-width: 100%; min-width: 0; min-height: 40px; padding: 8px 18px;
     border: 1px solid rgba(212, 165, 132, 0.34); border-radius: 999px;
     background: linear-gradient(180deg, rgba(212, 165, 132, 0.15), rgba(212, 165, 132, 0.07));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 36px rgba(96, 55, 27, 0.18);
     color: rgba(235, 235, 235, 0.88); text-align: center;
     font-size: 0.88rem; font-weight: 500; letter-spacing: 0.01em;
-    margin-bottom: 22px;
+    margin-bottom: 22px; white-space: nowrap;
   }
   .site-highlight-copy { min-width: 0; }
   .site-highlight-note strong { color: #f0c7a9; font-weight: 700; }
@@ -293,6 +293,9 @@
   }
   @media (max-width: 1100px) {
     .hero-side-art { display: none; }
+  }
+  @media (max-width: 1024px) {
+    .site-highlight-note { width: 100%; white-space: normal; }
   }
   @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1; transform: none; transition: none; }
