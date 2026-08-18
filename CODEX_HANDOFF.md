@@ -110,12 +110,33 @@ or temporary deployment credentials.
   MIT-licensed `printpdf` crate.
 - **Multimodal model settings (2026-08-17):** Settings includes one dedicated
   Multimodal models destination beside Audio to text. Its internal Image recognition,
-  Image generation, Speech generation, and Video generation tabs reuse the same compact switcher and store
+  Image generation, Speech generation, Video generation, Music generation, and Sound effects generation tabs reuse the same compact switcher and store
   separate service, model, endpoint, and API-key records in local app data. An
   image-capable active chat model remains the first choice for recognition; the
   recognition configuration is its fallback. Image-generation skills use the
   generation configuration. Video generation keeps an independent external-provider
-  record without replacing Coffee Video's native fallback. The Agent exposes `recognize_image` and `generate_image`
+  record without replacing Coffee Video's native fallback. Its built-in service selector
+  offers Runway plus direct BytePlus/Volcano Engine Seedance, Kling, Google Vertex AI
+  Veo, MiniMax/Hailuo, Luma, Vidu, Pika, Alibaba Cloud Wan, Tencent Cloud Hunyuan/Youtu,
+  Tencent-hosted PixVerse, LTX, Adobe Firefly, and
+  OpenAI Sora presets. Every vendor keeps its real endpoint, model IDs, authentication
+  shape, and protocol marker; Adobe persists both its OAuth token and `x-api-key`, while
+  Vertex keeps the project/location in its editable URL. Runway and Vidu credential
+  checks use non-generating account endpoints. Tencent TokenHub checks `/v1/models` and
+  exposes its native Hunyuan/Youtu models plus PixVerse V6/C1. Providers without a safe account or model
+  endpoint receive local completeness validation rather than a paid generation call.
+  OpenAI Sora remains visible for existing users but is marked with its 2026-09-24 shutdown.
+  Music generation stores official
+  Google Lyria, ElevenLabs Music, and MiniMax Music presets; its connection checks use
+  model or account metadata endpoints and never create paid audio. Music remains a
+  configuration surface until a guarded Agent music tool and local-save contract are added.
+  Sound effects generation stores a separate ElevenLabs `eleven_text_to_sound_v2`
+  preset and uses the same non-generating account check; it likewise remains a
+  settings-only capability until guarded audio saving exists. Audio to text remains
+  the separate STT/ASR destination: it supports OpenAI recorded-audio transcription,
+  Deepgram Nova, AssemblyAI Universal, and ElevenLabs Scribe file-upload protocols.
+  Realtime-only transcription models are intentionally not offered in that file workflow.
+  The Agent exposes `recognize_image` and `generate_image`
   only when their respective configuration is complete; generated PNG/JPEG files are
   saved non-destructively in the selected workspace and can be passed directly to the
   presentation tool by relative path. This version is cloud-only and does not expose

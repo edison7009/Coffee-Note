@@ -631,6 +631,8 @@ export async function loadImageSettings(): Promise<ImageSettingsConfig | null> {
         generation: { activeProvider: '', providers: {} },
         speech: { activeProvider: '', providers: {} },
         video: { activeProvider: '', providers: {} },
+        music: { activeProvider: '', providers: {} },
+        sound: { activeProvider: '', providers: {} },
       };
     } catch {
       return null;

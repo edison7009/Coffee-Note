@@ -6,10 +6,12 @@ const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'ut
 const apiSource = await readFile(new URL('../src/api.ts', import.meta.url), 'utf8');
 const settingsSource = await readFile(new URL('../src/settings/SkillsSettings.tsx', import.meta.url), 'utf8');
 const multimodalSettingsSource = await readFile(new URL('../src/settings/MultimodalSettings.tsx', import.meta.url), 'utf8');
+const transcriptionSettingsSource = await readFile(new URL('../src/settings/TranscriptionSettings.tsx', import.meta.url), 'utf8');
 const cssSource = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const transcriptionCssSource = await readFile(new URL('../src/transcriptionSettings.css', import.meta.url), 'utf8');
 const rustSource = await readFile(new URL('../src-tauri/src/skills.rs', import.meta.url), 'utf8');
 const appBackendSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
+const transcriptionBackendSource = await readFile(new URL('../src-tauri/src/transcription.rs', import.meta.url), 'utf8');
 const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
 const presentationSource = await readFile(new URL('../src-tauri/src/presentation.rs', import.meta.url), 'utf8');
 const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/coffee-plugin.json', import.meta.url), 'utf8');
@@ -105,7 +107,7 @@ test('every plugin row exposes read-only metadata with update and delete actions
   assert.doesNotMatch(settingsSource, /startEditSkill|updateSkill\(/);
 });
 
-test('multimodal model settings separate recognition, image, speech, and video generation', () => {
+test('multimodal model settings separate recognition, image, speech, video, music, and sound generation', () => {
   assert.match(appSource, /id: 'multimodal'.*多模态模型/s);
   assert.match(appSource, /<MultimodalSettings locale=\{locale\}/);
   assert.match(multimodalSettingsSource, /多模态模型/);
@@ -113,10 +115,14 @@ test('multimodal model settings separate recognition, image, speech, and video g
   assert.match(multimodalSettingsSource, /图片生成/);
   assert.match(multimodalSettingsSource, /语音生成/);
   assert.match(multimodalSettingsSource, /视频生成/);
+  assert.match(multimodalSettingsSource, /音乐生成/);
+  assert.match(multimodalSettingsSource, /音效生成/);
   assert.match(multimodalSettingsSource, /activeTab === 'recognition'/);
   assert.match(multimodalSettingsSource, /selectTab\('generation'\)/);
   assert.match(multimodalSettingsSource, /selectTab\('speech'\)/);
   assert.match(multimodalSettingsSource, /selectTab\('video'\)/);
+  assert.match(multimodalSettingsSource, /selectTab\('music'\)/);
+  assert.match(multimodalSettingsSource, /selectTab\('sound'\)/);
   assert.match(multimodalSettingsSource, /API 地址/);
   assert.match(multimodalSettingsSource, /API Key/);
   assert.match(multimodalSettingsSource, /checkImageSettings\(settings, activeTab\)/);
@@ -133,14 +139,170 @@ test('multimodal model settings separate recognition, image, speech, and video g
   assert.match(multimodalSettingsSource, /gemini-interactions/);
   assert.match(multimodalSettingsSource, /openai-speech/);
   assert.match(multimodalSettingsSource, /openai-video/);
+  assert.match(multimodalSettingsSource, /gemini-music/);
+  assert.match(multimodalSettingsSource, /elevenlabs-music/);
+  assert.match(multimodalSettingsSource, /minimax-music/);
+  assert.match(multimodalSettingsSource, /elevenlabs-sound/);
   assert.match(multimodalSettingsSource, /https:\/\/api\.openai\.com\/v1\/videos/);
   assert.match(appBackendSource, /async fn check_video_generation/);
   assert.match(appBackendSource, /"video" => \(&config\.video, "video generation"\)/);
+  assert.match(appBackendSource, /"music" => \(&config\.music, "music generation"\)/);
+  assert.match(appBackendSource, /async fn check_music_generation/);
+  assert.match(appBackendSource, /"sound" => \(&config\.sound, "sound effects generation"\)/);
+  assert.match(appBackendSource, /async fn check_sound_generation/);
   assert.match(appBackendSource, /async fn recognize_workspace_image/);
   assert.match(appBackendSource, /async fn generate_workspace_image/);
   assert.match(agentSource, /image_tool_availability/);
   assert.match(agentSource, /image_recognition: image_tools\.recognition/);
   assert.match(agentSource, /image_generation: image_tools\.generation/);
+});
+
+test('video generation exposes every direct provider and the Runway model catalog', () => {
+  assert.match(multimodalSettingsSource, /models: \['sora-2', 'sora-2-pro'\]/);
+  assert.match(multimodalSettingsSource, /id: 'runway'/);
+  assert.match(multimodalSettingsSource, /protocol: 'runway-video'/);
+  assert.match(multimodalSettingsSource, /https:\/\/api\.dev\.runwayml\.com\/v1\/image_to_video/);
+  for (const model of [
+    'seedance2_5',
+    'grok_imagine_1_5',
+    'seedance2',
+    'seedance2_fast',
+    'seedance2_mini',
+    'hailuo3',
+    'aleph2',
+    'gen4.5',
+    'gen4_turbo',
+    'act_two',
+    'veo3.1',
+    'veo3.1_fast',
+    'happyhorse_1_0',
+    'gemini_omni_flash',
+  ]) {
+    assert.match(multimodalSettingsSource, new RegExp(`'${model.replace('.', '\\.')}'`));
+  }
+  assert.match(multimodalSettingsSource, /model && !modelOptions\.includes\(model\)/);
+  assert.match(multimodalSettingsSource, /visibleModelOptions\.length > 0/);
+  assert.match(appBackendSource, /"runway-video" =>/);
+  assert.match(appBackendSource, /endpoint\.set_path\("\/v1\/organization"\)/);
+  assert.match(appBackendSource, /header\("X-Runway-Version", "2024-11-06"\)/);
+  for (const protocol of [
+    'byteplus-video',
+    'kling-video',
+    'vertex-video',
+    'minimax-video',
+    'luma-video',
+    'vidu-video',
+    'pika-video',
+    'wan-video',
+    'ltx-video',
+    'adobe-firefly-video',
+    'tencent-tokenhub-video',
+  ]) {
+    assert.match(multimodalSettingsSource, new RegExp(`protocol: '${protocol}'`));
+  }
+  for (const model of [
+    'dreamina-seedance-2-5-260628',
+    'doubao-seedance-2-5-260628',
+    'kling-v3',
+    'kling-v3-omni',
+    'veo-3.1-generate-001',
+    'veo-3.1-fast-generate-001',
+    'MiniMax-H3',
+    'ray-3.2',
+    'viduq3-pro',
+    'viduq3-turbo',
+    'pika/pika-2.5/text-to-video',
+    'wan2.7-t2v-2026-06-12',
+    'wan2.7-i2v-2026-04-25',
+    'ltx-2-5-pro',
+    'ltx-2-5-fast',
+    'dreamina-seedance-2-0-260128',
+    'seedance-1-5-pro-251215',
+    'kling-v2-6',
+    'hy-video-1.5',
+    'yt-video-2.0',
+    'pixverse-video-v6.0',
+    'pixverse-video-c1',
+    'wan3.0-video',
+    'wan2.7-t2v',
+    'wan2.7-r2v',
+    'happyhorse-1.1-t2v',
+  ]) {
+    assert.match(multimodalSettingsSource, new RegExp(model.replaceAll('.', '\\.')));
+  }
+  assert.match(multimodalSettingsSource, /OpenAI Sora（2026-09-24 停用）/);
+  assert.match(multimodalSettingsSource, /modelRequired: false/);
+  assert.match(multimodalSettingsSource, /secondaryApiKeyLabel/);
+  assert.match(multimodalSettingsSource, /OAuth Access Token/);
+  assert.match(multimodalSettingsSource, /Adobe x-api-key/);
+  assert.match(appBackendSource, /"vidu-video" =>/);
+  assert.match(appBackendSource, /"tencent-tokenhub-video" =>/);
+  assert.match(appBackendSource, /endpoint\.set_path\("\/v1\/models"\)/);
+  assert.match(appBackendSource, /endpoint\.set_path\("\/ent\/v2\/credits"\)/);
+  assert.match(appBackendSource, /format!\("Token \{\}"/);
+  assert.match(appBackendSource, /provider\.protocol != "adobe-firefly-video"/);
+  assert.match(appBackendSource, /provider\.secondary_api_key\.trim\(\)\.is_empty\(\)/);
+  assert.match(appBackendSource, /Replace PROJECT_ID and MODEL_ID/);
+});
+
+test('verified image, speech, music, and sound providers expose model choices', () => {
+  for (const model of [
+    'gpt-5.6',
+    'gemini-3.7-flash',
+    'gemini-3.1-pro-preview',
+    'gpt-image-2',
+    'gpt-image-1.5',
+    'gpt-image-1',
+    'gpt-image-1-mini',
+    'gemini-3.1-flash-image',
+    'gemini-3.1-flash-lite-image',
+    'gemini-3-pro-image',
+    'gemini-2.5-flash-image',
+    'gpt-4o-mini-tts',
+    'tts-1',
+    'tts-1-hd',
+    'lyria-3-pro-preview',
+    'lyria-3-clip-preview',
+    'music_v2',
+    'music_v1',
+    'music-3.0',
+    'music-2.6',
+    'music-cover',
+    'eleven_text_to_sound_v2',
+  ]) {
+    assert.match(multimodalSettingsSource, new RegExp(`'${model.replaceAll('.', '\\.')}'`));
+  }
+  assert.match(multimodalSettingsSource, /https:\/\/api\.elevenlabs\.io\/v1\/music/);
+  assert.match(multimodalSettingsSource, /https:\/\/api\.minimax\.io\/v1\/music_generation/);
+  assert.match(appBackendSource, /endpoint\.set_path\("\/v1\/user"\)/);
+  assert.match(appBackendSource, /header\("xi-api-key", provider\.api_key\.trim\(\)\)/);
+  assert.match(appBackendSource, /"minimax-music" =>/);
+  assert.match(apiSource, /music: \{ activeProvider: '', providers: \{\} \}/);
+  assert.match(apiSource, /sound: \{ activeProvider: '', providers: \{\} \}/);
+});
+
+test('audio-to-text keeps file transcription protocols and current model choices explicit', () => {
+  for (const model of [
+    'gpt-transcribe',
+    'gpt-4o-transcribe',
+    'gpt-4o-mini-transcribe',
+    'gpt-4o-transcribe-diarize',
+    'whisper-1',
+    'nova-3',
+    'universal-3-pro',
+    'universal-2',
+    'scribe_v2',
+    'scribe_v1',
+  ]) {
+    assert.match(transcriptionSettingsSource, new RegExp(`'${model.replaceAll('.', '\\.')}'`));
+  }
+  assert.match(transcriptionSettingsSource, /protocol: 'elevenlabs'/);
+  assert.match(transcriptionSettingsSource, /https:\/\/api\.elevenlabs\.io\/v1\/speech-to-text/);
+  assert.match(transcriptionBackendSource, /text\("response_format", "diarized_json"\)/);
+  assert.match(transcriptionBackendSource, /text\("chunking_strategy", "auto"\)/);
+  assert.match(transcriptionBackendSource, /"speech_models": \[config\.model\.clone\(\)\]/);
+  assert.match(transcriptionBackendSource, /"elevenlabs" => transcribe_elevenlabs/);
+  assert.doesNotMatch(transcriptionSettingsSource, /flux-general-en|flux-general/);
 });
 
 test('video is a bundled fallback plugin backed by guarded shared tools', () => {

@@ -303,6 +303,8 @@ struct ImageProviderConfig {
     #[serde(default)]
     api_key: String,
     #[serde(default)]
+    secondary_api_key: String,
+    #[serde(default)]
     voice: String,
 }
 
@@ -324,12 +326,16 @@ struct ImageSettingsConfig {
     speech: ImageCapabilityConfig,
     #[serde(default)]
     video: ImageCapabilityConfig,
+    #[serde(default)]
+    music: ImageCapabilityConfig,
+    #[serde(default)]
+    sound: ImageCapabilityConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum StoredImageSettingsConfig {
-    Current(ImageSettingsConfig),
+    Current(Box<ImageSettingsConfig>),
     Legacy(ImageCapabilityConfig),
 }
 
@@ -534,6 +540,13 @@ async fn check_transcription_config(
     let client = reqwest::Client::new();
     let mut request = match provider.protocol.as_str() {
         "assemblyai" => client.get(endpoint).query(&[("limit", "1")]),
+        "elevenlabs" => {
+            let mut account_endpoint = endpoint;
+            account_endpoint.set_path("/v1/user");
+            account_endpoint.set_query(None);
+            account_endpoint.set_fragment(None);
+            client.get(account_endpoint)
+        }
         _ => client
             .post(endpoint)
             .header("Content-Type", "application/octet-stream"),
@@ -545,6 +558,7 @@ async fn check_transcription_config(
             format!("Token {}", provider.api_key.trim()),
         ),
         "assemblyai" => request.header("Authorization", provider.api_key.trim()),
+        "elevenlabs" => request.header("xi-api-key", provider.api_key.trim()),
         _ => request.bearer_auth(provider.api_key.trim()),
     };
     let response = request
@@ -582,12 +596,14 @@ fn load_image_settings_from(path: &Path) -> Result<Option<ImageSettingsConfig>, 
     let stored: StoredImageSettingsConfig = serde_json::from_str(&contents)
         .map_err(|error| format!("Could not parse image model config: {error}"))?;
     Ok(Some(match stored {
-        StoredImageSettingsConfig::Current(config) => config,
+        StoredImageSettingsConfig::Current(config) => *config,
         StoredImageSettingsConfig::Legacy(recognition) => ImageSettingsConfig {
             recognition,
             generation: ImageCapabilityConfig::default(),
             speech: ImageCapabilityConfig::default(),
             video: ImageCapabilityConfig::default(),
+            music: ImageCapabilityConfig::default(),
+            sound: ImageCapabilityConfig::default(),
         },
     }))
 }
@@ -831,29 +847,84 @@ async fn check_video_generation(
     mut endpoint: reqwest::Url,
     client: &reqwest::Client,
 ) -> Result<ImageCheckResult, String> {
-    if provider.protocol != "openai-video" {
-        return Err("Unsupported video generation API protocol".to_string());
-    }
     if provider.provider_id == "custom" {
         return Ok(ImageCheckResult {
             ok: true,
             message: "Configuration is complete; no paid video was generated".to_string(),
         });
     }
-    let mut segments = endpoint
-        .path_segments_mut()
-        .map_err(|_| "Video API URL cannot be used for model discovery".to_string())?;
-    segments.pop_if_empty();
-    segments.pop();
-    segments.push("models");
-    segments.push(provider.model.trim());
-    drop(segments);
-    let response = client
-        .get(endpoint)
-        .bearer_auth(provider.api_key.trim())
-        .header("User-Agent", MODEL_APP_TITLE)
-        .header("HTTP-Referer", MODEL_APP_URL)
-        .header("X-Title", MODEL_APP_TITLE)
+    if matches!(
+        provider.protocol.as_str(),
+        "byteplus-video"
+            | "kling-video"
+            | "minimax-video"
+            | "luma-video"
+            | "pika-video"
+            | "wan-video"
+            | "ltx-video"
+            | "adobe-firefly-video"
+    ) {
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Configuration is complete; no paid video was generated".to_string(),
+        });
+    }
+    if provider.protocol == "vertex-video" {
+        if provider.endpoint.contains("PROJECT_ID") || provider.endpoint.contains("MODEL_ID") {
+            return Ok(ImageCheckResult {
+                ok: false,
+                message: "Replace PROJECT_ID and MODEL_ID in the Vertex AI API URL".to_string(),
+            });
+        }
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Vertex AI configuration is complete; no paid video was generated".to_string(),
+        });
+    }
+    let request = match provider.protocol.as_str() {
+        "openai-video" => {
+            let mut segments = endpoint
+                .path_segments_mut()
+                .map_err(|_| "Video API URL cannot be used for model discovery".to_string())?;
+            segments.pop_if_empty();
+            segments.pop();
+            segments.push("models");
+            segments.push(provider.model.trim());
+            drop(segments);
+            client
+                .get(endpoint)
+                .bearer_auth(provider.api_key.trim())
+                .header("User-Agent", MODEL_APP_TITLE)
+                .header("HTTP-Referer", MODEL_APP_URL)
+                .header("X-Title", MODEL_APP_TITLE)
+        }
+        "runway-video" => {
+            endpoint.set_path("/v1/organization");
+            endpoint.set_query(None);
+            endpoint.set_fragment(None);
+            client
+                .get(endpoint)
+                .bearer_auth(provider.api_key.trim())
+                .header("X-Runway-Version", "2024-11-06")
+        }
+        "tencent-tokenhub-video" => {
+            endpoint.set_path("/v1/models");
+            endpoint.set_query(None);
+            endpoint.set_fragment(None);
+            client.get(endpoint).bearer_auth(provider.api_key.trim())
+        }
+        "vidu-video" => {
+            endpoint.set_path("/ent/v2/credits");
+            endpoint.set_query(None);
+            endpoint.set_fragment(None);
+            client.get(endpoint).header(
+                "Authorization",
+                format!("Token {}", provider.api_key.trim()),
+            )
+        }
+        _ => return Err("Unsupported video generation API protocol".to_string()),
+    };
+    let response = request
         .send()
         .await
         .map_err(|error| format!("Unable to reach the video generation service: {error}"))?;
@@ -868,7 +939,117 @@ async fn check_video_generation(
     }
     Ok(ImageCheckResult {
         ok: true,
-        message: "Credentials and video model are reachable".to_string(),
+        message: if provider.protocol == "openai-video" {
+            "Credentials and video model are reachable".to_string()
+        } else {
+            "Credentials and video service are reachable".to_string()
+        },
+    })
+}
+
+async fn check_music_generation(
+    provider: &ImageProviderConfig,
+    mut endpoint: reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<ImageCheckResult, String> {
+    if provider.provider_id == "custom" {
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Configuration is complete; no paid music was generated".to_string(),
+        });
+    }
+    let request = match provider.protocol.as_str() {
+        "gemini-music" => {
+            let mut segments = endpoint
+                .path_segments_mut()
+                .map_err(|_| "Music API URL cannot be used for model discovery".to_string())?;
+            segments.pop_if_empty();
+            segments.pop();
+            segments.push("models");
+            segments.push(provider.model.trim());
+            drop(segments);
+            client
+                .get(endpoint)
+                .header("x-goog-api-key", provider.api_key.trim())
+                .header("x-goog-api-client", "coffee-note/music-generation")
+        }
+        "elevenlabs-music" => {
+            endpoint.set_path("/v1/user");
+            endpoint.set_query(None);
+            endpoint.set_fragment(None);
+            client
+                .get(endpoint)
+                .header("xi-api-key", provider.api_key.trim())
+        }
+        "minimax-music" => {
+            endpoint.set_path("/v1/models");
+            endpoint.set_query(None);
+            endpoint.set_fragment(None);
+            client.get(endpoint).bearer_auth(provider.api_key.trim())
+        }
+        _ => return Err("Unsupported music generation API protocol".to_string()),
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the music generation service: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Ok(ImageCheckResult {
+            ok: false,
+            message: image_api_error_message(&body)
+                .unwrap_or_else(|| format!("The music service returned HTTP {status}")),
+        });
+    }
+    Ok(ImageCheckResult {
+        ok: true,
+        message: if provider.protocol == "gemini-music" {
+            "Credentials and music model are reachable".to_string()
+        } else {
+            "Credentials and music service are reachable".to_string()
+        },
+    })
+}
+
+async fn check_sound_generation(
+    provider: &ImageProviderConfig,
+    mut endpoint: reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<ImageCheckResult, String> {
+    if provider.provider_id == "custom" {
+        return Ok(ImageCheckResult {
+            ok: true,
+            message: "Configuration is complete; no paid sound effect was generated".to_string(),
+        });
+    }
+    let request = match provider.protocol.as_str() {
+        "elevenlabs-sound" => {
+            endpoint.set_path("/v1/user");
+            endpoint.set_query(None);
+            endpoint.set_fragment(None);
+            client
+                .get(endpoint)
+                .header("xi-api-key", provider.api_key.trim())
+        }
+        _ => return Err("Unsupported sound generation API protocol".to_string()),
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Unable to reach the sound generation service: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Ok(ImageCheckResult {
+            ok: false,
+            message: image_api_error_message(&body)
+                .unwrap_or_else(|| format!("The sound service returned HTTP {status}")),
+        });
+    }
+    Ok(ImageCheckResult {
+        ok: true,
+        message: "Credentials and sound effects service are reachable".to_string(),
     })
 }
 
@@ -882,6 +1063,8 @@ async fn check_image_settings(
         "generation" => (&config.generation, "image generation"),
         "speech" => (&config.speech, "speech generation"),
         "video" => (&config.video, "video generation"),
+        "music" => (&config.music, "music generation"),
+        "sound" => (&config.sound, "sound effects generation"),
         _ => return Err("Unsupported generation capability".to_string()),
     };
     let provider = capability
@@ -898,8 +1081,11 @@ async fn check_image_settings(
     if provider.api_key.trim().is_empty() {
         return Err("An API key is required".to_string());
     }
-    if provider.model.trim().is_empty() {
+    if provider.model.trim().is_empty() && provider.protocol != "adobe-firefly-video" {
         return Err(format!("A {capability_label} model is required"));
+    }
+    if provider.protocol == "adobe-firefly-video" && provider.secondary_api_key.trim().is_empty() {
+        return Err("An Adobe x-api-key is required".to_string());
     }
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(45))
@@ -910,6 +1096,8 @@ async fn check_image_settings(
         "generation" => check_image_generation(provider, endpoint, &client).await,
         "speech" => check_speech_generation(provider, endpoint, &client).await,
         "video" => check_video_generation(provider, endpoint, &client).await,
+        "music" => check_music_generation(provider, endpoint, &client).await,
+        "sound" => check_sound_generation(provider, endpoint, &client).await,
         _ => unreachable!(),
     }
 }
@@ -922,6 +1110,8 @@ fn configured_image_provider(mode: &str) -> Result<ImageProviderConfig, String> 
         "generation" => settings.generation,
         "speech" => settings.speech,
         "video" => settings.video,
+        "music" => settings.music,
+        "sound" => settings.sound,
         _ => return Err("Unsupported generation capability".to_string()),
     };
     let provider = capability
@@ -5088,6 +5278,7 @@ mod tests {
             endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
             model: "gpt-5.6-luna".to_string(),
             api_key: "local-vision-key".to_string(),
+            secondary_api_key: String::new(),
             voice: String::new(),
         };
         let generation_provider = ImageProviderConfig {
@@ -5096,6 +5287,7 @@ mod tests {
             endpoint: "https://api.openai.com/v1/images/generations".to_string(),
             model: "gpt-image-2".to_string(),
             api_key: "local-generation-key".to_string(),
+            secondary_api_key: String::new(),
             voice: String::new(),
         };
         let speech_provider = ImageProviderConfig {
@@ -5104,14 +5296,34 @@ mod tests {
             endpoint: "https://api.openai.com/v1/audio/speech".to_string(),
             model: "gpt-4o-mini-tts".to_string(),
             api_key: "local-speech-key".to_string(),
+            secondary_api_key: String::new(),
             voice: "alloy".to_string(),
         };
         let video_provider = ImageProviderConfig {
-            provider_id: "openai".to_string(),
-            protocol: "openai-video".to_string(),
-            endpoint: "https://api.openai.com/v1/videos".to_string(),
-            model: "sora-2".to_string(),
+            provider_id: "adobe".to_string(),
+            protocol: "adobe-firefly-video".to_string(),
+            endpoint: "https://firefly-api.adobe.io/v3/videos/generate-async".to_string(),
+            model: String::new(),
             api_key: "local-video-key".to_string(),
+            secondary_api_key: "local-adobe-x-api-key".to_string(),
+            voice: String::new(),
+        };
+        let music_provider = ImageProviderConfig {
+            provider_id: "gemini".to_string(),
+            protocol: "gemini-music".to_string(),
+            endpoint: "https://generativelanguage.googleapis.com/v1beta/interactions".to_string(),
+            model: "lyria-3-pro-preview".to_string(),
+            api_key: "local-music-key".to_string(),
+            secondary_api_key: String::new(),
+            voice: String::new(),
+        };
+        let sound_provider = ImageProviderConfig {
+            provider_id: "elevenlabs".to_string(),
+            protocol: "elevenlabs-sound".to_string(),
+            endpoint: "https://api.elevenlabs.io/v1/sound-generation".to_string(),
+            model: "eleven_text_to_sound_v2".to_string(),
+            api_key: "local-sound-key".to_string(),
+            secondary_api_key: String::new(),
             voice: String::new(),
         };
         let config = ImageSettingsConfig {
@@ -5137,6 +5349,14 @@ mod tests {
                 active_provider: video_provider.provider_id.clone(),
                 providers: BTreeMap::from([(video_provider.provider_id.clone(), video_provider)]),
             },
+            music: ImageCapabilityConfig {
+                active_provider: music_provider.provider_id.clone(),
+                providers: BTreeMap::from([(music_provider.provider_id.clone(), music_provider)]),
+            },
+            sound: ImageCapabilityConfig {
+                active_provider: sound_provider.provider_id.clone(),
+                providers: BTreeMap::from([(sound_provider.provider_id.clone(), sound_provider)]),
+            },
         };
 
         save_image_settings_to(&path, &config).expect("image settings should save");
@@ -5149,6 +5369,9 @@ mod tests {
         assert!(contents.contains("local-generation-key"));
         assert!(contents.contains("local-speech-key"));
         assert!(contents.contains("local-video-key"));
+        assert!(contents.contains("local-adobe-x-api-key"));
+        assert!(contents.contains("local-music-key"));
+        assert!(contents.contains("local-sound-key"));
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }
@@ -5163,6 +5386,7 @@ mod tests {
             endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
             model: "gpt-5.6-luna".to_string(),
             api_key: "legacy-vision-key".to_string(),
+            secondary_api_key: String::new(),
             voice: String::new(),
         };
         let legacy = ImageCapabilityConfig {
@@ -5181,6 +5405,8 @@ mod tests {
         assert!(loaded.generation.providers.is_empty());
         assert!(loaded.speech.providers.is_empty());
         assert!(loaded.video.providers.is_empty());
+        assert!(loaded.music.providers.is_empty());
+        assert!(loaded.sound.providers.is_empty());
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }

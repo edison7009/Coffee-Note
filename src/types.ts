@@ -202,7 +202,7 @@ export interface PrepareCaptureRequest {
   webReader: WebReaderSettings;
 }
 
-export type TranscriptionProtocol = 'openai-compatible' | 'deepgram' | 'assemblyai' | 'custom';
+export type TranscriptionProtocol = 'openai-compatible' | 'deepgram' | 'assemblyai' | 'elevenlabs' | 'custom';
 
 export interface TranscriptionProviderConfig {
   providerId: string;
@@ -224,14 +224,32 @@ export interface TranscriptionCheckResult {
   message: string;
 }
 
-export type ImageCapabilityMode = 'recognition' | 'generation' | 'speech' | 'video';
+export type ImageCapabilityMode = 'recognition' | 'generation' | 'speech' | 'video' | 'music' | 'sound';
 export type ImageProviderProtocol =
   | 'openai-compatible'
   | 'openai-images'
   | 'openrouter-images'
   | 'gemini-interactions'
   | 'openai-speech'
-  | 'openai-video';
+  | 'openai-video'
+  | 'runway-video'
+  | 'byteplus-video'
+  | 'kling-video'
+  | 'vertex-video'
+  | 'minimax-video'
+  | 'luma-video'
+  | 'vidu-video'
+  | 'pika-video'
+  | 'wan-video'
+  | 'ltx-video'
+  | 'adobe-firefly-video'
+  | 'tencent-tokenhub-video'
+  | 'gemini-music'
+  | 'elevenlabs-music'
+  | 'minimax-music'
+  | 'custom-music'
+  | 'elevenlabs-sound'
+  | 'custom-sound';
 
 export interface ImageProviderConfig {
   providerId: string;
@@ -239,6 +257,7 @@ export interface ImageProviderConfig {
   endpoint: string;
   model: string;
   apiKey: string;
+  secondaryApiKey?: string;
   voice?: string;
 }
 
@@ -252,6 +271,8 @@ export interface ImageSettingsConfig {
   generation: ImageCapabilityConfig;
   speech: ImageCapabilityConfig;
   video: ImageCapabilityConfig;
+  music: ImageCapabilityConfig;
+  sound: ImageCapabilityConfig;
 }
 
 export interface ImageCheckResult {

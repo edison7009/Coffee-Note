@@ -179,7 +179,7 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     id: 'openai',
     name: { zh: 'OpenAI', en: 'OpenAI' },
     endpoint: 'https://api.openai.com/v1/audio/transcriptions',
-    model: 'gpt-4o-mini-transcribe',
+    model: 'gpt-transcribe',
     website: 'https://platform.openai.com/api-keys',
     protocol: 'openai-compatible',
   },
@@ -203,9 +203,17 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
     id: 'assemblyai',
     name: { zh: 'AssemblyAI', en: 'AssemblyAI' },
     endpoint: 'https://api.assemblyai.com/v2/transcript',
-    model: 'universal-2',
+    model: 'universal-3-pro',
     website: 'https://www.assemblyai.com/app',
     protocol: 'assemblyai',
+  },
+  {
+    id: 'elevenlabs',
+    name: { zh: 'ElevenLabs', en: 'ElevenLabs' },
+    endpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
+    model: 'scribe_v2',
+    website: 'https://elevenlabs.io/app/developers/api-keys',
+    protocol: 'elevenlabs',
   },
   {
     id: 'custom',
@@ -219,8 +227,11 @@ const TRANSCRIPTION_API_PROVIDERS: TranscriptionApiProvider[] = [
 
 const TRANSCRIPTION_API_MODELS: Record<string, string[]> = {
   siliconflow: ['FunAudioLLM/SenseVoiceSmall', 'TeleAI/TeleSpeechASR'],
-  openai: ['gpt-4o-mini-transcribe', 'gpt-4o-transcribe', 'gpt-4o-transcribe-diarize', 'whisper-1'],
+  openai: ['gpt-transcribe', 'gpt-4o-transcribe', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe-diarize', 'whisper-1'],
   groq: ['whisper-large-v3-turbo', 'whisper-large-v3'],
+  deepgram: ['nova-3'],
+  assemblyai: ['universal-3-pro', 'universal-2'],
+  elevenlabs: ['scribe_v2', 'scribe_v1'],
 };
 
 function currentPlatform(): 'windows' | 'macos' | 'linux' {

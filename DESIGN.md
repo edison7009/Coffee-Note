@@ -81,12 +81,25 @@
   a request automatically. Do not restore the unrelated disabled Mobile long image
   placeholder in this row.
 - Settings exposes Multimodal models as a separate destination next to Audio to text.
-  Its Image recognition, Image generation, Speech generation, and Video generation
+  Its Image recognition, Image generation, Speech generation, Video generation, Music generation, and Sound effects generation
   tabs mirror the compact Audio to text switcher and keep independent provider, model,
   endpoint, and locally saved API-key records. Recognition is a fallback when the
-  active model cannot accept images; image, speech, and video generation keep independent
+  active model cannot accept images; image, speech, video, music, and sound effects generation keep independent
   provider configurations for media-generation skills. Video configuration does not
-  replace Coffee Video's dependable native fallback.
+  replace Coffee Video's dependable native fallback. Video model presets are protocol-aware.
+  Runway exposes its current supported video IDs, while BytePlus/Volcano Engine, Kling,
+  Vertex AI Veo, MiniMax/Hailuo, Luma, Vidu, Pika, Alibaba Cloud Wan, Tencent Cloud
+  Hunyuan/Youtu and PixVerse, LTX, Adobe Firefly, and OpenAI Sora each keep a distinct
+  direct-service record. Adobe exposes both required
+  credentials; Vertex keeps project and location in the editable endpoint. Sora is visibly
+  marked with its announced 2026-09-24 shutdown.
+  Music presets likewise keep Google Lyria, ElevenLabs Music, and MiniMax Music protocols
+  separate, while sound effects use an independent ElevenLabs protocol. Configuration checks
+  use non-generating metadata/account endpoints where providers offer them and otherwise stop
+  at local completeness validation; do not expose Agent music or sound tools until
+  generated audio is saved through a guarded local-file contract. STT/ASR stays in Audio to
+  text instead of being duplicated here; only models compatible with its recorded-file workflow
+  belong there, while realtime streaming models require a separate future interaction design.
   Expose each Agent tool only when its configuration is complete, save generated
   images to a unique workspace path, and allow presentation skills to reuse that
   relative path. Do not add a local OCR tab before that runtime exists.
@@ -304,7 +317,7 @@
 | 2026-08-16 | Make Tier drag channels geometrically continuous | Visual spacing remains airy, but every wrapped line is divided at card center lines so each pixel maps to a deterministic insertion slot. A gap must never fall through to the row-end position. |
 | 2026-08-17 | Establish the plugin-market architecture | Plugins are distribution units, skills are Agent actions, and shared runtimes are managed once by the application. Coffee Media is the first manifest-driven official plugin; Git skill sources remain prompt-only community extensions. |
 | 2026-08-17 | Generate presentations in the shared native runtime | Coffee Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
-| 2026-08-17 | Separate recognition and generation providers | Keep one Multimodal models destination with four compact internal tabs. Recognition falls back to its own external image model when the active model is text-only; image, speech, and video generation use independently configured providers. Local OCR remains a later capability. |
+| 2026-08-17 | Separate recognition and generation providers | Keep one Multimodal models destination with compact internal capability tabs. Recognition falls back to its own external image model when the active model is text-only; image, speech, video, and music generation use independently configured providers. Local OCR remains a later capability. |
 | 2026-08-17 | Ship Coffee Video as the safe fallback video workflow | The built-in plugin turns copy into scene images, configured speech, burned captions, restrained motion, and an MP4 through an application-managed encoder. Community Git skills may improve storyboards and prompts but only call the same guarded tools; they cannot execute bundled scripts or runtimes. |
 | 2026-08-17 | Make note creation actions skill shortcuts | Generate PPT and Generate video beneath a note title select their corresponding one-shot built-in skill and focus the composer without sending. The current note remains explicit context. Remove the disabled Mobile long image placeholder instead of expanding the row with an unrelated future export. |
 | 2026-08-17 | Generate DOCX and PDF through one native document runtime | Coffee Documents contains two independently switchable skills that submit the same heading/paragraph/list/quote model. The app writes editable Open XML DOCX and locally typeset PDF files without requiring an Office installation. |
@@ -312,3 +325,7 @@
 | 2026-08-18 | Make generated file destinations explicit | PPTX, DOCX, PDF, and MP4 default to the current user's Desktop, while Settings > General allows a custom directory. The conversation renders the backend-returned absolute path with direct copy and reveal actions so file discovery never depends on model wording. |
 | 2026-08-18 | Direct the storyboard before generating assets | Coffee Video exposes both Cinematic storyboard director and Text to video skills. Both share one provider-neutral specification: director brief, beat map, continuity bible, motivated camera movement, concrete physical action, and paired keyframe/motion prompts. Storyboard-only requests stop before generation; rendered videos map the same plan onto guarded Coffee Video tools. |
 | 2026-08-19 | Follow the selected workspace for generated files | With the complete file tree now showing ordinary files, PPTX, DOCX, PDF, and MP4 default directly to the selected workspace root and automatically follow workspace switches. A fixed custom directory remains available for people who want their workspace to contain notes only. |
+| 2026-08-19 | Make video model presets protocol-aware | Video generation offers selectable official OpenAI and Runway model IDs while preserving stored custom model values. Runway receives its own protocol and a non-generating credential check; other vendors stay custom until their task creation and polling contracts are implemented. |
+| 2026-08-19 | Add protocol-aware music model settings | Multimodal models gains a fifth Music generation tab with official Google Lyria, ElevenLabs Music, and MiniMax Music presets. Connection checks only read model or account metadata and never submit a billable generation request. The configuration is intentionally not exposed to the Agent until a guarded audio-generation and local-save workflow exists. |
+| 2026-08-19 | Separate STT from generated audio | Audio to text remains the recorded-file STT/ASR surface and adds protocol-correct OpenAI, Deepgram, AssemblyAI, and ElevenLabs choices, including speaker-labelled diarized responses. Multimodal models gains an independent Sound effects generation tab instead of mixing effects with music. Both music and sound checks are non-generating, and neither capability reaches the Agent before guarded local audio saving exists. |
+| 2026-08-19 | Expose the full direct video-provider catalog | Video generation lists Runway and direct Seedance, Kling, Vertex AI Veo, MiniMax/Hailuo, Luma, Vidu, Pika, Wan, Tencent Cloud Hunyuan/Youtu and PixVerse, LTX, Adobe Firefly, and Sora services with protocol-specific endpoints, model IDs, and credential fields. Safe account endpoints are used where available; otherwise Check configuration validates completeness locally and never starts a paid render. Sora remains for migration but is marked with its announced shutdown date. |

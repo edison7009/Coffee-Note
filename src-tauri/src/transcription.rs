@@ -191,9 +191,14 @@ async fn transcribe_openai_compatible(
         size,
     )
     .file_name(file_name);
-    let form = reqwest::multipart::Form::new()
+    let mut form = reqwest::multipart::Form::new()
         .part("file", part)
         .text("model", config.model.clone());
+    if config.model == "gpt-4o-transcribe-diarize" {
+        form = form
+            .text("response_format", "diarized_json")
+            .text("chunking_strategy", "auto");
+    }
     let response = reqwest::Client::new()
         .post(&config.endpoint)
         .bearer_auth(config.api_key.trim())
@@ -213,10 +218,83 @@ async fn transcribe_openai_compatible(
             .unwrap_or("The transcription service returned an error")
             .to_string());
     }
-    body.get("text")
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
-        .ok_or_else(|| "The transcription response did not contain text".to_string())
+    transcription_text(&body)
+}
+
+fn transcription_text(body: &Value) -> Result<String, String> {
+    if let Some(text) = body.get("text").and_then(Value::as_str) {
+        return Ok(text.to_string());
+    }
+    let segments = body
+        .get("segments")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "The transcription response did not contain text".to_string())?;
+    let lines = segments
+        .iter()
+        .filter_map(|segment| {
+            let text = segment.get("text").and_then(Value::as_str)?.trim();
+            if text.is_empty() {
+                return None;
+            }
+            let speaker = segment.get("speaker").and_then(Value::as_str);
+            Some(match speaker {
+                Some(speaker) if !speaker.is_empty() => format!("{speaker}: {text}"),
+                _ => text.to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        Err("The transcription response did not contain text".to_string())
+    } else {
+        Ok(lines.join("\n"))
+    }
+}
+
+async fn transcribe_elevenlabs(
+    config: &super::TranscriptionProviderConfig,
+    audio: &Path,
+) -> Result<String, String> {
+    let size = tokio::fs::metadata(audio)
+        .await
+        .map_err(|error| format!("Could not read audio: {error}"))?
+        .len();
+    let file = TokioFile::open(audio)
+        .await
+        .map_err(|error| format!("Could not read audio: {error}"))?;
+    let file_name = audio
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("audio.bin")
+        .to_string();
+    let part = reqwest::multipart::Part::stream_with_length(
+        reqwest::Body::wrap_stream(ReaderStream::new(file)),
+        size,
+    )
+    .file_name(file_name);
+    let response = reqwest::Client::new()
+        .post(&config.endpoint)
+        .header("xi-api-key", config.api_key.trim())
+        .multipart(
+            reqwest::multipart::Form::new()
+                .part("file", part)
+                .text("model_id", config.model.clone()),
+        )
+        .send()
+        .await
+        .map_err(|error| format!("Transcription request failed: {error}"))?;
+    let status = response.status();
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("Invalid transcription response: {error}"))?;
+    if !status.is_success() {
+        return Err(body
+            .get("detail")
+            .and_then(Value::as_str)
+            .unwrap_or("The transcription service returned an error")
+            .to_string());
+    }
+    transcription_text(&body)
 }
 
 async fn transcribe_deepgram(
@@ -281,7 +359,7 @@ async fn transcribe_assemblyai(
     let create = client
         .post(&config.endpoint)
         .header("Authorization", config.api_key.trim())
-        .json(&json!({"audio_url": audio_url, "speech_model": config.model}))
+        .json(&json!({"audio_url": audio_url, "speech_models": [config.model.clone()]}))
         .send()
         .await
         .map_err(|error| format!("Transcription request failed: {error}"))?
@@ -549,6 +627,7 @@ pub async fn transcribe_media_url(
     match provider.protocol.as_str() {
         "deepgram" => transcribe_deepgram(provider, &audio).await,
         "assemblyai" => transcribe_assemblyai(provider, &audio).await,
+        "elevenlabs" => transcribe_elevenlabs(provider, &audio).await,
         _ => transcribe_openai_compatible(provider, &audio).await,
     }
 }
@@ -591,6 +670,7 @@ pub async fn transcribe_local_media_file(
     match provider.protocol.as_str() {
         "deepgram" => transcribe_deepgram(provider, path).await,
         "assemblyai" => transcribe_assemblyai(provider, path).await,
+        "elevenlabs" => transcribe_elevenlabs(provider, path).await,
         _ => transcribe_openai_compatible(provider, path).await,
     }
 }
@@ -1947,6 +2027,52 @@ mod tests {
                 .expect("adapter should return text");
         server.join().expect("mock server should finish");
         assert_eq!(transcript, "adapter transcript");
+        fs::remove_dir_all(root).expect("adapter fixture should be removed");
+    }
+
+    #[test]
+    fn diarized_transcription_keeps_speaker_labels() {
+        let body = serde_json::json!({
+            "segments": [
+                {"speaker": "A", "text": " First line "},
+                {"speaker": "B", "text": "Second line"}
+            ]
+        });
+        assert_eq!(
+            transcription_text(&body).expect("diarized text should parse"),
+            "A: First line\nB: Second line"
+        );
+    }
+
+    #[test]
+    fn elevenlabs_adapter_uses_model_id_and_api_key() {
+        let root = fixture_root("elevenlabs-adapter");
+        fs::create_dir_all(&root).expect("adapter fixture directory should be created");
+        let audio = root.join("audio.wav");
+        fs::write(&audio, b"fixture audio").expect("adapter fixture should write");
+        let (endpoint, server) = mock_transcription_server(
+            |request| {
+                let normalized = request.to_ascii_lowercase();
+                assert!(request.starts_with("POST / "));
+                assert!(normalized.contains("xi-api-key: test-key"));
+                assert!(normalized.contains("content-type: multipart/form-data"));
+                assert!(request.contains("model_id"));
+                assert!(request.contains("scribe_v2"));
+            },
+            r#"{"text":"elevenlabs transcript"}"#,
+        );
+        let config = super::super::TranscriptionProviderConfig {
+            provider_id: "elevenlabs".to_string(),
+            protocol: "elevenlabs".to_string(),
+            endpoint,
+            model: "scribe_v2".to_string(),
+            api_key: "test-key".to_string(),
+        };
+
+        let transcript = tauri::async_runtime::block_on(transcribe_elevenlabs(&config, &audio))
+            .expect("adapter should return text");
+        server.join().expect("mock server should finish");
+        assert_eq!(transcript, "elevenlabs transcript");
         fs::remove_dir_all(root).expect("adapter fixture should be removed");
     }
 
