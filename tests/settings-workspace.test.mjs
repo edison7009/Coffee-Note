@@ -24,15 +24,17 @@ test('settings replaces the three-pane workspace instead of opening a modal', ()
   assert.match(styles, /\.settings-page\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;[^}]*grid-row:\s*2;/s);
 });
 
-test('settings keeps model and appearance as separate navigation pages', () => {
+test('settings keeps general, appearance, and model as separate navigation pages', () => {
   const settingsPage = appSource.slice(
     appSource.indexOf('function SettingsPage('),
     appSource.indexOf('function AddMaterialDialog('),
   );
   assert.match(appSource, /id:\s*'model'/);
   assert.match(appSource, /id: 'model', label: t\('settingsModel'\), icon: <Box size=\{18\}/);
+  assert.match(appSource, /id:\s*'general'/);
+  assert.match(appSource, /id: 'general', label: t\('settingsGeneral'\), icon: <Settings2 size=\{18\}/);
   assert.match(appSource, /id:\s*'appearance'/);
-  assert.match(appSource, /id: 'appearance', label: t\('settingsAppearance'\), icon: <Settings2 size=\{18\}/);
+  assert.match(appSource, /id: 'appearance', label: t\('settingsAppearance'\), icon: <Palette size=\{18\}/);
   assert.doesNotMatch(appSource, /id:\s*'library'/);
   assert.match(appSource, /className="settings-back"/);
   assert.doesNotMatch(appSource, /className="settings-sidebar-heading"/);

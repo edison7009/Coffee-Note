@@ -48,10 +48,10 @@ function dayLabel(locale: Locale, date: string, index: number): string {
 
 export function WeatherAmbient({
   locale,
-  onOpenAppearanceSettings,
+  onOpenGeneralSettings,
 }: {
   locale: Locale;
-  onOpenAppearanceSettings: () => void;
+  onOpenGeneralSettings: () => void;
 }) {
   const [location, setLocation] = useState<WeatherLocation | null>(() => loadWeatherLocation());
   const [snapshot, setSnapshot] = useState<WeatherSnapshot | null>(() => {
@@ -156,8 +156,8 @@ export function WeatherAmbient({
             <div className="weather-panel-actions">
               <button
                 type="button"
-                aria-label={locale === 'zh' ? '打开外观设置' : 'Open Appearance settings'}
-                onClick={onOpenAppearanceSettings}
+                aria-label={locale === 'zh' ? '打开常规设置' : 'Open General settings'}
+                onClick={onOpenGeneralSettings}
               >
                 <Settings2 size={16} />
               </button>
@@ -192,7 +192,7 @@ export function WeatherAmbient({
               </div>
             </div>
           ) : (
-            <p className="weather-panel-empty">{translate(locale, 'weatherConfigureInAppearance')}</p>
+            <p className="weather-panel-empty">{translate(locale, 'weatherConfigureInGeneral')}</p>
           )}
 
           {error && <p className="weather-error">{error}</p>}

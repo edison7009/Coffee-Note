@@ -53,6 +53,16 @@ or temporary deployment credentials.
 - The directory tree must not hide or offer bulk deletion of folders based on old
   Coffee Note category names. A folder named `papers`, `templates`, `inbox`, or
   similar may be ordinary user project data.
+- **Complete workspace file tree (2026-08-19):** The directory tree shows every
+  ordinary non-hidden file, not only Markdown. Markdown remains the only built-in
+  center preview. Other files open a restrained unsupported-preview state, may be
+  attached to the AI composer by single click, multi-select, or the context menu,
+  and reach the Agent as validated workspace-relative paths without injecting
+  binary bytes into the prompt. The root, expanded directories, and directories
+  containing selected files refresh in the background and when the window regains
+  focus, so externally downloaded files appear without a restart while collapsed
+  branches stay inexpensive. Their context menu also supports the existing workspace
+  file operations and opening through the system application.
 - The current Agent tool surface can edit text files but cannot execute terminal
   commands. It must state that honestly and never claim builds or tests ran. Add
   shell execution only together with an explicit user approval and safety model.
@@ -133,7 +143,7 @@ or temporary deployment credentials.
   forecast text, provider name, or enclosing card appears on Home. Explicit click
   opens a read-only lightweight panel with current conditions and four forecast days.
   Its compact header keeps the forecast title and city on one line, with a gear shortcut
-  directly to Settings > Appearance. All city search, recent-city, one-time device location,
+  directly to Settings > General. All city search, recent-city, one-time device location,
   and Open-Meteo attribution controls live there. Weather has no removal action; choosing
   another city replaces the current one. Device coordinates are rounded
   to 0.1 degrees before saving/requesting, and results are cached locally for 30
@@ -273,7 +283,7 @@ or temporary deployment credentials.
 - Coffee Note now uses a monochrome black, graphite, and gray shell with no selectable
   brand color. The homepage is the deliberate exception: its three entry cards and
   T1-T5 map use restrained category colors. Appearance settings keep system/light/dark
-  modes and language, but no longer expose accent choices.
+  modes and color schemes, while General owns language and other non-visual preferences.
 - Light mode follows the Codex/iOS surface hierarchy: the navigation shell and title
   drag bar share a very soft environmental gray-green (`#f0f5f0`), while the inner
   work surface remains white and grouped controls use warm gray-white. This tint is
@@ -426,7 +436,7 @@ to the product template.
   workspace mode rather than a modal dialog: below the shared title bar, a
   dedicated settings navigation rail replaces the normal library rail while one
   continuous work surface replaces both the center pane and contextual right
-  rail. Keep two focused categories: model and appearance. Knowledge-library
+  rail. Keep General, Appearance, and Models as distinct categories. Knowledge-library
   switching stays on the Home row and File menu, so it is not duplicated in
   Settings. The model page places one compact Currency label with `¥` / `$`
   symbol controls directly below Refresh Catalog; do not create a separate
@@ -436,8 +446,9 @@ to the product template.
   is named **Models** to match common AI app settings language. Settings scrollbars, including the
   outer work surface and provider directory, stay thin with transparent tracks
   and low-contrast thumbs. The settings navigation rail is 220px wide on the
-  ordinary desktop layout. Appearance uses one continuous grouped surface: theme
-  and language are compact label/control rows, and Weather forecast follows with
+  ordinary desktop layout. Appearance contains theme and color scheme controls.
+  General uses one continuous grouped surface: language and generated-file location
+  are compact controls, and Weather forecast follows with
   current city at the header's right, recent cities below, and the current-location
   action beside city search. Open-Meteo attribution
   is plain text in the weather section description, with no separate footer or link.
@@ -644,7 +655,7 @@ to the product template.
   navigation entries with no selected-card state; their light neutral surface is
   `#f1f1f1`. Enabled/context states use iOS blue (`#007aff`) in light mode and
   egg-yolk yellow (`#e7be15`) in dark mode. The same state color marks the active
-  library multi-select control, selected-note checkmarks, and the removable note
+  library multi-select control, selected-file checkmarks, and the removable file
   context pill in the AI composer.
 
 ## Website

@@ -25,7 +25,7 @@ const docxSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-do
 const pdfSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/skills/create-pdf/SKILL.md', import.meta.url), 'utf8');
 
 test('settings includes a plugin market backed by one shared catalog', () => {
-  assert.match(appSource, /type SettingsSectionId = 'model' \| 'skills' \| 'transcription' \| 'multimodal' \| 'appearance'/);
+  assert.match(appSource, /type SettingsSectionId = 'general' \| 'appearance' \| 'model' \| 'skills' \| 'transcription' \| 'multimodal'/);
   assert.match(appSource, /<SkillsSettings/);
   assert.match(appSource, /listSkills\(\)/);
   assert.match(settingsSource, /插件市场/);

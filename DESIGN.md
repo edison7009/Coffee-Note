@@ -34,7 +34,7 @@
   provider name, enclosing card, or dashboard treatment. An explicit click opens
   a read-only lightweight detail panel containing only current conditions and several
   forecast days. Its title and city share the action row, where a gear opens
-  Settings > Appearance directly. City search, recent cities, one-time device
+  Settings > General directly. City search, recent cities, one-time device
   location and source attribution live only there. Once configured, weather stays
   enabled as part of Home; users switch cities rather than removing the feature. Never request
   location on launch. The
@@ -95,15 +95,15 @@
   Below the shared title bar, replace the normal left rail with a settings navigation
   rail and merge the center workspace plus contextual right rail into one continuous,
   scrollable settings surface. Settings is not a modal and uses no backdrop or floating
-  dialog boundary. Keep model and appearance as distinct pages. Library switching
+  dialog boundary. Keep General, Appearance, and Models as distinct pages. Library switching
   already belongs to the Home row and File menu and is not duplicated here.
   All settings scroll surfaces use the same narrow, transparent-track, low-contrast
   scrollbar treatment as the main workspace; avoid native heavy scrollbar chrome.
   Keep the settings navigation rail compact at 220px on the ordinary desktop layout.
   Name its model destination Models to match common AI app settings language, and
   keep the version and Feedback actions together on one unwrapped footer row.
-  Appearance is one continuous grouped surface rather than three distant cards:
-  theme and language use compact label/control rows, followed by a structured
+  Appearance is one continuous grouped surface for theme and color scheme.
+  General contains language and generated-file location, followed by a structured
   Weather forecast section with the current-city readout at the header's right,
   recent cities below, and the current-location action beside city search. Provider attribution belongs in the section's
   introductory sentence rather than consuming its own row. Weather has no
@@ -154,7 +154,7 @@
   surface remains `#f1f1f1` during hover and navigation, with a neutral dark-mode
   counterpart. Enabled/context states use iOS blue (`#007aff`) in light mode and
   egg-yolk yellow (`#e7be15`) in dark mode. Reuse that state color for the active
-  library multi-select control, selected-note checkmarks, and the removable note
+  library multi-select control, selected-file checkmarks, and the removable file
   context pill in the AI composer. Add Material is an action and has no retrieval switch.
 - Keep the composer in a stable bottom row when chat is active.
 - Present the composer metrics as one compact runtime summary rather than equal
@@ -292,7 +292,9 @@
 | 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Contexts seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
 | 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |
 | 2026-08-09 | Use models.dev for provider/model directory data; keep Coffee Note request configuration independent | A live catalog removes hard-coded model names and prices. Anthropic alone uses its native Messages API; every other provider uses the industry-default OpenAI-compatible path. Coffee Note always exposes five reasoning levels for reasoning models and lets provider endpoints normalize them. Composer selections change actual requests. |
-| 2026-08-09 | Add ambient weather beside the Home greeting | Home keeps only a quiet animated condition image; its click panel is a read-only current and multi-day forecast with a compact single-line city header and a direct gear shortcut to Settings > Appearance. City selection, location, history, and provider attribution live in Appearance; users replace the current city rather than removing weather. This preserves the calm workspace while connecting it to the user's day. Location is requested only from Settings after an explicit click, rounded to city-level precision, and stored locally; manual city search remains the universal fallback. |
+| 2026-08-09 | Add ambient weather beside the Home greeting | Home keeps only a quiet animated condition image; its click panel is a read-only current and multi-day forecast with a compact single-line city header. City selection is explicit, local, and replaceable, while Home remains quiet. |
+| 2026-08-19 | Split General and Appearance settings | General owns language, generated-file location, and the local weather city. Appearance owns system/light/dark mode and color schemes. The Home weather gear and empty state therefore direct people to Settings > General. |
+| 2026-08-19 | Show the complete workspace file tree | Ordinary non-hidden files of every format appear in the directory tree. Markdown opens in Coffee Note; other formats show a quiet unsupported-preview state but remain selectable through single click, multi-select, and the context menu as path-based AI context. |
 | 2026-08-14 | Make paired phone chats full Coffee Note conversations | A linked private chat should behave like the desktop composer rather than force every message through link capture. Ordinary messages get ordinary AI replies, link-only messages implicitly become saved notes, and all turns share the local conversation history visible in the desktop rail. Pairing, credentials, cursors, and recoverable jobs remain local. |
 | 2026-08-14 | Adopt a restrained turn-status shimmer | One theme-colored activity line with a left-to-right text shimmer and delayed static elapsed time replaces the repeated Braille spinner; tool rows and conversation history keep static marks. |
 | 2026-08-15 | Remove leading icons from borderless modal headers | Text-only titles make the lightweight dialogs quieter and more refined while one shared header keeps title and close-action alignment consistent. |

@@ -1,4 +1,4 @@
-.settings-appearance-group {
+.settings-preferences-group {
   display: grid;
   gap: 48px;
   overflow: visible;
@@ -7,22 +7,22 @@
   border-radius: 0;
 }
 
-.settings-appearance-block {
+.settings-preference-block {
   padding: 0;
 }
 
-.settings-appearance-block + .settings-appearance-block {
+.settings-preference-block + .settings-preference-block {
   border-top: 0;
 }
 
-.settings-appearance-inline {
+.settings-preference-inline {
   display: grid;
   grid-template-columns: minmax(230px, .8fr) minmax(390px, 1.2fr);
   align-items: center;
   gap: 28px;
 }
 
-.settings-appearance-inline .settings-section-heading {
+.settings-preference-inline .settings-section-heading {
   margin-bottom: 0;
 }
 
@@ -31,12 +31,12 @@
 }
 
 @media (max-width: 900px) {
-  .settings-appearance-inline {
+  .settings-preference-inline {
     grid-template-columns: 1fr;
     gap: 14px;
   }
 
-  .settings-appearance-inline .theme-switch {
+  .settings-preference-inline .theme-switch {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

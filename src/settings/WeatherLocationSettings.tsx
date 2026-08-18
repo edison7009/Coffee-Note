@@ -85,7 +85,7 @@ export function WeatherLocationSettings({ locale }: { locale: Locale }) {
   };
 
   return (
-    <section className="settings-appearance-block settings-weather-section">
+    <section className="settings-preference-block settings-weather-section">
       <div className="settings-weather-header">
         <div className="settings-section-heading">
           <h2>{translate(locale, 'weatherSettingsTitle')}</h2>

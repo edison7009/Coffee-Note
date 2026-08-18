@@ -48,15 +48,15 @@ test('transcription API inputs use the shared surface and regular placeholder we
   );
 });
 
-test('appearance settings are one continuous unframed surface', () => {
-  const group = rule(appearanceStyles, '\\.settings-appearance-group');
+test('general and appearance settings share one continuous unframed surface', () => {
+  const group = rule(appearanceStyles, '\\.settings-preferences-group');
 
   assert.match(group, /display:\s*grid/);
   assert.match(group, /gap:\s*48px/);
   assert.match(group, /background:\s*transparent/);
   assert.match(group, /border:\s*0/);
   assert.match(group, /border-radius:\s*0/);
-  assert.match(appearanceStyles, /\.settings-appearance-block \+ \.settings-appearance-block\s*\{[^}]*border-top:\s*0/s);
+  assert.match(appearanceStyles, /\.settings-preference-block \+ \.settings-preference-block\s*\{[^}]*border-top:\s*0/s);
 });
 
 test('appearance color scheme uses the shared selected background', () => {
@@ -101,6 +101,6 @@ test('all settings pages share the model page content width', () => {
   );
   assert.match(
     settingsStyles,
-    /\.settings-page \.settings-panel-skills,[\s\S]*\.settings-page \.settings-panel-transcription,[\s\S]*\.settings-page \.settings-panel-appearance,[\s\S]*width:\s*min\(1120px, 100%\);/,
+    /\.settings-page \.settings-panel-skills,[\s\S]*\.settings-page \.settings-panel-transcription,[\s\S]*\.settings-page \.settings-panel-general,[\s\S]*\.settings-page \.settings-panel-appearance,[\s\S]*width:\s*min\(1120px, 100%\);/,
   );
 });

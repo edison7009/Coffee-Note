@@ -1677,6 +1677,91 @@ html.tree-drag-active * {
   width: min(820px, calc(100% - 76px));
 }
 
+.unsupported-file-view {
+  width: min(820px, calc(100% - 76px));
+  padding-top: 24px;
+}
+
+.unsupported-file-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unsupported-file-state {
+  display: flex;
+  min-height: 320px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.unsupported-file-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  place-items: center;
+  color: var(--muted);
+  background: var(--secondary-surface);
+  border-radius: 8px;
+}
+
+.unsupported-file-state h1 {
+  max-width: min(560px, 100%);
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.unsupported-file-state p {
+  max-width: 580px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.unsupported-file-state p + p {
+  margin-top: 2px;
+}
+
+.unsupported-file-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.unsupported-file-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: var(--secondary-surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.unsupported-file-actions button:hover {
+  background: var(--control-hover);
+}
+
 .people-view,
 .stories-view,
 .plan-view,
@@ -3214,14 +3299,22 @@ html.tree-drag-active * {
   background: color-mix(in srgb, var(--switch-on) 17%, transparent);
 }
 
-.composer-context-pill span {
-  display: flex;
+.composer-context-title {
+  display: block;
   height: 16px;
-  align-items: center;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   line-height: 16px;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-context-count {
+  display: block;
+  height: 16px;
+  flex: 0 0 auto;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -8164,10 +8257,12 @@ textarea,
 .settings-page .settings-panel-skills,
 .settings-page .settings-panel-transcription,
 .settings-page .settings-panel-multimodal,
+.settings-page .settings-panel-general,
 .settings-page .settings-panel-appearance,
 [data-theme='dark'] .settings-page .settings-panel-skills,
 [data-theme='dark'] .settings-page .settings-panel-transcription,
 [data-theme='dark'] .settings-page .settings-panel-multimodal,
+[data-theme='dark'] .settings-page .settings-panel-general,
 [data-theme='dark'] .settings-page .settings-panel-appearance {
   width: min(1120px, 100%);
 }

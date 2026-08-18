@@ -54,7 +54,7 @@ export function GeneratedFilesSettings({ locale }: { locale: Locale }) {
   };
 
   return (
-    <section className="settings-appearance-block generated-files-settings">
+    <section className="settings-preference-block generated-files-settings">
       <div className="settings-section-heading">
         <h2>{locale === 'zh' ? '默认生成保存位置' : 'Default generated-file location'}</h2>
         <p>

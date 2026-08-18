@@ -31,7 +31,14 @@ import {
   Pencil,
   Presentation,
   Video,
+  File,
+  FileArchive,
+  FileAudio,
+  FileCode2,
+  FileImage,
+  FileSpreadsheet,
   FileText,
+  FileVideo,
   FileDown,
   FileUp,
   Folder,
@@ -47,6 +54,7 @@ import {
   Settings,
   ShieldAlert,
   Settings2,
+  Palette,
   Square,
   Sparkles,
   Star,
@@ -116,6 +124,7 @@ import {
   openExternalUrl,
   persistModelConfig,
   readNote,
+  openNote,
   writeNote,
   chooseImportFile,
   sendAgentMessage,
@@ -741,7 +750,7 @@ function getPlanSectionFile(section: Exclude<PlanSection, 'log'>, locale: Locale
 }
 type ThemeMode = 'system' | 'light' | 'dark';
 type CurrencyMode = 'auto' | 'CNY' | 'USD';
-type SettingsSectionId = 'model' | 'skills' | 'transcription' | 'multimodal' | 'appearance' | 'messages';
+type SettingsSectionId = 'general' | 'appearance' | 'model' | 'skills' | 'transcription' | 'multimodal' | 'messages';
 type ResizeSide = 'left' | 'right';
 type SurfaceSchemeId =
   | 'openscience'
@@ -1157,9 +1166,18 @@ interface InternalNoteTarget {
 }
 
 
-interface ContextNoteSelection {
+interface ContextFileSelection {
   path: string;
   title: string;
+}
+
+function isMarkdownFilePath(path: string): boolean {
+  return /\.(?:md|markdown)$/i.test(path);
+}
+
+function workspaceFileDisplayName(path: string): string {
+  const name = path.split('/').pop() || path;
+  return isMarkdownFilePath(name) ? name.replace(/(?:\.en)?\.(?:md|markdown)$/i, '') : name;
 }
 
 interface NavigationLocation {
@@ -1585,7 +1603,9 @@ function App() {
   const [fileNotePath, setFileNotePath] = useState<string | null>(null);
   const [fileNoteSource, setFileNoteSource] = useState<'library' | 'myInfo'>('library');
   const [multiSelectActive, setMultiSelectActive] = useState(false);
-  const [selectedContextNotes, setSelectedContextNotes] = useState<ContextNoteSelection[]>([]);
+  const [selectedContextFiles, setSelectedContextFiles] = useState<ContextFileSelection[]>([]);
+  const selectedContextFilesRef = useRef<ContextFileSelection[]>([]);
+  selectedContextFilesRef.current = selectedContextFiles;
   const [implicitContextDismissed, setImplicitContextDismissed] = useState(false);
   const libraryRootRef = useRef(activeKnowledgeRoot);
   const tierMoveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -1604,8 +1624,9 @@ function App() {
     if (sectionId) {
       return getPlanSections(locale).find((section) => section.id === sectionId)?.title || '';
     }
-    return fileNotePath.split('/').pop()?.replace(/\.md$/, '') || fileNotePath;
+    return workspaceFileDisplayName(fileNotePath);
   }, [fileNotePath, locale]);
+  const filePreviewSupported = Boolean(fileNotePath && isMarkdownFilePath(fileNotePath));
   const currentPageTitle = useMemo(() => {
     if (view === 'file') return fileNoteTitle || undefined;
     if (view === 'person' && selectedPerson) return selectedPerson.name;
@@ -1618,8 +1639,8 @@ function App() {
     setImplicitContextDismissed(false);
   }, [view, fileNotePath, selectedPerson?.id, selectedStory?.id]);
   const selectedContextPaths = useMemo(
-    () => selectedContextNotes.map((note) => note.path),
-    [selectedContextNotes],
+    () => selectedContextFiles.map((file) => file.path),
+    [selectedContextFiles],
   );
   const implicitContextPaths = useMemo(
     () => [
@@ -1631,19 +1652,25 @@ function App() {
   );
   const implicitContextEnabled = Boolean(currentPageTitle) && !implicitContextDismissed;
   const composerContextLabel = useMemo(() => {
-    if (selectedContextNotes.length === 0) {
+    if (selectedContextFiles.length === 0) {
       return implicitContextEnabled ? currentPageTitle : undefined;
     }
-    const firstTitle = selectedContextNotes[0].title;
-    if (selectedContextNotes.length === 1) return firstTitle;
+    const firstTitle = selectedContextFiles[0].title;
+    if (selectedContextFiles.length === 1) return firstTitle;
     return locale === 'zh'
-      ? `${firstTitle}等${selectedContextNotes.length}篇`
-      : `${firstTitle} and ${selectedContextNotes.length - 1} more`;
-  }, [currentPageTitle, implicitContextEnabled, locale, selectedContextNotes]);
+      ? `${firstTitle} 等 ${selectedContextFiles.length} 个文件`
+      : `${firstTitle} and ${selectedContextFiles.length - 1} more`;
+  }, [currentPageTitle, implicitContextEnabled, locale, selectedContextFiles]);
+  const composerContextPrimaryLabel = selectedContextFiles[0]?.title ?? composerContextLabel;
+  const composerContextCountLabel = selectedContextFiles.length > 1
+    ? locale === 'zh'
+      ? `等 ${selectedContextFiles.length} 个文件`
+      : `and ${selectedContextFiles.length - 1} more`
+    : undefined;
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const fileNoteTier = useMemo(
-    () => (view === 'file' ? extractFrontmatterTier(noteMarkdown) : undefined),
-    [view, noteMarkdown],
+    () => (view === 'file' && filePreviewSupported ? extractFrontmatterTier(noteMarkdown) : undefined),
+    [filePreviewSupported, view, noteMarkdown],
   );
   const [noteLoading, setNoteLoading] = useState(false);
   const noteSummaryCacheRef = useRef<Record<string, NoteSummaryRecord>>({});
@@ -1655,7 +1682,7 @@ function App() {
   const editorTextCommandsRef = useRef<TextCommandController | null>(null);
   const readerTextCommandsRef = useRef<TextCommandController | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('appearance');
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('general');
   const [transcriptionSettingsTab, setTranscriptionSettingsTab] = useState<TranscriptionMode>('api');
   const [captureGuideOpen, setCaptureGuideOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
@@ -2376,6 +2403,21 @@ function App() {
     if (view === 'file' && fileNotePath) {
       const source = fileNoteSourceRef.current;
       const noteRoot = source === 'myInfo' ? library.myInfoRoot : root;
+      if (!isMarkdownFilePath(fileNotePath)) {
+        const parent = parentDirOf(fileNotePath);
+        listDirectory(noteRoot, parent)
+          .then((entries) => {
+            if (
+              generation === libraryGenerationRef.current
+              && !entries.some((entry) => entry.relativePath === fileNotePath)
+            ) {
+              navigate('home');
+              setToast({ message: t('fileGone'), kind: 'status' });
+            }
+          })
+          .catch(() => {});
+        return;
+      }
       readNote(noteRoot, fileNotePath)
         .then((raw) => {
           if (generation === libraryGenerationRef.current) {
@@ -2392,26 +2434,53 @@ function App() {
 
   const handleSidebarLibraryChanged = () => {
     setMultiSelectActive(false);
-    setSelectedContextNotes([]);
+    selectedContextFilesRef.current = [];
+    setSelectedContextFiles([]);
     handleLibraryChanged();
   };
 
-  const toggleContextNote = (path: string, title: string) => {
-    setSelectedContextNotes((current) => {
-      const existing = current.findIndex((note) => note.path === path);
-      if (existing >= 0) return current.filter((note) => note.path !== path);
-      return [...current, { path, title }];
+  const toggleContextFile = (path: string, title: string) => {
+    setSelectedContextFiles((current) => {
+      const existing = current.findIndex((file) => file.path === path);
+      const next = existing >= 0
+        ? current.filter((file) => file.path !== path)
+        : [...current, { path, title }];
+      selectedContextFilesRef.current = next;
+      return next;
     });
+  };
+
+  const openLibraryTreeFile = (path: string, title: string) => {
+    setMultiSelectActive(false);
+    const next = [{ path, title }];
+    selectedContextFilesRef.current = next;
+    setSelectedContextFiles(next);
+    openFileNote(path, true, 'library');
   };
 
   const cancelMultiSelect = () => {
     setMultiSelectActive(false);
-    setSelectedContextNotes([]);
+    selectedContextFilesRef.current = [];
+    setSelectedContextFiles([]);
   };
+
+  const reconcileContextFiles = useCallback((dirPath: string, entries: DirectoryEntry[]) => {
+    const availableFiles = new Set(
+      entries.filter((entry) => !entry.isDir).map((entry) => entry.relativePath),
+    );
+    const current = selectedContextFilesRef.current;
+    const next = current.filter(
+      (file) => parentDirOf(file.path) !== dirPath || availableFiles.has(file.path),
+    );
+    if (next.length === current.length) return;
+    selectedContextFilesRef.current = next;
+    setSelectedContextFiles(next);
+    setToast({ message: translate(locale, 'contextFilesGone'), kind: 'status' });
+  }, [locale]);
 
   const dismissComposerContext = () => {
     setImplicitContextDismissed(true);
-    if (selectedContextNotes.length > 0) cancelMultiSelect();
+    if (selectedContextFiles.length > 0) cancelMultiSelect();
   };
 
   const selectNoteCreationSkill = (skillId: string) => {
@@ -2477,6 +2546,11 @@ function App() {
     setFileNoteSource(source);
     setSelectedPerson(null);
     setSelectedStory(null);
+    if (!isMarkdownFilePath(filePath)) {
+      setNoteMarkdown('');
+      setNoteLoading(false);
+      return;
+    }
     setNoteLoading(true);
     const root = source === 'myInfo' ? library.myInfoRoot : library.root;
     readNote(root, filePath)
@@ -2820,7 +2894,12 @@ function App() {
         // Best-effort refresh after AI tools modify the library.
       }
       const openPath = fileNotePathRef.current;
-      if (openPath && root && generation === libraryGenerationRef.current) {
+      if (
+        openPath
+        && isMarkdownFilePath(openPath)
+        && root
+        && generation === libraryGenerationRef.current
+      ) {
         try {
           const markdown = await readNote(root, openPath);
           if (generation === libraryGenerationRef.current) {
@@ -3173,7 +3252,7 @@ function App() {
         onHelp={() => void openExternalUrl(PRODUCT_WEBSITE)}
         onFeedback={() => void openExternalUrl(FEEDBACK_URL)}
         onSettings={() => {
-          setSettingsSection('appearance');
+          setSettingsSection('general');
           setSettingsOpen(true);
         }}
         settingsActive={settingsOpen}
@@ -3217,15 +3296,16 @@ function App() {
         onNavigate={navigate}
         onNewChat={handleNewChat}
         chatBusy={chatBusy}
-        onOpenFile={openFileNote}
+        onOpenFile={openLibraryTreeFile}
         onToggleMultiSelect={() => setMultiSelectActive((current) => !current)}
         onCancelMultiSelect={cancelMultiSelect}
-        onToggleContextNote={toggleContextNote}
+        onToggleContextFile={toggleContextFile}
+        onDirectoryRefreshed={reconcileContextFiles}
         onLibraryChanged={handleSidebarLibraryChanged}
         onSwitchRoot={handleSwitchRoot}
         onSearchLibrary={() => setLibrarySearchOpen(true)}
         onSettings={() => {
-          setSettingsSection('appearance');
+          setSettingsSection('general');
           setSettingsOpen(true);
         }}
         onOpenMessages={() => {
@@ -3272,8 +3352,8 @@ function App() {
                 <HomeView
                   locale={locale}
                   library={library}
-                  onOpenAppearanceSettings={() => {
-                    setSettingsSection('appearance');
+                  onOpenGeneralSettings={() => {
+                    setSettingsSection('general');
                     setSettingsOpen(true);
                   }}
                   onCapture={() => setCaptureGuideOpen(true)}
@@ -3388,7 +3468,7 @@ function App() {
                   t={t}
                 />
               )}
-              {view === 'file' && fileNotePath && (
+              {view === 'file' && fileNotePath && filePreviewSupported && (
                 <NoteView
                   title={fileNoteTitle}
                   tier={fileNoteTier}
@@ -3419,6 +3499,34 @@ function App() {
                   }}
                 />
               )}
+              {view === 'file' && fileNotePath && !filePreviewSupported && (
+                <UnsupportedFileView
+                  relativePath={fileNotePath}
+                  locale={locale}
+                  contextAttached={
+                    selectedContextPaths.includes(fileNotePath)
+                    || (
+                      selectedContextPaths.length === 0
+                      && implicitContextEnabled
+                      && implicitContextPaths.includes(fileNotePath)
+                    )
+                  }
+                  onBack={goBack}
+                  onOpenExternally={() => {
+                    const root = fileNoteSource === 'myInfo' ? library.myInfoRoot : library.root;
+                    void openNote(root, fileNotePath).catch((error) => {
+                      setToast({
+                        message: `${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`,
+                        kind: 'status',
+                      });
+                    });
+                  }}
+                  onShowInFolder={() => {
+                    const root = fileNoteSource === 'myInfo' ? library.myInfoRoot : library.root;
+                    void revealInFolder(joinLibraryPath(root, fileNotePath));
+                  }}
+                />
+              )}
               {view === 'log' && (
                 <div className="page plan-view">
                   <div className="page-kicker-row">
@@ -3441,6 +3549,8 @@ function App() {
           stopLabel={t('stopGenerating')}
           inputRef={chatComposerRef}
           currentPage={composerContextLabel}
+          currentPagePrimary={composerContextPrimaryLabel}
+          currentPageCount={composerContextCountLabel}
           onClearCurrentPage={dismissComposerContext}
           contextBytes={contextBytes}
           contextMaxBytes={AGENT_CONTEXT_MAX_BYTES}
@@ -4116,16 +4226,52 @@ const NOTE_ICONS: Record<string, ReactNode> = {
 };
 const NOTE_ICON_KEYS = Object.keys(NOTE_ICONS);
 
+const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v', 'wmv', 'flv']);
+const AUDIO_FILE_EXTENSIONS = new Set(['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'wma']);
+const IMAGE_FILE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'heic', 'avif']);
+const ARCHIVE_FILE_EXTENSIONS = new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz']);
+const SPREADSHEET_FILE_EXTENSIONS = new Set(['csv', 'tsv', 'xls', 'xlsx', 'ods']);
+const CODE_FILE_EXTENSIONS = new Set([
+  'js', 'jsx', 'ts', 'tsx', 'py', 'rs', 'go', 'java', 'c', 'cc', 'cpp', 'h', 'hpp',
+  'html', 'css', 'scss', 'json', 'yaml', 'yml', 'toml', 'xml', 'sh', 'ps1', 'sql',
+]);
+const DOCUMENT_FILE_EXTENSIONS = new Set(['txt', 'log', 'rtf', 'pdf', 'doc', 'docx', 'ppt', 'pptx', 'odt']);
+
+function workspaceFileIcon(
+  path: string,
+  isMarkdown: boolean,
+  customIcon?: string,
+  size = 15,
+): ReactNode {
+  if (isMarkdown) {
+    return size === 15 && customIcon && NOTE_ICONS[customIcon]
+      ? NOTE_ICONS[customIcon]
+      : <FileText size={size} />;
+  }
+  const extension = path.split('.').pop()?.toLocaleLowerCase() || '';
+  if (VIDEO_FILE_EXTENSIONS.has(extension)) return <FileVideo size={size} />;
+  if (AUDIO_FILE_EXTENSIONS.has(extension)) return <FileAudio size={size} />;
+  if (IMAGE_FILE_EXTENSIONS.has(extension)) return <FileImage size={size} />;
+  if (ARCHIVE_FILE_EXTENSIONS.has(extension)) return <FileArchive size={size} />;
+  if (SPREADSHEET_FILE_EXTENSIONS.has(extension)) return <FileSpreadsheet size={size} />;
+  if (CODE_FILE_EXTENSIONS.has(extension)) return <FileCode2 size={size} />;
+  if (DOCUMENT_FILE_EXTENSIONS.has(extension)) return <FileText size={size} />;
+  return <File size={size} />;
+}
+
 interface CtxMenuState {
   x: number;
   y: number;
   kind: 'file' | 'folder';
   relativePath: string;
   name: string;
+  isMarkdown: boolean;
 }
 
 interface CtxMenuActions {
   onOpen: (menu: CtxMenuState) => void;
+  onOpenExternally: (menu: CtxMenuState) => void;
+  onToggleContext: (menu: CtxMenuState) => void;
   onCopyPath: (menu: CtxMenuState) => void;
   onNewFolder: (menu: CtxMenuState) => void;
   onNewNote: (menu: CtxMenuState) => void;
@@ -4194,11 +4340,13 @@ function replacePathPrefix(path: string, previous: string, next: string): string
 
 function ContextMenu({
   menu,
+  contextSelected,
   onClose,
   actions,
   t,
 }: {
   menu: CtxMenuState;
+  contextSelected: boolean;
   onClose: () => void;
   actions: CtxMenuActions;
   t: (key: TranslationKey) => string;
@@ -4232,7 +4380,7 @@ function ContextMenu({
   const canPaste = fsClipboard !== null;
   const style: React.CSSProperties = {
     left: Math.min(menu.x, window.innerWidth - 220),
-    top: Math.min(menu.y, window.innerHeight - 340),
+    top: Math.max(4, Math.min(menu.y, window.innerHeight - 410)),
   };
 
   const item = (
@@ -4255,9 +4403,25 @@ function ContextMenu({
   return createPortal(
     <div className="ctx-menu" ref={menuRef} style={style}>
       {item(
-        isFolder ? <FolderSearch size={13} /> : <FileText size={13} />,
+        isFolder
+          ? <FolderSearch size={13} />
+          : workspaceFileIcon(menu.relativePath, menu.isMarkdown, undefined, 13),
         t('menuOpen'),
         () => actions.onOpen(menu),
+      )}
+      {!isFolder && (
+        <>
+          {item(
+            contextSelected ? <X size={13} /> : <Plus size={13} />,
+            t(contextSelected ? 'menuRemoveFromContext' : 'menuAddToContext'),
+            () => actions.onToggleContext(menu),
+          )}
+          {!menu.isMarkdown && item(
+            <ExternalLink size={13} />,
+            t('menuOpenExternally'),
+            () => actions.onOpenExternally(menu),
+          )}
+        </>
       )}
       {isFolder && (
         <>
@@ -4498,7 +4662,8 @@ function LibraryTree({
   onOpenFile,
   onToggleMultiSelect,
   onCancelMultiSelect,
-  onToggleContextNote,
+  onToggleContextFile,
+  onDirectoryRefreshed,
   onLibraryChanged,
   refreshToken,
   notify,
@@ -4509,17 +4674,22 @@ function LibraryTree({
   activeFilePath: string | null;
   multiSelectActive: boolean;
   selectedContextPaths: string[];
-  onOpenFile: (relativePath: string) => void;
+  onOpenFile: (relativePath: string, title: string) => void;
   onToggleMultiSelect: () => void;
   onCancelMultiSelect: () => void;
-  onToggleContextNote: (relativePath: string, title: string) => void;
+  onToggleContextFile: (relativePath: string, title: string) => void;
+  onDirectoryRefreshed: (dirPath: string, entries: DirectoryEntry[]) => void;
   onLibraryChanged: () => void;
   refreshToken: number;
   notify: (message: string) => void;
 }) {
   const libraryLabel = directoryDisplayName(root) || root;
   const [entriesByDir, setEntriesByDir] = useState<Record<string, DirectoryEntry[]>>({});
+  const entriesByDirRef = useRef<Record<string, DirectoryEntry[]>>({});
+  entriesByDirRef.current = entriesByDir;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const expandedRef = useRef<Record<string, boolean>>({});
+  expandedRef.current = expanded;
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [edit, setEdit] = useState<TreeEditState | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -4548,6 +4718,9 @@ function LibraryTree({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef(root);
   rootRef.current = root;
+  const treeGenerationRef = useRef(0);
+  const directoryRequestVersionRef = useRef(new Map<string, number>());
+  const loadingDirsRef = useRef(new Set<string>());
 
   const updateTreeOrder = useCallback((updater: (current: TreeOrder) => TreeOrder) => {
     setTreeOrder((current) => {
@@ -4576,26 +4749,81 @@ function LibraryTree({
   }, [locale, treeOrder]);
 
   const refreshDir = useCallback((dirPath: string) => {
-    listDirectory(rootRef.current, dirPath)
+    const requestRoot = rootRef.current;
+    const generation = treeGenerationRef.current;
+    const requestVersion = (directoryRequestVersionRef.current.get(dirPath) || 0) + 1;
+    directoryRequestVersionRef.current.set(dirPath, requestVersion);
+    listDirectory(requestRoot, dirPath)
       .then((entries) => {
-        setEntriesByDir((current) => ({ ...current, [dirPath]: entries }));
+        if (
+          requestRoot !== rootRef.current
+          || generation !== treeGenerationRef.current
+          || directoryRequestVersionRef.current.get(dirPath) !== requestVersion
+        ) return;
+        onDirectoryRefreshed(dirPath, entries);
+        setEntriesByDir((current) => {
+          const previous = current[dirPath];
+          const unchanged = previous?.length === entries.length
+            && previous.every((entry, index) => {
+              const next = entries[index];
+              return entry.name === next.name
+                && entry.relativePath === next.relativePath
+                && entry.isDir === next.isDir
+                && entry.isMarkdown === next.isMarkdown
+                && entry.icon === next.icon;
+            });
+          return unchanged ? current : { ...current, [dirPath]: entries };
+        });
       })
       .catch(() => {});
-  }, []);
+  }, [onDirectoryRefreshed]);
+
+  useEffect(() => {
+    const refreshLoadedDirectories = () => {
+      const refreshPaths = new Set<string>(['']);
+      Object.entries(expandedRef.current).forEach(([dirPath, isExpanded]) => {
+        if (isExpanded) refreshPaths.add(dirPath);
+      });
+      selectedContextPaths.forEach((filePath) => refreshPaths.add(parentDirOf(filePath)));
+      refreshPaths.forEach(refreshDir);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshLoadedDirectories();
+    };
+    const interval = window.setInterval(refreshLoadedDirectories, 2000);
+    window.addEventListener('focus', refreshLoadedDirectories);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshLoadedDirectories);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshDir, root, selectedContextPaths]);
 
   const loadDir = useCallback(
     (dirPath: string) => {
-      setEntriesByDir((current) => {
-        if (current[dirPath]) return current;
-        listDirectory(rootRef.current, dirPath)
-          .then((entries) => {
-            setEntriesByDir((previous) => ({ ...previous, [dirPath]: entries }));
-          })
-          .catch(() => {});
-        return current;
-      });
+      if (Object.prototype.hasOwnProperty.call(entriesByDirRef.current, dirPath)) return;
+      const requestRoot = rootRef.current;
+      const generation = treeGenerationRef.current;
+      const requestKey = `${generation}:${dirPath}`;
+      if (loadingDirsRef.current.has(requestKey)) return;
+      loadingDirsRef.current.add(requestKey);
+      const requestVersion = (directoryRequestVersionRef.current.get(dirPath) || 0) + 1;
+      directoryRequestVersionRef.current.set(dirPath, requestVersion);
+      listDirectory(requestRoot, dirPath)
+        .then((entries) => {
+          if (
+            requestRoot !== rootRef.current
+            || generation !== treeGenerationRef.current
+            || directoryRequestVersionRef.current.get(dirPath) !== requestVersion
+          ) return;
+          onDirectoryRefreshed(dirPath, entries);
+          setEntriesByDir((previous) => ({ ...previous, [dirPath]: entries }));
+        })
+        .catch(() => {})
+        .finally(() => loadingDirsRef.current.delete(requestKey));
     },
-    [],
+    [onDirectoryRefreshed],
   );
 
   useEffect(() => {
@@ -4616,12 +4844,31 @@ function LibraryTree({
   }, [root]);
 
   useEffect(() => {
+    const generation = treeGenerationRef.current + 1;
+    treeGenerationRef.current = generation;
+    directoryRequestVersionRef.current.clear();
+    loadingDirsRef.current.clear();
+    entriesByDirRef.current = {};
+    expandedRef.current = {};
     setEntriesByDir({});
     setExpanded({});
+    const requestVersion = 1;
+    directoryRequestVersionRef.current.set('', requestVersion);
     listDirectory(root, '')
-      .then((entries) => setEntriesByDir({ '': entries }))
+      .then((entries) => {
+        if (
+          root !== rootRef.current
+          || generation !== treeGenerationRef.current
+          || directoryRequestVersionRef.current.get('') !== requestVersion
+        ) return;
+        onDirectoryRefreshed('', entries);
+        setEntriesByDir({ '': entries });
+      })
       .catch(() => {});
-  }, [root, refreshToken]);
+    return () => {
+      if (treeGenerationRef.current === generation) treeGenerationRef.current += 1;
+    };
+  }, [onDirectoryRefreshed, root, refreshToken]);
 
   useEffect(() => {
     if (edit) editRef.current?.select();
@@ -4647,16 +4894,31 @@ function LibraryTree({
     kind: 'file' | 'folder',
     relativePath: string,
     name: string,
+    isMarkdown = false,
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    setCtxMenu({ x: event.clientX, y: event.clientY, kind, relativePath, name });
+    setCtxMenu({ x: event.clientX, y: event.clientY, kind, relativePath, name, isMarkdown });
   };
 
   const handleOpen = (menu: CtxMenuState) => {
     closeMenu();
     if (menu.kind === 'folder' && menu.relativePath !== '') toggleDir(menu.relativePath);
-    else onOpenFile(menu.relativePath);
+    else onOpenFile(menu.relativePath, workspaceFileDisplayName(menu.relativePath));
+  };
+
+  const handleOpenExternally = async (menu: CtxMenuState) => {
+    closeMenu();
+    try {
+      await openNote(rootRef.current, menu.relativePath);
+    } catch (error) {
+      notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
+    }
+  };
+
+  const handleToggleContext = (menu: CtxMenuState) => {
+    closeMenu();
+    onToggleContextFile(menu.relativePath, workspaceFileDisplayName(menu.relativePath));
   };
 
   const handleCopyPath = async (menu: CtxMenuState) => {
@@ -4696,7 +4958,7 @@ function LibraryTree({
       const created = await createNote(rootRef.current, '', name);
       refreshDir('');
       onLibraryChanged();
-      onOpenFile(created);
+      onOpenFile(created, workspaceFileDisplayName(created));
     } catch (error) {
       notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
     } finally {
@@ -4707,7 +4969,11 @@ function LibraryTree({
   const startRename = (menu: CtxMenuState) => {
     closeMenu();
     setRenameTarget({ path: menu.relativePath, name: menu.name });
-    setRenameValue(menu.kind === 'file' ? menu.name.replace(/\.md$/i, '') : menu.name);
+    setRenameValue(
+      menu.kind === 'file' && menu.isMarkdown
+        ? menu.name.replace(/\.(?:md|markdown)$/i, '')
+        : menu.name,
+    );
   };
 
   const cancelRename = useCallback(() => setRenameTarget(null), []);
@@ -4819,7 +5085,7 @@ function LibraryTree({
         const created = await createNote(rootRef.current, current.path, value);
         refreshDir(current.path);
         onLibraryChanged();
-        onOpenFile(created);
+        onOpenFile(created, workspaceFileDisplayName(created));
       }
     } catch (error) {
       notify(`${t('operationFailed')}${locale === 'zh' ? '：' : ': '}${String(error).replace(/^Error:\s*/i, '')}`);
@@ -4939,7 +5205,8 @@ function LibraryTree({
             activeFilePath.startsWith(`${source.relativePath}/`)),
         );
         if (activeEntryMoved && activeFilePath) {
-          onOpenFile(replacePathPrefix(activeFilePath, source.relativePath, movedPath));
+          const activeMovedPath = replacePathPrefix(activeFilePath, source.relativePath, movedPath);
+          onOpenFile(activeMovedPath, workspaceFileDisplayName(activeMovedPath));
         }
         if (!activeEntryMoved) onLibraryChanged();
       }
@@ -4979,7 +5246,7 @@ function LibraryTree({
   const createTreeDragGhost = (entry: DirectoryEntry): HTMLElement => {
     const ghost = document.createElement('div');
     ghost.className = 'tree-drag-ghost';
-    ghost.textContent = entry.name.replace(/\.md$/i, '');
+    ghost.textContent = workspaceFileDisplayName(entry.relativePath);
     document.body.appendChild(ghost);
     return ghost;
   };
@@ -5105,7 +5372,7 @@ function LibraryTree({
       ? dropTarget.position
       : null;
     const selected = selectedContextPaths.includes(entry.relativePath);
-    const title = entry.name.replace(/(?:\.en)?\.md$/i, '');
+    const title = workspaceFileDisplayName(entry.relativePath);
     return (
       <button
         type="button"
@@ -5118,14 +5385,20 @@ function LibraryTree({
         onPointerDown={multiSelectActive ? undefined : (event) => beginTreePointerDrag(event, entry)}
         onClick={() => {
           if (multiSelectActive) {
-            onToggleContextNote(entry.relativePath, title);
+            onToggleContextFile(entry.relativePath, title);
             return;
           }
-          onOpenFile(entry.relativePath);
+          onOpenFile(entry.relativePath, title);
         }}
-        onContextMenu={(event) => openContextMenu(event, 'file', entry.relativePath, entry.name)}
+        onContextMenu={(event) => openContextMenu(
+          event,
+          'file',
+          entry.relativePath,
+          entry.name,
+          entry.isMarkdown,
+        )}
       >
-        {NOTE_ICONS[entry.icon || ''] || NOTE_ICONS.filetext}
+        {workspaceFileIcon(entry.relativePath, entry.isMarkdown, entry.icon)}
         <span className="tree-child-label">{title}</span>
         {multiSelectActive && selected && (
           <Check className="tree-selection-check" size={15} strokeWidth={2.5} aria-hidden="true" />
@@ -5175,6 +5448,8 @@ function LibraryTree({
 
   const ctxActions: CtxMenuActions = {
     onOpen: handleOpen,
+    onOpenExternally: handleOpenExternally,
+    onToggleContext: handleToggleContext,
     onCopyPath: handleCopyPath,
     onNewFolder: (menu) => startCreate('create-folder', menu.relativePath),
     onNewNote: (menu) => startCreate('create-note', menu.relativePath),
@@ -5217,7 +5492,7 @@ function LibraryTree({
             aria-label={
               multiSelectActive
                 ? locale === 'zh' ? '取消多选' : 'Cancel multi-select'
-                : locale === 'zh' ? '多选文章' : 'Select multiple notes'
+                : locale === 'zh' ? '多选文件' : 'Select multiple files'
             }
           >
             <ListChecks className="library-multi-select-icon" size={17} strokeWidth={1.9} />
@@ -5234,7 +5509,13 @@ function LibraryTree({
         </div>
       </div>
       {ctxMenu && (
-        <ContextMenu menu={ctxMenu} onClose={closeMenu} actions={ctxActions} t={t} />
+        <ContextMenu
+          menu={ctxMenu}
+          contextSelected={selectedContextPaths.includes(ctxMenu.relativePath)}
+          onClose={closeMenu}
+          actions={ctxActions}
+          t={t}
+        />
       )}
       {renameTarget &&
         createPortal(
@@ -5296,10 +5577,11 @@ interface SidebarProps {
   onNavigate: (view: View) => void;
   onNewChat: () => void;
   chatBusy: boolean;
-  onOpenFile: (relativePath: string) => void;
+  onOpenFile: (relativePath: string, title: string) => void;
   onToggleMultiSelect: () => void;
   onCancelMultiSelect: () => void;
-  onToggleContextNote: (relativePath: string, title: string) => void;
+  onToggleContextFile: (relativePath: string, title: string) => void;
+  onDirectoryRefreshed: (dirPath: string, entries: DirectoryEntry[]) => void;
   onLibraryChanged: () => void;
   onSwitchRoot: () => void;
   onSearchLibrary: () => void;
@@ -5324,7 +5606,8 @@ function Sidebar({
   onOpenFile,
   onToggleMultiSelect,
   onCancelMultiSelect,
-  onToggleContextNote,
+  onToggleContextFile,
+  onDirectoryRefreshed,
   onLibraryChanged,
   onSwitchRoot,
   onSearchLibrary,
@@ -5402,7 +5685,8 @@ function Sidebar({
             onOpenFile={onOpenFile}
             onToggleMultiSelect={onToggleMultiSelect}
             onCancelMultiSelect={onCancelMultiSelect}
-            onToggleContextNote={onToggleContextNote}
+            onToggleContextFile={onToggleContextFile}
+            onDirectoryRefreshed={onDirectoryRefreshed}
             onLibraryChanged={onLibraryChanged}
             refreshToken={refreshToken}
             notify={notify}
@@ -5804,7 +6088,7 @@ const greetingIconByKey: Record<string, typeof Sun> = {
 function HomeView({
   locale,
   library,
-  onOpenAppearanceSettings,
+  onOpenGeneralSettings,
   onCapture,
   onOrganize,
   onPlan,
@@ -5814,7 +6098,7 @@ function HomeView({
 }: {
   locale: Locale;
   library: LibrarySnapshot;
-  onOpenAppearanceSettings: () => void;
+  onOpenGeneralSettings: () => void;
   onCapture: () => void;
   onOrganize: () => void;
   onPlan: () => void;
@@ -6103,7 +6387,7 @@ function HomeView({
           </div>
           <h1>{t(greetingKey)}</h1>
         </div>
-        <WeatherAmbient locale={locale} onOpenAppearanceSettings={onOpenAppearanceSettings} />
+        <WeatherAmbient locale={locale} onOpenGeneralSettings={onOpenGeneralSettings} />
       </section>
 
       <section className="start-section" aria-label={t('coreModules')}>
@@ -6403,6 +6687,50 @@ function PageBackButton({ locale, onBack }: { locale: Locale; onBack: () => void
     <button className="page-back" onClick={onBack} aria-label={locale === 'zh' ? '返回' : 'Back'}>
       <ChevronRight className="back-chevron" size={20} />
     </button>
+  );
+}
+
+function UnsupportedFileView({
+  relativePath,
+  locale,
+  contextAttached,
+  onBack,
+  onOpenExternally,
+  onShowInFolder,
+}: {
+  relativePath: string;
+  locale: Locale;
+  contextAttached: boolean;
+  onBack: () => void;
+  onOpenExternally: () => void;
+  onShowInFolder: () => void;
+}) {
+  const fileName = workspaceFileDisplayName(relativePath);
+  return (
+    <div className="page unsupported-file-view">
+      <div className="page-kicker-row">
+        <PageBackButton locale={locale} onBack={onBack} />
+        <span className="unsupported-file-path">{relativePath}</span>
+      </div>
+      <div className="unsupported-file-state">
+        <span className="unsupported-file-icon" aria-hidden="true">
+          {workspaceFileIcon(relativePath, false, undefined, 34)}
+        </span>
+        <h1>{fileName}</h1>
+        <p>{translate(locale, 'filePreviewUnavailable')}</p>
+        <p>{translate(locale, contextAttached ? 'fileContextReady' : 'fileContextNotAttached')}</p>
+        <div className="unsupported-file-actions">
+          <button type="button" onClick={onOpenExternally}>
+            <ExternalLink size={15} />
+            {translate(locale, 'menuOpenExternally')}
+          </button>
+          <button type="button" onClick={onShowInFolder}>
+            <FolderSearch size={15} />
+            {translate(locale, 'menuShowInFolder')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -7769,6 +8097,8 @@ function ChatComposer({
   stopLabel,
   inputRef,
   currentPage,
+  currentPagePrimary,
+  currentPageCount,
   onClearCurrentPage,
   contextBytes,
   contextMaxBytes,
@@ -7793,6 +8123,8 @@ function ChatComposer({
   stopLabel: string;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   currentPage?: string;
+  currentPagePrimary?: string;
+  currentPageCount?: string;
   onClearCurrentPage: () => void;
   contextBytes: number;
   contextMaxBytes: number;
@@ -8181,10 +8513,13 @@ function ChatComposer({
               type="button"
               className="composer-context-pill"
               onClick={onClearCurrentPage}
-              aria-label={locale === 'zh' ? `移除文章上下文 ${currentPage}` : `Remove note context ${currentPage}`}
+              aria-label={locale === 'zh' ? `移除文件上下文 ${currentPage}` : `Remove file context ${currentPage}`}
             >
               <X size={13} strokeWidth={2.4} />
-              <span>{currentPage}</span>
+              <span className="composer-context-title">{currentPagePrimary || currentPage}</span>
+              {currentPageCount && (
+                <span className="composer-context-count">{currentPageCount}</span>
+              )}
             </button>
           )}
           <div className="composer-preview-controls" ref={composerControlsRef}>
@@ -9333,7 +9668,8 @@ function SettingsPage({
     label: string;
     icon: ReactNode;
   }> = [
-    { id: 'appearance', label: t('settingsAppearance'), icon: <Settings2 size={18} strokeWidth={1.8} /> },
+    { id: 'general', label: t('settingsGeneral'), icon: <Settings2 size={18} strokeWidth={1.8} /> },
+    { id: 'appearance', label: t('settingsAppearance'), icon: <Palette size={18} strokeWidth={1.8} /> },
     { id: 'model', label: t('settingsModel'), icon: <Box size={18} strokeWidth={1.8} /> },
     { id: 'skills', label: locale === 'zh' ? '插件' : 'Plugins', icon: <Sparkles size={18} strokeWidth={1.8} /> },
     { id: 'transcription', label: t('settingsTranscription'), icon: <AudioLines size={18} strokeWidth={1.8} /> },
@@ -9418,9 +9754,26 @@ function SettingsPage({
               />
             )}
 
+            {visibleSection === 'general' && (
+              <div className="settings-preferences-group settings-general-group">
+                <section className="settings-preference-block settings-preference-inline">
+                  <div className="settings-section-heading">
+                    <h2>{t('language')}</h2>
+                    <p>{locale === 'zh' ? '切换语言仅影响界面。' : 'Language changes affect the interface only.'}</p>
+                  </div>
+                  <div className="language-switch">
+                    <button type="button" className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>中文</button>
+                    <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
+                  </div>
+                </section>
+                <GeneratedFilesSettings locale={locale} />
+                <WeatherLocationSettings locale={locale} />
+              </div>
+            )}
+
             {visibleSection === 'appearance' && (
-              <div className="settings-appearance-group">
-                <section className="settings-appearance-block settings-appearance-inline">
+              <div className="settings-preferences-group settings-appearance-group">
+                <section className="settings-preference-block settings-preference-inline">
                   <div className="settings-section-heading">
                     <h2>{t('appearance')}</h2>
                     <p>{locale === 'zh' ? '选择浅色、深色，或跟随当前系统。' : 'Use light mode, dark mode, or follow your system.'}</p>
@@ -9437,7 +9790,7 @@ function SettingsPage({
                     </button>
                   </div>
                 </section>
-                <section className="settings-appearance-block settings-appearance-inline">
+                <section className="settings-preference-block settings-preference-inline">
                   <div className="settings-section-heading">
                     <h2>{t('surfaceScheme')}</h2>
                     <p>{t('surfaceSchemeSub')}</p>
@@ -9464,18 +9817,6 @@ function SettingsPage({
                     ))}
                   </div>
                 </section>
-                <section className="settings-appearance-block settings-appearance-inline">
-                  <div className="settings-section-heading">
-                    <h2>{t('language')}</h2>
-                    <p>{locale === 'zh' ? '切换语言仅影响界面。' : 'Language changes affect the interface only.'}</p>
-                  </div>
-                  <div className="language-switch">
-                    <button type="button" className={locale === 'zh' ? 'active' : ''} onClick={() => onLocale('zh')}>中文</button>
-                    <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => onLocale('en')}>English</button>
-                  </div>
-                </section>
-                <GeneratedFilesSettings locale={locale} />
-                <WeatherLocationSettings locale={locale} />
               </div>
             )}
 
