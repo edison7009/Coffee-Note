@@ -1,5 +1,6 @@
 # Coffee Note installer / updater for Windows
 # Usage: irm https://note.coffeecli.com/install.ps1 | iex
+# License: AGPL-3.0-or-later (https://github.com/edison7009/Coffee-Note/blob/main/LICENSE)
 
 $ErrorActionPreference = "Stop"
 $repository = "edison7009/Coffee-Note"

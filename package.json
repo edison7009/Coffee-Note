@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.8",
   "description": "A local-first workspace agent with tier-based organization and AI assistance.",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

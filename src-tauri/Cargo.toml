@@ -3,7 +3,7 @@ name = "coffee-note"
 version = "0.1.8"
 description = "Local-first workspace agent with tier-based organization and AI assistance"
 authors = ["Coffee Team"]
-license = "MIT"
+license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77.2"
 

@@ -10,7 +10,7 @@
     <a href="https://github.com/edison7009/Coffee-Note/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/edison7009/Coffee-Note?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
     <a href="https://github.com/edison7009/Coffee-Note/actions/workflows/release.yml"><img alt="Release build" src="https://img.shields.io/github/actions/workflow/status/edison7009/Coffee-Note/release.yml?label=release&amp;logo=github"></a>
     <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555555">
-    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+    <a href="LICENSE"><img alt="AGPL-3.0-or-later license" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg"></a>
   </p>
 
   <p>
@@ -35,7 +35,7 @@ Coffee Note is a cross-platform desktop note agent built around local Markdown f
 | Storage | Local Markdown library and local conversation records |
 | Model protocols | OpenAI-compatible APIs and Anthropic Messages API |
 | Primary optimization | DeepSeek prefix-cache reuse and usage visibility |
-| License | MIT |
+| License | AGPL-3.0-or-later |
 
 > Release binaries are currently unsigned. Windows and macOS may show an unverified-publisher warning during installation.
 
@@ -149,6 +149,23 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Tags matching `v*` trigger quality checks and native builds for Windows x64, macOS Apple Silicon, macOS Intel, Linux x64, and Linux arm64. See [RELEASE.md](docs/RELEASE.md) for the version checklist and asset naming rules.
 
-## License
+## License & commercial use
 
-Coffee Note is available under the [MIT License](LICENSE). Third-party acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+**Open-source edition** — Coffee Note is free, forever, under the
+[GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)](LICENSE).
+Companies are welcome to use it as-is. Modified versions distributed to others,
+and modified versions offered to users over a network, must follow AGPL's source
+availability requirements. See [NOTICE](NOTICE) for the legacy MIT notice and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party acknowledgements.
+
+**Commercial & enterprise licensing** — A paid commercial license is only
+needed when you want to step outside AGPL obligations: to customize Coffee Note
+and keep the changes closed-source, redistribute it under your own brand or as a
+white-label product, or embed it in a proprietary product you distribute. Custom
+development, priority support, and SLAs are also available. Tell us what you are
+building and we will tailor a plan and quote.
+
+Contact sales: **[hi@coffeecli.com](mailto:hi@coffeecli.com?subject=Coffee%20Note%20Enterprise)**
+
+**Contributing** — See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are
+accepted under the project CLA so commercial relicensing remains possible.

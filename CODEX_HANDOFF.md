@@ -21,6 +21,13 @@ or temporary deployment credentials.
   compatibility layer: `app.coffeenote.desktop`, `Coffee Note` app-data,
   `.coffee-note` knowledge metadata, and `coffee-note:` browser storage keys.
 - GitHub release and feedback URLs use the `edison7009/Coffee-Note` repository.
+- **Licensing (2026-08-19):** Coffee Note uses AGPL-3.0-or-later for current
+  releases, with paid commercial licensing available for closed-source
+  customization, white-label distribution, and proprietary embedding. Copies
+  released before the transition retain the MIT permissions already granted;
+  `NOTICE` preserves that historical notice. External contributions are
+  accepted under the bilingual CLA in `CONTRIBUTING.md` so commercial
+  relicensing remains possible.
 - The homepage editable T1–T5 tier list is the core interaction model because it
   makes prioritization and decisions immediately legible.
 - Longevity-specific starter content and product copy below are inherited context

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Coffee Note installer / updater for macOS / Linux
 # Usage: curl -fsSL https://note.coffeecli.com/install.sh | sh
+# License: AGPL-3.0-or-later (https://github.com/edison7009/Coffee-Note/blob/main/LICENSE)
 
 set -e
 

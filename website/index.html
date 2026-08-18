@@ -305,6 +305,60 @@
   .final h2 .final-brand { color: var(--brand); }
   .final p { color: var(--muted); font-size: 1.05rem; margin-bottom: 32px; }
 
+  .enterprise {
+    position: relative;
+    z-index: 1;
+    padding: 0 1.5rem 72px;
+  }
+  .enterprise-inner {
+    width: 720px;
+    max-width: 100%;
+    margin: 0 auto;
+    padding-top: 54px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  .enterprise-kicker {
+    margin-bottom: 12px;
+    color: var(--brand);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .enterprise h2 {
+    margin-bottom: 16px;
+    font-size: clamp(26px, 3vw, 34px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  .enterprise-body {
+    max-width: 68ch;
+    margin: 0 auto 24px;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.8;
+  }
+  .enterprise-body strong { color: var(--ink); font-weight: 600; }
+  .enterprise-contact {
+    display: inline-flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 10px 18px;
+    border: 1px solid rgba(212, 165, 132, 0.48);
+    border-radius: 8px;
+    background: rgba(212, 165, 132, 0.12);
+    color: #f0c7a9;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  }
+  .enterprise-contact:hover {
+    border-color: var(--brand);
+    background: rgba(212, 165, 132, 0.2);
+    transform: translateY(-1px);
+  }
+
   footer {
     padding: 26px 4rem; display: flex; justify-content: space-between;
     align-items: center; color: var(--muted); font-size: 0.82rem; flex-wrap: wrap; gap: 10px;
@@ -332,6 +386,7 @@
     .metrics { grid-template-columns: 1fr; padding: 24px 0; }
     .metric { padding: 24px 8px; }
     .create-row { grid-template-columns: 1fr; }
+    .enterprise { padding: 0 1.5rem 52px; }
     footer { padding: 20px 1.5rem; }
   }
   @media (max-width: 1100px) {
@@ -626,9 +681,19 @@
   </a>
 </div>
 
+<!-- ===== Enterprise procurement / commercial licensing ===== -->
+<section class="enterprise" id="enterprise">
+  <div class="enterprise-inner">
+    <div class="enterprise-kicker" data-i18n="enterpriseKicker">Enterprise</div>
+    <h2 data-i18n="enterpriseTitle">Enterprise &amp; commercial licensing</h2>
+    <p class="enterprise-body" data-i18n="enterpriseBody">The open-source edition is <strong>free, forever</strong> (AGPL-3.0), and companies are welcome to use it as-is. A paid commercial license is only needed to step outside AGPL obligations: <strong>customize Coffee Note and keep the changes closed-source</strong>, <strong>distribute it under your own brand / white-label</strong>, or <strong>embed it in a proprietary product you distribute</strong>. We also offer <strong>custom development, priority support, and SLAs</strong>. Tell us what you are building and we will tailor a plan and quote.</p>
+    <a class="enterprise-contact" href="mailto:hi@coffeecli.com?subject=Coffee%20Note%20Enterprise" data-i18n="enterpriseContact">Contact sales: hi@coffeecli.com</a>
+  </div>
+</section>
+
 <footer>
-  <span>© Coffee Note</span>
-  <span data-i18n="footerRight">Coffee family products</span>
+  <span>© 2026 Coffee Note</span>
+  <span><a href="https://github.com/edison7009/Coffee-Note/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPL-3.0-or-later</a> · <span data-i18n="footerRight">Coffee family products</span></span>
 </footer>
 
 <script>
@@ -694,6 +759,10 @@
       finalTitle: 'The more you use, the more you save, <span class="final-brand">the better it knows you</span>',
       finalSub: 'Coffee Note — the most affordable AI note tool',
       downloadBtn: 'Download Coffee Note',
+      enterpriseKicker: 'Enterprise',
+      enterpriseTitle: 'Enterprise &amp; commercial licensing',
+      enterpriseBody: 'The open-source edition is <strong>free, forever</strong> (AGPL-3.0), and companies are welcome to use it as-is. A paid commercial license is only needed to step outside AGPL obligations: <strong>customize Coffee Note and keep the changes closed-source</strong>, <strong>distribute it under your own brand / white-label</strong>, or <strong>embed it in a proprietary product you distribute</strong>. We also offer <strong>custom development, priority support, and SLAs</strong>. Tell us what you are building and we will tailor a plan and quote.',
+      enterpriseContact: 'Contact sales: hi@coffeecli.com',
       footerRight: 'Coffee family products',
     },
     zh: {
@@ -758,6 +827,10 @@
       finalTitle: '越用越省钱，<span class="final-brand">越用越懂你</span>',
       finalSub: 'Coffee Note 你最省钱的 AI 笔记工具',
       downloadBtn: '下载 Coffee Note',
+      enterpriseKicker: '企业采购',
+      enterpriseTitle: '企业采购 / 商业授权',
+      enterpriseBody: '开源版<strong>永久免费</strong>（AGPL-3.0），企业可原样使用。仅当需要跳出 AGPL 开源义务时才需付费商业授权：<strong>定制 Coffee Note 并保持改动闭源</strong>、<strong>以自有品牌 / 白标对外分发</strong>，或<strong>嵌入贵司要分发的商业产品</strong>。也提供<strong>定制开发、优先支持与 SLA</strong>。告诉我们贵司的用途与需求，我们按需出方案与报价。',
+      enterpriseContact: '联系采购：hi@coffeecli.com',
       footerRight: 'Coffee 家族系列产品',
     },
   };
