@@ -55,6 +55,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
@@ -75,6 +84,9 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+
+      - name: Prepare video runtime
+        run: npm run video-runtime:prepare
 
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check

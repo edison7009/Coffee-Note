@@ -41,5 +41,12 @@ Project rules:
 - Keep `website/install.ps1` and `website/version.json` usable as the remote
   Windows install/update infrastructure. The remaining public website will be
   rebuilt later.
+- Before any version bump, release tag, or GitHub Release, read the current
+  `docs/RELEASE.md`, inspect the latest `CI` and `Release desktop apps` runs,
+  and run `npm run release:preflight`. Push the version commit first and wait
+  for the matching `main` CI run to succeed before creating the tag. After
+  tagging, monitor the release workflow through publication and verify all nine
+  assets plus the website version and Windows download endpoints. Never treat a
+  started or draft release as complete.
 - Commit as `codex` (lowercase, the https://github.com/codex identity) in this
   repository; local `user.name` and `user.email` are already configured for it.

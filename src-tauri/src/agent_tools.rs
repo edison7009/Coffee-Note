@@ -557,16 +557,29 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
 
 // ── Tool execution ──
 
+pub struct ToolExecutionContext<'a> {
+    pub app: &'a tauri::AppHandle,
+    pub workspace_root: &'a Path,
+    pub my_info_root: &'a Path,
+    pub locale: &'a str,
+    pub excluded_prefixes: &'a [String],
+    pub web_reader: &'a WebReaderSettings,
+}
+
 pub async fn execute_tool(
-    app: &tauri::AppHandle,
     name: &str,
     args: &Value,
-    workspace_root: &Path,
-    my_info_root: &Path,
-    locale: &str,
-    excluded_prefixes: &[String],
-    web_reader: &WebReaderSettings,
+    context: ToolExecutionContext<'_>,
 ) -> ToolResult {
+    let ToolExecutionContext {
+        app,
+        workspace_root,
+        my_info_root,
+        locale,
+        excluded_prefixes,
+        web_reader,
+    } = context;
+
     if name == "create_document" {
         let capability = match args.get("format").and_then(Value::as_str) {
             Some(format) if format.eq_ignore_ascii_case("docx") => "create_docx",

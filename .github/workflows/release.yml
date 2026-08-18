@@ -59,12 +59,20 @@ jobs:
 
       - name: Install Rust 1.93
         uses: dtolnay/rust-toolchain@1.93
+        with:
+          components: clippy, rustfmt
 
       - name: Prepare video runtime
         run: npm run video-runtime:prepare
 
-      - name: Check Rust backend
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
 
   create-release:
     name: Create release

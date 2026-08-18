@@ -1415,14 +1415,16 @@ pub async fn run_agent(
                     // unreachable safety net.
                     let parsed: Value = serde_json::from_str(&args).unwrap_or(json!({}));
                     agent_tools::execute_tool(
-                        &app_handle,
                         &name,
                         &parsed,
-                        &kr,
-                        &mi,
-                        &loc,
-                        &exclusions,
-                        &web_reader,
+                        agent_tools::ToolExecutionContext {
+                            app: &app_handle,
+                            workspace_root: &kr,
+                            my_info_root: &mi,
+                            locale: &loc,
+                            excluded_prefixes: &exclusions,
+                            web_reader: &web_reader,
+                        },
                     )
                     .await
                 }));
@@ -1461,14 +1463,16 @@ pub async fn run_agent(
                 // safety net.
                 let parsed: Value = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
                 let result = agent_tools::execute_tool(
-                    &app,
                     &tc.name,
                     &parsed,
-                    &knowledge_root,
-                    &my_info_root,
-                    &request.locale,
-                    &excluded_prefixes,
-                    &request.web_reader,
+                    agent_tools::ToolExecutionContext {
+                        app: &app,
+                        workspace_root: &knowledge_root,
+                        my_info_root: &my_info_root,
+                        locale: &request.locale,
+                        excluded_prefixes: &excluded_prefixes,
+                        web_reader: &request.web_reader,
+                    },
                 )
                 .await;
                 if tc.name == "suggest_memory" && result.success {

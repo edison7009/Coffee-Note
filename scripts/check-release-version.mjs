@@ -11,8 +11,15 @@ const cargoManifest = readFileSync(
   new URL('../src-tauri/Cargo.toml', import.meta.url),
   'utf8',
 );
+const cargoLock = readFileSync(
+  new URL('../src-tauri/Cargo.lock', import.meta.url),
+  'utf8',
+);
 const cargoVersion = cargoManifest.match(
   /^\s*version\s*=\s*"([^"]+)"\s*$/m,
+)?.[1];
+const cargoLockVersion = cargoLock.match(
+  /\[\[package\]\]\r?\nname = "coffee-note"\r?\nversion = "([^"]+)"/,
 )?.[1];
 const websiteVersion = JSON.parse(
   readFileSync(new URL('../website/version.json', import.meta.url), 'utf8'),
@@ -23,6 +30,7 @@ const versions = {
   'package-lock.json packages[""]': packageLock.packages?.['']?.version,
   'src-tauri/tauri.conf.json': tauriConfig.version,
   'src-tauri/Cargo.toml': cargoVersion,
+  'src-tauri/Cargo.lock': cargoLockVersion,
   'website/version.json': websiteVersion,
 };
 const uniqueVersions = new Set(Object.values(versions));
