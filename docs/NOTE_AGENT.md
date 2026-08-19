@@ -1,6 +1,6 @@
-# Coffee Note Note Agent
+# TierNote Note Agent
 
-Coffee Note is a **Note Agent**, not a coding agent or a general-purpose shell
+TierNote is a **Note Agent**, not a coding agent or a general-purpose shell
 harness. Its job is to make a user's notes useful, searchable, and cheap to
 maintain.
 
@@ -19,7 +19,7 @@ maintain.
 
 ## Note Agent vs. coding agent
 
-| Coding agent | Coffee Note Note Agent |
+| Coding agent | TierNote Note Agent |
 | --- | --- |
 | edits source files and runs commands | curates Markdown notes and plans |
 | optimizes for implementation speed | optimizes for clarity, recall, and cost |

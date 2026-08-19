@@ -2,7 +2,7 @@
 
 ## Open-Meteo
 
-Coffee Note's optional weather panel uses geocoding and forecast data from
+TierNote's optional weather panel uses geocoding and forecast data from
 [Open-Meteo](https://open-meteo.com/). Home itself shows only the compact
 condition image and read-only forecast; the Open-Meteo attribution appears in
 Settings > Appearance alongside the weather configuration. Open-Meteo combines open data
@@ -10,12 +10,12 @@ from multiple national weather services; its API data is provided under the
 [Creative Commons Attribution 4.0 International licence](https://creativecommons.org/licenses/by/4.0/).
 
 The no-key public endpoint is suitable for development and non-commercial use.
-A commercial Coffee Note release must use an appropriately licensed endpoint or a
+A commercial TierNote release must use an appropriately licensed endpoint or a
 compliant self-hosted/proxied deployment.
 
 ## models.dev
 
-Coffee Note reads provider names, API endpoints, model capabilities, context limits,
+TierNote reads provider names, API endpoints, model capabilities, context limits,
 pricing metadata, and provider logo assets from
 [anomalyco/models.dev](https://github.com/anomalyco/models.dev). The catalog is
 cached only in the current user's app-data directory. Provider names and logos
@@ -45,7 +45,7 @@ SOFTWARE.
 
 ## DeepSeek-Reasonix
 
-Coffee Note's staged context maintenance and provider cache-usage normalization
+TierNote's staged context maintenance and provider cache-usage normalization
 were adapted from ideas and implementation patterns in
 [esengine/DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix),
 reviewed at commit `2c54501`.

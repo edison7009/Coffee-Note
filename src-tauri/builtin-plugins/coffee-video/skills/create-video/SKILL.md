@@ -5,7 +5,7 @@ description: Create an MP4 video from copy, notes, workspace documents, or conve
 
 # Create video
 
-Create the video with Coffee Note's shared image, speech, and video runtimes. Never install a
+Create the video with TierNote's shared image, speech, and video runtimes. Never install a
 package, start a service, or generate Remotion/Python source code for the user to run.
 Apply the bundled Cinematic storyboard specification before generating any scene asset.
 

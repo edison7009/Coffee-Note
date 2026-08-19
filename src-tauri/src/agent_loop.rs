@@ -1,4 +1,4 @@
-// General-purpose workspace ReAct loop for Coffee Note.
+// General-purpose workspace ReAct loop for TierNote.
 // Streams text + tool calls to the frontend via Tauri events.
 
 use serde::{Deserialize, Serialize};
@@ -388,7 +388,7 @@ fn build_system_prompt(locale: &str) -> String {
         "使用简体中文回答。"
     };
     format!(
-        "You are Coffee Note, a local-first general-purpose workspace agent with tool-calling ability. \
+        "You are TierNote, a local-first general-purpose workspace agent with tool-calling ability. \
          The user's currently selected directory is your working directory. It may be a code repository, \
          a writing project, a collection of notes, or any other folder. Never assume it follows a note \
          architecture and never invent Inbox or other fixed subdirectories. Notes are only one common \
@@ -405,7 +405,7 @@ fn build_system_prompt(locale: &str) -> String {
          and 'content'. It saves to the workspace root unless the user requests a relative Markdown path. \
          Do not create a category directory automatically. If a tool call is rejected for missing, empty, \
          or malformed arguments, fix the arguments and retry with a complete JSON object. \
-         Coffee Note-specific features such as My Contexts, semantic Markdown search, and the optional \
+         TierNote-specific features such as My Contexts, semantic Markdown search, and the optional \
          T1–T5 priority view are capabilities, not required workspace structure. Use update_plan only when \
          the user explicitly asks to update a My Contexts page. Use search_library/read_note only for \
          semantic note retrieval, and update_tier only when the user explicitly asks for T1–T5 priority. \
@@ -604,7 +604,7 @@ fn snip_tool_result(content: &str) -> String {
         .skip(count - SNIPPED_TOOL_TAIL_CHARS)
         .collect::<String>();
     format!(
-        "{head}\n\n[… Coffee Note locally snipped {} characters from this stale tool result …]\n\n{tail}",
+        "{head}\n\n[… TierNote locally snipped {} characters from this stale tool result …]\n\n{tail}",
         count - SNIPPED_TOOL_HEAD_CHARS - SNIPPED_TOOL_TAIL_CHARS
     )
 }
@@ -629,7 +629,7 @@ fn maintain_stale_tool_results(messages: &mut [Message], prune: bool) {
             }
             *content = if prune {
                 format!(
-                    "[Coffee Note pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
+                    "[TierNote pruned a stale tool result locally; original preserved in conversation history, {} bytes]",
                     content.len()
                 )
             } else {
@@ -1279,10 +1279,10 @@ pub async fn run_agent(
         if finalizing {
             let final_text = if text_accum.trim().is_empty() {
                 if request.locale == "en" {
-                    "Coffee Note reached its emergency safety limit. Completed tool results were preserved, but the model did not return a final status."
+                    "TierNote reached its emergency safety limit. Completed tool results were preserved, but the model did not return a final status."
                         .to_string()
                 } else {
-                    "Coffee Note 已达到异常安全上限。已完成的工具结果均已保留，但模型没有返回最终说明。"
+                    "TierNote 已达到异常安全上限。已完成的工具结果均已保留，但模型没有返回最终说明。"
                         .to_string()
                 }
             } else {

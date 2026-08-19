@@ -49,7 +49,7 @@ test('plugin source form only asks for Git address and category', () => {
   assert.match(settingsSource, /编辑技能插件|Edit skill plugin/);
   assert.doesNotMatch(settingsSource, /modal-backdrop|aria-modal|title=|window\.confirm|plugin-dialog|askConfirmation/);
   assert.match(settingsSource, /一个插件可以包含多个小技能/);
-  assert.match(settingsSource, /支持 Coffee 插件清单/);
+  assert.match(settingsSource, /支持 TierNote 插件清单/);
   assert.match(cssSource, /\.skills-package-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/s);
 });
 

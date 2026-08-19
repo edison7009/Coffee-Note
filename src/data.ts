@@ -1,8 +1,8 @@
 import type { LibrarySnapshot } from './types';
 
 export const fallbackLibrary: LibrarySnapshot = {
-  root: 'Coffee Note Library',
-  myInfoRoot: 'Coffee Note Contexts',
+  root: 'TierNote Library',
+  myInfoRoot: 'TierNote Contexts',
   connected: true,
   priorities: [],
   people: [],

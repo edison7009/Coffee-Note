@@ -1,10 +1,12 @@
-# Coffee Note agent notes
+# TierNote agent notes
 
-Coffee Note is a sister product forked from the original longevity app. Its visible
-product name is **Coffee Note**. The repository directory uses `Coffee-Note`;
-internal package names, storage keys, and identifiers use `coffee-note` or
-`CoffeeNote` where spaces are invalid; the reverse-domain bundle identifier is
-`app.coffeenote.desktop`.
+TierNote is a sister product forked from the original longevity app. Its visible
+product name is **TierNote**. The repository directory and developer package
+names use `TierNote` or `tiernote`. Persisted v0.1.8 identifiers intentionally
+remain `app.coffeenote.desktop`, the `Coffee Note` app-data directory,
+`.coffee-note` workspace metadata, and `coffee-note:` browser storage keys so
+existing users keep their local data after upgrading. Do not rename those
+legacy identifiers without an explicit, tested migration.
 The copied longevity content is transitional and will be replaced with a clean,
 general-purpose note model. The homepage tier list remains the core experience.
 

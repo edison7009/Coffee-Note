@@ -1,7 +1,7 @@
 #!/bin/sh
-# Coffee Note installer / updater for macOS / Linux
-# Usage: curl -fsSL https://note.coffeecli.com/install.sh | sh
-# License: AGPL-3.0-or-later (https://github.com/edison7009/Coffee-Note/blob/main/LICENSE)
+# TierNote installer / updater for macOS / Linux
+# Usage: curl -fsSL https://tiernote.org/install.sh | sh
+# License: AGPL-3.0-or-later (https://github.com/edison7009/TierNote/blob/main/LICENSE)
 
 set -e
 
@@ -13,7 +13,7 @@ RED=$(printf '\033[0;31m')
 RESET=$(printf '\033[0m')
 
 echo ""
-echo "  ${CYAN}Coffee Note Installer${RESET}"
+echo "  ${CYAN}TierNote Installer${RESET}"
 echo "  ${GRAY}------------------------${RESET}"
 echo "  Checking the latest release..." "${GRAY}"
 
@@ -55,9 +55,9 @@ esac
 LATEST_VERSION=""
 DOWNLOAD_URL=""
 # Primary source: the static version.json on the site.
-LATEST_VERSION=$(curl -fsSL --max-time 10 "https://note.coffeecli.com/version.json?platform=$PLATFORM" 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+LATEST_VERSION=$(curl -fsSL --max-time 10 "https://tiernote.org/version.json?platform=$PLATFORM" 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 if [ -n "$LATEST_VERSION" ]; then
-  DOWNLOAD_URL="https://note.coffeecli.com/download/$PLATFORM"
+  DOWNLOAD_URL="https://tiernote.org/download/$PLATFORM"
 fi
 
 if [ -z "$LATEST_VERSION" ] || [ -z "$DOWNLOAD_URL" ]; then
@@ -68,7 +68,7 @@ fi
 
 echo "  Latest   : v$LATEST_VERSION"
 
-TMP_FILE="$(mktemp -t coffee-note-XXXXXX)"
+TMP_FILE="$(mktemp -t tiernote-XXXXXX)"
 trap 'rm -f "$TMP_FILE"' EXIT
 
 echo "  Downloading..." "${GRAY}"
@@ -87,7 +87,7 @@ fi
 # /download Worker route is not deployed yet), retry from GitHub directly.
 if [ -n "$FALLBACK_PATTERN" ] && head -c 1 "$TMP_FILE" 2>/dev/null | grep -q '<'; then
   echo "  Website download unavailable, trying GitHub directly..." "${GRAY}"
-  GH_RELEASE="$(curl -fsSL --max-time 15 "https://api.github.com/repos/edison7009/Coffee-Note/releases/latest" 2>/dev/null || true)"
+  GH_RELEASE="$(curl -fsSL --max-time 15 "https://api.github.com/repos/edison7009/TierNote/releases/latest" 2>/dev/null || true)"
   GH_URL="$(printf '%s' "$GH_RELEASE" | grep -o '"browser_download_url":[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' | grep "$FALLBACK_PATTERN" | head -1)"
   if [ -n "$GH_URL" ]; then
     LATEST_VERSION="$(printf '%s' "$GH_RELEASE" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | sed 's/^v//')"
@@ -107,23 +107,29 @@ if [ "$OS" = "Darwin" ]; then
   APP=$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" | head -1)
   if [ -z "$APP" ]; then
     hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
-    echo "  ${RED}No Coffee Note.app found in the installer.${RESET}"
+    echo "  ${RED}No TierNote.app found in the installer.${RESET}"
     exit 1
   fi
-  ditto "$APP" "/Applications/Coffee Note.app"
+  ditto "$APP" "/Applications/TierNote.app"
   hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+
+  # The v0.1.8 product used the old visible application path. Remove it only
+  # after the TierNote copy succeeds; local app data remains untouched.
+  if [ -d "/Applications/Coffee Note.app" ]; then
+    rm -rf "/Applications/Coffee Note.app"
+  fi
 
   # Strip com.apple.quarantine that curl-downloaded files inherit. On
   # Apple Silicon macOS 14+, Gatekeeper silently refuses to launch
   # adhoc-signed apps that still carry quarantine. Remove the xattr so
   # LaunchServices trusts this binary (same as EchoBird).
-  xattr -dr com.apple.quarantine "/Applications/Coffee Note.app" 2>/dev/null || true
+  xattr -dr com.apple.quarantine "/Applications/TierNote.app" 2>/dev/null || true
 
   echo ""
-  echo "  ${GREEN}Coffee Note v$LATEST_VERSION is installed.${RESET}"
+  echo "  ${GREEN}TierNote v$LATEST_VERSION is installed.${RESET}"
   echo "  Launch it from /Applications or Spotlight."
   echo "  macOS first launch: if it won't open, run in Terminal:"
-  echo "    xattr -cr '/Applications/Coffee Note.app'"
+  echo "    xattr -cr '/Applications/TierNote.app'"
 else
   echo "  Opening the downloaded package..." "${GRAY}"
   # Linux: the asset is a deb/rpm/AppImage; hand it to the user's tooling.
@@ -136,14 +142,14 @@ else
       sudo dpkg -i "./$FILE_NAME" || { sudo apt-get install -f -y >/dev/null 2>&1; sudo dpkg -i "./$FILE_NAME"; }
       rm -f "./$FILE_NAME"
       echo ""
-      echo "  ${GREEN}Coffee Note v$LATEST_VERSION is installed.${RESET}"
+      echo "  ${GREEN}TierNote v$LATEST_VERSION is installed.${RESET}"
       ;;
     *.rpm)
       echo "  Installing with rpm... (sudo)"
       sudo rpm -i "./$FILE_NAME" 2>/dev/null || sudo rpm -U "./$FILE_NAME"
       rm -f "./$FILE_NAME"
       echo ""
-      echo "  ${GREEN}Coffee Note v$LATEST_VERSION is installed.${RESET}"
+      echo "  ${GREEN}TierNote v$LATEST_VERSION is installed.${RESET}"
       ;;
     *)
       echo ""

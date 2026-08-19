@@ -3,31 +3,31 @@
 </p>
 
 <div align="center">
-  <img src="app-icon.png" width="96" height="96" alt="Coffee Note 图标">
-  <h1>Coffee Note</h1>
+  <img src="app-icon.png" width="96" height="96" alt="TierNote 图标">
+  <h1>TierNote</h1>
 
   <p>
-    <a href="https://github.com/edison7009/Coffee-Note/releases/latest"><img alt="最新版本" src="https://img.shields.io/github/v/release/edison7009/Coffee-Note?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
-    <a href="https://github.com/edison7009/Coffee-Note/actions/workflows/release.yml"><img alt="发布构建" src="https://img.shields.io/github/actions/workflow/status/edison7009/Coffee-Note/release.yml?label=release&amp;logo=github"></a>
+    <a href="https://github.com/edison7009/TierNote/releases/latest"><img alt="最新版本" src="https://img.shields.io/github/v/release/edison7009/TierNote?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
+    <a href="https://github.com/edison7009/TierNote/actions/workflows/release.yml"><img alt="发布构建" src="https://img.shields.io/github/actions/workflow/status/edison7009/TierNote/release.yml?label=release&amp;logo=github"></a>
     <img alt="支持平台" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555555">
     <a href="LICENSE"><img alt="AGPL-3.0-or-later 许可证" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg"></a>
   </p>
 
   <p>
-    <a href="https://note.coffeecli.com/">官网</a> ·
-    <a href="https://github.com/edison7009/Coffee-Note/releases/latest">下载</a> ·
+    <a href="https://tiernote.org/">官网</a> ·
+    <a href="https://github.com/edison7009/TierNote/releases/latest">下载</a> ·
     <a href="README.md">English</a> ·
-    <a href="https://github.com/edison7009/Coffee-Note/issues">问题反馈</a>
+    <a href="https://github.com/edison7009/TierNote/issues">问题反馈</a>
   </p>
 </div>
 
 <p align="center">
-  <img src="website/screenshots/home-zh.png" width="100%" alt="Coffee Note 桌面端首页">
+  <img src="website/screenshots/home-zh.png" width="100%" alt="TierNote 桌面端首页">
 </p>
 
 ## 项目概览
 
-Coffee Note 是围绕本地 Markdown 文件构建的跨平台桌面 Note Agent。产品核心是一张可编辑的 **T1–T5 优先级地图**：重要笔记始终保持可见，AI 可以检索、整理、总结与创作，但不会把笔记软件变成编程工具或任务管理器。
+TierNote 是围绕本地 Markdown 文件构建的跨平台桌面 Note Agent。产品核心是一张可编辑的 **T1–T5 优先级地图**：重要笔记始终保持可见，AI 可以检索、整理、总结与创作，但不会把笔记软件变成编程工具或任务管理器。
 
 | 项目 | 当前状态 |
 | --- | --- |
@@ -53,18 +53,18 @@ Coffee Note 是围绕本地 Markdown 文件构建的跨平台桌面 Note Agent�
 
 ## 安装
 
-可以从 [GitHub 最新版本](https://github.com/edison7009/Coffee-Note/releases/latest) 下载对应安装包，或使用远程安装命令。
+可以从 [GitHub 最新版本](https://github.com/edison7009/TierNote/releases/latest) 下载对应安装包，或使用远程安装命令。
 
 **Windows PowerShell**
 
 ```powershell
-irm https://note.coffeecli.com/install.ps1 | iex
+irm https://tiernote.org/install.ps1 | iex
 ```
 
 **macOS / Linux**
 
 ```bash
-curl -fsSL https://note.coffeecli.com/install.sh | sh
+curl -fsSL https://tiernote.org/install.sh | sh
 ```
 
 ## 支持平台
@@ -142,7 +142,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - 笔记库与完整对话记录默认保存在当前电脑上。
 - 只有用户主动发起模型请求时，所选上下文才会发送给已配置的模型服务商。
 - 知识库访问会进行路径限定和 canonicalize 检查，阻止越过所选根目录。
-- 模型配置（包括 API Key）仅以明文 JSON 保存在当前用户的 Coffee Note 应用数据目录，不会写入仓库或笔记库。
+- 模型配置（包括 API Key）仅以明文 JSON 保存在当前用户的 TierNote 应用数据目录，不会写入仓库或笔记库。
 - 本地笔记工作流不依赖遥测服务。
 
 ## 发布流程
@@ -151,18 +151,18 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 ## 开源协议与商业授权
 
-**开源版** — Coffee Note 采用
+**开源版** — TierNote 采用
 [GNU Affero 通用公共许可证 v3 或更高版本（AGPL-3.0-or-later）](LICENSE)，
 永久免费，企业可原样使用。向他人分发修改版本，或通过网络向用户提供修改版本时，
 必须遵守 AGPL 的源码提供义务。历史 MIT 授权说明见 [NOTICE](NOTICE)，第三方组件
 与许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 **企业采购 / 商业授权** — 仅当需要跳出 AGPL 开源义务时才需付费商业授权：
-**定制 Coffee Note 并保持改动闭源**、**以自有品牌 / 白标对外分发**，或
+**定制 TierNote 并保持改动闭源**、**以自有品牌 / 白标对外分发**，或
 **嵌入贵司要分发的商业产品**。也提供**定制开发、优先支持与 SLA**。
 告诉我们贵司的用途与需求，我们按需出方案与报价。
 
-联系采购：**[hi@coffeecli.com](mailto:hi@coffeecli.com?subject=Coffee%20Note%20Enterprise)**
+联系采购：**[hi@coffeecli.com](mailto:hi@coffeecli.com?subject=TierNote%20Enterprise)**
 
 **贡献代码** — 参见 [CONTRIBUTING.md](CONTRIBUTING.md)。项目通过 CLA 接收贡献，
 以保留提供商业授权的能力。

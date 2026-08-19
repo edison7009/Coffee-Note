@@ -5,7 +5,7 @@ description: Create an editable PowerPoint presentation from selected notes, wor
 
 # Create presentation
 
-Create the deck with Coffee Note's shared presentation runtime. Never install a package,
+Create the deck with TierNote's shared presentation runtime. Never install a package,
 start a separate service, or generate source code for the user to run.
 
 1. Read the selected notes or requested workspace sources before planning the deck.

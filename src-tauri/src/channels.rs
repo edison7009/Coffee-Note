@@ -1,8 +1,8 @@
-//! Local messaging channels for Coffee Note.
+//! Local messaging channels for TierNote.
 //!
 //! The Weixin transport follows Tencent's MIT-licensed `openclaw-weixin`
 //! implementation and public iLink HTTP/JSON protocol. Linked private chats are
-//! alternate entry points into Coffee Note's regular local conversation agent.
+//! alternate entry points into TierNote's regular local conversation agent.
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
@@ -486,7 +486,7 @@ fn weixin_headers(token: Option<&str>) -> reqwest::header::HeaderMap {
 fn weixin_base_info() -> Value {
     json!({
         "channel_version": CHANNEL_VERSION,
-        "bot_agent": format!("CoffeeNote/{CHANNEL_VERSION}")
+        "bot_agent": format!("TierNote/{CHANNEL_VERSION}")
     })
 }
 
@@ -739,7 +739,7 @@ pub async fn connect_telegram(
     let bot_name = response
         .pointer("/result/username")
         .and_then(Value::as_str)
-        .unwrap_or("Coffee Note bot");
+        .unwrap_or("TierNote bot");
     let settings = mutate_settings(|settings| {
         settings.telegram.enabled = true;
         settings.telegram.bot_token = token.to_string();
@@ -1303,7 +1303,7 @@ async fn telegram_loop(app: AppHandle, cancel: CancellationToken) {
                             let _ = telegram_send(
                                 &token,
                                 &chat_id,
-                                "Coffee Note 已连接。现在可以像在客户端一样直接对话；发送链接时，AI 也可以整理并保存为本地笔记。",
+                                "TierNote 已连接。现在可以像在客户端一样直接对话；发送链接时，AI 也可以整理并保存为本地笔记。",
                             )
                             .await;
                             set_status(&app, "telegram", "connected", "");

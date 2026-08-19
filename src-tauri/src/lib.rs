@@ -36,22 +36,20 @@ const MAX_CAPTURE_INPUT_BYTES: usize = 180_000;
 const MAX_CAPTURE_DOWNLOAD_BYTES: usize = 600_000;
 const MAX_CAPTURE_SOURCE_BYTES: usize = 110_000;
 const MAX_RESEARCH_CONTEXT_BYTES: usize = 32_000;
-const LATEST_RELEASE_API: &str =
-    "https://api.github.com/repos/edison7009/Coffee-Note/releases/latest";
-const WEBSITE_VERSION_API: &str = "https://note.coffeecli.com/version.json?platform=windows";
+const LATEST_RELEASE_API: &str = "https://api.github.com/repos/edison7009/TierNote/releases/latest";
+const WEBSITE_VERSION_API: &str = "https://tiernote.org/version.json?platform=windows";
 #[cfg(target_os = "windows")]
-const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://note.coffeecli.com/download/windows";
+const WEBSITE_WINDOWS_DOWNLOAD: &str = "https://tiernote.org/download/windows";
 #[cfg(target_os = "windows")]
-const RELEASE_DOWNLOAD_PREFIX: &str =
-    "https://github.com/edison7009/Coffee-Note/releases/download/";
+const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/edison7009/TierNote/releases/download/";
 const TRANSCRIPTION_CONFIG_FILE: &str = "transcription.json";
 const IMAGE_SETTINGS_CONFIG_FILE: &str = "image-models.json";
 const LEGACY_MULTIMODAL_CONFIG_FILE: &str = "multimodal.json";
 const MAX_AGENT_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
 const TIER_ORDER_RELATIVE_PATH: &str = ".coffee-note/tier-order.json";
-pub(crate) const MODEL_APP_URL: &str = "https://note.coffeecli.com";
-pub(crate) const MODEL_APP_TITLE: &str = "Coffee Note";
+pub(crate) const MODEL_APP_URL: &str = "https://tiernote.org";
+pub(crate) const MODEL_APP_TITLE: &str = "TierNote";
 include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
 
 #[derive(Debug, Clone, Serialize)]
@@ -440,20 +438,22 @@ impl From<LegacyModelConfig> for ModelSettings {
 
 pub(crate) fn app_data_dir() -> PathBuf {
     let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    // Keep the v0.1.8 data location so the rebrand does not strand provider
+    // credentials, conversations, plugins, or message-channel state.
     base.join("Coffee Note")
 }
 
-fn coffee_note_home() -> PathBuf {
+fn legacy_workspace_home() -> PathBuf {
     let base = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     base.join(".coffee-note")
 }
 
 fn my_info_root() -> PathBuf {
-    coffee_note_home().join("我的资料")
+    legacy_workspace_home().join("我的资料")
 }
 
 fn default_knowledge_root() -> PathBuf {
-    coffee_note_home().join("我的笔记(演示)")
+    legacy_workspace_home().join("我的笔记(演示)")
 }
 
 fn model_config_path() -> PathBuf {
@@ -551,7 +551,7 @@ async fn check_transcription_config(
             .post(endpoint)
             .header("Content-Type", "application/octet-stream"),
     }
-    .header("User-Agent", "Coffee Note");
+    .header("User-Agent", "TierNote");
     request = match provider.protocol.as_str() {
         "deepgram" => request.header(
             "Authorization",
@@ -3226,7 +3226,7 @@ async fn fetch_capture_source(url: &reqwest::Url) -> Result<String, String> {
         .ok_or_else(|| "The source URL has no usable port".to_string())?;
     let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(35))
-        .user_agent("Coffee-Note/0.0.1")
+        .user_agent("TierNote/0.0.1")
         .redirect(reqwest::redirect::Policy::custom({
             let source_host = source_host.clone();
             move |attempt| {
@@ -3534,7 +3534,7 @@ async fn prepare_capture(request: PrepareCaptureRequest) -> Result<CaptureDraft,
         "使用简体中文撰写笔记。"
     };
     let system_prompt = format!(
-        "You organize source material for Coffee Note, a local-first Markdown knowledge library. \
+        "You organize source material for TierNote, a local-first Markdown knowledge library. \
          Preserve factual nuance and clearly distinguish source material from inference. Never invent a \
          fact, result, limitation, quotation, or source. If information is absent, say it is not stated. \
          {language_rule} Return JSON only with exactly two string \
@@ -3643,7 +3643,7 @@ async fn plan_research_query(request: &ChatRequest) -> Option<String> {
 fn research_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(format!(
-            "Coffee-Note/{} (scientific evidence search)",
+            "TierNote/{} (scientific evidence search)",
             env!("CARGO_PKG_VERSION")
         ))
         .timeout(Duration::from_secs(28))
@@ -3681,7 +3681,7 @@ async fn search_pubmed(
             ("retmode", "json"),
             ("retmax", "4"),
             ("sort", "relevance"),
-            ("tool", "Coffee Note"),
+            ("tool", "TierNote"),
         ])
         .send()
         .await
@@ -3703,7 +3703,7 @@ async fn search_pubmed(
             ("db", "pubmed"),
             ("id", joined_ids.as_str()),
             ("retmode", "json"),
-            ("tool", "Coffee Note"),
+            ("tool", "TierNote"),
         ])
         .send()
         .await
@@ -3743,7 +3743,7 @@ async fn search_pubmed(
             ("id", joined_ids.as_str()),
             ("rettype", "abstract"),
             ("retmode", "xml"),
-            ("tool", "Coffee Note"),
+            ("tool", "TierNote"),
         ])
         .send()
         .await
@@ -4082,7 +4082,7 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
         "使用简体中文回答。"
     };
     let system_prompt = format!(
-        "You are Coffee Note, a local-first general-purpose workspace assistant. \
+        "You are TierNote, a local-first general-purpose workspace assistant. \
          The selected directory may be a code repository, writing project, note collection, or any other \
          workspace. Do not assume a fixed note architecture and do not refuse programming or other \
          non-note work. Use supplied local context when it is relevant, and cite its file path in \
@@ -4138,7 +4138,7 @@ async fn chat_completion(request: ChatRequest) -> Result<String, String> {
 
 fn release_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent(format!("Coffee-Note/{}", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("TierNote/{}", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| format!("Unable to prepare the update request: {error}"))
@@ -4292,7 +4292,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
         }
 
         let expected_size = expected_asset_size.max(response.content_length().unwrap_or(0));
-        let installer_path = std::env::temp_dir().join("Coffee-Note-update-setup.exe");
+        let installer_path = std::env::temp_dir().join("TierNote-update-setup.exe");
         let mut installer = fs::File::create(&installer_path)
             .map_err(|error| format!("Unable to create the update installer: {error}"))?;
         let mut downloaded = 0_u64;
@@ -4504,7 +4504,7 @@ fn configure_tray_menu(app: &tauri::AppHandle, locale: &str) -> tauri::Result<()
     let quit = MenuItem::with_id(app, "quit", quit_label, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_app, &quit])?;
     let tray = app.tray_by_id("main").ok_or_else(|| {
-        tauri::Error::AssetNotFound("Coffee Note tray icon was not initialized".into())
+        tauri::Error::AssetNotFound("TierNote tray icon was not initialized".into())
     })?;
     tray.set_menu(Some(menu))
 }
@@ -4639,7 +4639,7 @@ pub fn run() {
         ])
         .manage(transcription::TranscriptionDownloadState::default())
         .run(tauri::generate_context!())
-        .expect("error while running Coffee Note");
+        .expect("error while running TierNote");
 }
 
 #[cfg(test)]
@@ -5616,8 +5616,8 @@ mod tests {
             let request = String::from_utf8_lossy(&request_bytes[..read]);
             let request_headers = request.to_ascii_lowercase();
             assert!(request.starts_with("POST /v1/chat/completions "));
-            assert!(request_headers.contains("http-referer: https://note.coffeecli.com"));
-            assert!(request_headers.contains("x-openrouter-title: coffee note"));
+            assert!(request_headers.contains("http-referer: https://tiernote.org"));
+            assert!(request_headers.contains("x-openrouter-title: tiernote"));
             assert!(request.contains("\"max_tokens\":3000"));
             assert!(request.contains("\"reasoning_effort\":\"high\""));
             let model_content =
@@ -5698,8 +5698,8 @@ mod tests {
             let request_headers = request.to_ascii_lowercase();
             assert!(request.starts_with("POST /v1/messages "));
             assert!(request_headers.contains("x-api-key: test-key"));
-            assert!(request_headers.contains("http-referer: https://note.coffeecli.com"));
-            assert!(request_headers.contains("x-openrouter-title: coffee note"));
+            assert!(request_headers.contains("http-referer: https://tiernote.org"));
+            assert!(request_headers.contains("x-openrouter-title: tiernote"));
             assert!(request.contains("\"output_config\":{\"effort\":\"medium\"}"));
             assert!(request.contains("\"system\":\"System rule\""));
             let payload = json!({

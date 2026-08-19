@@ -16,7 +16,7 @@ const triples = {
 };
 const key = `${process.platform}-${process.arch}`;
 const triple = triples[key];
-if (!triple) throw new Error(`Coffee Video does not support the ${key} build target yet.`);
+if (!triple) throw new Error(`TierNote Video does not support the ${key} build target yet.`);
 
 const extension = process.platform === 'win32' ? '.exe' : '';
 const destination = path.join(
@@ -28,4 +28,4 @@ const destination = path.join(
 await mkdir(path.dirname(destination), { recursive: true });
 await copyFile(ffmpeg.path, destination);
 if (process.platform !== 'win32') await chmod(destination, 0o755);
-console.log(`Prepared Coffee Video encoder: ${path.relative(root, destination)}`);
+console.log(`Prepared TierNote Video encoder: ${path.relative(root, destination)}`);

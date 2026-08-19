@@ -66,7 +66,7 @@ test('non-Markdown files show a restrained unsupported-preview state', () => {
   assert.match(app, /filePreviewSupported && \(\s*<NoteView/s);
   assert.match(app, /!filePreviewSupported && \(\s*<UnsupportedFileView/s);
   assert.match(app, /if \(!isMarkdownFilePath\(filePath\)\) \{\s*setNoteMarkdown\(''\);\s*setNoteLoading\(false\);\s*return;/s);
-  assert.match(i18n, /此文件无法在 Coffee Note 中预览。/);
+  assert.match(i18n, /此文件无法在 TierNote 中预览。/);
   assert.match(i18n, /它已添加到下方 AI 对话/);
   assert.match(css, /\.unsupported-file-state\s*\{[^}]*min-height:\s*320px/s);
 });

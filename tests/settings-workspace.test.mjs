@@ -10,7 +10,7 @@ const desktopCapabilities = readFileSync(
 );
 
 test('desktop brand link keeps the current production domain', () => {
-  assert.match(appSource, /const PRODUCT_WEBSITE = 'https:\/\/note\.coffeecli\.com\/'/);
+  assert.match(appSource, /const PRODUCT_WEBSITE = 'https:\/\/tiernote\.org\/'/);
 });
 
 test('settings replaces the three-pane workspace instead of opening a modal', () => {
@@ -58,7 +58,7 @@ test('settings navigation rail stays compact', () => {
 test('settings footer stacks feedback above the product version', () => {
   assert.match(
     appSource,
-    /<div className="settings-sidebar-footer">[\s\S]*?FEEDBACK_URL[\s\S]*?Coffee Note · v\{APP_VERSION\}/s,
+    /<div className="settings-sidebar-footer">[\s\S]*?FEEDBACK_URL[\s\S]*?TierNote · v\{APP_VERSION\}/s,
   );
   assert.match(
     styles,

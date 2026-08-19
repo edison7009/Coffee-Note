@@ -98,12 +98,12 @@ jobs:
           if [ -z "$ID" ]; then
             ID=$(gh api --method POST "repos/${REPO}/releases" \
               -f tag_name="${TAG}" \
-              -f name="Coffee Note ${TAG}" \
-              -f body="Coffee Note ${TAG#v}
+              -f name="TierNote ${TAG}" \
+              -f body="TierNote ${TAG#v}
 
           This release includes the changes recorded in the repository history since the previous version.
 
-          Coffee Note is a local-first desktop workspace for organizing notes, priorities, and AI-assisted work, with Windows, macOS, and Linux builds.
+          TierNote is a local-first desktop workspace for organizing notes, priorities, and AI-assisted work, with Windows, macOS, and Linux builds.
 
           These binaries are not code-signed. Your operating system may display an unverified-developer warning." \
               -F draft=true \
@@ -218,16 +218,16 @@ jobs:
             --jq '.[] | "\(.id)\t\(.name)"' \
           | while IFS=$'\t' read -r ID NAME; do
               case "$NAME" in
-                *_x64-setup.exe)            NEW="Coffee.Note_${VERSION}_Windows_x64-setup.exe" ;;
-                *_x64_*.msi|*_x64.msi)      NEW="Coffee.Note_${VERSION}_Windows_x64.msi" ;;
-                *_aarch64.dmg)              NEW="Coffee.Note_${VERSION}_macOS_arm64.dmg" ;;
-                *_x64.dmg)                  NEW="Coffee.Note_${VERSION}_macOS_x64.dmg" ;;
-                *_amd64.deb)                NEW="Coffee.Note_${VERSION}_Linux_x64.deb" ;;
-                *.x86_64.rpm)               NEW="Coffee.Note_${VERSION}_Linux_x64.rpm" ;;
-                *_arm64.deb)                NEW="Coffee.Note_${VERSION}_Linux_arm64.deb" ;;
-                *.aarch64.rpm)              NEW="Coffee.Note_${VERSION}_Linux_arm64.rpm" ;;
+                *_x64-setup.exe)            NEW="TierNote_${VERSION}_Windows_x64-setup.exe" ;;
+                *_x64_*.msi|*_x64.msi)      NEW="TierNote_${VERSION}_Windows_x64.msi" ;;
+                *_aarch64.dmg)              NEW="TierNote_${VERSION}_macOS_arm64.dmg" ;;
+                *_x64.dmg)                  NEW="TierNote_${VERSION}_macOS_x64.dmg" ;;
+                *_amd64.deb)                NEW="TierNote_${VERSION}_Linux_x64.deb" ;;
+                *.x86_64.rpm)               NEW="TierNote_${VERSION}_Linux_x64.rpm" ;;
+                *_arm64.deb)                NEW="TierNote_${VERSION}_Linux_arm64.deb" ;;
+                *.aarch64.rpm)              NEW="TierNote_${VERSION}_Linux_arm64.rpm" ;;
                 *_amd64.AppImage|*_x86_64.AppImage)
-                                              NEW="Coffee.Note_${VERSION}_Linux_x64.AppImage" ;;
+                                              NEW="TierNote_${VERSION}_Linux_x64.AppImage" ;;
                 *)                          NEW="" ;;
               esac
 

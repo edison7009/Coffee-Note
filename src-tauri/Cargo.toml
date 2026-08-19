@@ -1,14 +1,14 @@
 [package]
-name = "coffee-note"
+name = "tiernote"
 version = "0.1.8"
 description = "Local-first workspace agent with tier-based organization and AI assistance"
-authors = ["Coffee Team"]
+authors = ["TierNote Team"]
 license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "coffee_note_lib"
+name = "tiernote_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

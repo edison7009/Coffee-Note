@@ -2,7 +2,7 @@ import type { Locale } from './types';
 
 const messages = {
   zh: {
-    appName: 'Coffee Note',
+    appName: 'TierNote',
     home: '首页',
     aiChat: 'AI对话',
     myPlan: '我的设定',
@@ -42,7 +42,7 @@ const messages = {
     operationFailed: '操作失败',
     fileGone: '文件已不存在',
     contextFilesGone: '部分已选文件已不存在，已从 AI 对话中移除。',
-    filePreviewUnavailable: '此文件无法在 Coffee Note 中预览。',
+    filePreviewUnavailable: '此文件无法在 TierNote 中预览。',
     fileContextReady: '它已添加到下方 AI 对话，可直接让 AI 处理这个文件。',
     fileContextNotAttached: '可从左侧文件树或右键菜单重新添加到 AI 对话。',
     people: '选择',
@@ -127,7 +127,7 @@ const messages = {
     captureSub: '粘贴链接、文字或零散笔记，AI 整理后会直接进入对话。',
     captureStep1: '复制任何与当前目标有关的链接、文字或笔记。',
     captureStep2: '直接粘贴，不必先分类或改格式。',
-    captureStep3: '告诉 Coffee Note 你想看清什么选择，或下一步该做什么。',
+    captureStep3: '告诉 TierNote 你想看清什么选择，或下一步该做什么。',
     captureTranscriptionApi: '语音模型',
     captureTranscriptionLocal: '本地语音模型',
     captureTranscriptionPrefix: '语音识别方式：',
@@ -180,7 +180,7 @@ const messages = {
     peopleCard: '我的设定',
     peopleCardSub: '沉淀经验与教训，连接长期目标与短期计划',
     mapCard: '校准优先级',
-    mapCardSub: '拖动内容，告诉 Coffee Note 什么更重要',
+    mapCardSub: '拖动内容，告诉 TierNote 什么更重要',
     aiPlanCard: '与AI对话',
     aiPlanCardSub: '创造新文案、生成文档、PPT或视频，帮你搞定！',
     planTitle: '我的设定',
@@ -189,7 +189,7 @@ const messages = {
     comingSoon: '这里会逐步沉淀你的长期个人信息。',
   },
   en: {
-    appName: 'Coffee Note',
+    appName: 'TierNote',
     home: 'Home',
     aiChat: 'AI Chat',
     myPlan: 'My Contexts',
@@ -229,7 +229,7 @@ const messages = {
     operationFailed: 'Operation failed',
     fileGone: 'File no longer exists',
     contextFilesGone: 'Some selected files no longer exist and were removed from AI chat.',
-    filePreviewUnavailable: 'This file cannot be previewed in Coffee Note.',
+    filePreviewUnavailable: 'This file cannot be previewed in TierNote.',
     fileContextReady: 'It is attached to the AI chat below, ready for an AI request.',
     fileContextNotAttached: 'Add it to AI chat again from the file tree or context menu.',
     people: 'Choices',

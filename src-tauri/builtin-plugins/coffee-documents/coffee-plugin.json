@@ -4,7 +4,7 @@
   "name": "文档生成",
   "description": "把笔记、资料和对话内容整理为可编辑的 Word 文档或可直接分享的 PDF。",
   "version": "1.0.0",
-  "publisher": "Coffee Note",
+  "publisher": "TierNote",
   "categoryId": "copywriting",
   "runtime": {
     "id": "document-engine",

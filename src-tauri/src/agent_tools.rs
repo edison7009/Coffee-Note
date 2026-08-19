@@ -1,5 +1,5 @@
 // Agent tools for the selected local workspace. Note-specific tools remain
-// available as optional Coffee Note features, not as a required directory model.
+// available as optional TierNote features, not as a required directory model.
 
 use serde_json::{json, Value};
 use std::fs;
@@ -165,7 +165,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
                 'experience' for My experience, 'lessons' for My lessons, and \
                 'daily_routine' for key records. The legacy 'diet' module remains available \
                 for existing diet-plan content. Provide the complete Markdown page and preserve \
-                its established structure. Confirmed-memory sections are protected by Coffee Note \
+                its established structure. Confirmed-memory sections are protected by TierNote \
                 and must not be invented, copied, removed, or rewritten by the model."
                 .into(),
             parameters: json!({
@@ -435,7 +435,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
         },
         ToolDef {
             name: "create_video".into(),
-            description: "Compose an MP4 video in the user's configured generated-files directory from an ordered list of workspace images, generated narration, burned-in captions, and restrained pan/zoom motion. Generate every scene image first, then submit the complete timeline in one call. The runtime uses the user's configured speech service and the bundled Coffee Video encoder.".into(),
+            description: "Compose an MP4 video in the user's configured generated-files directory from an ordered list of workspace images, generated narration, burned-in captions, and restrained pan/zoom motion. Generate every scene image first, then submit the complete timeline in one call. The runtime uses the user's configured speech service and the bundled TierNote Video encoder.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -516,7 +516,7 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
             description: "Suggest one to three long-term memory candidates for the user to confirm. \
                 Use only for durable user-stated goals, preferences, constraints, corrections, profile facts, or health context that should help future conversations. \
                 This tool does not save memory; it only asks the frontend to show confirmation cards. \
-                Once confirmed, Coffee Note writes the fact into a visible page under My information and keeps only source metadata in its local memory index.".into(),
+                Once confirmed, TierNote writes the fact into a visible page under My information and keeps only source metadata in its local memory index.".into(),
             parameters: json!({
                 "type": "object",
                 "properties": {

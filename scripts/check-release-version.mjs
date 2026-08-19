@@ -19,7 +19,7 @@ const cargoVersion = cargoManifest.match(
   /^\s*version\s*=\s*"([^"]+)"\s*$/m,
 )?.[1];
 const cargoLockVersion = cargoLock.match(
-  /\[\[package\]\]\r?\nname = "coffee-note"\r?\nversion = "([^"]+)"/,
+  /\[\[package\]\]\r?\nname = "tiernote"\r?\nversion = "([^"]+)"/,
 )?.[1];
 const websiteVersion = JSON.parse(
   readFileSync(new URL('../website/version.json', import.meta.url), 'utf8'),

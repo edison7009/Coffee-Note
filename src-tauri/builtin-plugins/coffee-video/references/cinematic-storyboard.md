@@ -1,6 +1,6 @@
 # Cinematic storyboard specification
 
-Use this specification for both storyboard-only requests and rendered Coffee Video projects. It is
+Use this specification for both storyboard-only requests and rendered TierNote Video projects. It is
 model-neutral: direct what happens on screen before adapting syntax to a particular generator.
 
 ## Director brief
@@ -92,7 +92,7 @@ framing, or state. A motion prompt should explain what exists at the start, what
 exact end state. Avoid multiple competing camera moves, impossible choreography, unexplained style
 changes, and excessive cuts inside a short model clip.
 
-For the native Coffee Video fallback, the keyframe prompt must stand on its own as a strong still,
+For the native TierNote Video fallback, the keyframe prompt must stand on its own as a strong still,
 and the planned movement must map to `zoom-in`, `zoom-out`, `pan-left`, `pan-right`, or `still`.
 For a video model, keep the full temporal motion prompt and adapt provider syntax only after the
 model is known.
@@ -111,10 +111,10 @@ Before returning or rendering, verify:
 
 ## Influences
 
-This original Coffee Note specification was informed by the production-planning patterns in
+This original TierNote specification was informed by the production-planning patterns in
 [visual-skills](https://github.com/smixs/visual-skills) by Serge Shima (CC BY 4.0),
 [AI Video Storyboard Generator](https://github.com/aicontentskills/ai-video-storyboard-skill)
 (MIT), [Kling 3 Prompting Skill](https://github.com/aedev-tools/kling-3-prompting-skill)
 (Apache-2.0), and [Higgsfield AI Prompt Skill](https://github.com/OSideMedia/higgsfield-ai-prompt-skill)
-(MIT). Coffee Note's wording, model-neutral schema, dual keyframe/motion prompts, and native-runtime
+(MIT). TierNote's wording, model-neutral schema, dual keyframe/motion prompts, and native-runtime
 mapping are its own adaptation.

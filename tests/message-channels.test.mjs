@@ -31,7 +31,7 @@ test('Weixin follows Tencent iLink QR login and long polling', () => {
   assert.match(rustSource, /ilink\/bot\/get_qrcode_status/);
   assert.match(rustSource, /ilink\/bot\/getupdates/);
   assert.match(rustSource, /ilink\/bot\/sendmessage/);
-  assert.match(rustSource, /CoffeeNote\/\{CHANNEL_VERSION\}/);
+  assert.match(rustSource, /TierNote\/\{CHANNEL_VERSION\}/);
 });
 
 test('channel messages enter the shared persisted conversation agent', () => {
@@ -47,7 +47,7 @@ test('channel messages enter the shared persisted conversation agent', () => {
   assert.match(rustSource, /"message-conversation-updated"/);
   assert.doesNotMatch(rustSource, /process_capture|prepare_capture\(super::PrepareCaptureRequest|super::save_capture/);
   assert.doesNotMatch(rustSource, /收到，正在整理并保存/);
-  assert.match(settingsSource, /像在客户端一样与 Coffee Note 对话/);
+  assert.match(settingsSource, /像在客户端一样与 TierNote 对话/);
   assert.match(settingsSource, /手机对话会同步到客户端的对话记录/);
   assert.match(apiSource, /listenMessageConversationUpdated/);
   assert.match(appSource, /listenMessageConversationUpdated\(\(conversationId\)/);

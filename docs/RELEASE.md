@@ -1,4 +1,4 @@
-# Coffee Note 发布流程
+# TierNote 发布流程
 
 > 每次修改版本号、创建 tag 或发布 GitHub Release 前都必须重新阅读本文。
 > 核心顺序：**版本提交 → 本地预检 → 推送 main → 等 CI 全绿 → 创建 tag → 守到正式发布 → 验收下载**。
@@ -11,8 +11,8 @@
 git fetch origin main --tags
 git status --short
 git rev-list --left-right --count HEAD...origin/main
-gh run list --repo edison7009/Coffee-Note --workflow CI --limit 5
-gh run list --repo edison7009/Coffee-Note --workflow "Release desktop apps" --limit 5
+gh run list --repo edison7009/TierNote --workflow CI --limit 5
+gh run list --repo edison7009/TierNote --workflow "Release desktop apps" --limit 5
 ```
 
 - 必须在 `main` 上发布，且本地与 `origin/main` 同步。
@@ -27,8 +27,8 @@ gh run list --repo edison7009/Coffee-Note --workflow "Release desktop apps" --li
 | `package.json` | `version` |
 | `package-lock.json` | 顶层 `version` 和 `packages[""].version` |
 | `src-tauri/tauri.conf.json` | `version` |
-| `src-tauri/Cargo.toml` | Coffee Note package 的 `version` |
-| `src-tauri/Cargo.lock` | `name = "coffee-note"` 条目的 `version` |
+| `src-tauri/Cargo.toml` | TierNote package 的 `version` |
+| `src-tauri/Cargo.lock` | `name = "tiernote"` 条目的 `version` |
 | `website/version.json` | `version` |
 
 先用 npm 同步前两个文件，再精确修改其余四个文件：
@@ -50,7 +50,7 @@ npm run release:preflight
 
 它依次执行：
 
-1. 准备当前平台的 Coffee Video FFmpeg sidecar；
+1. 准备当前平台的 TierNote Video FFmpeg sidecar；
 2. 检查 6 个版本文件；
 3. TypeScript 类型检查、前端测试、双语资源检查和前端构建；
 4. Rust 格式检查、Clippy `-D warnings` 和完整 Rust 测试。
@@ -63,7 +63,7 @@ npm run release:preflight
 git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock website/version.json
 git commit -m "chore: bump version to X.Y.Z"
 git push origin main
-gh run list --repo edison7009/Coffee-Note --workflow CI --branch main --limit 3
+gh run list --repo edison7009/TierNote --workflow CI --branch main --limit 3
 ```
 
 找到与版本提交 SHA 对应的 CI run，并等待它 `completed/success`。CI 的前端与 Rust 质量门都必须成功后才能继续。
@@ -88,8 +88,8 @@ Linux arm64 必须使用原生 `ubuntu-24.04-arm` runner，不能改回 glib/pkg
 持续监控，不要在工作流刚启动或 Release 仍是 draft 时宣布完成：
 
 ```powershell
-gh run list --repo edison7009/Coffee-Note --workflow "Release desktop apps" --branch vX.Y.Z --limit 3
-gh run watch RUN_ID --repo edison7009/Coffee-Note --exit-status
+gh run list --repo edison7009/TierNote --workflow "Release desktop apps" --branch vX.Y.Z --limit 3
+gh run watch RUN_ID --repo edison7009/TierNote --exit-status
 ```
 
 ## 六、发布完成验收
@@ -99,17 +99,17 @@ gh run watch RUN_ID --repo edison7009/Coffee-Note --exit-status
 - GitHub Release 为非 draft、非 prerelease、latest；
 - tag 指向已经通过 main CI 的版本提交；
 - 共有 9 个附件：Windows EXE/MSI、macOS arm64/x64 DMG、Linux x64 DEB/RPM/AppImage、Linux arm64 DEB/RPM；
-- 附件名全部为 `Coffee.Note_X.Y.Z_*`；
-- `https://note.coffeecli.com/version.json?platform=windows` 返回 `{"version":"X.Y.Z"}`；
-- `https://note.coffeecli.com/download/windows` 返回 `application/octet-stream`，文件名为该版本 Windows EXE，不能是 HTML；
+- 附件名全部为 `TierNote_X.Y.Z_*`；
+- `https://tiernote.org/version.json?platform=windows` 返回 `{"version":"X.Y.Z"}`；
+- `https://tiernote.org/download/windows` 返回 `application/octet-stream`，文件名为该版本 Windows EXE，不能是 HTML；
 - 本地 `main` 与 `origin/main` 同步，工作区只剩明确保留的用户文件。
 
 常用检查：
 
 ```powershell
-gh release view vX.Y.Z --repo edison7009/Coffee-Note --json tagName,isDraft,isPrerelease,publishedAt,url,assets
-curl.exe -sS "https://note.coffeecli.com/version.json?platform=windows"
-curl.exe -sS -I "https://note.coffeecli.com/download/windows"
+gh release view vX.Y.Z --repo edison7009/TierNote --json tagName,isDraft,isPrerelease,publishedAt,url,assets
+curl.exe -sS "https://tiernote.org/version.json?platform=windows"
+curl.exe -sS -I "https://tiernote.org/download/windows"
 ```
 
 ## 七、版本同步 workflow 的真实行为

@@ -3,31 +3,31 @@
 </p>
 
 <div align="center">
-  <img src="app-icon.png" width="96" height="96" alt="Coffee Note icon">
-  <h1>Coffee Note</h1>
+  <img src="app-icon.png" width="96" height="96" alt="TierNote icon">
+  <h1>TierNote</h1>
 
   <p>
-    <a href="https://github.com/edison7009/Coffee-Note/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/edison7009/Coffee-Note?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
-    <a href="https://github.com/edison7009/Coffee-Note/actions/workflows/release.yml"><img alt="Release build" src="https://img.shields.io/github/actions/workflow/status/edison7009/Coffee-Note/release.yml?label=release&amp;logo=github"></a>
+    <a href="https://github.com/edison7009/TierNote/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/edison7009/TierNote?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
+    <a href="https://github.com/edison7009/TierNote/actions/workflows/release.yml"><img alt="Release build" src="https://img.shields.io/github/actions/workflow/status/edison7009/TierNote/release.yml?label=release&amp;logo=github"></a>
     <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555555">
     <a href="LICENSE"><img alt="AGPL-3.0-or-later license" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg"></a>
   </p>
 
   <p>
-    <a href="https://note.coffeecli.com/">Website</a> ·
-    <a href="https://github.com/edison7009/Coffee-Note/releases/latest">Download</a> ·
+    <a href="https://tiernote.org/">Website</a> ·
+    <a href="https://github.com/edison7009/TierNote/releases/latest">Download</a> ·
     <a href="README.zh-CN.md">简体中文</a> ·
-    <a href="https://github.com/edison7009/Coffee-Note/issues">Feedback</a>
+    <a href="https://github.com/edison7009/TierNote/issues">Feedback</a>
   </p>
 </div>
 
 <p align="center">
-  <img src="website/screenshots/home-en.png" width="100%" alt="Coffee Note desktop home">
+  <img src="website/screenshots/home-en.png" width="100%" alt="TierNote desktop home">
 </p>
 
 ## Overview
 
-Coffee Note is a cross-platform desktop note agent built around local Markdown files. Its core experience is an editable **T1–T5 priority map**: your most important notes stay visible, while AI can search, organize, summarize, and create without turning the app into a coding tool or task manager.
+TierNote is a cross-platform desktop note agent built around local Markdown files. Its core experience is an editable **T1–T5 priority map**: your most important notes stay visible, while AI can search, organize, summarize, and create without turning the app into a coding tool or task manager.
 
 | Project | Current state |
 | --- | --- |
@@ -53,18 +53,18 @@ Coffee Note is a cross-platform desktop note agent built around local Markdown f
 
 ## Install
 
-Download the appropriate installer from the [latest GitHub Release](https://github.com/edison7009/Coffee-Note/releases/latest), or use the remote installer:
+Download the appropriate installer from the [latest GitHub Release](https://github.com/edison7009/TierNote/releases/latest), or use the remote installer:
 
 **Windows PowerShell**
 
 ```powershell
-irm https://note.coffeecli.com/install.ps1 | iex
+irm https://tiernote.org/install.ps1 | iex
 ```
 
 **macOS / Linux**
 
 ```bash
-curl -fsSL https://note.coffeecli.com/install.sh | sh
+curl -fsSL https://tiernote.org/install.sh | sh
 ```
 
 ## Supported platforms
@@ -142,7 +142,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - Your note library and complete conversation records stay on your computer by default.
 - Only requests you initiate send the selected context to your configured model provider.
 - Knowledge-library access is path-scoped and canonicalized to block traversal outside the selected root.
-- Provider configuration, including API keys, is stored as plaintext JSON only in the current user's Coffee Note app-data directory. It is never written into this repository or the note library.
+- Provider configuration, including API keys, is stored as plaintext JSON only in the current user's TierNote app-data directory. It is never written into this repository or the note library.
 - No telemetry service is required for the local note workflow.
 
 ## Release process
@@ -151,7 +151,7 @@ Tags matching `v*` trigger quality checks and native builds for Windows x64, mac
 
 ## License & commercial use
 
-**Open-source edition** — Coffee Note is free, forever, under the
+**Open-source edition** — TierNote is free, forever, under the
 [GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)](LICENSE).
 Companies are welcome to use it as-is. Modified versions distributed to others,
 and modified versions offered to users over a network, must follow AGPL's source
@@ -159,13 +159,13 @@ availability requirements. See [NOTICE](NOTICE) for the legacy MIT notice and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party acknowledgements.
 
 **Commercial & enterprise licensing** — A paid commercial license is only
-needed when you want to step outside AGPL obligations: to customize Coffee Note
+needed when you want to step outside AGPL obligations: to customize TierNote
 and keep the changes closed-source, redistribute it under your own brand or as a
 white-label product, or embed it in a proprietary product you distribute. Custom
 development, priority support, and SLAs are also available. Tell us what you are
 building and we will tailor a plan and quote.
 
-Contact sales: **[hi@coffeecli.com](mailto:hi@coffeecli.com?subject=Coffee%20Note%20Enterprise)**
+Contact sales: **[hi@coffeecli.com](mailto:hi@coffeecli.com?subject=TierNote%20Enterprise)**
 
 **Contributing** — See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are
 accepted under the project CLA so commercial relicensing remains possible.

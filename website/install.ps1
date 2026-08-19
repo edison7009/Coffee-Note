@@ -1,21 +1,21 @@
-# Coffee Note installer / updater for Windows
-# Usage: irm https://note.coffeecli.com/install.ps1 | iex
-# License: AGPL-3.0-or-later (https://github.com/edison7009/Coffee-Note/blob/main/LICENSE)
+# TierNote installer / updater for Windows
+# Usage: irm https://tiernote.org/install.ps1 | iex
+# License: AGPL-3.0-or-later (https://github.com/edison7009/TierNote/blob/main/LICENSE)
 
 $ErrorActionPreference = "Stop"
-$repository = "edison7009/Coffee-Note"
-$headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "Coffee-Note-Installer" }
+$repository = "edison7009/TierNote"
+$headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "TierNote-Installer" }
 
 Write-Host ""
-Write-Host "  Coffee Note Installer" -ForegroundColor Cyan
+Write-Host "  TierNote Installer" -ForegroundColor Cyan
 Write-Host "  ------------------------" -ForegroundColor DarkGray
 Write-Host "  Checking the latest Windows release..." -ForegroundColor Gray
 
 $latestVersion = $null
 $downloadUrl = $null
 try {
-  $latestVersion = (Invoke-RestMethod "https://note.coffeecli.com/version.json?platform=windows" -TimeoutSec 10).version
-  if ($latestVersion) { $downloadUrl = "https://note.coffeecli.com/download/windows" }
+  $latestVersion = (Invoke-RestMethod "https://tiernote.org/version.json?platform=windows" -TimeoutSec 10).version
+  if ($latestVersion) { $downloadUrl = "https://tiernote.org/download/windows" }
 } catch {}
 
 if (-not $latestVersion) {
@@ -37,7 +37,9 @@ $registryPaths = @(
 )
 foreach ($path in $registryPaths) {
   $entry = Get-ItemProperty $path -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -like "Coffee Note*" } | Select-Object -First 1
+    Where-Object {
+      $_.DisplayName -like "TierNote*" -or $_.DisplayName -like "Coffee Note*"
+    } | Select-Object -First 1
   if ($entry) { $installedVersion = $entry.DisplayVersion; break }
 }
 
@@ -52,7 +54,7 @@ if ($installedVersion) {
   Write-Host "  Installed: v$installedVersion" -ForegroundColor Gray
   if ($installedVersion -eq $latestVersion) {
     Write-Host ""
-    Write-Host "  Coffee Note is already up to date." -ForegroundColor Green
+    Write-Host "  TierNote is already up to date." -ForegroundColor Green
     exit 0
   }
   Write-Host "  Upgrading v$installedVersion -> v$latestVersion..." -ForegroundColor Yellow
@@ -60,7 +62,7 @@ if ($installedVersion) {
   Write-Host "  Performing a fresh installation..." -ForegroundColor Gray
 }
 
-$installerPath = Join-Path ([IO.Path]::GetTempPath()) "Coffee-Note-$latestVersion-setup.exe"
+$installerPath = Join-Path ([IO.Path]::GetTempPath()) "TierNote-$latestVersion-setup.exe"
 
 # Download to a file and make sure it is a real Windows installer (starts
 # with the "MZ" PE magic), not an HTML fallback page served by the static
@@ -89,13 +91,13 @@ try {
     $asset = $release.assets | Where-Object { $_.name -like "*_Windows_x64-setup.exe" } | Select-Object -First 1
     if (-not $asset) { throw "The latest release has no Windows installer." }
     $latestVersion = $release.tag_name -replace '^v',''
-    $installerPath = Join-Path ([IO.Path]::GetTempPath()) "Coffee-Note-$latestVersion-setup.exe"
+    $installerPath = Join-Path ([IO.Path]::GetTempPath()) "TierNote-$latestVersion-setup.exe"
     Save-Installer -Url $asset.browser_download_url -OutFile $installerPath
   }
   Write-Host "  Starting setup..." -ForegroundColor Gray
   Start-Process -FilePath $installerPath -Wait
   Write-Host ""
-  Write-Host "  Coffee Note v$latestVersion is installed." -ForegroundColor Green
+  Write-Host "  TierNote v$latestVersion is installed." -ForegroundColor Green
 } catch {
   Write-Host ""
   Write-Host "  Installation failed: $($_.Exception.Message)" -ForegroundColor Red

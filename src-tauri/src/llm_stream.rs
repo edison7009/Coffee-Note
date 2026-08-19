@@ -1,5 +1,5 @@
 // LLM Client — OpenAI and Anthropic protocols with SSE streaming.
-// Ported from EchoBird's services/llm_client.rs and adapted to Coffee Note.
+// Ported from EchoBird's services/llm_client.rs and adapted to TierNote.
 
 use futures_util::StreamExt;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
@@ -1024,12 +1024,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn app_attribution_headers_identify_coffee_note() {
+    fn app_attribution_headers_identify_tiernote() {
         let mut headers = HeaderMap::new();
         insert_app_attribution_headers(&mut headers);
-        assert_eq!(headers["HTTP-Referer"], "https://note.coffeecli.com");
-        assert_eq!(headers["X-OpenRouter-Title"], "Coffee Note");
-        assert_eq!(headers["X-Title"], "Coffee Note");
+        assert_eq!(headers["HTTP-Referer"], "https://tiernote.org");
+        assert_eq!(headers["X-OpenRouter-Title"], "TierNote");
+        assert_eq!(headers["X-Title"], "TierNote");
     }
 
     #[test]

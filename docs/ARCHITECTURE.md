@@ -1,8 +1,8 @@
-# Coffee Note 架构说明
+# TierNote 架构说明
 
 ## 产品定位
 
-Coffee Note 是一个本地优先的纯笔记工作台：用户用 T1-T5 分级组织本地
+TierNote 是一个本地优先的纯笔记工作台：用户用 T1-T5 分级组织本地
 Markdown 笔记，AI 以「省钱的 Note Agent」形式协助整理与治理笔记。
 
 产品边界见 [NOTE_AGENT_SAVINGS.md](./NOTE_AGENT_SAVINGS.md)：它不是
@@ -19,7 +19,7 @@ coding agent，不绑定昂贵模型，以完成笔记治理任务为优先，�
 
 ## 独立资料库
 
-Coffee Note 的默认资料库位于各平台的应用数据目录：
+TierNote 为兼容 v0.1.8，继续读取原有的本地资料目录：
 
 ```text
 Windows  %USERPROFILE%/.coffee-note/演示笔记
@@ -36,7 +36,7 @@ Linux    ~/.coffee-note/演示笔记
 ## Agent：DeepSeek Harness 单一运行时
 
 Agent 循环完全交由固定版本的 DeepSeek Harness 运行时负责，包括模型流式
-请求、工具编排、持久会话、Token 计量与上下文压缩。Coffee Note 不再维护
+请求、工具编排、持久会话、Token 计量与上下文压缩。TierNote 不再维护
 并行的自研循环；`dsh_runtime.rs` 只承担 Tauri 事件适配、进程生命周期、
 产品上下文注入和本地工具桥接。
 
@@ -46,7 +46,7 @@ Library Graph、记忆路由和网页读取通过仅监听 localhost、带随机
 
 ## 本地知识与个人记忆
 
-Coffee Note 的记忆路由有两个用户可见的真源，以及一份可重建索引：
+TierNote 的记忆路由有两个用户可见的真源，以及一份可重建索引：
 
 - **我的资料**（应用管理的 Markdown）：用户确认的长期目标、偏好、约束、
   经验与健康背景写入对应的 `plans/*.md` 页面；这是个人事实的唯一真源。
@@ -56,7 +56,7 @@ Coffee Note 的记忆路由有两个用户可见的真源，以及一份可重�
   `memory.json` 是用于去重和来源追踪的本地索引，丢失时不会影响 Markdown
   中的个人事实，下一次确认记忆会从可见页面重新建立索引。
 
-每次 Agent 请求由 Coffee Note 路由器组合三类上下文：当前问题相关的
+每次 Agent 请求由 TierNote 路由器组合三类上下文：当前问题相关的
 「我的资料」摘要、当前笔记目录的 Library Graph 命中，以及首次迁移时的
 最近对话。个人资料检索保持在约 16 KB；当前笔记只注入相关片段。之后的
 会话维护和压缩由 DSH 负责。系统提示保持稳定，动态资料放入用户消息，
@@ -96,6 +96,6 @@ Coffee Note 的记忆路由有两个用户可见的真源，以及一份可重�
 - 所有读操作限制在用户选择的知识目录；
 - 路径 canonicalize 后检查，阻止 `../` 越界；
 - AI 收录只写入 `knowledge/inbox/`，且不会覆盖同名文件；
-- AI 服务商配置（包括 API Key）以明文 JSON 保存在当前用户的应用数据
+- AI 服务商配置（包括 API Key）以明文 JSON 保存在当前用户的兼容应用数据
   目录 `Coffee Note/config.json`，不写入仓库或知识库；
 - 个人资料只在用户发起模型请求时发送给其配置的模型服务商。

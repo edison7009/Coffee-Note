@@ -44,7 +44,7 @@ function categoryLabel(id: string, fallback: string, locale: Locale) {
 }
 
 function pluginName(plugin: SkillPlugin, locale: Locale) {
-  if (locale === 'en' && plugin.id === 'coffee-media') return 'Coffee Media';
+  if (locale === 'en' && plugin.id === 'coffee-media') return 'TierNote Media';
   if (locale === 'en' && plugin.id === 'coffee-documents') return 'Documents';
   if (locale === 'en' && plugin.id === 'coffee-presentation') return 'Presentations';
   return plugin.name;
@@ -518,8 +518,8 @@ export function SkillsSettings({
           </div>
           <p className="skills-source-note">
             {locale === 'zh'
-              ? '支持 Coffee 插件清单，以及包含一个或多个 SKILL.md 的 Git 技能包。第三方代码和运行时不会自动执行。'
-              : 'Supports Coffee manifests and Git packages containing one or more SKILL.md files. Third-party code and runtimes are never executed automatically.'}
+              ? '支持 TierNote 插件清单，以及包含一个或多个 SKILL.md 的 Git 技能包。第三方代码和运行时不会自动执行。'
+              : 'Supports TierNote manifests and Git packages containing one or more SKILL.md files. Third-party code and runtimes are never executed automatically.'}
           </p>
           <div className="skills-editor-footer">
             <div>

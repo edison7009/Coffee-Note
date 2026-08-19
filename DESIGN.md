@@ -1,4 +1,4 @@
-# Coffee Note Desktop Design System
+# TierNote Desktop Design System
 
 ## Product Context
 
@@ -23,7 +23,7 @@
   controls and drag-and-drop content. Text fields keep the browser-native I-beam.
   The two pane resizers are the only resize-cursor exception: use `col-resize`
   both while hovering over a divider and throughout an active pane resize.
-- **Mood:** Serious, quiet, capable, and spacious. Coffee Note should feel like a professional work surface, not a personalized dashboard template.
+- **Mood:** Serious, quiet, capable, and spacious. TierNote should feel like a professional work surface, not a personalized dashboard template.
 - **Memorable quality:** A Codex-like note tool whose primary object is the user's tiered knowledge, not chat.
 
 ## Product Structure
@@ -47,7 +47,7 @@
   actions. Multi-word names remain intact and the row wraps only between cities;
   do not spend space on generic location-privacy helper copy.
 - Use one outer shell for the top bar and persistent left navigation rail.
-- Let the shared title bar span the full window width. Place the `Coffee Note` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
+- Let the shared title bar span the full window width. Place the `TierNote` wordmark at its left edge, followed by back/forward navigation and the File, Edit, and Help menus. On macOS, reserve clearance for native traffic-light controls.
 - Start the left rail below the title bar with Home as its first row. Do not repeat the product icon or wordmark there. Library switching remains in the File menu and is also exposed as a discoverable global-action icon at the right edge of the Home row, matching the placement of global actions such as search in Codex.
 - Leave a modest top inset above the Home row so the left rail breathes under the title bar rather than feeling pinned to it.
 - Place the center workspace and right contextual rail inside one continuous inner panel. Its top-left border and radius are the primary visual boundary; the right rail is not a second sidebar.
@@ -86,7 +86,7 @@
   endpoint, and locally saved API-key records. Recognition is a fallback when the
   active model cannot accept images; image, speech, video, music, and sound effects generation keep independent
   provider configurations for media-generation skills. Video configuration does not
-  replace Coffee Video's dependable native fallback. Video model presets are protocol-aware.
+  replace TierNote Video's dependable native fallback. Video model presets are protocol-aware.
   Runway exposes its current supported video IDs, while BytePlus/Volcano Engine, Kling,
   Vertex AI Veo, MiniMax/Hailuo, Luma, Vidu, Pika, Alibaba Cloud Wan, Tencent Cloud
   Hunyuan/Youtu and PixVerse, LTX, Adobe Firefly, and OpenAI Sora each keep a distinct
@@ -156,7 +156,7 @@
   never remove or hide a
   locally saved model, including one newly marked deprecated upstream.
   The AI composer exposes only models selected here. Every reasoning-capable
-  model gets Coffee Note's fixed five effort levels (low, medium, high, xhigh, max);
+  model gets TierNote's fixed five effort levels (low, medium, high, xhigh, max);
   models.dev reasoning-option metadata must not filter or clamp them. A provider's model list always expands in
   full inside the outer settings scroller; do not cap its result count or add a
   nested model-list scrollbar. Non-default providers show a count only when at
@@ -183,7 +183,7 @@
   chevron reveals arguments and results inline.
   While the turn is active, keep one separate EchoBird-style status line after
   the activity stream. Its left edge uses Coffee-CLI's compact Braille-dot spinner.
-  It uses Coffee Note's warm orange status color, the complete
+  It uses TierNote's warm orange status color, the complete
   supported-language verb lists, the left flower glyph sequence, typewriter erase/type
   timing, a caret during rewrites, and the EchoBird left-to-right text shimmer. Add
   an elapsed clock only after 15 seconds; the muted elapsed clock does not shimmer.
@@ -236,7 +236,7 @@
   the component; never shrink the type to fit.
 - **Weight:** Use 400 for body, 550-600 for controls and navigation, and 650-700 only for page titles.
 - **Letter spacing:** 0. Avoid uppercase tracking except tiny technical metadata.
-- **Brand exception:** The compact title-bar `Coffee Note` wordmark reuses the bundled `Lora` bold-italic face from the AI-chat identity at 16px.
+- **Brand exception:** The compact title-bar `TierNote` wordmark reuses the bundled `Lora` bold-italic face from the AI-chat identity at 16px.
 
 ## Color
 
@@ -301,29 +301,29 @@
 | 2026-08-07 | Keep website design separate | The public site is expressive brand communication; the desktop app is a repeated-use work surface. |
 | 2026-08-07 | Enforce a minimum type scale | Left navigation, directory tree, and right-rail text at 10-13px was too small to read. Floor: 13px readable / 12px metadata; 15px navigation (EchoBird reference), 14px directory tree. |
 | 2026-08-08 | Use the default arrow except for pane resizing | A hand cursor is a web pattern; ordinary controls and content keep the default arrow, while the dividers between the three panes use native directional feedback during resize. |
-| 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `Coffee Note` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
+| 2026-08-08 | Move the product identity and app menus into the shared title bar | A compact 16 x 16 icon, Lora bold-italic `TierNote` wordmark, page history, and File/Edit/Help menus match the native Codex-like shell while letting Home align directly with the workspace top edge. |
 | 2026-08-08 | Gate My Contexts retrieval per note | Five default-on local switches make AI inclusion explicit; a backend allowlist enforces the same state for question-aware and always-on personal context. Cards remain direct neutral navigation entries rather than selectable options. |
 | 2026-08-08 | Treat managed starter content as user-owned after first creation | Demo and My Contexts seed files are generated only for an empty first-run directory. A permanent marker prevents upgrades from overwriting, backfilling, or recreating edited and deleted files; current localized names remain temporary. |
 | 2026-08-09 | Replace the settings dialog with a global settings workspace | A persistent category rail and one merged content surface match the desktop shell, remove the dated modal feel, and give model and appearance settings room to remain legible. Library switching remains with Home and File. |
-| 2026-08-09 | Use models.dev for provider/model directory data; keep Coffee Note request configuration independent | A live catalog removes hard-coded model names and prices. Anthropic alone uses its native Messages API; every other provider uses the industry-default OpenAI-compatible path. Coffee Note always exposes five reasoning levels for reasoning models and lets provider endpoints normalize them. Composer selections change actual requests. |
+| 2026-08-09 | Use models.dev for provider/model directory data; keep TierNote request configuration independent | A live catalog removes hard-coded model names and prices. Anthropic alone uses its native Messages API; every other provider uses the industry-default OpenAI-compatible path. TierNote always exposes five reasoning levels for reasoning models and lets provider endpoints normalize them. Composer selections change actual requests. |
 | 2026-08-09 | Add ambient weather beside the Home greeting | Home keeps only a quiet animated condition image; its click panel is a read-only current and multi-day forecast with a compact single-line city header. City selection is explicit, local, and replaceable, while Home remains quiet. |
 | 2026-08-19 | Split General and Appearance settings | General owns language, generated-file location, and the local weather city. Appearance owns system/light/dark mode and color schemes. The Home weather gear and empty state therefore direct people to Settings > General. |
-| 2026-08-19 | Show the complete workspace file tree | Ordinary non-hidden files of every format appear in the directory tree. Markdown opens in Coffee Note; other formats show a quiet unsupported-preview state but remain selectable through single click, multi-select, and the context menu as path-based AI context. |
-| 2026-08-14 | Make paired phone chats full Coffee Note conversations | A linked private chat should behave like the desktop composer rather than force every message through link capture. Ordinary messages get ordinary AI replies, link-only messages implicitly become saved notes, and all turns share the local conversation history visible in the desktop rail. Pairing, credentials, cursors, and recoverable jobs remain local. |
+| 2026-08-19 | Show the complete workspace file tree | Ordinary non-hidden files of every format appear in the directory tree. Markdown opens in TierNote; other formats show a quiet unsupported-preview state but remain selectable through single click, multi-select, and the context menu as path-based AI context. |
+| 2026-08-14 | Make paired phone chats full TierNote conversations | A linked private chat should behave like the desktop composer rather than force every message through link capture. Ordinary messages get ordinary AI replies, link-only messages implicitly become saved notes, and all turns share the local conversation history visible in the desktop rail. Pairing, credentials, cursors, and recoverable jobs remain local. |
 | 2026-08-14 | Adopt a restrained turn-status shimmer | One theme-colored activity line with a left-to-right text shimmer and delayed static elapsed time replaces the repeated Braille spinner; tool rows and conversation history keep static marks. |
 | 2026-08-15 | Remove leading icons from borderless modal headers | Text-only titles make the lightweight dialogs quieter and more refined while one shared header keeps title and close-action alignment consistent. |
 | 2026-08-16 | Treat Skills as two-level management | The first level manages installed packages and source actions; opening a package reveals an uncapped two-column list of its concrete skills with independent switches and a clear back action. This separates installation from capability control and remains usable for repositories containing hundreds of skills without implying an in-app download marketplace. |
 | 2026-08-16 | Preserve official plugin artwork in Skills | Package and child-skill rows use the nearest Codex plugin manifest's compact icon directly, without a second backing tile or border, and fall back to the standalone neutral skill mark. This makes large official collections scannable without adding labels or card decoration. |
 | 2026-08-16 | Make Tier drag channels geometrically continuous | Visual spacing remains airy, but every wrapped line is divided at card center lines so each pixel maps to a deterministic insertion slot. A gap must never fall through to the row-end position. |
-| 2026-08-17 | Establish the plugin-market architecture | Plugins are distribution units, skills are Agent actions, and shared runtimes are managed once by the application. Coffee Media is the first manifest-driven official plugin; Git skill sources remain prompt-only community extensions. |
-| 2026-08-17 | Generate presentations in the shared native runtime | Coffee Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
+| 2026-08-17 | Establish the plugin-market architecture | Plugins are distribution units, skills are Agent actions, and shared runtimes are managed once by the application. TierNote Media is the first manifest-driven official plugin; Git skill sources remain prompt-only community extensions. |
+| 2026-08-17 | Generate presentations in the shared native runtime | TierNote Presentation submits one structured deck to an application-level engine that creates editable `.pptx` files without a per-skill environment. The initial layout and density contract favors reliable, restrained slides over unconstrained drawing commands. |
 | 2026-08-17 | Separate recognition and generation providers | Keep one Multimodal models destination with compact internal capability tabs. Recognition falls back to its own external image model when the active model is text-only; image, speech, video, and music generation use independently configured providers. Local OCR remains a later capability. |
-| 2026-08-17 | Ship Coffee Video as the safe fallback video workflow | The built-in plugin turns copy into scene images, configured speech, burned captions, restrained motion, and an MP4 through an application-managed encoder. Community Git skills may improve storyboards and prompts but only call the same guarded tools; they cannot execute bundled scripts or runtimes. |
+| 2026-08-17 | Ship TierNote Video as the safe fallback video workflow | The built-in plugin turns copy into scene images, configured speech, burned captions, restrained motion, and an MP4 through an application-managed encoder. Community Git skills may improve storyboards and prompts but only call the same guarded tools; they cannot execute bundled scripts or runtimes. |
 | 2026-08-17 | Make note creation actions skill shortcuts | Generate PPT and Generate video beneath a note title select their corresponding one-shot built-in skill and focus the composer without sending. The current note remains explicit context. Remove the disabled Mobile long image placeholder instead of expanding the row with an unrelated future export. |
-| 2026-08-17 | Generate DOCX and PDF through one native document runtime | Coffee Documents contains two independently switchable skills that submit the same heading/paragraph/list/quote model. The app writes editable Open XML DOCX and locally typeset PDF files without requiring an Office installation. |
+| 2026-08-17 | Generate DOCX and PDF through one native document runtime | TierNote Documents contains two independently switchable skills that submit the same heading/paragraph/list/quote model. The app writes editable Open XML DOCX and locally typeset PDF files without requiring an Office installation. |
 | 2026-08-17 | Extend note creation shortcuts to document exports | Generate DOCX and Generate PDF join PPT and video beneath the note title. All four actions only select a bundled skill and focus the existing composer; none sends automatically. |
 | 2026-08-18 | Make generated file destinations explicit | PPTX, DOCX, PDF, and MP4 default to the current user's Desktop, while Settings > General allows a custom directory. The conversation renders the backend-returned absolute path with direct copy and reveal actions so file discovery never depends on model wording. |
-| 2026-08-18 | Direct the storyboard before generating assets | Coffee Video exposes both Cinematic storyboard director and Text to video skills. Both share one provider-neutral specification: director brief, beat map, continuity bible, motivated camera movement, concrete physical action, and paired keyframe/motion prompts. Storyboard-only requests stop before generation; rendered videos map the same plan onto guarded Coffee Video tools. |
+| 2026-08-18 | Direct the storyboard before generating assets | TierNote Video exposes both Cinematic storyboard director and Text to video skills. Both share one provider-neutral specification: director brief, beat map, continuity bible, motivated camera movement, concrete physical action, and paired keyframe/motion prompts. Storyboard-only requests stop before generation; rendered videos map the same plan onto guarded TierNote Video tools. |
 | 2026-08-19 | Follow the selected workspace for generated files | With the complete file tree now showing ordinary files, PPTX, DOCX, PDF, and MP4 default directly to the selected workspace root and automatically follow workspace switches. A fixed custom directory remains available for people who want their workspace to contain notes only. |
 | 2026-08-19 | Make video model presets protocol-aware | Video generation offers selectable official OpenAI and Runway model IDs while preserving stored custom model values. Runway receives its own protocol and a non-generating credential check; other vendors stay custom until their task creation and polling contracts are implemented. |
 | 2026-08-19 | Add protocol-aware music model settings | Multimodal models gains a fifth Music generation tab with official Google Lyria, ElevenLabs Music, and MiniMax Music presets. Connection checks only read model or account metadata and never submit a billable generation request. The configuration is intentionally not exposed to the Agent until a guarded audio-generation and local-save workflow exists. |

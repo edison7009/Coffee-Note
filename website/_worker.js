@@ -1,4 +1,4 @@
-// Cloudflare Pages Function — note.coffeecli.com
+// Cloudflare Pages Function — tiernote.org
 //
 // Uses env.ASSETS to serve the static site directly, and proxies GitHub
 // Release assets for the install scripts / in-app updater:
@@ -14,9 +14,9 @@
 // website/_worker.js. Requires Cloudflare Pages "Advanced mode" so the
 // exported default handler intercepts requests; see docs/RELEASE.md.
 
-const REPO = "edison7009/Coffee-Note";
+const REPO = "edison7009/TierNote";
 
-// Asset filenames follow `Coffee.Note_<version>_<OS>_<arch>.<ext>`
+// Asset filenames follow `TierNote_<version>_<OS>_<arch>.<ext>`
 // (renamed by the release.yml CI step). Keys are the platform slugs that
 // install.ps1 / install.sh / docs/RELEASE.md request; each slug maps to a
 // single asset. The old/pre-rename patterns are kept as a fallback so a
@@ -47,7 +47,7 @@ async function latestAssets() {
   const response = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "Coffee-Note-Website",
+      "User-Agent": "TierNote-Website",
     },
     cf: { cacheEverything: true, cacheTtl: 300 },
   });
@@ -105,7 +105,7 @@ export default {
         const asset = (await latestAssets())[platform];
         if (!asset) return new Response("Installer is not available yet", { status: 404 });
 
-        const file = await fetch(asset.url, { headers: { "User-Agent": "Coffee-Note-Website" } });
+        const file = await fetch(asset.url, { headers: { "User-Agent": "TierNote-Website" } });
         if (!file.ok) return new Response("Unable to download installer", { status: 502 });
 
         return new Response(file.body, {
@@ -114,7 +114,7 @@ export default {
             "Content-Disposition": `attachment; filename="${asset.name}"`,
             "Content-Length": file.headers.get("Content-Length") ?? "",
             "Cache-Control": "no-store",
-            "X-Coffee-Note-Version": asset.version,
+            "X-TierNote-Version": asset.version,
           },
         });
       } catch (error) {

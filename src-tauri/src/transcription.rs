@@ -760,7 +760,7 @@ fn needs_fresh_browser_cookies(stderr: &[u8]) -> bool {
 
 /// Return only browsers that appear to have a local profile. Cookie extraction
 /// is used as a narrow retry for Douyin's fresh-session challenge; cookies stay
-/// in the yt-dlp child process and are never exported or persisted by Coffee Note.
+/// in the yt-dlp child process and are never exported or persisted by TierNote.
 fn browser_cookie_sources() -> Vec<&'static str> {
     let mut sources = Vec::new();
     let mut add_if_present = |name: &'static str, path: PathBuf| {
@@ -1094,7 +1094,7 @@ async fn download_fixed_file(spec: ResourceSpec, target: &Path) -> Result<(), St
     let partial = target.with_extension("part");
     let response = reqwest::Client::new()
         .get(spec.url)
-        .header("User-Agent", "Coffee Note")
+        .header("User-Agent", "TierNote")
         .send()
         .await
         .map_err(|error| format!("Could not prepare media import: {error}"))?
@@ -1154,7 +1154,7 @@ async fn ensure_media_fetcher() -> Result<PathBuf, String> {
 }
 
 /// Prepare the small, pinned media-import dependency in the background after
-/// Coffee Note starts. Speech runtimes and models remain explicit user downloads.
+/// TierNote starts. Speech runtimes and models remain explicit user downloads.
 pub(crate) async fn prepare_media_environment() -> Result<(), String> {
     ensure_media_fetcher().await.map(|_| ())
 }
@@ -1334,7 +1334,7 @@ async fn download_media_audio(
         let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
         if retry_with_browser {
             return Err(format!(
-                "Douyin still rejected the fresh local browser session. Open the link in Edge, Chrome, or Firefox, refresh it, then retry. Coffee Note does not store browser cookies.{}",
+                "Douyin still rejected the fresh local browser session. Open the link in Edge, Chrome, or Firefox, refresh it, then retry. TierNote does not store browser cookies.{}",
                 if message.is_empty() {
                     String::new()
                 } else {
@@ -1629,7 +1629,7 @@ pub async fn download_transcription_resource(
         let partial = target_dir.join(format!("{}.part", spec.file_name));
         let response = reqwest::Client::new()
             .get(spec.url)
-            .header("User-Agent", "Coffee Note")
+            .header("User-Agent", "TierNote")
             .send()
             .await
             .map_err(|error| format!("Could not download resource: {error}"))?
@@ -1839,9 +1839,9 @@ mod tests {
             "https://www.bilibili.com/video/BVexample",
             "https://b23.tv/example",
             "https://v.douyin.com/example",
-            "https://www.tiktok.com/@coffeenote/video/1",
+            "https://www.tiktok.com/@tiernote/video/1",
             "https://www.xiaohongshu.com/explore/example",
-            "https://x.com/coffeenote/status/1",
+            "https://x.com/tiernote/status/1",
         ] {
             let url = reqwest::Url::parse(source).expect("fixture URL should parse");
             assert!(supports_media_url(&url), "{source} should be supported");
@@ -1870,7 +1870,7 @@ mod tests {
         }
         for source in [
             "https://douyin.com.evil.example/video/1",
-            "https://www.tiktok.com/@coffeenote/video/1",
+            "https://www.tiktok.com/@tiernote/video/1",
             "https://example.com/douyin.com",
         ] {
             let url = reqwest::Url::parse(source).expect("fixture URL should parse");

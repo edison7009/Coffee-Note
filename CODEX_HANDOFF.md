@@ -1,4 +1,4 @@
-# Coffee Note — portable Codex project memory
+# TierNote — portable Codex project memory
 
 Updated: 2026-08-15
 
@@ -6,22 +6,24 @@ This file preserves the decisions and working context needed to continue the
 project on another machine. It contains no API keys, private user parameters,
 or temporary deployment credentials.
 
-## Coffee Note fork status
+## TierNote fork status
 
-- This repository is the Coffee Note sister product forked from the original longevity app.
-- Visible product name: **Coffee Note**.
-- The repository directory is `Coffee-Note`; internal identifiers use `coffee-note`
-  or `CoffeeNote` where spaces are invalid, with `app.coffeenote.desktop` as the
-  reverse-domain bundle identifier.
-- Coffee Note is a local-first, general-purpose workspace agent rather than a
+- This repository is the TierNote sister product forked from the original longevity app.
+- Visible product name: **TierNote**.
+- The repository directory is `TierNote`; developer package names use `tiernote`
+  or `TierNote` where spaces are invalid.
+- TierNote is a local-first, general-purpose workspace agent rather than a
   fixed note system or a longevity product. The user selects an ordinary directory
   and asks the Agent to work in it. Notes are common work, but source code, documents,
   data, and other tasks are equally valid.
-- Coffee Note uses a clean application identity with no predecessor-brand
-  compatibility layer: `app.coffeenote.desktop`, `Coffee Note` app-data,
-  `.coffee-note` knowledge metadata, and `coffee-note:` browser storage keys.
-- GitHub release and feedback URLs use the `edison7009/Coffee-Note` repository.
-- **Licensing (2026-08-19):** Coffee Note uses AGPL-3.0-or-later for current
+- The TierNote rebrand preserves the v0.1.8 persisted identity as a compatibility
+  layer: `app.coffeenote.desktop`, the `Coffee Note` app-data directory,
+  `.coffee-note` workspace metadata, and `coffee-note:` browser storage keys.
+  These legacy identifiers keep provider credentials, conversations, plugin state,
+  message channels, and tier ordering available after upgrade and must not be
+  renamed without an explicit, tested migration.
+- GitHub release and feedback URLs use the `edison7009/TierNote` repository.
+- **Licensing (2026-08-19):** TierNote uses AGPL-3.0-or-later for current
   releases, with paid commercial licensing available for closed-source
   customization, white-label distribution, and proprietary embedding. Copies
   released before the transition retain the MIT permissions already granted;
@@ -31,7 +33,7 @@ or temporary deployment credentials.
 - The homepage editable T1–T5 tier list is the core interaction model because it
   makes prioritization and decisions immediately legible.
 - Longevity-specific starter content and product copy below are inherited context
-  awaiting replacement; they are not the Coffee Note product direction.
+  awaiting replacement; they are not the TierNote product direction.
 
 ## Workspace Agent foundation (2026-08-15)
 
@@ -47,7 +49,7 @@ or temporary deployment credentials.
 - The selected directory is the workspace. It may be a code repository, writing
   project, note collection, or any other folder. Never infer a required note
   hierarchy and never create `inbox`, `dossiers`, or another category directory
-  merely because Coffee Note is the visible product name.
+  merely because TierNote is the visible product name.
 - The Agent must accept programming, debugging, writing, research, organization,
   and other workspace tasks. It must not refuse work simply because the request is
   programming or not note-related.
@@ -59,7 +61,7 @@ or temporary deployment credentials.
   `save_note` defaults to the workspace root and uses a subdirectory only when the
   user explicitly asks or the existing workspace makes that destination clear.
 - The directory tree must not hide or offer bulk deletion of folders based on old
-  Coffee Note category names. A folder named `papers`, `templates`, `inbox`, or
+  TierNote category names. A folder named `papers`, `templates`, `inbox`, or
   similar may be ordinary user project data.
 - **Complete workspace file tree (2026-08-19):** The directory tree shows every
   ordinary non-hidden file, not only Markdown. Markdown remains the only built-in
@@ -77,18 +79,18 @@ or temporary deployment credentials.
 
 ## Desktop redesign direction (2026-08-07)
 
-- **Plugin platform foundation (2026-08-17):** Coffee Note treats plugins as the
+- **Plugin platform foundation (2026-08-17):** TierNote treats plugins as the
   install/update unit, skills as the Agent invocation unit, and runtimes as shared
   application-managed infrastructure. Settings > Plugins is the Plugin market;
   categories filter plugin types, while enabled and installed state lives on the
   package row and detail page instead of a separate Installed view. The bundled
-  `Coffee Media` package is the first manifest-driven
+  `TierNote Media` package is the first manifest-driven
   official plugin: its media-to-text skill, publisher, version, and
   prewarmed `media-transcription` runtime are declared under
   `src-tauri/builtin-plugins/coffee-media/` instead of being duplicated as a Rust
   prompt constant. Official plugins may bundle many independently switchable skills;
   a skill must never install its own runtime. Git skill packages remain supported as
-  prompt-only community extensions, and Coffee Note never automatically executes
+  prompt-only community extensions, and TierNote never automatically executes
   their scripts, hooks, MCP servers, or runtime declarations.
 - Plugin details expose the package and its independently switchable skills only.
   Publisher and runtime identifiers remain internal metadata. Plugin manifests and
@@ -96,7 +98,7 @@ or temporary deployment credentials.
   application's normal workspace access. Disabling a built-in plugin or one of its
   skills removes the corresponding Agent tool and the backend rejects direct calls
   as a second guard.
-- **Native presentation plugin (2026-08-17):** The bundled `Coffee Presentation`
+- **Native presentation plugin (2026-08-17):** The bundled `TierNote Presentation`
   package lives under `src-tauri/builtin-plugins/coffee-presentation/`. Its
   `create-presentation` skill sends a complete structured deck to the shared,
   prewarmed `presentation-engine` runtime. The runtime is compiled into the desktop
@@ -105,7 +107,7 @@ or temporary deployment credentials.
   business, and dark themes plus title, section, content, two-column, quote, and
   workspace-image layouts. Generated files use a new filename instead of silently
   overwriting an existing deck.
-- **Native document plugin (2026-08-17):** The bundled `Coffee Documents` package
+- **Native document plugin (2026-08-17):** The bundled `TierNote Documents` package
   lives under `src-tauri/builtin-plugins/coffee-documents/` and exposes independent
   `create-docx` and `create-pdf` skills on one prewarmed `document-engine`. Both
   submit a complete semantic block list to the guarded `create_document` tool.
@@ -122,7 +124,7 @@ or temporary deployment credentials.
   image-capable active chat model remains the first choice for recognition; the
   recognition configuration is its fallback. Image-generation skills use the
   generation configuration. Video generation keeps an independent external-provider
-  record without replacing Coffee Video's native fallback. Its built-in service selector
+  record without replacing TierNote Video's native fallback. Its built-in service selector
   offers Runway plus direct BytePlus/Volcano Engine Seedance, Kling, Google Vertex AI
   Veo, MiniMax/Hailuo, Luma, Vidu, Pika, Alibaba Cloud Wan, Tencent Cloud Hunyuan/Youtu,
   Tencent-hosted PixVerse, LTX, Adobe Firefly, and
@@ -149,7 +151,7 @@ or temporary deployment credentials.
   presentation tool by relative path. This version is cloud-only and does not expose
   an unfinished local OCR tab.
 - **Built-in storyboard director and text-to-video fallback (2026-08-17):** The bundled
-  `Coffee Video` package lives under `src-tauri/builtin-plugins/coffee-video/`. It exposes
+  `TierNote Video` package lives under `src-tauri/builtin-plugins/coffee-video/`. It exposes
   a storyboard-only director skill and a render skill; both receive the same bundled,
   model-neutral cinematic specification. They establish a director brief, beat map,
   continuity bible, motivated camera language, and paired keyframe/motion prompts before
@@ -219,11 +221,11 @@ or temporary deployment credentials.
   skill directly to its generated turn and must not leave that skill selected in the
   composer afterward.
 - **Custom My Contexts (2026-08-14):** The action inside My Contexts is Add Context,
-  not Add Material. It creates a Markdown page in Coffee Note's dedicated local
+  not Add Material. It creates a Markdown page in TierNote's dedicated local
   My Contexts directory, immediately lists it on that page, and gives it the same
   default-on independent AI retrieval switch as the built-in context pages. General
   material creation remains available from the library controls outside My Contexts.
-- **Local Agent Loop (2026-08-14):** Coffee Note uses its focused Rust ReAct
+- **Local Agent Loop (2026-08-14):** TierNote uses its focused Rust ReAct
   loop as the only agent runtime. `agent_loop.rs` owns model streaming, tool
   orchestration, durable provider transcripts, token accounting, and local
   context compaction. Rust also owns Library Graph, My Contexts routing, note
@@ -243,7 +245,7 @@ or temporary deployment credentials.
   Local availability fails closed when live resource status cannot be read; a saved
   selection alone must never make a partially installed local setup appear usable.
 - **Media environment prewarm (2026-08-14):** Media-to-text is a frequently reused
-  built-in capability. After launch, Coffee Note silently prepares the pinned media
+  built-in capability. After launch, TierNote silently prepares the pinned media
   fetcher in the current user's app-data directory, verifies and reuses an existing
   copy, and retries on the actual media request if background preparation failed.
   Startup and first-use preparation share one process-local lock so they never write
@@ -252,7 +254,7 @@ or temporary deployment credentials.
   or repeatedly install the media-import environment.
 - **Windows local transcription compatibility (2026-08-15):** The pinned whisper.cpp
   Windows runtime normally selects its fastest CPU backend. If it exits immediately
-  after loading that backend, Coffee Note retries in an isolated temporary runtime
+  after loading that backend, TierNote retries in an isolated temporary runtime
   containing only the baseline `ggml-cpu-x64.dll`. This keeps optimized CPUs fast while
   covering machines that crash after selecting the Haswell backend. Failed attempts
   report the process status and diagnostics instead of treating the final successful
@@ -309,7 +311,7 @@ or temporary deployment credentials.
 - The desktop app is moving to a calm, Codex-informed note-workspace style. This
   supersedes older instructions below that require a colorful dashboard shell or
   a blue-green gradient title bar.
-- Coffee Note now uses a monochrome black, graphite, and gray shell with no selectable
+- TierNote now uses a monochrome black, graphite, and gray shell with no selectable
   brand color. The homepage is the deliberate exception: its three entry cards and
   T1-T5 map use restrained category colors. Appearance settings keep system/light/dark
   modes and color schemes, while General owns language and other non-visual preferences.
@@ -332,7 +334,7 @@ or temporary deployment credentials.
   the compact note priority button, and the menu's small tier swatches. The button
   keeps its matching tinted background unchanged on hover/open; menu hover and
   selection use one neutral background with no colored border or glow.
-- The display brand uses the `Coffee Note` wordmark in the title bar and AI-chat
+- The display brand uses the `TierNote` wordmark in the title bar and AI-chat
   empty state. The AI-chat empty state intentionally has no logo image. The in-app
   mark source is `src-tauri/icons/logo.png`, which must
   remain byte-identical to the copied UI source at `public/brand/logo-new.png`.
@@ -368,12 +370,12 @@ or temporary deployment credentials.
 ## Legacy source-product context
 
 The remaining notes describe the source product and are retained temporarily so
-the working behavior is not lost during migration. The Coffee Note rules above take
+the working behavior is not lost during migration. The TierNote rules above take
 precedence whenever they conflict.
 
 ## Product identity
 
-- Product name: **Coffee Note**.
+- Product name: **TierNote**.
 - Chinese product name: **科学延寿**. Use **延寿** consistently in Chinese
   product, website, documentation, and starter-library copy; keep the previous
   product-domain term out of new copy.
@@ -446,7 +448,7 @@ to the product template.
 - The left pane keeps its 210-380px product range. The right rail has no fixed
   maximum; it may expand until the center workspace reaches its 560px minimum.
 - The top title/drag bar spans the full window width. Its left side shows a
-  16 x 16 product icon, the closed `Coffee Note` wordmark in the bundled `Lora`
+  16 x 16 product icon, the closed `TierNote` wordmark in the bundled `Lora`
   bold-italic face, functional back/forward navigation, and File/Edit/Help menus.
   File keeps the library-switch action; the right edge of the Home navigation
   row also exposes the same action as a discoverable global folder icon, matching
@@ -501,13 +503,13 @@ to the product template.
   regional token prices directly rather than converting through an exchange
   rate. Persist the preference locally under `coffee-note:currency`.
 - The composer skill picker and Settings > Skills share one source-backed
-  catalog. Adding a skill plugin asks only for a Git repository URL and a Coffee
-  Note category; package names, descriptions, versions, and skill instructions
+  catalog. Adding a skill plugin asks only for a Git repository URL and a TierNote
+  category; package names, descriptions, versions, and skill instructions
   are read from the repository's manifest and `SKILL.md` files and are never
   duplicated into editable app-owned copies. Repositories are cached once under
   the current user's app-data `skill-sources/` directory for offline use and
   updates. Selecting a skill reads its original `SKILL.md` and adds it only to
-  that AI request's prompt. Coffee Note does not execute third-party scripts,
+  that AI request's prompt. TierNote does not execute third-party scripts,
   hooks, runtimes, or MCP servers from these repositories.
 - Settings > Skills is a two-level skill management workspace. The category view lists
   installed skill packages/sources and keeps package update, move, removal, and
@@ -524,7 +526,7 @@ to the product template.
   their plugin root, supported raster/SVG assets are size-limited, and shared
   icons are deduplicated in the catalog rather than repeated for every child.
 - Chat uses a minimal two-sided conversation layout: user messages are compact
-  bubbles aligned to the right, while Coffee Note answers remain readable,
+  bubbles aligned to the right, while TierNote answers remain readable,
   unframed content aligned to the left. Do not show participant names or avatars;
   message position already communicates the speaker.
 - Opening AI chat or switching conversations must position the message area at
@@ -581,12 +583,12 @@ to the product template.
   another root immediately invalidates pending loads and mutations so an old root
   can never republish its snapshot over the new workspace. The frontend reloads
   after every Agent run so edits appear immediately.
-- AI settings separate **provider** and **model**; wire protocol is derived. Coffee Note
+- AI settings separate **provider** and **model**; wire protocol is derived. TierNote
   reads the public `https://models.dev/api.json` catalog for provider names,
   default OpenAI-compatible endpoints, models, capabilities, context limits,
   reasoning effort options, and USD pricing; provider marks come from
   `https://models.dev/logos/{provider}.svg`. The Rust backend caches the bounded,
-  validated catalog for 24 hours at `Coffee Note/models-dev-catalog.json` in the
+  validated catalog for 24 hours at `TierNote/models-dev-catalog.json` in the
   current user's app-data directory and falls back to that cache while offline.
   Provider UI uses the canonical models.dev display name only. Do not repeat the
   internal lowercase provider ID below the name; composer model choices also use
@@ -597,7 +599,7 @@ to the product template.
   protocol. DeepSeek's default base URL is `https://api.deepseek.com`; the old
   mistaken `/anthropic` default is migrated automatically. Provider URL, API key,
   selected models, active model, derived protocol, and reasoning
-  effort persist in plaintext `Coffee Note/config.json` in app-data only. Existing
+  effort persist in plaintext `TierNote/config.json` in app-data only. Existing
   two-protocol configs migrate without discarding their URL, model, or key. In
   the provider directory, the default provider stays first and providers with
   selected models move directly below it; untouched catalog providers follow.
@@ -624,7 +626,7 @@ to the product template.
   model remains in the explicit selected-model array; otherwise it reads Choose model.
 - The AI composer model menu and reasoning control are functional configuration,
   not previews. Model changes update the active provider/model immediately.
-  Every catalog-declared reasoning model exposes Coffee Note's fixed five choices:
+  Every catalog-declared reasoning model exposes TierNote's fixed five choices:
   `low`, `medium`, `high`, `xhigh`, and `max`. Do not filter or clamp these from
   models.dev `reasoning_options`; provider endpoints may normalize unsupported
   intermediate values themselves. Choices are sent as `reasoning_effort` for OpenAI-compatible Chat
@@ -632,14 +634,14 @@ to the product template.
   catalog-declared reasoning capability show a non-interactive Standard readout and
   receive no guessed reasoning parameter.
 - Every outbound model request identifies the app to compatible upstreams with
-  `HTTP-Referer: https://note.coffeecli.com`, `X-OpenRouter-Title: Coffee Note`, and the
-  backward-compatible `X-Title: Coffee Note`. This attribution replaces any inherited
+  `HTTP-Referer: https://tiernote.org`, `X-OpenRouter-Title: TierNote`, and the
+  backward-compatible `X-Title: TierNote`. This attribution replaces any inherited
   EchoBird identity and applies to both streaming and
   synchronous OpenAI-compatible/Anthropic requests.
-- The desktop app's Coffee Note brand link opens `https://note.coffeecli.com/`. Download and
+- The desktop app's TierNote brand link opens `https://tiernote.org/`. Download and
   update endpoints remain separately configured until their hosting is migrated.
 - AI provider settings, including API keys, persist as plaintext JSON in the
-  current user's app-data directory (`Coffee Note/config.json`). They must
+  current user's app-data directory (`TierNote/config.json`). They must
   never be written into the repository or knowledge library.
 - Borderless modal headers share one text-only standard component. Use typography
   for hierarchy, never a decorative or category icon to the left of the title;
@@ -689,17 +691,17 @@ to the product template.
 
 ## Website
 
-- The public website is active again at `https://note.coffeecli.com/`. The
+- The public website is active again at `https://tiernote.org/`. The
   single-page site under `website/` is independent from the desktop UI and keeps
   its own brand, copy, download routes, and screenshot assets.
 - Product screenshots are paired by locale. English and Simplified Chinese use
   matching desktop captures, and the in-place language switch updates both copy
   and screenshots. Other incomplete locales continue to fall back to English.
-- Remote usage: `irm https://note.coffeecli.com/install.ps1 | iex`. The script
+- Remote usage: `irm https://tiernote.org/install.ps1 | iex`. The script
   first tries the website's version/download routes and falls back to the latest
   GitHub Release asset, so it remains useful while the public site is offline or
   being rebuilt.
-- Primary product URL: `https://note.coffeecli.com/`.
+- Primary product URL: `https://tiernote.org/`.
 
 ## Architecture and important paths
 
@@ -724,7 +726,7 @@ Prerequisites:
 Desktop:
 
 ```powershell
-cd C:\Coffee-Note
+cd C:\TierNote
 npm install
 npm run library:check
 npm run typecheck
@@ -734,7 +736,7 @@ npm run tauri:dev
 Website:
 
 ```powershell
-cd C:\Coffee-Note\website
+cd C:\TierNote\website
 npx serve .
 ```
 
@@ -757,7 +759,7 @@ and machine-specific. The website itself has no generated build directory.
 
 ## Agent-logic optimization references (added 2026-08-07)
 
-The AI-chat empty state advertises three capabilities that Coffee Note already
+The AI-chat empty state advertises three capabilities that TierNote already
 implements partially. When optimizing the agent loop later, borrow from these
 references:
 
@@ -780,12 +782,12 @@ Make every token deliver at least twice the value.)
 
 ## Starter data ownership (2026-08-08)
 
-The managed Demo library and My Info pages are starter data only. Coffee Note
+The managed Demo library and My Info pages are starter data only. TierNote
 creates their bilingual seed content once, and then treats every file as user
 data. A permanent `.starter-pack-initialized` marker prevents later launches,
 upgrades, or starter-content revisions from overwriting or recreating edited or
 deleted files. When upgrading a pre-marker installation, any existing file means
-the directory is adopted as-is; Coffee Note writes the marker without backfilling
+the directory is adopted as-is; TierNote writes the marker without backfilling
 missing seed files. Current Chinese directory names and My Info section IDs are
 transitional implementation details, not permanent product contracts.
 
@@ -799,7 +801,7 @@ its contents.
 
 The desktop Audio to text settings are backed by real app-data state rather
 than UI-only placeholders. Provider configuration is stored as plaintext JSON
-at the current user's local app-data `Coffee Note/transcription.json`; it is never
+at the current user's local app-data `TierNote/transcription.json`; it is never
 written into the repository or selected workspace. Provider records are kept
 independently so switching services does not discard their endpoint, model, or
 API key. The hosted path has separate request adapters for OpenAI-compatible,
@@ -807,7 +809,7 @@ Deepgram, and AssemblyAI protocols and streams audio files instead of reading
 the whole upload into memory.
 
 The local path downloads pinned runtime and model resources into the current
-user's local app-data `Coffee Note/transcription/` directory. Every fixed resource
+user's local app-data `TierNote/transcription/` directory. Every fixed resource
 has an expected byte size and SHA-256 digest; archives are extracted only after
 verification. Windows supports the CPU and NVIDIA CUDA runtimes, Linux supports
 the CPU runtime, and macOS is intentionally shown as unavailable until a pinned
@@ -826,9 +828,9 @@ selection is not implemented yet.
 
 ## Phone message channels (updated 2026-08-14)
 
-Coffee Note supports two paired private phone channels: Tencent Weixin iLink
+TierNote supports two paired private phone channels: Tencent Weixin iLink
 and Telegram Bot API. The Rust channel runtime stores credentials and a
-durable task queue under the current user's local app-data `Coffee Note/`
+durable task queue under the current user's local app-data `TierNote/`
 directory; neither credentials nor pending jobs enter the selected workspace.
 Weixin follows Tencent's MIT-licensed `openclaw-weixin` HTTP/JSON protocol for
 QR login, optional phone verification, long polling, `context_token` replies,
@@ -862,7 +864,7 @@ is acknowledged and removed only after the final phone reply is delivered.
    evolve `knowledge_map.rs` into a persistent registry + backlinks + orphan/
    broken-link lint + deterministic metadata rebuild after agent runs;
    measure token and tool-call savings.
-3. **Phase 3 — Cache hit rate and cost**: keep the stable Coffee Note system
+3. **Phase 3 — Cache hit rate and cost**: keep the stable TierNote system
    prompt small and compare provider-reported cache usage across model providers.
 4. **Phase 4 — Evidence-retrieval self-healing routing**:
    primary/fallback endpoints for Europe PMC / PubMed / ClinicalTrials with
@@ -871,10 +873,10 @@ is acknowledged and removed only after the final phone reply is delivered.
 ## Provider prefix-cache continuity (2026-08-10)
 
 AI conversations now have one UI transcript and one durable Agent Loop provider
-transcript in Coffee Note. Conversation mutations still share one process-local
+transcript in TierNote. Conversation mutations still share one process-local
 storage lock to protect UI JSON and its index.
 
 Cache usage remains the provider-reported aggregate. DeepSeek does not return
-token attribution by prompt section, so Coffee Note must not claim a synthetic
+token attribution by prompt section, so TierNote must not claim a synthetic
 rate that subtracts personal-context tokens. The composer labels this value
 `累计命中` / `Total cache` to make the cold-start-inclusive scope explicit.

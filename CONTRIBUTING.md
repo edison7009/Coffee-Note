@@ -1,6 +1,6 @@
-# Contributing to Coffee Note / 贡献指南
+# Contributing to TierNote / 贡献指南
 
-Thanks for helping improve Coffee Note.
+Thanks for helping improve TierNote.
 
 ## English
 
@@ -14,7 +14,7 @@ Thanks for helping improve Coffee Note.
 
 ### Contributor License Agreement (CLA)
 
-Coffee Note is distributed under the **GNU Affero General Public License,
+TierNote is distributed under the **GNU Affero General Public License,
 Version 3.0 or later (AGPL-3.0-or-later)**. The project may also offer paid
 commercial licenses for closed-source customization, white-label distribution,
 or proprietary embedding. To keep that licensing model possible, contributions
@@ -25,7 +25,7 @@ translations, or other content (your "Contribution"), you agree that:
 
 1. **Ownership.** You represent that you have the right to submit the
    Contribution and that it is not copied from an incompatibly licensed source.
-2. **License grant.** You grant edison7009 and the Coffee Note project a
+2. **License grant.** You grant edison7009 and the TierNote project a
    perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to
    reproduce, modify, publicly display, sublicense, and distribute the
    Contribution and derivative works under any license, including
@@ -52,7 +52,7 @@ maintainer before submitting.
 
 ### 贡献者许可协议（CLA）
 
-Coffee Note 采用 **GNU Affero 通用公共许可证 v3 或更高版本
+TierNote 采用 **GNU Affero 通用公共许可证 v3 或更高版本
 （AGPL-3.0-or-later）**。项目也可能向需要闭源定制、白标分发或嵌入专有
 产品的机构提供付费商业授权。为保留这种授权能力，贡献须遵守以下条款。
 
@@ -60,7 +60,7 @@ Coffee Note 采用 **GNU Affero 通用公共许可证 v3 或更高版本
 即表示你同意：
 
 1. **权属。** 你声明自己有权提交该贡献，且它并非复制自许可证不兼容的来源。
-2. **许可授予。** 你授予 edison7009 与 Coffee Note 项目一项永久、全球、
+2. **许可授予。** 你授予 edison7009 与 TierNote 项目一项永久、全球、
    非独占、免版税、不可撤销的许可，可复制、修改、公开展示、再许可及分发
    该贡献与其衍生作品，包括采用 AGPL-3.0-or-later 或商业专有许可证。
 3. **专利授权。** 若实施贡献必然涉及你控制的专利权利要求，你向项目及下游

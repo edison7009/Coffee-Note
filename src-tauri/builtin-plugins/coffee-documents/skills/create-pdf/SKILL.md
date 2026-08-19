@@ -5,7 +5,7 @@ description: Create a polished PDF from selected notes, workspace documents, res
 
 # Create PDF
 
-Create the document with Coffee Note's shared document runtime. Never install a package,
+Create the document with TierNote's shared document runtime. Never install a package,
 start a separate service, generate source code for the user to run, or invoke Microsoft Office
 or LibreOffice.
 

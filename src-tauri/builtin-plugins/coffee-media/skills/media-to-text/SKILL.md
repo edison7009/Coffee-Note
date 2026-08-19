@@ -5,7 +5,7 @@ description: Transcribe public audio or video links and local media files, clean
 
 # Media to text
 
-Use Coffee Note's shared media runtime. Never install a downloader, speech engine, or model from this skill.
+Use TierNote's shared media runtime. Never install a downloader, speech engine, or model from this skill.
 
 1. Extract one public media URL or absolute local media path from the request.
 2. Call `transcribe_media` with that source and the configured recognition mode.

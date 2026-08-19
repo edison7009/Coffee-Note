@@ -21,7 +21,7 @@ test('title bar uses the aligned wordmark without a duplicate logo', () => {
     /<div className="titlebar-brand"[^>]*>([\s\S]*?)<\/div>/s,
   )?.[1];
   assert.ok(titlebarBrand, 'titlebar brand markup should exist');
-  assert.match(titlebarBrand, /<strong>Coffee Note<\/strong>/);
+  assert.match(titlebarBrand, /<strong>TierNote<\/strong>/);
   assert.doesNotMatch(titlebarBrand, /<img\b/);
   const chatEmptyHeading = appSource.match(
     /<div className="chat-empty-heading">([\s\S]*?)<\/div>/s,

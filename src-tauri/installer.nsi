@@ -57,6 +57,10 @@ ${StrLoc}
 !define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
 !define MANUPRODUCTKEY "Software\${MANUFACTURER}\${PRODUCTNAME}"
+; v0.1.8 shipped under the Coffee Note product name. Detect and remove that
+; installation during the TierNote transition while leaving app data intact.
+!define LEGACY_UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Coffee Note"
+!define LEGACY_MANUPRODUCTKEY "Software\Coffee Team\Coffee Note"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
@@ -66,6 +70,7 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+Var LegacyProductMode
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -193,8 +198,16 @@ Function PageReinstall
   wix_loop_done:
 
   ; Check if there is an existing installation, if not, abort the reinstall page
+  StrCpy $LegacyProductMode 0
   ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
   ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} "$R0$R1" == ""
+    ReadRegStr $R0 SHCTX "${LEGACY_UNINSTKEY}" ""
+    ReadRegStr $R1 SHCTX "${LEGACY_UNINSTKEY}" "UninstallString"
+    ${If} "$R0$R1" != ""
+      StrCpy $LegacyProductMode 1
+    ${EndIf}
+  ${EndIf}
   ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
 
   ; Compare this installar version with the existing installation
@@ -203,6 +216,8 @@ Function PageReinstall
   StrCpy $R4 "$(older)"
   ${If} $WixMode = 1
     ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
+  ${ElseIf} $LegacyProductMode = 1
+    ReadRegStr $R0 SHCTX "${LEGACY_UNINSTKEY}" "DisplayVersion"
   ${Else}
     ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
   ${EndIf}
@@ -293,6 +308,12 @@ Function PageLeaveReinstall
     Goto reinst_uninstall
   ${EndIf}
 
+  ; The old and new product names use different uninstall keys and install
+  ; directories, so always remove the legacy application before continuing.
+  ${If} $LegacyProductMode = 1
+    Goto reinst_uninstall
+  ${EndIf}
+
   ; In update mode, always proceeds without uninstalling
   ${If} $UpdateMode = 1
     Goto reinst_done
@@ -328,6 +349,15 @@ Function PageLeaveReinstall
 
     ${If} $WixMode = 1
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
+      ExecWait '$R1' $0
+    ${ElseIf} $LegacyProductMode = 1
+      ReadRegStr $4 SHCTX "${LEGACY_MANUPRODUCTKEY}" ""
+      ${If} $4 == ""
+        ReadRegStr $4 SHCTX "${LEGACY_UNINSTKEY}" "InstallLocation"
+      ${EndIf}
+      ReadRegStr $R1 SHCTX "${LEGACY_UNINSTKEY}" "UninstallString"
+      ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|}
+      StrCpy $R1 "$R1 _?=$4"
       ExecWait '$R1' $0
     ${Else}
       ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""

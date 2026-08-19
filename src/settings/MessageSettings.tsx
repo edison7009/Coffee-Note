@@ -166,8 +166,8 @@ export function MessageSettings({ locale }: { locale: Locale }) {
         <h2>{locale === 'zh' ? '消息渠道' : 'Message channels'}</h2>
         <p>
           {locale === 'zh'
-            ? '连接后可像在客户端一样与 Coffee Note 对话；AI 会按你的意图回答、读取或整理本地笔记，单独发送链接也可以转成文档。手机对话会同步到客户端的对话记录。'
-            : 'Chat with Coffee Note from your phone just like in the desktop app. AI can answer, use local notes, or turn a shared link into a document, and the conversation appears in desktop history.'}
+            ? '连接后可像在客户端一样与 TierNote 对话；AI 会按你的意图回答、读取或整理本地笔记，单独发送链接也可以转成文档。手机对话会同步到客户端的对话记录。'
+            : 'Chat with TierNote from your phone just like in the desktop app. AI can answer, use local notes, or turn a shared link into a document, and the conversation appears in desktop history.'}
         </p>
         <span className="message-settings-summary">
           {connectedCount > 0
@@ -319,8 +319,8 @@ export function MessageSettings({ locale }: { locale: Locale }) {
 
       <p className="message-settings-footnote">
         {locale === 'zh'
-          ? '仅接受已绑定账号的私聊。手机端使用与客户端相同的 AI 工作区能力，因此可以按你的要求读取、创建或修改当前工作区中的代码、文档和笔记；它不能执行终端命令或修改应用设置。电脑需保持开机，Coffee Note 可在后台运行。'
-          : 'Only direct messages from the paired account are accepted. Phone chats use the same AI workspace capabilities as the desktop app, so they can read, create, or edit code, documents, and notes in the current workspace when asked; they cannot run terminal commands or change app settings. Keep this computer on with Coffee Note running in the background.'}
+          ? '仅接受已绑定账号的私聊。手机端使用与客户端相同的 AI 工作区能力，因此可以按你的要求读取、创建或修改当前工作区中的代码、文档和笔记；它不能执行终端命令或修改应用设置。电脑需保持开机，TierNote 可在后台运行。'
+          : 'Only direct messages from the paired account are accepted. Phone chats use the same AI workspace capabilities as the desktop app, so they can read, create, or edit code, documents, and notes in the current workspace when asked; they cannot run terminal commands or change app settings. Keep this computer on with TierNote running in the background.'}
       </p>
     </div>
   );

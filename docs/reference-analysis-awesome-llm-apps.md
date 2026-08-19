@@ -8,7 +8,7 @@
 ## 概览
 
 100+ AI Agents / Agent Skills / RAG Apps，6 大类。技术栈以 Python
-（LangGraph/FastAPI）为主，**代码不能直接搬**（Coffee-Note 是 Rust+Tauri），
+（LangGraph/FastAPI）为主，**代码不能直接搬**（TierNote 是 Rust+Tauri），
 但**思路和产品形态值得借鉴**。
 
 ## 最值得借鉴的 5 个点
@@ -52,7 +52,7 @@
 
 ### 5. Voice AI 与 MCP agents — 前瞻储备
 
-- `voice_ai_agents/`：Coffee-Note 已有 transcription，未来可扩展语音笔记
+- `voice_ai_agents/`：TierNote 已有 transcription，未来可扩展语音笔记
 - `mcp_ai_agents/`（multi_mcp_agent_router 等）：未来接 MCP 生态的路由参考
 
 ## 不建议借鉴
@@ -63,7 +63,7 @@
 
 ## 落地建议
 
-| 优先级 | 借鉴点 | 落到 Coffee-Note |
+| 优先级 | 借鉴点 | 落到 TierNote |
 |---|---|---|
 | P0 | 拖文件→Agent→结构化产物 | 导入流水线（进行中） |
 | P0 | 确定性工作用代码，思考用 LLM | `read_local_file` 工具设计 |

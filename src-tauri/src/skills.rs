@@ -141,7 +141,7 @@ fn default_builtin_plugins() -> BTreeMap<String, BuiltinPluginState> {
 
 fn builtin_media_manifest() -> BuiltinPluginManifest {
     let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_MEDIA_PLUGIN_MANIFEST)
-        .expect("the bundled Coffee Media manifest must be valid JSON");
+        .expect("the bundled TierNote Media manifest must be valid JSON");
     debug_assert_eq!(manifest.schema_version, 1);
     debug_assert_eq!(manifest.id, BUILTIN_MEDIA_PLUGIN_ID);
     debug_assert_eq!(manifest.runtime.lifecycle, "application");
@@ -153,7 +153,7 @@ fn builtin_media_manifest() -> BuiltinPluginManifest {
 fn builtin_presentation_manifest() -> BuiltinPluginManifest {
     let manifest: BuiltinPluginManifest =
         serde_json::from_str(BUILTIN_PRESENTATION_PLUGIN_MANIFEST)
-            .expect("the bundled Coffee Presentation manifest must be valid JSON");
+            .expect("the bundled TierNote Presentation manifest must be valid JSON");
     debug_assert_eq!(manifest.schema_version, 1);
     debug_assert_eq!(manifest.id, BUILTIN_PRESENTATION_PLUGIN_ID);
     debug_assert_eq!(manifest.runtime.lifecycle, "application");
@@ -164,7 +164,7 @@ fn builtin_presentation_manifest() -> BuiltinPluginManifest {
 
 fn builtin_document_manifest() -> BuiltinPluginManifest {
     let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_DOCUMENT_PLUGIN_MANIFEST)
-        .expect("the bundled Coffee Documents manifest must be valid JSON");
+        .expect("the bundled TierNote Documents manifest must be valid JSON");
     debug_assert_eq!(manifest.schema_version, 1);
     debug_assert_eq!(manifest.id, BUILTIN_DOCUMENT_PLUGIN_ID);
     debug_assert_eq!(manifest.runtime.lifecycle, "application");
@@ -175,7 +175,7 @@ fn builtin_document_manifest() -> BuiltinPluginManifest {
 
 fn builtin_video_manifest() -> BuiltinPluginManifest {
     let manifest: BuiltinPluginManifest = serde_json::from_str(BUILTIN_VIDEO_PLUGIN_MANIFEST)
-        .expect("the bundled Coffee Video manifest must be valid JSON");
+        .expect("the bundled TierNote Video manifest must be valid JSON");
     debug_assert_eq!(manifest.schema_version, 1);
     debug_assert_eq!(manifest.id, BUILTIN_VIDEO_PLUGIN_ID);
     debug_assert_eq!(manifest.runtime.lifecycle, "application");

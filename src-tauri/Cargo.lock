@@ -599,41 +599,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "coffee-note"
-version = "0.1.8"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "dirs",
- "flate2",
- "futures",
- "futures-util",
- "hound",
- "log",
- "printpdf",
- "quick-xml",
- "reqwest 0.12.28",
- "reqwest-eventsource",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "symphonia",
- "tar",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tokio",
- "tokio-util",
- "uuid",
- "zip",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4699,6 +4664,41 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.3",
+]
+
+[[package]]
+name = "tiernote"
+version = "0.1.8"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "dirs",
+ "flate2",
+ "futures",
+ "futures-util",
+ "hound",
+ "log",
+ "printpdf",
+ "quick-xml",
+ "reqwest 0.12.28",
+ "reqwest-eventsource",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "symphonia",
+ "tar",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "tokio-util",
+ "uuid",
+ "zip",
 ]
 
 [[package]]

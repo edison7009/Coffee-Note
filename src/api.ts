@@ -117,7 +117,7 @@ const fallbackSkillCatalog: SkillCatalog = {
       skillCount: 1,
       enabled: true,
       builtin: true,
-      publisher: 'Coffee Note',
+      publisher: 'TierNote',
       origin: 'bundled',
       runtimeId: 'media-transcription',
     },
@@ -132,7 +132,7 @@ const fallbackSkillCatalog: SkillCatalog = {
       skillCount: 1,
       enabled: true,
       builtin: true,
-      publisher: 'Coffee Note',
+      publisher: 'TierNote',
       origin: 'bundled',
       runtimeId: 'presentation-engine',
     },
@@ -147,7 +147,7 @@ const fallbackSkillCatalog: SkillCatalog = {
       skillCount: 2,
       enabled: true,
       builtin: true,
-      publisher: 'Coffee Note',
+      publisher: 'TierNote',
       origin: 'bundled',
       runtimeId: 'document-engine',
     },
@@ -166,7 +166,7 @@ function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
       ...existing,
       id: fallback.id,
       builtin: true,
-      publisher: existing?.publisher ?? 'Coffee Note',
+      publisher: existing?.publisher ?? 'TierNote',
       origin: 'bundled' as const,
     };
   });
@@ -211,7 +211,7 @@ function readFallbackSkillCatalog(): SkillCatalog {
     catalog.plugins = (catalog.plugins ?? []).map((plugin) => ({
       ...plugin,
       enabled: plugin.enabled !== false,
-      publisher: plugin.publisher || (plugin.builtin ? 'Coffee Note' : 'Community'),
+      publisher: plugin.publisher || (plugin.builtin ? 'TierNote' : 'Community'),
       origin: plugin.origin || (plugin.builtin ? 'bundled' : 'git'),
     }));
     catalog.skills = (catalog.skills ?? []).map((skill) => ({

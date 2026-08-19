@@ -234,13 +234,13 @@ import {
 } from './transcriptionAvailability';
 
 const APP_VERSION = packageMetadata.version;
-const PRODUCT_WEBSITE = 'https://note.coffeecli.com/';
+const PRODUCT_WEBSITE = 'https://tiernote.org/';
 const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
 const BUILTIN_DOCX_SKILL_ID = 'coffee-note-document-create-docx';
 const BUILTIN_PDF_SKILL_ID = 'coffee-note-document-create-pdf';
 const BUILTIN_PRESENTATION_SKILL_ID = 'coffee-note-presentation-create';
 const BUILTIN_VIDEO_SKILL_ID = 'coffee-note-video-create';
-const FEEDBACK_URL = 'https://github.com/edison7009/Coffee-Note/issues';
+const FEEDBACK_URL = 'https://github.com/edison7009/TierNote/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 const CAPTURE_TRANSCRIPTION_MODE_KEY = storageKey('capture-transcription-mode:v1');
 
@@ -3946,7 +3946,7 @@ function AppTitlebar({
     >
       <div className="titlebar-leading">
         <div className="titlebar-brand" data-tauri-drag-region>
-          <strong>Coffee Note</strong>
+          <strong>TierNote</strong>
         </div>
 
         <div className="titlebar-history" aria-label={locale === 'zh' ? '页面历史' : 'Page history'}>
@@ -4042,7 +4042,7 @@ function AppTitlebar({
               <div className="titlebar-menu-popover" role="menu">
                 <button type="button" role="menuitem" onClick={() => runMenuAction(onHelp)}>
                   <BookOpen size={15} />
-                  <span>{locale === 'zh' ? 'Coffee Note 帮助' : 'Coffee Note help'}</span>
+                  <span>{locale === 'zh' ? 'TierNote 帮助' : 'TierNote help'}</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => runMenuAction(onFeedback)}>
                   <Github size={15} />
@@ -4161,8 +4161,8 @@ function UpdateButton({ locale }: { locale: Locale }) {
       onClick={() => void handleUpdate()}
       aria-label={
         locale === 'zh'
-          ? `更新至 Coffee Note ${availableVersion}`
-          : `Update Coffee Note to ${availableVersion}`
+          ? `更新至 TierNote ${availableVersion}`
+          : `Update TierNote to ${availableVersion}`
       }
       disabled={installingUpdate}
     >
@@ -4583,7 +4583,7 @@ function ConversationContextMenu({
       const path = await getConversationFilePath(menu.conversation.id);
       if (path) await action(path);
     } catch {
-      // The record may have been removed outside Coffee Note; keep the menu action best-effort.
+      // The record may have been removed outside TierNote; keep the menu action best-effort.
     }
   };
   const style: React.CSSProperties = {
@@ -7569,7 +7569,7 @@ function ConversationView({
       {messages.length === 0 && (
         <div className="chat-empty-state">
           <div className="chat-empty-heading">
-            <strong className="chat-empty-wordmark">Coffee Note</strong>
+            <strong className="chat-empty-wordmark">TierNote</strong>
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
@@ -9719,7 +9719,7 @@ function SettingsPage({
             {t('feedback')}
           </button>
           <button type="button" onClick={() => void openExternalUrl(PRODUCT_WEBSITE)}>
-            Coffee Note · v{APP_VERSION}
+            TierNote · v{APP_VERSION}
           </button>
         </div>
       </aside>

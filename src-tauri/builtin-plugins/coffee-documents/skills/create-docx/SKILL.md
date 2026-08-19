@@ -5,7 +5,7 @@ description: Create an editable Word DOCX document from selected notes, workspac
 
 # Create DOCX
 
-Create the document with Coffee Note's shared document runtime. Never install a package,
+Create the document with TierNote's shared document runtime. Never install a package,
 start a separate service, generate source code for the user to run, or invoke Microsoft Office.
 
 1. Read the selected note and any requested workspace sources before drafting.
