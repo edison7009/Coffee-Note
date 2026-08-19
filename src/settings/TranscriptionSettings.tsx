@@ -5,26 +5,31 @@ import {
   Cpu,
   Download,
   ExternalLink,
+  FolderOpen,
   Gauge,
   HardDrive,
   Server,
   X,
-  Zap,
 } from 'lucide-react';
 import {
   cancelTranscriptionDownload,
   checkTranscriptionConfig,
+  chooseTranscriptionStorageDirectory,
   downloadTranscriptionResource,
+  getTranscriptionStorage,
   listTranscriptionResources,
   loadTranscriptionConfig,
   onTranscriptionResourceProgress,
   openExternalUrl,
+  openTranscriptionStorageDirectory,
   persistTranscriptionConfig,
+  setTranscriptionStorageDirectory,
 } from '../api';
-import type { Locale, TranscriptionProviderConfig, TranscriptionSettingsConfig } from '../types';
+import type { Locale, TranscriptionProviderConfig, TranscriptionSettingsConfig, TranscriptionStorageInfo } from '../types';
 import '../transcriptionSettings.css';
 
 type ComponentState = 'available' | 'downloading' | 'installed';
+type TranscriptionTab = 'api' | 'funasr' | 'native' | 'cuda' | 'firered';
 
 interface DownloadableComponent {
   id: string;
@@ -33,27 +38,72 @@ interface DownloadableComponent {
   size: string;
   included?: boolean;
   recommended?: boolean;
+  runtimeId?: string;
+  compatibleRuntimeIds?: string[];
 }
 
 const TRANSCRIPTION_MODELS: DownloadableComponent[] = [
   {
+    id: 'fireredasr2-aed',
+    name: { zh: 'FireRedASR2-AED', en: 'FireRedASR2-AED' },
+    detail: { zh: '中文、20+ 方言、中英混合与歌声 · 官方第一梯队', en: 'Chinese, 20+ dialects, code-switching, and singing · top-tier official model' },
+    size: '4.4 GB',
+    recommended: true,
+    runtimeId: 'firered',
+  },
+  {
+    id: 'fireredasr2-llm',
+    name: { zh: 'FireRedASR2-LLM', en: 'FireRedASR2-LLM' },
+    detail: { zh: '最高中文与方言精度 · 需要大显存 NVIDIA GPU', en: 'Highest Chinese and dialect accuracy · large-memory NVIDIA GPU required' },
+    size: '17.6 GB',
+    runtimeId: 'firered',
+  },
+  {
+    id: 'sensevoice-small',
+    name: { zh: 'SenseVoiceSmall', en: 'SenseVoiceSmall' },
+    detail: { zh: '中文、粤语和中英混合 · CPU 本地运行', en: 'Chinese, Cantonese, and mixed Chinese-English · local CPU' },
+    size: '254 MB',
+    recommended: true,
+    runtimeId: 'funasr',
+  },
+  {
+    id: 'paraformer-large',
+    name: { zh: 'Paraformer Large', en: 'Paraformer Large' },
+    detail: { zh: '普通话和中英混合 · 长音频与批量转写', en: 'Mandarin and mixed Chinese-English · long-form and batch transcription' },
+    size: '237 MB',
+    runtimeId: 'funasr',
+  },
+  {
+    id: 'funasr-nano',
+    name: { zh: 'Fun-ASR-Nano', en: 'Fun-ASR-Nano' },
+    detail: { zh: '中文、方言和专业术语 · 语音大模型', en: 'Chinese, dialects, and specialist terms · speech LLM' },
+    size: '954 MB',
+    runtimeId: 'funasr',
+  },
+  {
     id: 'fast',
-    name: { zh: '快速', en: 'Fast' },
-    detail: { zh: '短视频与低配置设备', en: 'Short clips and lower-powered devices' },
+    name: { zh: 'Whisper Base', en: 'Whisper Base' },
+    detail: { zh: '多语言兼容 · 中文效果有限', en: 'Broad language compatibility · limited Chinese accuracy' },
     size: '142 MB',
+    runtimeId: 'native',
+    compatibleRuntimeIds: ['native', 'cuda'],
   },
   {
     id: 'standard',
-    name: { zh: '标准', en: 'Standard' },
-    detail: { zh: '速度与中英文准确度均衡', en: 'Balanced speed and multilingual accuracy' },
+    name: { zh: 'Whisper Small', en: 'Whisper Small' },
+    detail: { zh: '多语言兼容 · 中文效果有限', en: 'Broad language compatibility · limited Chinese accuracy' },
     size: '466 MB',
     recommended: true,
+    runtimeId: 'native',
+    compatibleRuntimeIds: ['native', 'cuda'],
   },
   {
     id: 'accurate',
-    name: { zh: '高精度', en: 'High accuracy' },
-    detail: { zh: '长视频、访谈与课程', en: 'Long videos, interviews, and lectures' },
+    name: { zh: 'Whisper Medium', en: 'Whisper Medium' },
+    detail: { zh: '多语言兼容 · 下载体积较大', en: 'Broad language compatibility · larger download' },
     size: '1.5 GB',
+    runtimeId: 'native',
+    compatibleRuntimeIds: ['native', 'cuda'],
   },
 ];
 
@@ -242,37 +292,49 @@ function currentPlatform(): 'windows' | 'macos' | 'linux' {
 }
 
 function runtimeComponents(platform: ReturnType<typeof currentPlatform>): DownloadableComponent[] {
-  if (platform === 'macos') {
-    return [];
-  }
-
-  if (platform === 'linux') {
-    return [
-      {
-        id: 'native',
-        name: { zh: 'CPU 通用引擎', en: 'Universal CPU engine' },
-        detail: { zh: '下载后即可使用', en: 'Ready after download' },
-        size: '9 MB',
-        recommended: true,
-      },
-    ];
-  }
-
-  return [
+  const runtimes: DownloadableComponent[] = [
+    {
+      id: 'firered',
+      name: { zh: 'FireRedASR2 官方环境', en: 'Official FireRedASR2 environment' },
+      detail: { zh: '自动配置官方代码与 PyTorch · 需要 Python 3.11+', en: 'Sets up the official code and PyTorch · requires Python 3.11+' },
+      size: 'Python 3.11+',
+    },
+    {
+      id: 'funasr',
+      name: { zh: 'FunASR 本地引擎', en: 'FunASR local engine' },
+      detail: { zh: '运行 SenseVoice、Paraformer 与 Fun-ASR-Nano · 含长音频 VAD', en: 'Runs SenseVoice, Paraformer, and Fun-ASR-Nano · includes long-audio VAD' },
+      size: platform === 'windows' ? '7 MB' : '9 MB',
+    },
     {
       id: 'native',
-      name: { zh: 'CPU 通用引擎', en: 'Universal CPU engine' },
-      detail: { zh: '下载后即可使用', en: 'Ready after download' },
-      size: '8 MB',
-      recommended: true,
-    },
-    {
-      id: 'cuda',
-      name: { zh: 'NVIDIA GPU 加速', en: 'NVIDIA GPU acceleration' },
-      detail: { zh: '适用于兼容的 NVIDIA 显卡与驱动', en: 'For compatible NVIDIA graphics and drivers' },
-      size: '640 MB',
+      name: { zh: 'Whisper CPU 引擎', en: 'Whisper CPU engine' },
+      detail: { zh: '运行 Whisper Base、Small 与 Medium', en: 'Runs Whisper Base, Small, and Medium' },
+      size: platform === 'windows' ? '8 MB' : '9 MB',
     },
   ];
+  if (platform === 'windows') {
+    runtimes.push({
+      id: 'cuda',
+      name: { zh: 'Whisper NVIDIA 引擎', en: 'Whisper NVIDIA engine' },
+      detail: { zh: 'Whisper GPU 加速 · 需要兼容的 NVIDIA 驱动', en: 'GPU acceleration for Whisper · compatible NVIDIA driver required' },
+      size: '640 MB',
+    });
+  }
+  return runtimes;
+}
+
+function modelStateKey(runtimeId: string, modelId: string): string {
+  return `${runtimeId}:${modelId}`;
+}
+
+function resourceStateKey(kind: 'runtime' | 'model', runtimeId: string, id: string): string {
+  return `${kind}:${runtimeId}:${id}`;
+}
+
+function displayStoragePath(path: string): string {
+  if (path.startsWith('\\\\?\\UNC\\')) return `\\\\${path.slice(8)}`;
+  if (path.startsWith('\\\\?\\')) return path.slice(4);
+  return path;
 }
 
 function platformLabel(platform: ReturnType<typeof currentPlatform>, locale: Locale): string {
@@ -291,15 +353,15 @@ export function TranscriptionSettings({
   const platform = useMemo(currentPlatform, []);
   const runtimes = useMemo(() => runtimeComponents(platform), [platform]);
   const [runtimeStates, setRuntimeStates] = useState<Record<string, ComponentState>>(() =>
-    Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime.included ? 'installed' : 'available'])),
+    Object.fromEntries(runtimes.map((runtime) => [runtime.id, 'available'])),
   );
   const [modelStates, setModelStates] = useState<Record<string, ComponentState>>(() =>
-    Object.fromEntries(TRANSCRIPTION_MODELS.map((model) => [model.id, 'available'])),
+    Object.fromEntries(runtimes.flatMap((runtime) => TRANSCRIPTION_MODELS.map((model) => [modelStateKey(runtime.id, model.id), 'available']))),
   );
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [activeRuntime, setActiveRuntime] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'api' | 'local'>(initialTab);
+  const [activeTab, setActiveTab] = useState<TranscriptionTab>(initialTab === 'api' ? 'api' : 'firered');
   const [apiProvider, setApiProvider] = useState('siliconflow');
   const [apiUrl, setApiUrl] = useState(TRANSCRIPTION_API_PROVIDERS[0].endpoint);
   const [apiModel, setApiModel] = useState(TRANSCRIPTION_API_PROVIDERS[0].model);
@@ -319,6 +381,11 @@ export function TranscriptionSettings({
   );
   const pendingConfigRef = useRef<TranscriptionSettingsConfig | null>(null);
   const [resourceErrors, setResourceErrors] = useState<Record<string, string>>({});
+  const [storageInfo, setStorageInfo] = useState<TranscriptionStorageInfo | null>(null);
+  const [storageBusy, setStorageBusy] = useState(false);
+  const [storageError, setStorageError] = useState('');
+  const activeTabRef = useRef<TranscriptionTab>(activeTab);
+  activeTabRef.current = activeTab;
 
   useEffect(() => {
     let alive = true;
@@ -327,27 +394,43 @@ export function TranscriptionSettings({
       const runtimeEntries = resources.filter((item) => item.kind === 'runtime');
       const modelEntries = resources.filter((item) => item.kind === 'model');
       setRuntimeStates((current) => ({ ...current, ...Object.fromEntries(runtimeEntries.map((item) => [item.id, item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
-      setModelStates((current) => ({ ...current, ...Object.fromEntries(modelEntries.map((item) => [item.id, item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
+      setModelStates((current) => ({ ...current, ...Object.fromEntries(modelEntries.map((item) => [modelStateKey(item.runtimeId, item.id), item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
     });
     let unlisten: (() => void) | undefined;
     void onTranscriptionResourceProgress((event) => {
       if (!alive) return;
-      const setStates = event.kind === 'runtime' ? setRuntimeStates : setModelStates;
       const nextState: ComponentState = event.status === 'downloading'
         ? 'downloading'
         : event.status === 'installed' ? 'installed' : 'available';
-      setStates((states) => ({ ...states, [event.id]: nextState }));
-      setProgress((values) => ({ ...values, [`${event.kind}:${event.id}`]: event.percent }));
+      if (event.kind === 'runtime' && runtimes.some((runtime) => runtime.id === event.id)) {
+        setRuntimeStates((states) => ({ ...states, [event.id]: nextState }));
+      } else if (event.kind === 'model' && TRANSCRIPTION_MODELS.some((model) => model.id === event.id)) {
+        setModelStates((states) => ({ ...states, [modelStateKey(event.runtimeId, event.id)]: nextState }));
+      }
+      const key = resourceStateKey(event.kind, event.runtimeId, event.id);
+      setProgress((values) => ({ ...values, [key]: event.percent }));
       if (event.status === 'installed') {
         if (event.kind === 'runtime') setActiveRuntime(event.id);
-        else setActiveModel(event.id);
       }
       if (event.message && event.status === 'error') {
-        setResourceErrors((errors) => ({ ...errors, [`${event.kind}:${event.id}`]: event.message! }));
+        setResourceErrors((errors) => ({ ...errors, [key]: event.message! }));
       }
     }).then((stop) => { unlisten = stop; });
     return () => { alive = false; unlisten?.(); };
-  }, []);
+  }, [runtimes]);
+
+  useEffect(() => {
+    if (activeTab === 'api') return undefined;
+    let alive = true;
+    setStorageInfo(null);
+    setStorageError('');
+    void getTranscriptionStorage(activeTab).then((storage) => {
+      if (alive && storage) setStorageInfo(storage);
+    }).catch((error) => {
+      if (alive) setStorageError(String(error).replace(/^Error:\s*/i, ''));
+    });
+    return () => { alive = false; };
+  }, [activeTab]);
 
   useEffect(() => {
     let alive = true;
@@ -361,14 +444,19 @@ export function TranscriptionSettings({
         setApiModel(provider.model);
         setApiKey(provider.apiKey);
       }
-      if (config?.activeRuntime) setActiveRuntime(config.activeRuntime);
+      if (config?.activeRuntime) {
+        setActiveRuntime(config.activeRuntime);
+        if (initialTab === 'local' && runtimes.some((runtime) => runtime.id === config.activeRuntime)) {
+          setActiveTab(config.activeRuntime as TranscriptionTab);
+        }
+      }
       if (config?.activeModel) setActiveModel(config.activeModel);
       setConfigLoaded(true);
     }).catch(() => {
       if (alive) setConfigLoaded(true);
     });
     return () => { alive = false; };
-  }, []);
+  }, [initialTab, runtimes]);
 
   useEffect(() => {
     if (!configLoaded) return;
@@ -406,30 +494,55 @@ export function TranscriptionSettings({
     };
   }, [configLoaded]);
 
-  const startDownload = (
-    item: DownloadableComponent,
-    kind: 'runtime' | 'model',
-  ) => {
-    const key = `${kind}:${item.id}`;
+  const toggleLocalModel = (modelId: string) => {
+    const model = TRANSCRIPTION_MODELS.find((item) => item.id === modelId);
+    const compatible = model?.compatibleRuntimeIds ?? (model?.runtimeId ? [model.runtimeId] : []);
+    const tabRuntime = activeTab === 'api' ? '' : activeTab;
+    if (!model || modelStates[modelStateKey(tabRuntime, modelId)] !== 'installed' || !compatible.includes(tabRuntime) || runtimeStates[tabRuntime] !== 'installed') {
+      return;
+    }
+    const selected = activeModel === modelId && activeRuntime === tabRuntime;
+    if (selected) {
+      setActiveModel(null);
+      return;
+    }
+    const runtime = compatible.includes(tabRuntime) ? tabRuntime : model?.runtimeId ?? compatible[0] ?? 'native';
+    setActiveRuntime(runtime);
+    setActiveModel(modelId);
+  };
+
+  const startDownload = (item: DownloadableComponent, kind: 'runtime' | 'model') => {
+    const runtimeId = kind === 'runtime' ? item.id : activeTab === 'api' ? (item.runtimeId ?? 'native') : activeTab;
+    const key = resourceStateKey(kind, runtimeId, item.id);
     const setStates = kind === 'runtime' ? setRuntimeStates : setModelStates;
-    setStates((states) => ({ ...states, [item.id]: 'downloading' }));
+    const stateKey = kind === 'runtime' ? item.id : modelStateKey(runtimeId, item.id);
+    setStates((states) => ({ ...states, [stateKey]: 'downloading' }));
     setProgress((values) => ({ ...values, [key]: 0 }));
     setResourceErrors((errors) => ({ ...errors, [key]: '' }));
-    void downloadTranscriptionResource(kind, item.id).catch((error) => {
-      setStates((states) => ({ ...states, [item.id]: 'available' }));
+    void downloadTranscriptionResource(kind, item.id, runtimeId).catch((error) => {
+      setStates((states) => ({ ...states, [stateKey]: 'available' }));
       setResourceErrors((errors) => ({ ...errors, [key]: String(error).replace(/^Error:\s*/i, '') }));
     });
   };
 
   const cancelDownload = (item: DownloadableComponent, kind: 'runtime' | 'model') => {
-    void cancelTranscriptionDownload(kind, item.id);
+    const runtimeId = kind === 'runtime' ? item.id : activeTab === 'api' ? (item.runtimeId ?? 'native') : activeTab;
+    void cancelTranscriptionDownload(kind, item.id, runtimeId);
   };
 
   const renderRows = (items: DownloadableComponent[], kind: 'runtime' | 'model') => items.map((item) => {
-    const state = (kind === 'runtime' ? runtimeStates : modelStates)[item.id];
-    const active = kind === 'runtime' ? activeRuntime === item.id : activeModel === item.id;
-    const key = `${kind}:${item.id}`;
+    const runtimeId = kind === 'runtime' ? item.id : activeTab === 'api' ? (item.runtimeId ?? 'native') : activeTab;
+    const state = kind === 'runtime' ? runtimeStates[item.id] : modelStates[modelStateKey(runtimeId, item.id)];
+    const key = resourceStateKey(kind, runtimeId, item.id);
     const value = progress[key] ?? 0;
+    const compatibleRuntimes = item.compatibleRuntimeIds ?? (item.runtimeId ? [item.runtimeId] : []);
+    const runtimeReady = kind === 'runtime'
+      || (activeTab !== 'api' && compatibleRuntimes.includes(activeTab) && runtimeStates[activeTab] === 'installed');
+    const active = kind === 'model'
+      && state === 'installed'
+      && runtimeReady
+      && activeModel === item.id
+      && activeRuntime === activeTab;
 
     return (
       <div className={`transcription-component-row${active ? ' is-active' : ''}`} key={item.id}>
@@ -453,17 +566,13 @@ export function TranscriptionSettings({
           {state === 'downloading' ? `${value}% · ${item.size}` : item.size}
         </div>
         <div className="transcription-component-actions">
-          {active && state === 'installed' && (
-            <span className="transcription-active-state">{locale === 'zh' ? '使用中' : 'In use'}</span>
-          )}
-          {!active && state === 'installed' && (
-            <button type="button" className="transcription-text-action" onClick={() => kind === 'runtime' ? setActiveRuntime(item.id) : setActiveModel(item.id)}>
-              {locale === 'zh' ? '使用' : 'Use'}
-            </button>
+          {kind === 'runtime' && state === 'installed' && (
+            <span className="transcription-downloaded-state">{locale === 'zh' ? '已下载' : 'Downloaded'}</span>
           )}
           {state === 'available' && (
             <button type="button" className="transcription-download-action" onClick={() => startDownload(item, kind)}>
-              <Download size={15} />{locale === 'zh' ? '下载' : 'Download'}
+              <Download size={15} />
+              {locale === 'zh' ? (kind === 'runtime' ? '安装' : '下载') : (kind === 'runtime' ? 'Install' : 'Download')}
             </button>
           )}
           {state === 'downloading' && (
@@ -471,14 +580,61 @@ export function TranscriptionSettings({
               <X size={16} />
             </button>
           )}
+          {kind === 'model' && state === 'installed' && runtimeReady && (
+            <button
+              type="button"
+              className="transcription-model-switch"
+              role="switch"
+              aria-checked={active}
+              aria-label={locale === 'zh'
+                ? `${active ? '停用' : '使用'}模型 ${item.name.zh}`
+                : `${active ? 'Disable' : 'Use'} model ${item.name.en}`}
+              onClick={() => toggleLocalModel(item.id)}
+            >
+              <span aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     );
   });
 
-  const installedExtraSize = [...runtimes, ...TRANSCRIPTION_MODELS]
+  const selectedRuntimeId = activeTab === 'api' ? 'funasr' : activeTab;
+  const selectedRuntime = runtimes.find((runtime) => runtime.id === selectedRuntimeId) ?? runtimes[0];
+  const visibleModels = TRANSCRIPTION_MODELS.filter((model) => {
+    const compatible = model.compatibleRuntimeIds ?? (model.runtimeId ? [model.runtimeId] : []);
+    return compatible.includes(selectedRuntime.id);
+  });
+  const configuredModel = TRANSCRIPTION_MODELS.find((model) => model.id === activeModel);
+  const configuredRuntimeIds = configuredModel?.compatibleRuntimeIds
+    ?? (configuredModel?.runtimeId ? [configuredModel.runtimeId] : []);
+  const configuredModelReady = activeModel !== null
+    && modelStates[modelStateKey(activeRuntime, activeModel)] === 'installed';
+
+  const chooseStorageDirectory = () => {
+    const runtimeId = selectedRuntime.id;
+    setStorageError('');
+    void chooseTranscriptionStorageDirectory().then((directory) => {
+      if (!directory) return;
+      setStorageBusy(true);
+      return setTranscriptionStorageDirectory(runtimeId, directory).then((storage) => {
+        if (activeTabRef.current === runtimeId) setStorageInfo(storage);
+        return listTranscriptionResources();
+      }).then((resources) => {
+        if (!resources) return;
+        setRuntimeStates((current) => ({ ...current, ...Object.fromEntries(resources.filter((item) => item.kind === 'runtime').map((item) => [item.id, item.installed ? 'installed' : 'available'])) }));
+        setModelStates((current) => ({ ...current, ...Object.fromEntries(resources.filter((item) => item.kind === 'model').map((item) => [modelStateKey(item.runtimeId, item.id), item.installed ? 'installed' : 'available'])) }));
+      });
+    }).catch((error) => {
+      if (activeTabRef.current === runtimeId) {
+        setStorageError(String(error).replace(/^Error:\s*/i, ''));
+      }
+    }).finally(() => setStorageBusy(false));
+  };
+
+  const installedExtraSize = TRANSCRIPTION_MODELS
     .filter((item) => !item.included)
-    .filter((item) => (runtimeStates[item.id] ?? modelStates[item.id]) === 'installed')
+    .filter((item) => modelStates[modelStateKey(selectedRuntime.id, item.id)] === 'installed')
     .map((item) => item.size);
 
   const testApiConnection = () => {
@@ -551,13 +707,28 @@ export function TranscriptionSettings({
       <nav className="transcription-tabs" aria-label={locale === 'zh' ? '语音识别方式' : 'Speech recognition modes'}>
         <button type="button" className={activeTab === 'api' ? 'active' : ''} onClick={() => setActiveTab('api')}>
           <Server size={16} strokeWidth={1.8} />
-          {locale === 'zh' ? '语音识别模型' : 'Speech recognition model'}
-          <span className="transcription-tab-recommended">{locale === 'zh' ? '推荐' : 'Recommended'}</span>
+          {locale === 'zh' ? '云端识别' : 'Cloud'}
         </button>
-        <button type="button" className={activeTab === 'local' ? 'active' : ''} onClick={() => setActiveTab('local')}>
-          <Cpu size={16} strokeWidth={1.8} />
-          {locale === 'zh' ? '本地语音识别模型' : 'Local speech recognition models'}
-        </button>
+        {runtimes.map((runtime) => (
+          <button
+            type="button"
+            className={activeTab === runtime.id ? 'active' : ''}
+            onClick={() => setActiveTab(runtime.id as TranscriptionTab)}
+            key={runtime.id}
+          >
+            <Cpu size={16} strokeWidth={1.8} />
+            {runtime.id === 'funasr' && 'FunASR'}
+            {runtime.id === 'native' && 'Whisper CPU'}
+            {runtime.id === 'cuda' && 'Whisper NVIDIA'}
+            {runtime.id === 'firered' && 'FireRedASR2'}
+            {configuredModelReady
+              && runtimeStates[runtime.id] === 'installed'
+              && activeRuntime === runtime.id
+              && configuredRuntimeIds.includes(runtime.id) && (
+              <span className="transcription-tab-active-state">{locale === 'zh' ? '使用中' : 'In use'}</span>
+            )}
+          </button>
+        ))}
       </nav>
 
       {activeTab === 'api' && (
@@ -623,25 +794,43 @@ export function TranscriptionSettings({
         </section>
       )}
 
-      {activeTab === 'local' && <>
-      <section className="transcription-settings-block">
+      {activeTab !== 'api' && <>
+      <section className="transcription-settings-block transcription-storage-block">
         <div className="transcription-block-heading">
           <div>
-            <h3>{locale === 'zh' ? '运行引擎' : 'Runtime'}</h3>
-            <p>{locale === 'zh' ? '本地模型需要先下载引擎，才能运行模型。' : 'Download the runtime before running a local model.'}</p>
+            <h3>{locale === 'zh' ? '存储位置' : 'Storage location'}</h3>
+            <p>{locale === 'zh' ? `仅存放 ${selectedRuntime.name.zh} 及其模型；更换目录时会自动迁移这一组资源。` : `Stores only ${selectedRuntime.name.en} and its models; this engine family migrates when the directory changes.`}</p>
           </div>
-          <Zap size={18} strokeWidth={1.7} aria-hidden="true" />
+          <HardDrive size={18} strokeWidth={1.7} aria-hidden="true" />
         </div>
-        {runtimes.length > 0
-          ? <div className="transcription-component-list">{renderRows(runtimes, 'runtime')}</div>
-          : <p className="transcription-runtime-unavailable">{locale === 'zh' ? '当前系统的本地运行引擎尚未提供。' : 'A local runtime is not available for this system yet.'}</p>}
+        <div className="transcription-storage-path">
+          <span>{storageInfo ? displayStoragePath(storageInfo.directory) : (locale === 'zh' ? '正在读取…' : 'Loading…')}</span>
+          {storageInfo?.usesDefault && <em>{locale === 'zh' ? '系统盘默认目录' : 'System-drive default'}</em>}
+        </div>
+        <div className="transcription-storage-actions">
+          <button type="button" className="transcription-download-action" disabled={storageBusy} onClick={chooseStorageDirectory}>
+            <FolderOpen size={15} />
+            {storageBusy ? (locale === 'zh' ? '正在迁移…' : 'Migrating…') : (locale === 'zh' ? '选择目录' : 'Choose directory')}
+          </button>
+          <button type="button" className="transcription-text-action" onClick={() => void openTranscriptionStorageDirectory(selectedRuntime.id)}>
+            {locale === 'zh' ? '打开目录' : 'Open folder'}
+          </button>
+        </div>
+        {storageError && <p className="transcription-resource-error" role="alert">{storageError}</p>}
       </section>
-
       <section className="transcription-settings-block">
         <div className="transcription-block-heading">
           <div>
-            <h3>{locale === 'zh' ? '选择模型' : 'Choose a model'}</h3>
-            <p>{locale === 'zh' ? '根据机器配置选择不同量级的模型，处理结果也有所区别。' : 'Choose a model size for this device; processing results vary by model.'}</p>
+            <h3>{locale === 'zh' ? '运行引擎' : 'Runtime engines'}</h3>
+          </div>
+          <Cpu size={18} strokeWidth={1.7} aria-hidden="true" />
+        </div>
+        <div className="transcription-component-list">{renderRows([selectedRuntime], 'runtime')}</div>
+      </section>
+      <section className="transcription-settings-block">
+        <div className="transcription-block-heading">
+          <div>
+            <h3>{locale === 'zh' ? '可用模型' : 'Available models'}</h3>
           </div>
           <span className="transcription-storage-total">
             {installedExtraSize.length
@@ -649,7 +838,7 @@ export function TranscriptionSettings({
               : (locale === 'zh' ? '尚未下载模型' : 'No model downloaded')}
           </span>
         </div>
-        <div className="transcription-component-list">{renderRows(TRANSCRIPTION_MODELS, 'model')}</div>
+        <div className="transcription-component-list">{renderRows(visibleModels, 'model')}</div>
       </section>
       </>}
     </div>

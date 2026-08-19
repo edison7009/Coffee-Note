@@ -22,11 +22,13 @@ export function transcriptionAvailability(
     && resources.some((resource) => (
       resource.kind === 'runtime'
       && resource.id === config?.activeRuntime
+      && resource.runtimeId === config?.activeRuntime
       && resource.installed
     ))
     && resources.some((resource) => (
       resource.kind === 'model'
       && resource.id === config?.activeModel
+      && resource.runtimeId === config?.activeRuntime
       && resource.installed
     ));
   return { api, local };

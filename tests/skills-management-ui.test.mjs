@@ -302,6 +302,59 @@ test('audio-to-text keeps file transcription protocols and current model choices
   assert.match(transcriptionBackendSource, /text\("chunking_strategy", "auto"\)/);
   assert.match(transcriptionBackendSource, /"speech_models": \[config\.model\.clone\(\)\]/);
   assert.match(transcriptionBackendSource, /"elevenlabs" => transcribe_elevenlabs/);
+  for (const model of ['sensevoice-small', 'paraformer-large', 'funasr-nano']) {
+    assert.match(transcriptionSettingsSource, new RegExp(`id: '${model}'`));
+    assert.match(transcriptionBackendSource, new RegExp(`"${model}"`));
+  }
+  for (const model of ['fireredasr2-aed', 'fireredasr2-llm']) {
+    assert.match(transcriptionSettingsSource, new RegExp(`id: '${model}'`));
+  }
+  assert.match(transcriptionSettingsSource, /可用模型/);
+  assert.match(transcriptionSettingsSource, /运行引擎/);
+  for (const tab of ['FunASR', 'Whisper CPU', 'Whisper NVIDIA', 'FireRedASR2']) {
+    assert.match(transcriptionSettingsSource, new RegExp(`'${tab}'`));
+  }
+  assert.match(transcriptionSettingsSource, /function runtimeComponents[\s\S]*?const runtimes[\s\S]*?id: 'firered'[\s\S]*?id: 'funasr'/);
+  assert.match(transcriptionSettingsSource, /visibleModels/);
+  assert.doesNotMatch(transcriptionSettingsSource, /transcription-tabs-divider/);
+  assert.match(transcriptionSettingsSource, /transcription-tab-active-state/);
+  assert.match(transcriptionSettingsSource, /className="transcription-model-switch"/);
+  assert.match(transcriptionSettingsSource, /role="switch"/);
+  assert.match(transcriptionSettingsSource, /aria-checked=\{active\}/);
+  assert.match(transcriptionSettingsSource, /modelStates\[modelStateKey\(tabRuntime, modelId\)\] !== 'installed'/);
+  assert.match(transcriptionSettingsSource, /runtimeStates\[tabRuntime\] !== 'installed'/);
+  assert.match(transcriptionSettingsSource, /kind === 'model' && state === 'installed' && runtimeReady/);
+  assert.match(transcriptionSettingsSource, /runtimeStates\[runtime\.id\] === 'installed'/);
+  assert.match(transcriptionSettingsSource, /modelStateKey\(item\.runtimeId, item\.id\)/);
+  assert.match(transcriptionSettingsSource, /getTranscriptionStorage\(activeTab\)/);
+  assert.match(transcriptionSettingsSource, /const runtimeId = selectedRuntime\.id/);
+  assert.match(transcriptionSettingsSource, /setTranscriptionStorageDirectory\(runtimeId, directory\)/);
+  assert.match(transcriptionSettingsSource, /activeTabRef\.current === runtimeId/);
+  assert.match(transcriptionSettingsSource, /displayStoragePath\(storageInfo\.directory\)/);
+  assert.match(transcriptionSettingsSource, /已下载/);
+  assert.doesNotMatch(transcriptionSettingsSource, /transcription-tab-recommended/);
+  assert.match(transcriptionCssSource, /\.transcription-tab-active-state[\s\S]*color: var\(--switch-on\)/);
+  assert.match(transcriptionCssSource, /\.transcription-model-switch\[aria-checked='true'\][\s\S]*background: var\(--switch-on\)/);
+  assert.doesNotMatch(transcriptionSettingsSource, /推荐仅在当前体系内比较|所需引擎：|Required engine:/);
+  assert.doesNotMatch(transcriptionSettingsSource, /transcription-model-runtime/);
+  assert.match(transcriptionSettingsSource, /选择目录/);
+  assert.match(transcriptionSettingsSource, /打开目录/);
+  assert.match(transcriptionBackendSource, /gitcode\.com\/gh_mirrors\/fi\/FireRedASR2S/);
+  assert.match(transcriptionBackendSource, /huggingface\.co\/FireRedTeam\/FireRedASR2/);
+  assert.match(transcriptionBackendSource, /resolve_transcription_resource_source/);
+  assert.match(transcriptionBackendSource, /set_transcription_storage_directory/);
+  assert.match(transcriptionBackendSource, /directories: BTreeMap<String, String>/);
+  assert.match(transcriptionBackendSource, /resource_root_for_runtime/);
+  assert.match(transcriptionBackendSource, /runtime_storage_folder/);
+  assert.match(transcriptionBackendSource, /strip_prefix\(r"\\\\\?\\UNC\\"\)/);
+  assert.match(transcriptionBackendSource, /modelscope\.cn\/models\/FunAudioLLM/);
+  assert.match(transcriptionBackendSource, /runtime-llamacpp-v0\.2\.0/);
+  assert.match(transcriptionBackendSource, /async fn transcribe_local_funasr/);
+  assert.match(transcriptionBackendSource, /async fn transcribe_local_firered/);
+  assert.match(transcriptionBackendSource, /prepare_firered_runtime/);
+  assert.match(transcriptionBackendSource, /modelscope\.cn\/models\/xukaituo\/FireRedASR2/);
+  assert.match(transcriptionBackendSource, /FireRedASR2S\/archive\/4e7d9aaf/);
+  assert.doesNotMatch(transcriptionSettingsSource, /externalOnly/);
   assert.doesNotMatch(transcriptionSettingsSource, /flux-general-en|flux-general/);
 });
 

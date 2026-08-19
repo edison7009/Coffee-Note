@@ -22,15 +22,15 @@ test('model settings use the workspace as their only page surface', () => {
   assert.match(browser, /border-top:\s*1px solid var\(--line\)/);
 });
 
-test('transcription settings keep controls but remove nested page cards', () => {
+test('transcription settings keep controls without nested cards or dividers', () => {
   const group = rule(transcriptionStyles, '\\.transcription-settings-group');
   const componentList = rule(transcriptionStyles, '\\.transcription-component-list');
 
   assert.match(group, /background:\s*transparent/);
   assert.match(group, /border:\s*0/);
   assert.match(componentList, /background:\s*transparent/);
-  assert.match(componentList, /border-top:\s*1px solid var\(--line\)/);
-  assert.doesNotMatch(componentList, /border:\s*1px solid/);
+  assert.match(componentList, /border:\s*0/);
+  assert.doesNotMatch(componentList, /border-top:\s*1px solid|border-bottom:\s*1px solid/);
 });
 
 test('transcription API inputs use the shared surface and regular placeholder weight', () => {

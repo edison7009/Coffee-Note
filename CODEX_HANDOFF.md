@@ -259,6 +259,34 @@ or temporary deployment credentials.
   covering machines that crash after selecting the Haswell backend. Failed attempts
   report the process status and diagnostics instead of treating the final successful
   backend-load log line as the cause.
+- **Chinese-first local transcription library (2026-08-19):** Settings > Audio to text
+  separates storage, inference engines, and model weights. SenseVoiceSmall Q8 is the
+  lightweight default, with Paraformer Large Q8
+  and Fun-ASR-Nano Q4 available through the official self-contained FunASR llama.cpp
+  runtime and shared FSMN-VAD long-audio segmentation. Model downloads use pinned
+  ModelScope revisions first in China, fall back to pinned Hugging Face revisions,
+  and verify exact sizes and SHA-256 digests. Runtime and model downloads are shown
+  separately so users can understand and manage each layer. Existing Whisper
+  base/small/medium IDs and files remain compatible but
+  are explicitly labeled as multilingual fallbacks with limited Chinese accuracy.
+  FireRedASR2-AED and FireRedASR2-LLM are first-class catalog entries with one Download
+  action: TierNote probes the China mirror and silently falls back to the official
+  international source instead of making users choose a route. They clearly state their
+  separate Python/PyTorch or vLLM requirements; do not report them as locally installed
+  until TierNote owns that runtime. Each of the four engine families has its own
+  configurable storage root and folder under `TierNote Transcription`; changing the
+  directory migrates only that engine and its models, so large families can live on
+  different drives. Legacy one-directory storage remains a read-compatible fallback,
+  and Windows extended path prefixes such as `\\?\` must never be shown in the UI.
+  Storage opens in the system file manager. The top navigation separates local
+  recognition into FireRedASR2, FunASR, Whisper CPU, and Whisper NVIDIA tabs (FireRedASR2
+  stays first for the Chinese-first product); each tab contains only its own runtime and compatible models, with
+  no secondary engine-browser state. Cloud is visually separated from those local
+  families. Exactly one local model can be configured through the theme-color switches.
+  A model switch appears only when both that model and the matching runtime are installed;
+  only then may its family tab carry the theme-color `In use` state. Downloaded engines
+  show `Downloaded` in the row action area. Recommendation badges are scoped within each
+  family (SenseVoiceSmall for FunASR, FireRedASR2-AED for FireRed, Whisper Small for Whisper).
 - **Working conversation indicator (2026-08-14):** While the agent is busy, the
   active conversation card in the right history rail replaces its delete action with
   a small always-visible, geometrically centered theme-color dot and exposes `aria-busy`.
@@ -809,12 +837,27 @@ Deepgram, and AssemblyAI protocols and streams audio files instead of reading
 the whole upload into memory.
 
 The local path downloads pinned runtime and model resources into the current
-user's local app-data `TierNote/transcription/` directory. Every fixed resource
+user's local app-data `TierNote/transcription/` directory by default. Audio to
+text now exposes one tab and one independently configurable storage directory
+for FireRedASR2, FunASR, Whisper CPU, and Whisper NVIDIA. Moving a directory
+migrates only that engine family, rejects targets inside its current models or
+runtimes subtree, and ignores stale migration results after the user changes
+tabs. Every fixed resource
 has an expected byte size and SHA-256 digest; archives are extracted only after
-verification. Windows supports the CPU and NVIDIA CUDA runtimes, Linux supports
-the CPU runtime, and macOS is intentionally shown as unavailable until a pinned
-runtime package is defined. Local input is decoded and converted to 16 kHz
-mono PCM WAV before the selected runtime and model are executed.
+verification. Windows supports Whisper CPU/NVIDIA and FunASR, Linux supports
+Whisper CPU and FunASR, and Apple silicon supports FunASR.
+
+FireRedASR2 is a real managed local route rather than an external-link
+placeholder. Its official source is pinned to revision
+`4e7d9aaf4482a47cec1724807026b9b151926eb5`; installation creates an isolated
+Python environment, tries the Tsinghua PyPI mirror before the default index,
+installs the pinned official package, and marks the engine ready only after
+imports succeed. Python 3.11+ must already be available on the device. AED and
+LLM model bundles prefer ModelScope and fall back to revision-pinned Hugging
+Face files; every required file is size- and SHA-256-checked. Local input is
+decoded and converted to 16 kHz mono PCM WAV, then TierNote invokes the selected
+engine/model. FireRed disables the optional VAD/LID/punctuation modules for the
+single-file route and reads the official CLI's `result.jsonl` output.
 
 The home capture flow now treats YouTube, Bilibili, TikTok, Douyin, Xiaohongshu,
 X, and their supported short-link hosts as media sources. It first asks the

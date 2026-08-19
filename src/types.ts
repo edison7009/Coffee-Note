@@ -288,6 +288,7 @@ export interface GeneratedFilesSettings {
 export interface TranscriptionResourceStatus {
   id: string;
   kind: 'runtime' | 'model';
+  runtimeId: string;
   installed: boolean;
   downloading: boolean;
   bytes: number;
@@ -296,6 +297,7 @@ export interface TranscriptionResourceStatus {
 export interface TranscriptionResourceProgress {
   id: string;
   kind: 'runtime' | 'model';
+  runtimeId: string;
   status: 'downloading' | 'installed' | 'cancelled' | 'error';
   percent: number;
   downloadedBytes: number;
@@ -338,6 +340,13 @@ export interface SkillDefinition {
   builtin?: boolean;
   iconId?: string;
   runtimeId?: string;
+}
+
+export interface TranscriptionStorageInfo {
+  runtimeId: string;
+  directory: string;
+  defaultDirectory: string;
+  usesDefault: boolean;
 }
 
 export interface WeixinMessageSettings {

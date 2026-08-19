@@ -1,6 +1,6 @@
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -25,6 +25,7 @@ use tokio_util::sync::CancellationToken;
 
 const RESOURCE_EVENT: &str = "transcription-resource-progress";
 const MAX_MEDIA_BYTES: u64 = 512 * 1024 * 1024;
+const FIRERED_SOURCE_REVISION: &str = "4e7d9aaf4482a47cec1724807026b9b151926eb5";
 static MEDIA_FETCHER_SETUP_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static MEDIA_FETCHER_READY: tokio::sync::OnceCell<PathBuf> = tokio::sync::OnceCell::const_new();
 
@@ -41,14 +42,39 @@ pub struct TranscriptionDownloadState {
     downloads: Mutex<BTreeMap<String, CancellationToken>>,
 }
 
-fn model_file(id: &str) -> Result<PathBuf, String> {
+fn model_file(id: &str, runtime: &str) -> Result<PathBuf, String> {
+    if matches!(id, "fireredasr2-aed" | "fireredasr2-llm") {
+        if !model_is_compatible_with_runtime(id, runtime) {
+            return Err(
+                "The selected model is not compatible with this transcription engine".to_string(),
+            );
+        }
+        let package = resource_bundle("model", id)?;
+        if !package
+            .iter()
+            .all(|spec| installed_path(*spec, runtime).is_file())
+        {
+            return Err("Download a local transcription model first".to_string());
+        }
+        return Ok(resource_root_for_runtime(runtime).join("models").join(id));
+    }
     let file = match id {
         "fast" => "ggml-base.bin",
         "standard" => "ggml-small.bin",
         "accurate" => "ggml-medium.bin",
+        "sensevoice-small" => "sensevoice-small-q8.gguf",
+        "paraformer-large" => "paraformer-q8.gguf",
+        "funasr-nano" => "qwen3-0.6b-q4km.gguf",
+        "funasr-nano-encoder" => "funasr-encoder-f16.gguf",
+        "funasr-vad" => "fsmn-vad.gguf",
         _ => return Err("Unsupported transcription model".to_string()),
     };
-    let path = resource_root().join("models").join(file);
+    if !model_is_compatible_with_runtime(id, runtime) {
+        return Err(
+            "The selected model is not compatible with this transcription engine".to_string(),
+        );
+    }
+    let path = resource_root_for_runtime(runtime).join("models").join(file);
     if path.is_file() {
         Ok(path)
     } else {
@@ -56,15 +82,42 @@ fn model_file(id: &str) -> Result<PathBuf, String> {
     }
 }
 
-fn runtime_executable(runtime: &str) -> Result<PathBuf, String> {
-    if !matches!(runtime, "native" | "cuda") {
+fn runtime_executable(runtime: &str, model: &str) -> Result<PathBuf, String> {
+    if !matches!(runtime, "native" | "cuda" | "funasr" | "firered") {
         return Err("Choose a local transcription engine first".to_string());
     }
-    let root = resource_root().join("runtimes").join(runtime);
-    let name = if cfg!(windows) {
-        "whisper-cli.exe"
+    if runtime == "firered" {
+        if !model_is_compatible_with_runtime(model, runtime) {
+            return Err("The selected model is not compatible with FireRedASR2".to_string());
+        }
+        let python = firered_venv_python();
+        let ready = resource_root_for_runtime(runtime)
+            .join("runtimes")
+            .join(runtime)
+            .join(".ready");
+        return if ready.is_file() && python.is_file() {
+            Ok(python)
+        } else {
+            Err("Install the FireRedASR2 runtime first".to_string())
+        };
+    }
+    let root = resource_root_for_runtime(runtime)
+        .join("runtimes")
+        .join(runtime);
+    let executable = if runtime == "funasr" {
+        match model {
+            "sensevoice-small" => "llama-funasr-sensevoice",
+            "paraformer-large" => "llama-funasr-paraformer",
+            "funasr-nano" => "llama-funasr-cli",
+            _ => return Err("The selected model is not compatible with FunASR".to_string()),
+        }
     } else {
         "whisper-cli"
+    };
+    let name = if cfg!(windows) {
+        format!("{executable}.exe")
+    } else {
+        executable.to_string()
     };
     let mut stack = vec![root.clone()];
     while let Some(path) = stack.pop() {
@@ -74,12 +127,202 @@ fn runtime_executable(runtime: &str) -> Result<PathBuf, String> {
             let entry_path = entry.path();
             if entry_path.is_dir() {
                 stack.push(entry_path);
-            } else if entry_path.file_name().and_then(|name| name.to_str()) == Some(name) {
+            } else if entry_path.file_name().and_then(|value| value.to_str()) == Some(name.as_str())
+            {
                 return Ok(entry_path);
             }
         }
     }
     Err("Download the local transcription engine first".to_string())
+}
+
+fn firered_runtime_root() -> PathBuf {
+    resource_root_for_runtime("firered")
+        .join("runtimes")
+        .join("firered")
+}
+
+fn firered_venv_python() -> PathBuf {
+    let environment = firered_runtime_root().join("venv");
+    if cfg!(windows) {
+        environment.join("Scripts").join("python.exe")
+    } else {
+        environment.join("bin").join("python")
+    }
+}
+
+fn find_firered_source() -> Option<PathBuf> {
+    fn search(directory: &Path, depth: usize) -> Option<PathBuf> {
+        if directory.join("pyproject.toml").is_file()
+            && directory
+                .join("fireredasr2s")
+                .join("fireredasr2s_cli.py")
+                .is_file()
+        {
+            return Some(directory.to_path_buf());
+        }
+        if depth == 0 {
+            return None;
+        }
+        fs::read_dir(directory)
+            .ok()?
+            .flatten()
+            .filter(|entry| entry.path().is_dir())
+            .find_map(|entry| search(&entry.path(), depth - 1))
+    }
+    search(&firered_runtime_root(), 3)
+}
+
+#[derive(Clone)]
+struct PythonLauncher {
+    program: PathBuf,
+    prefix: Vec<String>,
+}
+
+fn supported_python_version(output: &Output) -> bool {
+    let value = if output.stdout.is_empty() {
+        String::from_utf8_lossy(&output.stderr)
+    } else {
+        String::from_utf8_lossy(&output.stdout)
+    };
+    let version = value
+        .split_whitespace()
+        .find(|part| {
+            part.chars()
+                .next()
+                .is_some_and(|value| value.is_ascii_digit())
+        })
+        .unwrap_or_default();
+    let mut parts = version
+        .split('.')
+        .filter_map(|part| part.parse::<u32>().ok());
+    matches!((parts.next(), parts.next()), (Some(major), Some(minor)) if major == 3 && minor >= 11)
+}
+
+async fn find_firered_python_launcher() -> Result<PythonLauncher, String> {
+    let candidates: Vec<(&str, &[&str])> = if cfg!(windows) {
+        vec![
+            ("py", &["-3"]),
+            ("py", &["-3.11"]),
+            ("python3.11", &[]),
+            ("python", &[]),
+            ("python3", &[]),
+        ]
+    } else {
+        vec![("python3.11", &[]), ("python3", &[]), ("python", &[])]
+    };
+    for (program, prefix) in candidates {
+        let mut command = Command::new(program);
+        configure_hidden_command(&mut command);
+        command.args(prefix).arg("--version");
+        if let Ok(output) = command.output().await {
+            if output.status.success() && supported_python_version(&output) {
+                return Ok(PythonLauncher {
+                    program: PathBuf::from(program),
+                    prefix: prefix.iter().map(|value| (*value).to_string()).collect(),
+                });
+            }
+        }
+    }
+    Err("FireRedASR2 requires Python 3.11 or newer. Install Python, then retry.".to_string())
+}
+
+async fn run_cancellable_command(
+    command: &mut Command,
+    token: &CancellationToken,
+    label: &str,
+) -> Result<Output, String> {
+    configure_hidden_command(command);
+    command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let child = command
+        .spawn()
+        .map_err(|error| format!("Could not start {label}: {error}"))?;
+    tokio::select! {
+        output = child.wait_with_output() => output.map_err(|error| format!("Could not finish {label}: {error}")),
+        _ = token.cancelled() => Err("Download cancelled".to_string()),
+    }
+}
+
+fn command_failure(output: &Output, label: &str) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let detail = if stderr.is_empty() { stdout } else { stderr };
+    if detail.is_empty() {
+        format!("{label} failed without diagnostics")
+    } else {
+        format!("{label} failed: {detail}")
+    }
+}
+
+async fn prepare_firered_runtime(token: &CancellationToken) -> Result<(), String> {
+    let runtime_root = firered_runtime_root();
+    let ready = runtime_root.join(".ready");
+    let _ = fs::remove_file(&ready);
+    let source = find_firered_source()
+        .ok_or_else(|| "The downloaded FireRedASR2 source archive is incomplete".to_string())?;
+    let launcher = find_firered_python_launcher().await?;
+    let python = firered_venv_python();
+    if !python.is_file() {
+        let mut command = Command::new(&launcher.program);
+        command
+            .args(&launcher.prefix)
+            .arg("-m")
+            .arg("venv")
+            .arg(runtime_root.join("venv"));
+        let output =
+            run_cancellable_command(&mut command, token, "the FireRedASR2 Python environment")
+                .await?;
+        if !output.status.success() {
+            return Err(command_failure(
+                &output,
+                "Creating the FireRedASR2 Python environment",
+            ));
+        }
+    }
+
+    let install = |index_url: Option<&str>| {
+        let mut command = Command::new(&python);
+        command
+            .arg("-m")
+            .arg("pip")
+            .arg("install")
+            .arg("--disable-pip-version-check");
+        if let Some(index_url) = index_url {
+            command.arg("--index-url").arg(index_url);
+        }
+        command.arg(&source);
+        command
+    };
+    let mut preferred = install(Some("https://pypi.tuna.tsinghua.edu.cn/simple"));
+    let preferred_output =
+        run_cancellable_command(&mut preferred, token, "the FireRedASR2 dependencies").await?;
+    if !preferred_output.status.success() {
+        let mut fallback = install(None);
+        let fallback_output =
+            run_cancellable_command(&mut fallback, token, "the FireRedASR2 dependencies").await?;
+        if !fallback_output.status.success() {
+            return Err(command_failure(
+                &fallback_output,
+                "Installing the FireRedASR2 dependencies",
+            ));
+        }
+    }
+
+    let mut verify = Command::new(&python);
+    verify
+        .current_dir(&source)
+        .env("PYTHONPATH", &source)
+        .arg("-c")
+        .arg("import fireredasr2s, torch; print(torch.__version__)");
+    let output = run_cancellable_command(&mut verify, token, "FireRedASR2 verification").await?;
+    if !output.status.success() {
+        return Err(command_failure(&output, "Verifying FireRedASR2"));
+    }
+    fs::write(&ready, format!("{FIRERED_SOURCE_REVISION}\n"))
+        .map_err(|error| format!("Could not finish the FireRedASR2 installation: {error}"))
 }
 
 fn audio_to_wav(input: &Path, output: &Path) -> Result<(), String> {
@@ -414,8 +657,15 @@ async fn transcribe_local(
     audio: &Path,
     locale: &str,
 ) -> Result<String, String> {
-    let executable = runtime_executable(runtime)?;
-    let model_path = model_file(model)?;
+    if runtime == "firered" {
+        return transcribe_local_firered(model, audio).await;
+    }
+    if runtime == "funasr" {
+        return transcribe_local_funasr(model, audio).await;
+    }
+
+    let executable = runtime_executable(runtime, model)?;
+    let model_path = model_file(model, runtime)?;
     let workspace =
         std::env::temp_dir().join(format!("coffee-note-whisper-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&workspace)
@@ -456,6 +706,135 @@ async fn transcribe_local(
     let transcript = tokio::fs::read_to_string(output_base.with_extension("txt"))
         .await
         .map_err(|error| format!("Could not read local transcription result: {error}"))?;
+    usable_local_transcript(&transcript)
+}
+
+async fn transcribe_local_firered(model: &str, audio: &Path) -> Result<String, String> {
+    let python = runtime_executable("firered", model)?;
+    let model_path = model_file(model, "firered")?;
+    let source = find_firered_source().ok_or_else(|| {
+        "The FireRedASR2 source installation is incomplete. Reinstall the runtime.".to_string()
+    })?;
+    let cli = source.join("fireredasr2s").join("fireredasr2s_cli.py");
+    if !cli.is_file() {
+        return Err("The FireRedASR2 command-line runner is missing".to_string());
+    }
+    let workspace =
+        std::env::temp_dir().join(format!("coffee-note-firered-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&workspace)
+        .map_err(|error| format!("Could not create local transcription workspace: {error}"))?;
+    let _guard = TempMediaDir(workspace.clone());
+    let wav = workspace.join("audio.wav");
+    let output_dir = workspace.join("output");
+    audio_to_wav(audio, &wav)?;
+
+    let gpu_available = firered_gpu_available(&python).await;
+    let asr_type = if model == "fireredasr2-llm" {
+        "llm"
+    } else {
+        "aed"
+    };
+    let mut command = Command::new(&python);
+    configure_hidden_command(&mut command);
+    command
+        .current_dir(&source)
+        .env("PYTHONPATH", &source)
+        .arg(cli)
+        .arg("--wav_path")
+        .arg(&wav)
+        .arg("--outdir")
+        .arg(&output_dir)
+        .arg("--write_textgrid")
+        .arg("0")
+        .arg("--write_srt")
+        .arg("0")
+        .arg("--enable_vad")
+        .arg("0")
+        .arg("--enable_lid")
+        .arg("0")
+        .arg("--enable_punc")
+        .arg("0")
+        .arg("--asr_type")
+        .arg(asr_type)
+        .arg("--asr_model_dir")
+        .arg(&model_path)
+        .arg("--asr_use_gpu")
+        .arg(if gpu_available { "1" } else { "0" })
+        .arg("--return_timestamp")
+        .arg("0");
+    let output = command
+        .output()
+        .await
+        .map_err(|error| format!("Could not start the FireRedASR2 engine: {error}"))?;
+    if !output.status.success() {
+        return Err(local_runtime_failure(&output, "FireRedASR2"));
+    }
+    let result = tokio::fs::read_to_string(output_dir.join("result.jsonl"))
+        .await
+        .map_err(|error| format!("Could not read the FireRedASR2 result: {error}"))?;
+    let first = result
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .ok_or_else(|| "FireRedASR2 did not return a transcription".to_string())?;
+    let payload: Value = serde_json::from_str(first)
+        .map_err(|error| format!("Could not parse the FireRedASR2 result: {error}"))?;
+    let transcript = payload
+        .get("text")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    usable_local_transcript(transcript)
+}
+
+async fn firered_gpu_available(python: &Path) -> bool {
+    let mut command = Command::new(python);
+    configure_hidden_command(&mut command);
+    command
+        .arg("-c")
+        .arg("import torch; print('1' if torch.cuda.is_available() else '0')")
+        .output()
+        .await
+        .is_ok_and(|output| output.status.success() && output.stdout.starts_with(b"1"))
+}
+
+async fn transcribe_local_funasr(model: &str, audio: &Path) -> Result<String, String> {
+    let executable = runtime_executable("funasr", model)?;
+    let model_path = model_file(model, "funasr")?;
+    let vad_path = model_file("funasr-vad", "funasr")?;
+    let workspace =
+        std::env::temp_dir().join(format!("coffee-note-funasr-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&workspace)
+        .map_err(|error| format!("Could not create local transcription workspace: {error}"))?;
+    let _guard = TempMediaDir(workspace.clone());
+    let wav = workspace.join("audio.wav");
+    audio_to_wav(audio, &wav)?;
+
+    let mut command = Command::new(&executable);
+    configure_hidden_command(&mut command);
+    if let Some(runtime_dir) = executable.parent() {
+        command.current_dir(runtime_dir);
+    }
+    if model == "funasr-nano" {
+        command
+            .arg("--enc")
+            .arg(model_file("funasr-nano-encoder", "funasr")?)
+            .arg("-m")
+            .arg(&model_path);
+    } else {
+        command.arg("-m").arg(&model_path);
+    }
+    let output = command
+        .arg("--vad")
+        .arg(vad_path)
+        .arg("-a")
+        .arg(wav)
+        .arg("--srt")
+        .output()
+        .await
+        .map_err(|error| format!("Could not start the FunASR transcription engine: {error}"))?;
+    if !output.status.success() {
+        return Err(local_runtime_failure(&output, "FunASR"));
+    }
+    let transcript = parse_caption_text(&String::from_utf8_lossy(&output.stdout));
     usable_local_transcript(&transcript)
 }
 
@@ -523,6 +902,22 @@ fn local_whisper_failure(output: &Output, used_compatible_backend: bool) -> Stri
         format!("Local transcription engine exited{attempt} (status {status}) without diagnostics")
     } else {
         format!("Local transcription engine exited{attempt} (status {status}): {detail}")
+    }
+}
+
+fn local_runtime_failure(output: &Output, runtime_name: &str) -> String {
+    let status = output
+        .status
+        .code()
+        .map(|code| code.to_string())
+        .unwrap_or_else(|| "terminated by the operating system".to_string());
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let detail = if stderr.is_empty() { stdout } else { stderr };
+    if detail.is_empty() {
+        format!("{runtime_name} transcription engine exited (status {status}) without diagnostics")
+    } else {
+        format!("{runtime_name} transcription engine exited (status {status}): {detail}")
     }
 }
 
@@ -599,8 +994,8 @@ pub async fn transcribe_media_url(
         if config.active_model.trim().is_empty() {
             return Err("Choose a local transcription model first".to_string());
         }
-        runtime_executable(&config.active_runtime)?;
-        model_file(&config.active_model)?;
+        runtime_executable(&config.active_runtime, &config.active_model)?;
+        model_file(&config.active_model, &config.active_runtime)?;
         let audio = download_media_audio(url, knowledge_root).await?;
         return transcribe_local(&config.active_runtime, &config.active_model, &audio, locale)
             .await;
@@ -650,8 +1045,8 @@ pub async fn transcribe_local_media_file(
         if config.active_model.trim().is_empty() {
             return Err("Choose a local transcription model first".to_string());
         }
-        runtime_executable(&config.active_runtime)?;
-        model_file(&config.active_model)?;
+        runtime_executable(&config.active_runtime, &config.active_model)?;
+        model_file(&config.active_model, &config.active_runtime)?;
         return transcribe_local(&config.active_runtime, &config.active_model, path, locale).await;
     }
     let provider = config
@@ -686,7 +1081,7 @@ enum ArchiveKind {
 struct ResourceSpec {
     id: &'static str,
     kind: &'static str,
-    url: &'static str,
+    urls: &'static [&'static str],
     file_name: &'static str,
     sha256: &'static str,
     expected_size: u64,
@@ -698,6 +1093,7 @@ struct ResourceSpec {
 pub struct TranscriptionResourceStatus {
     id: String,
     kind: String,
+    runtime_id: String,
     installed: bool,
     downloading: bool,
     bytes: u64,
@@ -705,9 +1101,28 @@ pub struct TranscriptionResourceStatus {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TranscriptionStorageInfo {
+    runtime_id: String,
+    directory: String,
+    default_directory: String,
+    uses_default: bool,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TranscriptionStorageConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    directory: Option<String>,
+    #[serde(default)]
+    directories: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TranscriptionResourceProgress {
     id: String,
     kind: String,
+    runtime_id: String,
     status: &'static str,
     percent: u32,
     downloaded_bytes: u64,
@@ -715,8 +1130,348 @@ struct TranscriptionResourceProgress {
     message: Option<String>,
 }
 
-fn resource_root() -> PathBuf {
+fn default_resource_root() -> PathBuf {
     crate::app_data_dir().join("transcription")
+}
+
+fn storage_config_path() -> PathBuf {
+    crate::app_data_dir().join("transcription-storage.json")
+}
+
+fn load_storage_config() -> TranscriptionStorageConfig {
+    fs::read_to_string(storage_config_path())
+        .ok()
+        .and_then(|contents| serde_json::from_str::<TranscriptionStorageConfig>(&contents).ok())
+        .unwrap_or_default()
+}
+
+fn configured_resource_root(runtime_id: &str) -> Option<PathBuf> {
+    let config = load_storage_config();
+    let directory = config
+        .directories
+        .get(runtime_id)
+        .map(String::as_str)
+        .or(config.directory.as_deref())?;
+    let path = PathBuf::from(directory.trim());
+    path.is_absolute().then_some(path)
+}
+
+fn resource_root_for_runtime(runtime_id: &str) -> PathBuf {
+    configured_resource_root(runtime_id).unwrap_or_else(default_resource_root)
+}
+
+fn validate_storage_runtime(runtime_id: &str) -> Result<(), String> {
+    if matches!(runtime_id, "firered" | "funasr" | "native" | "cuda") {
+        Ok(())
+    } else {
+        Err("Choose a supported transcription engine".to_string())
+    }
+}
+
+fn runtime_storage_folder(runtime_id: &str) -> &'static str {
+    match runtime_id {
+        "firered" => "FireRedASR2",
+        "funasr" => "FunASR",
+        "cuda" => "Whisper NVIDIA",
+        _ => "Whisper CPU",
+    }
+}
+
+fn storage_destination_is_unsafe(current: &Path, destination: &Path) -> bool {
+    current.starts_with(destination)
+        || destination.starts_with(current.join("models"))
+        || destination.starts_with(current.join("runtimes"))
+}
+
+fn display_path(path: &Path) -> String {
+    let value = path.to_string_lossy().into_owned();
+    #[cfg(windows)]
+    {
+        if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
+            return format!(r"\\{unc}");
+        }
+        if let Some(ordinary) = value.strip_prefix(r"\\?\") {
+            return ordinary.to_string();
+        }
+    }
+    value
+}
+
+fn copy_resource_tree(source: &Path, destination: &Path) -> Result<(), String> {
+    if !source.is_dir() {
+        return Ok(());
+    }
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("Could not create transcription storage: {error}"))?;
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("Could not read existing transcription storage: {error}"))?
+    {
+        let entry = entry.map_err(|error| format!("Could not read stored resource: {error}"))?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_resource_tree(&source_path, &destination_path)?;
+        } else {
+            fs::copy(&source_path, &destination_path)
+                .map_err(|error| format!("Could not migrate transcription resource: {error}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn relative_resource_path(spec: ResourceSpec) -> PathBuf {
+    let base = PathBuf::from(format!("{}s", spec.kind));
+    match spec.archive {
+        ArchiveKind::None => base.join(spec.file_name),
+        _ => base.join(spec.id),
+    }
+}
+
+fn runtime_resource_specs(runtime_id: &str) -> Vec<ResourceSpec> {
+    let mut specs = runtime_spec(runtime_id).into_iter().collect::<Vec<_>>();
+    if runtime_id == "firered" {
+        for id in ["fireredasr2-aed", "fireredasr2-llm"] {
+            if let Some(package) = firered_model_bundle(id) {
+                specs.extend(package);
+            }
+        }
+        return specs;
+    }
+    let model_ids: &[&str] = match runtime_id {
+        "funasr" => &[
+            "sensevoice-small",
+            "paraformer-large",
+            "funasr-nano",
+            "funasr-nano-encoder",
+            "funasr-vad",
+        ],
+        "native" | "cuda" => &["fast", "standard", "accurate"],
+        _ => &[],
+    };
+    specs.extend(model_ids.iter().filter_map(|id| model_spec(id)));
+    specs
+}
+
+fn copy_runtime_resources(
+    source: &Path,
+    destination: &Path,
+    runtime_id: &str,
+) -> Result<(), String> {
+    for spec in runtime_resource_specs(runtime_id) {
+        let relative = relative_resource_path(spec);
+        let source_path = source.join(&relative);
+        if !source_path.exists() {
+            continue;
+        }
+        let destination_path = destination.join(relative);
+        if source_path.is_dir() {
+            copy_resource_tree(&source_path, &destination_path)?;
+        } else {
+            if let Some(parent) = destination_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|error| format!("Could not create transcription storage: {error}"))?;
+            }
+            fs::copy(&source_path, &destination_path)
+                .map_err(|error| format!("Could not migrate transcription resource: {error}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn configured_root_from(config: &TranscriptionStorageConfig, runtime_id: &str) -> PathBuf {
+    config
+        .directories
+        .get(runtime_id)
+        .map(PathBuf::from)
+        .or_else(|| config.directory.as_ref().map(PathBuf::from))
+        .unwrap_or_else(default_resource_root)
+}
+
+fn remove_migrated_runtime_resources(
+    source: &Path,
+    runtime_id: &str,
+    config: &TranscriptionStorageConfig,
+) {
+    for spec in runtime_resource_specs(runtime_id) {
+        if spec.kind == "model" {
+            let shared_from_source = ["firered", "funasr", "native", "cuda"]
+                .into_iter()
+                .filter(|candidate| *candidate != runtime_id)
+                .filter(|candidate| model_is_compatible_with_runtime(spec.id, candidate))
+                .any(|candidate| {
+                    fs::canonicalize(configured_root_from(config, candidate))
+                        .map(|root| root == source)
+                        .unwrap_or(false)
+                });
+            if shared_from_source {
+                continue;
+            }
+        }
+        let path = source.join(relative_resource_path(spec));
+        if path.is_dir() {
+            let _ = fs::remove_dir_all(path);
+        } else {
+            let _ = fs::remove_file(path);
+        }
+    }
+    for directory in [source.join("models"), source.join("runtimes")] {
+        if directory
+            .read_dir()
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(false)
+        {
+            let _ = fs::remove_dir(directory);
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_transcription_storage(runtime_id: String) -> Result<TranscriptionStorageInfo, String> {
+    validate_storage_runtime(&runtime_id)?;
+    let directory = resource_root_for_runtime(&runtime_id);
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Could not create transcription storage: {error}"))?;
+    let default = default_resource_root();
+    Ok(TranscriptionStorageInfo {
+        runtime_id,
+        directory: display_path(&directory),
+        default_directory: display_path(&default),
+        uses_default: directory == default,
+    })
+}
+
+#[tauri::command]
+pub fn set_transcription_storage_directory(
+    state: State<'_, TranscriptionDownloadState>,
+    runtime_id: String,
+    directory: String,
+) -> Result<TranscriptionStorageInfo, String> {
+    validate_storage_runtime(&runtime_id)?;
+    if !state
+        .downloads
+        .lock()
+        .map_err(|_| "Download state is unavailable")?
+        .is_empty()
+    {
+        return Err("Wait for current transcription downloads to finish first".to_string());
+    }
+    let selected_parent = PathBuf::from(directory.trim());
+    if !selected_parent.is_absolute() {
+        return Err("Choose an absolute storage directory".to_string());
+    }
+    fs::create_dir_all(&selected_parent)
+        .map_err(|error| format!("Could not create transcription storage: {error}"))?;
+    let selected_parent = fs::canonicalize(&selected_parent)
+        .map_err(|error| format!("Could not access transcription storage: {error}"))?;
+    let selected_is_runtime_root = selected_parent
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name == runtime_storage_folder(&runtime_id))
+        && selected_parent
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == "TierNote Transcription");
+    let destination = if selected_is_runtime_root {
+        selected_parent
+    } else {
+        let container = if selected_parent
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == "TierNote Transcription")
+        {
+            selected_parent
+        } else {
+            selected_parent.join("TierNote Transcription")
+        };
+        container.join(runtime_storage_folder(&runtime_id))
+    };
+    fs::create_dir_all(&destination)
+        .map_err(|error| format!("Could not create transcription storage: {error}"))?;
+    let destination = fs::canonicalize(&destination)
+        .map_err(|error| format!("Could not access transcription storage: {error}"))?;
+    let current = resource_root_for_runtime(&runtime_id);
+    fs::create_dir_all(&current)
+        .map_err(|error| format!("Could not access current transcription storage: {error}"))?;
+    let current = fs::canonicalize(&current)
+        .map_err(|error| format!("Could not access current transcription storage: {error}"))?;
+    if destination == current {
+        return get_transcription_storage(runtime_id);
+    }
+    if storage_destination_is_unsafe(&current, &destination) {
+        return Err(
+            "Choose a directory outside the current models and runtimes folders".to_string(),
+        );
+    }
+    copy_runtime_resources(&current, &destination, &runtime_id)?;
+    fs::write(
+        destination.join(".tiernote-transcription-runtime"),
+        format!("{runtime_id}\n"),
+    )
+    .map_err(|error| format!("Could not initialize transcription storage: {error}"))?;
+    let mut config = load_storage_config();
+    config
+        .directories
+        .insert(runtime_id.clone(), display_path(&destination));
+    let contents = serde_json::to_string_pretty(&config)
+        .map_err(|error| format!("Could not save transcription storage: {error}"))?;
+    fs::write(storage_config_path(), format!("{contents}\n"))
+        .map_err(|error| format!("Could not save transcription storage: {error}"))?;
+    remove_migrated_runtime_resources(&current, &runtime_id, &config);
+    get_transcription_storage(runtime_id)
+}
+
+#[tauri::command]
+pub fn open_transcription_storage_directory(runtime_id: String) -> Result<(), String> {
+    validate_storage_runtime(&runtime_id)?;
+    let path = resource_root_for_runtime(&runtime_id);
+    fs::create_dir_all(&path)
+        .map_err(|error| format!("Could not create transcription storage: {error}"))?;
+    tauri_plugin_opener::open_path(path, None::<&str>)
+        .map_err(|error| format!("Could not open transcription storage: {error}"))
+}
+
+fn external_resource_sources(kind: &str, id: &str) -> Option<[&'static str; 2]> {
+    match (kind, id) {
+        ("runtime", "firered") => Some([
+            "https://gitcode.com/gh_mirrors/fi/FireRedASR2S",
+            "https://github.com/FireRedTeam/FireRedASR2S",
+        ]),
+        ("model", "fireredasr2-aed") => Some([
+            "https://modelscope.cn/models/FireRedTeam/FireRedASR2-AED",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-AED",
+        ]),
+        ("model", "fireredasr2-llm") => Some([
+            "https://modelscope.cn/models/FireRedTeam/FireRedASR2-LLM",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM",
+        ]),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+pub async fn resolve_transcription_resource_source(
+    kind: String,
+    id: String,
+) -> Result<String, String> {
+    let [preferred, fallback] = external_resource_sources(&kind, &id)
+        .ok_or_else(|| format!("Unsupported external transcription resource: {kind}:{id}"))?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(4))
+        .build()
+        .map_err(|error| format!("Could not prepare source detection: {error}"))?;
+    let preferred_available = client
+        .head(preferred)
+        .header("User-Agent", "TierNote")
+        .send()
+        .await
+        .is_ok_and(|response| response.status().is_success());
+    Ok(if preferred_available {
+        preferred
+    } else {
+        fallback
+    }
+    .to_string())
 }
 
 pub fn supports_media_url(url: &reqwest::Url) -> bool {
@@ -1046,7 +1801,7 @@ fn media_fetcher_spec() -> Result<ResourceSpec, String> {
         ("windows", "x86_64") => Ok(ResourceSpec {
             id: "media-fetcher",
             kind: "tool",
-            url: "https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp.exe",
+            urls: &["https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp.exe"],
             file_name: "media-fetcher.exe",
             sha256: "52fe3c26dcf71fbdc85b528589020bb0b8e383155cfa81b64dd447bbe35e24b8",
             expected_size: 18_226_085,
@@ -1055,7 +1810,7 @@ fn media_fetcher_spec() -> Result<ResourceSpec, String> {
         ("linux", "x86_64") => Ok(ResourceSpec {
             id: "media-fetcher",
             kind: "tool",
-            url: "https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp_linux",
+            urls: &["https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp_linux"],
             file_name: "media-fetcher",
             sha256: "6bbb3d314cde4febe36e5fa1d55462e29c974f63444e707871834f6d8cc210ae",
             expected_size: 39_924_536,
@@ -1064,8 +1819,7 @@ fn media_fetcher_spec() -> Result<ResourceSpec, String> {
         ("linux", "aarch64") => Ok(ResourceSpec {
             id: "media-fetcher",
             kind: "tool",
-            url:
-                "https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp_linux_aarch64",
+            urls: &["https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp_linux_aarch64"],
             file_name: "media-fetcher",
             sha256: "b6ce97646773070d7a7ffd6bbbdcaecb47c48483909c54c915bf08a7a9b5e0b1",
             expected_size: 39_675_904,
@@ -1074,7 +1828,7 @@ fn media_fetcher_spec() -> Result<ResourceSpec, String> {
         ("macos", _) => Ok(ResourceSpec {
             id: "media-fetcher",
             kind: "tool",
-            url: "https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp_macos",
+            urls: &["https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp_macos"],
             file_name: "media-fetcher",
             sha256: "498bd0dae17855c599d371d68ec5bafc439a9d8640e838be25c765a9792f261b",
             expected_size: 38_256_544,
@@ -1093,7 +1847,7 @@ async fn download_fixed_file(spec: ResourceSpec, target: &Path) -> Result<(), St
     }
     let partial = target.with_extension("part");
     let response = reqwest::Client::new()
-        .get(spec.url)
+        .get(spec.urls[0])
         .header("User-Agent", "TierNote")
         .send()
         .await
@@ -1147,7 +1901,7 @@ async fn ensure_media_fetcher() -> Result<PathBuf, String> {
         }
     }
     let spec = media_fetcher_spec()?;
-    let target = resource_root().join("tools").join(spec.file_name);
+    let target = default_resource_root().join("tools").join(spec.file_name);
     download_fixed_file(spec, &target).await?;
     let _ = MEDIA_FETCHER_READY.set(target.clone());
     Ok(target)
@@ -1369,10 +2123,19 @@ async fn download_media_audio(
 
 fn runtime_spec(id: &str) -> Option<ResourceSpec> {
     match (id, std::env::consts::OS, std::env::consts::ARCH) {
+        ("firered", _, _) => Some(ResourceSpec {
+            id: "firered",
+            kind: "runtime",
+            urls: &["https://github.com/FireRedTeam/FireRedASR2S/archive/4e7d9aaf4482a47cec1724807026b9b151926eb5.zip"],
+            file_name: "FireRedASR2S-4e7d9aaf.zip",
+            sha256: "5c27f56cb8aee7436b909297b5b7ac668574d74150c87fa85e3a1ec92ad11f2c",
+            expected_size: 7_782_929,
+            archive: ArchiveKind::Zip,
+        }),
         ("native", "windows", "x86_64") => Some(ResourceSpec {
             id: "native",
             kind: "runtime",
-            url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-x64.zip",
+            urls: &["https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-x64.zip"],
             file_name: "whisper-bin-x64.zip",
             sha256: "49dcc16de826f20bd53d44f947a1ae49dfa81f86cad67a64d80820cb192d674a",
             expected_size: 8_194_445,
@@ -1381,7 +2144,7 @@ fn runtime_spec(id: &str) -> Option<ResourceSpec> {
         ("native", "linux", "x86_64") => Some(ResourceSpec {
             id: "native",
             kind: "runtime",
-            url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-ubuntu-x64.tar.gz",
+            urls: &["https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-ubuntu-x64.tar.gz"],
             file_name: "whisper-bin-ubuntu-x64.tar.gz",
             sha256: "46811a3ecf584307480a220b9ef5ff81b7b22dc41577cbc274ce3afc61f753b1",
             expected_size: 9_497_583,
@@ -1390,7 +2153,7 @@ fn runtime_spec(id: &str) -> Option<ResourceSpec> {
         ("native", "linux", "aarch64") => Some(ResourceSpec {
             id: "native",
             kind: "runtime",
-            url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-ubuntu-arm64.tar.gz",
+            urls: &["https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-ubuntu-arm64.tar.gz"],
             file_name: "whisper-bin-ubuntu-arm64.tar.gz",
             sha256: "7e26fa6a36d9174d5c0bf033ccbc026c3b5e569e2ee787058241346ef5392719",
             expected_size: 4_572_842,
@@ -1399,11 +2162,47 @@ fn runtime_spec(id: &str) -> Option<ResourceSpec> {
         ("cuda", "windows", "x86_64") => Some(ResourceSpec {
             id: "cuda",
             kind: "runtime",
-            url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-cublas-12.4.0-bin-x64.zip",
+            urls: &["https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-cublas-12.4.0-bin-x64.zip"],
             file_name: "whisper-cublas-12.4.0-bin-x64.zip",
             sha256: "443110ddaad70d4290ab2e77179e31cf712035bbc4fad56bb4519a90c917b39c",
             expected_size: 670_611_449,
             archive: ArchiveKind::Zip,
+        }),
+        ("funasr", "windows", "x86_64") => Some(ResourceSpec {
+            id: "funasr",
+            kind: "runtime",
+            urls: &["https://github.com/modelscope/FunASR/releases/download/runtime-llamacpp-v0.2.0/funasr-llamacpp-windows-x64.zip"],
+            file_name: "funasr-llamacpp-windows-x64.zip",
+            sha256: "297c962346d7e30d7a7c2c860dfaab3ff07d01fddf15e6fc5212ca9545441a51",
+            expected_size: 4_957_457,
+            archive: ArchiveKind::Zip,
+        }),
+        ("funasr", "linux", "x86_64") => Some(ResourceSpec {
+            id: "funasr",
+            kind: "runtime",
+            urls: &["https://github.com/modelscope/FunASR/releases/download/runtime-llamacpp-v0.2.0/funasr-llamacpp-linux-x64.tar.gz"],
+            file_name: "funasr-llamacpp-linux-x64.tar.gz",
+            sha256: "15e6407143b4fb91d90bb37f2a41c64c4d48ea0fbe6404b88a9b70269c84f240",
+            expected_size: 8_009_291,
+            archive: ArchiveKind::TarGz,
+        }),
+        ("funasr", "linux", "aarch64") => Some(ResourceSpec {
+            id: "funasr",
+            kind: "runtime",
+            urls: &["https://github.com/modelscope/FunASR/releases/download/runtime-llamacpp-v0.2.0/funasr-llamacpp-linux-arm64.tar.gz"],
+            file_name: "funasr-llamacpp-linux-arm64.tar.gz",
+            sha256: "c78987b2384c6aef339aea1bcd0e130070455d6394fa7ab7ca26840ead10d5da",
+            expected_size: 7_977_137,
+            archive: ArchiveKind::TarGz,
+        }),
+        ("funasr", "macos", "aarch64") => Some(ResourceSpec {
+            id: "funasr",
+            kind: "runtime",
+            urls: &["https://github.com/modelscope/FunASR/releases/download/runtime-llamacpp-v0.2.0/funasr-llamacpp-macos-arm64.tar.gz"],
+            file_name: "funasr-llamacpp-macos-arm64.tar.gz",
+            sha256: "416cbb289e31cb7575365d382155074e922fd061807a37b9ca0247dabd9bc6f9",
+            expected_size: 7_353_175,
+            archive: ArchiveKind::TarGz,
         }),
         _ => None,
     }
@@ -1411,10 +2210,34 @@ fn runtime_spec(id: &str) -> Option<ResourceSpec> {
 
 fn model_spec(id: &str) -> Option<ResourceSpec> {
     match id {
+        "fireredasr2-aed" => Some(ResourceSpec {
+            id: "fireredasr2-aed",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/xukaituo/FireRedASR2-AED/resolve/master/model.pth.tar",
+                "https://huggingface.co/FireRedTeam/FireRedASR2-AED/resolve/2304afed56eacfee6256dee5937ed22ffa0b64ec/model.pth.tar?download=true",
+            ],
+            file_name: "fireredasr2-aed/model.pth.tar",
+            sha256: "4677cbd30988d63ed3e777f6a42a1e5260a3865317f6e15e488bef40954f7054",
+            expected_size: 4_731_558_506,
+            archive: ArchiveKind::None,
+        }),
+        "fireredasr2-llm" => Some(ResourceSpec {
+            id: "fireredasr2-llm",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/model.pth.tar",
+                "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/model.pth.tar?download=true",
+            ],
+            file_name: "fireredasr2-llm/model.pth.tar",
+            sha256: "6ebd76ce1799e72c3180cf73eca036fee338630a95c0069361ea91c894544bcd",
+            expected_size: 3_627_720_250,
+            archive: ArchiveKind::None,
+        }),
         "fast" => Some(ResourceSpec {
             id: "fast",
             kind: "model",
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true",
+            urls: &["https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true"],
             file_name: "ggml-base.bin",
             sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
             expected_size: 147_951_465,
@@ -1423,7 +2246,7 @@ fn model_spec(id: &str) -> Option<ResourceSpec> {
         "standard" => Some(ResourceSpec {
             id: "standard",
             kind: "model",
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true",
+            urls: &["https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true"],
             file_name: "ggml-small.bin",
             sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
             expected_size: 487_601_967,
@@ -1432,13 +2255,263 @@ fn model_spec(id: &str) -> Option<ResourceSpec> {
         "accurate" => Some(ResourceSpec {
             id: "accurate",
             kind: "model",
-            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin?download=true",
+            urls: &["https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin?download=true"],
             file_name: "ggml-medium.bin",
             sha256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
             expected_size: 1_533_763_059,
             archive: ArchiveKind::None,
         }),
+        "sensevoice-small" => Some(ResourceSpec {
+            id: "sensevoice-small",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/FunAudioLLM/SenseVoiceSmall-GGUF/resolve/6f13884973ec2d74b57d2ffdb65f67c95614786f/sensevoice-small-q8.gguf",
+                "https://huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF/resolve/cebc2cdd171e895d783040dbd15f10f3a76f7151/sensevoice-small-q8.gguf?download=true",
+            ],
+            file_name: "sensevoice-small-q8.gguf",
+            sha256: "4ae45c94422de949b387e2e0fb10d7e14e4c42c69db30c3444ecc7d4b844b7c5",
+            expected_size: 254_208_320,
+            archive: ArchiveKind::None,
+        }),
+        "paraformer-large" => Some(ResourceSpec {
+            id: "paraformer-large",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/FunAudioLLM/Paraformer-GGUF/resolve/6231c426de8033aa6e5aeceaea63b4645afce449/paraformer-q8.gguf",
+                "https://huggingface.co/FunAudioLLM/Paraformer-GGUF/resolve/1a5063b305a2b4e418ccffaf7be2c02a3cac6c89/paraformer-q8.gguf?download=true",
+            ],
+            file_name: "paraformer-q8.gguf",
+            sha256: "42bf76ea1575a336aaca4c1b7c01a82b79113e6d04d0d6b799561bfcf07ee011",
+            expected_size: 236_929_024,
+            archive: ArchiveKind::None,
+        }),
+        "funasr-nano" => Some(ResourceSpec {
+            id: "funasr-nano",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/FunAudioLLM/Fun-ASR-Nano-GGUF/resolve/51dcf4922439c10e0c2e59bc99be8a343d2fe71f/qwen3-0.6b-q4km.gguf",
+                "https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-GGUF/resolve/46e849502a867080d66d351b8dfb1018b607e509/qwen3-0.6b-q4km.gguf?download=true",
+            ],
+            file_name: "qwen3-0.6b-q4km.gguf",
+            sha256: "cc5057552aa9dddedcda73ea8889854e8a257eb07d0a561b7234465c1e856f22",
+            expected_size: 484_219_776,
+            archive: ArchiveKind::None,
+        }),
+        "funasr-nano-encoder" => Some(ResourceSpec {
+            id: "funasr-nano-encoder",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/FunAudioLLM/Fun-ASR-Nano-GGUF/resolve/51dcf4922439c10e0c2e59bc99be8a343d2fe71f/funasr-encoder-f16.gguf",
+                "https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-GGUF/resolve/46e849502a867080d66d351b8dfb1018b607e509/funasr-encoder-f16.gguf?download=true",
+            ],
+            file_name: "funasr-encoder-f16.gguf",
+            sha256: "f92f91d01a24fbed6c863495b2ee8c6a6788144a02858b75743f0946668de8a2",
+            expected_size: 469_331_008,
+            archive: ArchiveKind::None,
+        }),
+        "funasr-vad" => Some(ResourceSpec {
+            id: "funasr-vad",
+            kind: "model",
+            urls: &[
+                "https://modelscope.cn/models/FunAudioLLM/fsmn-vad-GGUF/resolve/f04fc3013641c8d59c156e2cbf171c1ad596f74d/fsmn-vad.gguf",
+                "https://huggingface.co/FunAudioLLM/fsmn-vad-GGUF/resolve/6840bae4c5c92ee8c04faaf4db23dd0105098d7f/fsmn-vad.gguf?download=true",
+            ],
+            file_name: "fsmn-vad.gguf",
+            sha256: "1270f2559c495f4e7b6e739541151027d360761a3fda43fc147034f5719f5479",
+            expected_size: 1_720_512,
+            archive: ArchiveKind::None,
+        }),
         _ => None,
+    }
+}
+
+fn firered_model_bundle(id: &str) -> Option<Vec<ResourceSpec>> {
+    let target = model_spec(id)?;
+    let mut specs = vec![target];
+    match id {
+        "fireredasr2-aed" => {
+            specs.extend([
+                ResourceSpec {
+                    id: "fireredasr2-aed-cmvn",
+                    kind: "model",
+                    urls: &[
+                        "https://modelscope.cn/models/xukaituo/FireRedASR2-AED/resolve/master/cmvn.ark",
+                        "https://huggingface.co/FireRedTeam/FireRedASR2-AED/resolve/2304afed56eacfee6256dee5937ed22ffa0b64ec/cmvn.ark?download=true",
+                    ],
+                    file_name: "fireredasr2-aed/cmvn.ark",
+                    sha256: "6efba6105429d1630c05d818d956bfe4edfad37a04b3b27bb5a029b9adb37945",
+                    expected_size: 1_311,
+                    archive: ArchiveKind::None,
+                },
+                ResourceSpec {
+                    id: "fireredasr2-aed-dict",
+                    kind: "model",
+                    urls: &[
+                        "https://modelscope.cn/models/xukaituo/FireRedASR2-AED/resolve/master/dict.txt",
+                        "https://huggingface.co/FireRedTeam/FireRedASR2-AED/resolve/2304afed56eacfee6256dee5937ed22ffa0b64ec/dict.txt?download=true",
+                    ],
+                    file_name: "fireredasr2-aed/dict.txt",
+                    sha256: "1bc613de2112d257e61a349c3e72d1b1a9cf19c33d3ca954197ad2171e5ea07b",
+                    expected_size: 79_172,
+                    archive: ArchiveKind::None,
+                },
+                ResourceSpec {
+                    id: "fireredasr2-aed-tokenizer",
+                    kind: "model",
+                    urls: &[
+                        "https://modelscope.cn/models/xukaituo/FireRedASR2-AED/resolve/master/train_bpe1000.model",
+                        "https://huggingface.co/FireRedTeam/FireRedASR2-AED/resolve/2304afed56eacfee6256dee5937ed22ffa0b64ec/train_bpe1000.model?download=true",
+                    ],
+                    file_name: "fireredasr2-aed/train_bpe1000.model",
+                    sha256: "473bbc157cb4eade2059b30a3c877a1c29bd50cadbfbed869ae36eeade7fee07",
+                    expected_size: 251_707,
+                    archive: ArchiveKind::None,
+                },
+            ]);
+        }
+        "fireredasr2-llm" => {
+            specs.extend([
+                ResourceSpec {
+                    id: "fireredasr2-llm-encoder",
+                    kind: "model",
+                    urls: &[
+                        "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/asr_encoder.pth.tar",
+                        "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/asr_encoder.pth.tar?download=true",
+                    ],
+                    file_name: "fireredasr2-llm/asr_encoder.pth.tar",
+                    sha256: "6cfa83b4d692c0ac8b61a767fc4253a6350c11e1edcdf6418d040b41240b900e",
+                    expected_size: 1_472,
+                    archive: ArchiveKind::None,
+                },
+                ResourceSpec {
+                    id: "fireredasr2-llm-cmvn",
+                    kind: "model",
+                    urls: &[
+                        "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/cmvn.ark",
+                        "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/cmvn.ark?download=true",
+                    ],
+                    file_name: "fireredasr2-llm/cmvn.ark",
+                    sha256: "6efba6105429d1630c05d818d956bfe4edfad37a04b3b27bb5a029b9adb37945",
+                    expected_size: 1_311,
+                    archive: ArchiveKind::None,
+                },
+                firered_llm_file("qwen-config", "Qwen2-7B-Instruct/config.json", "8b9a4f6c0acf4854a2d301616d4203039c3d7972cb0a557dae98686b6c3ae4b2", 663),
+                firered_llm_file("qwen-generation", "Qwen2-7B-Instruct/generation_config.json", "3a8f9087e486054c8a4a08dae2e5a3ba62e23da212b5b8c08bc42cb983c3459f", 243),
+                firered_llm_file("qwen-merges", "Qwen2-7B-Instruct/merges.txt", "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3", 1_671_839),
+                firered_llm_file("qwen-index", "Qwen2-7B-Instruct/model.safetensors.index.json", "f00d17cbf433746c391ad43948613e373aa51222dbee3b0db61ffff59a74bb1a", 27_752),
+                firered_llm_file("qwen-tokenizer", "Qwen2-7B-Instruct/tokenizer.json", "f7c9b2dba4a296b1aa76c16a34b8225c0c118978400d4bb66bff0902d702f5b8", 7_028_015),
+                firered_llm_file("qwen-tokenizer-config", "Qwen2-7B-Instruct/tokenizer_config.json", "be21acaf90e7f449b7282fdef7b06516a0102476e86cbc2108e18ac071f9cc9c", 1_288),
+                firered_llm_file("qwen-vocab", "Qwen2-7B-Instruct/vocab.json", "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910", 2_776_833),
+                firered_llm_file("qwen-shard-1", "Qwen2-7B-Instruct/model-00001-of-00004.safetensors", "26d9919262ccd063fcdfd926763fe9025ef1e3073767aaa8c83a375d7c5140c4", 3_945_426_872),
+                firered_llm_file("qwen-shard-2", "Qwen2-7B-Instruct/model-00002-of-00004.safetensors", "f5bb99fdadcac55c2c176497ec99f088a1764e78ed986fa4a0d45d12426ef0fa", 3_864_726_352),
+                firered_llm_file("qwen-shard-3", "Qwen2-7B-Instruct/model-00003-of-00004.safetensors", "0b749a4446d7cda007d5e7bd9f908849d08d89867192d4c039dc167e9ab5a02e", 3_864_726_408),
+                firered_llm_file("qwen-shard-4", "Qwen2-7B-Instruct/model-00004-of-00004.safetensors", "da724bb7d3c3512eb371aa6caa5bcc08d78bda84f94e00ae9a9b2124e3e9c62f", 3_556_392_240),
+            ]);
+        }
+        _ => return None,
+    }
+    Some(specs)
+}
+
+fn firered_llm_file(
+    suffix: &'static str,
+    path: &'static str,
+    sha256: &'static str,
+    expected_size: u64,
+) -> ResourceSpec {
+    let id = match suffix {
+        "qwen-config" => "fireredasr2-llm-qwen-config",
+        "qwen-generation" => "fireredasr2-llm-qwen-generation",
+        "qwen-merges" => "fireredasr2-llm-qwen-merges",
+        "qwen-index" => "fireredasr2-llm-qwen-index",
+        "qwen-tokenizer" => "fireredasr2-llm-qwen-tokenizer",
+        "qwen-tokenizer-config" => "fireredasr2-llm-qwen-tokenizer-config",
+        "qwen-vocab" => "fireredasr2-llm-qwen-vocab",
+        "qwen-shard-1" => "fireredasr2-llm-qwen-shard-1",
+        "qwen-shard-2" => "fireredasr2-llm-qwen-shard-2",
+        "qwen-shard-3" => "fireredasr2-llm-qwen-shard-3",
+        _ => "fireredasr2-llm-qwen-shard-4",
+    };
+    let urls: &'static [&'static str] = match path {
+        "Qwen2-7B-Instruct/config.json" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/config.json",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/config.json?download=true",
+        ],
+        "Qwen2-7B-Instruct/generation_config.json" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/generation_config.json",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/generation_config.json?download=true",
+        ],
+        "Qwen2-7B-Instruct/merges.txt" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/merges.txt",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/merges.txt?download=true",
+        ],
+        "Qwen2-7B-Instruct/model.safetensors.index.json" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/model.safetensors.index.json",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/model.safetensors.index.json?download=true",
+        ],
+        "Qwen2-7B-Instruct/tokenizer.json" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/tokenizer.json",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/tokenizer.json?download=true",
+        ],
+        "Qwen2-7B-Instruct/tokenizer_config.json" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/tokenizer_config.json",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/tokenizer_config.json?download=true",
+        ],
+        "Qwen2-7B-Instruct/vocab.json" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/vocab.json",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/vocab.json?download=true",
+        ],
+        "Qwen2-7B-Instruct/model-00001-of-00004.safetensors" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/model-00001-of-00004.safetensors",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/model-00001-of-00004.safetensors?download=true",
+        ],
+        "Qwen2-7B-Instruct/model-00002-of-00004.safetensors" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/model-00002-of-00004.safetensors",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/model-00002-of-00004.safetensors?download=true",
+        ],
+        "Qwen2-7B-Instruct/model-00003-of-00004.safetensors" => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/model-00003-of-00004.safetensors",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/model-00003-of-00004.safetensors?download=true",
+        ],
+        _ => &[
+            "https://modelscope.cn/models/xukaituo/FireRedASR2-LLM/resolve/master/Qwen2-7B-Instruct/model-00004-of-00004.safetensors",
+            "https://huggingface.co/FireRedTeam/FireRedASR2-LLM/resolve/2c5e0f415b9afb8f67cb8b00ea4c54959f70e824/Qwen2-7B-Instruct/model-00004-of-00004.safetensors?download=true",
+        ],
+    };
+    ResourceSpec {
+        id,
+        kind: "model",
+        urls,
+        file_name: match path {
+            "Qwen2-7B-Instruct/config.json" => "fireredasr2-llm/Qwen2-7B-Instruct/config.json",
+            "Qwen2-7B-Instruct/generation_config.json" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/generation_config.json"
+            }
+            "Qwen2-7B-Instruct/merges.txt" => "fireredasr2-llm/Qwen2-7B-Instruct/merges.txt",
+            "Qwen2-7B-Instruct/model.safetensors.index.json" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/model.safetensors.index.json"
+            }
+            "Qwen2-7B-Instruct/tokenizer.json" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/tokenizer.json"
+            }
+            "Qwen2-7B-Instruct/tokenizer_config.json" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/tokenizer_config.json"
+            }
+            "Qwen2-7B-Instruct/vocab.json" => "fireredasr2-llm/Qwen2-7B-Instruct/vocab.json",
+            "Qwen2-7B-Instruct/model-00001-of-00004.safetensors" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/model-00001-of-00004.safetensors"
+            }
+            "Qwen2-7B-Instruct/model-00002-of-00004.safetensors" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/model-00002-of-00004.safetensors"
+            }
+            "Qwen2-7B-Instruct/model-00003-of-00004.safetensors" => {
+                "fireredasr2-llm/Qwen2-7B-Instruct/model-00003-of-00004.safetensors"
+            }
+            _ => "fireredasr2-llm/Qwen2-7B-Instruct/model-00004-of-00004.safetensors",
+        },
+        sha256,
+        expected_size,
+        archive: ArchiveKind::None,
     }
 }
 
@@ -1451,18 +2524,25 @@ fn resource_spec(kind: &str, id: &str) -> Result<ResourceSpec, String> {
     .ok_or_else(|| format!("Unsupported transcription resource: {kind}:{id}"))
 }
 
-fn installed_path(spec: ResourceSpec) -> PathBuf {
-    let base = resource_root().join(format!("{}s", spec.kind));
+fn installed_path(spec: ResourceSpec, runtime_id: &str) -> PathBuf {
+    let base = resource_root_for_runtime(runtime_id).join(format!("{}s", spec.kind));
+    if spec.kind == "runtime" && spec.id == "firered" {
+        return base.join("firered").join(".ready");
+    }
     match spec.archive {
         ArchiveKind::None => base.join(spec.file_name),
         _ => base.join(spec.id).join(".installed"),
     }
 }
 
-fn resource_bytes(spec: ResourceSpec) -> u64 {
-    fs::metadata(installed_path(spec))
+fn resource_bytes(spec: ResourceSpec, runtime_id: &str) -> u64 {
+    fs::metadata(installed_path(spec, runtime_id))
         .map(|meta| meta.len())
         .unwrap_or(0)
+}
+
+fn download_key(kind: &str, id: &str, runtime_id: &str) -> String {
+    format!("{kind}:{runtime_id}:{id}")
 }
 
 #[tauri::command]
@@ -1473,25 +2553,54 @@ pub fn list_transcription_resources(
         .downloads
         .lock()
         .map_err(|_| "Download state is unavailable")?;
-    let mut specs = vec![
-        model_spec("fast").unwrap(),
-        model_spec("standard").unwrap(),
-        model_spec("accurate").unwrap(),
-    ];
+    let mut specs = ["sensevoice-small", "paraformer-large", "funasr-nano"]
+        .into_iter()
+        .map(|id| (model_spec(id).unwrap(), "funasr"))
+        .collect::<Vec<_>>();
+    for runtime_id in ["native", "cuda"] {
+        if runtime_spec(runtime_id).is_some() {
+            specs.extend(
+                ["fast", "standard", "accurate"]
+                    .into_iter()
+                    .map(|id| (model_spec(id).unwrap(), runtime_id)),
+            );
+        }
+    }
+    for id in ["fireredasr2-aed", "fireredasr2-llm"] {
+        specs.push((
+            model_spec(id).expect("FireRedASR2 model should exist"),
+            "firered",
+        ));
+    }
     if let Some(spec) = runtime_spec("native") {
-        specs.push(spec);
+        specs.push((spec, "native"));
     }
     if let Some(spec) = runtime_spec("cuda") {
-        specs.push(spec);
+        specs.push((spec, "cuda"));
+    }
+    if let Some(spec) = runtime_spec("funasr") {
+        specs.push((spec, "funasr"));
+    }
+    if let Some(spec) = runtime_spec("firered") {
+        specs.push((spec, "firered"));
     }
     Ok(specs
         .into_iter()
-        .map(|spec| TranscriptionResourceStatus {
-            id: spec.id.to_string(),
-            kind: spec.kind.to_string(),
-            installed: installed_path(spec).is_file(),
-            downloading: downloads.contains_key(&format!("{}:{}", spec.kind, spec.id)),
-            bytes: resource_bytes(spec),
+        .map(|(spec, runtime_id)| {
+            let package = resource_bundle(spec.kind, spec.id).unwrap_or_else(|_| vec![spec]);
+            TranscriptionResourceStatus {
+                id: spec.id.to_string(),
+                kind: spec.kind.to_string(),
+                runtime_id: runtime_id.to_string(),
+                installed: package
+                    .iter()
+                    .all(|item| installed_path(*item, runtime_id).is_file()),
+                downloading: downloads.contains_key(&download_key(spec.kind, spec.id, runtime_id)),
+                bytes: package
+                    .iter()
+                    .map(|item| resource_bytes(*item, runtime_id))
+                    .sum(),
+            }
         })
         .collect())
 }
@@ -1499,6 +2608,7 @@ pub fn list_transcription_resources(
 fn emit_progress(
     app: &AppHandle,
     spec: ResourceSpec,
+    runtime_id: &str,
     status: &'static str,
     downloaded: u64,
     total: u64,
@@ -1514,6 +2624,7 @@ fn emit_progress(
         TranscriptionResourceProgress {
             id: spec.id.to_string(),
             kind: spec.kind.to_string(),
+            runtime_id: runtime_id.to_string(),
             status,
             percent,
             downloaded_bytes: downloaded,
@@ -1602,72 +2713,163 @@ fn extract_archive(
         .map_err(|error| format!("Could not finish runtime installation: {error}"))
 }
 
-#[tauri::command]
-pub async fn download_transcription_resource(
-    app: AppHandle,
-    state: State<'_, TranscriptionDownloadState>,
-    kind: String,
-    id: String,
-) -> Result<(), String> {
-    let spec = resource_spec(&kind, &id)?;
-    let key = format!("{}:{}", spec.kind, spec.id);
-    let token = CancellationToken::new();
-    {
-        let mut downloads = state
-            .downloads
-            .lock()
-            .map_err(|_| "Download state is unavailable")?;
-        if downloads.contains_key(&key) {
-            return Err("This resource is already downloading".to_string());
-        }
-        downloads.insert(key.clone(), token.clone());
+fn model_runtime_id(model: &str) -> Option<&'static str> {
+    match model {
+        "fireredasr2-aed" | "fireredasr2-llm" => Some("firered"),
+        "fast" | "standard" | "accurate" => Some("native"),
+        "sensevoice-small"
+        | "paraformer-large"
+        | "funasr-nano"
+        | "funasr-nano-encoder"
+        | "funasr-vad" => Some("funasr"),
+        _ => None,
     }
-    let result = async {
-        let target_dir = resource_root().join(format!("{}s", spec.kind));
-        fs::create_dir_all(&target_dir)
+}
+
+fn model_is_compatible_with_runtime(model: &str, runtime_id: &str) -> bool {
+    match model_runtime_id(model) {
+        Some("native") => matches!(runtime_id, "native" | "cuda"),
+        Some(expected) => runtime_id == expected,
+        None => false,
+    }
+}
+
+fn resource_bundle(kind: &str, id: &str) -> Result<Vec<ResourceSpec>, String> {
+    let target = resource_spec(kind, id)?;
+    if kind == "runtime" {
+        let mut specs = vec![target];
+        if id == "funasr" {
+            specs.push(model_spec("funasr-vad").expect("FunASR VAD resource should exist"));
+        }
+        return Ok(specs);
+    }
+    if kind != "model" || model_runtime_id(id).is_none() {
+        return Ok(vec![target]);
+    }
+    if let Some(package) = firered_model_bundle(id) {
+        return Ok(package);
+    }
+    let mut specs = Vec::new();
+    if id == "funasr-nano" {
+        specs.push(
+            model_spec("funasr-nano-encoder").expect("FunASR Nano encoder resource should exist"),
+        );
+    }
+    specs.push(target);
+    Ok(specs)
+}
+
+async fn download_resource_spec(
+    app: &AppHandle,
+    spec: ResourceSpec,
+    runtime_id: &str,
+    token: &CancellationToken,
+    progress_spec: ResourceSpec,
+    completed_bytes: u64,
+    package_bytes: u64,
+) -> Result<(), String> {
+    if installed_path(spec, runtime_id).is_file() {
+        return Ok(());
+    }
+
+    let target_dir = resource_root_for_runtime(runtime_id).join(format!("{}s", spec.kind));
+    fs::create_dir_all(&target_dir)
+        .map_err(|error| format!("Could not create resource directory: {error}"))?;
+    let partial = target_dir.join(format!("{}.part", spec.file_name));
+    if let Some(parent) = partial.parent() {
+        fs::create_dir_all(parent)
             .map_err(|error| format!("Could not create resource directory: {error}"))?;
-        let partial = target_dir.join(format!("{}.part", spec.file_name));
-        let response = reqwest::Client::new()
-            .get(spec.url)
+    }
+    let client = reqwest::Client::new();
+    let mut last_error = None;
+    for source in spec.urls {
+        if token.is_cancelled() {
+            let _ = fs::remove_file(&partial);
+            return Err("Download cancelled".to_string());
+        }
+        let response = match client
+            .get(*source)
             .header("User-Agent", "TierNote")
             .send()
             .await
-            .map_err(|error| format!("Could not download resource: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("Resource download failed: {error}"))?;
+            .and_then(reqwest::Response::error_for_status)
+        {
+            Ok(response) => response,
+            Err(error) => {
+                last_error = Some(format!("Resource source failed: {error}"));
+                continue;
+            }
+        };
         let total = response.content_length().unwrap_or(spec.expected_size);
         let maximum = spec.expected_size.saturating_add(1024 * 1024);
         if total > maximum {
-            return Err("Resource download is larger than expected".to_string());
+            last_error = Some("Resource download is larger than expected".to_string());
+            continue;
         }
         let mut file = fs::File::create(&partial)
             .map_err(|error| format!("Could not create resource file: {error}"))?;
         let mut downloaded = 0_u64;
-        emit_progress(&app, spec, "downloading", 0, total, None);
+        emit_progress(
+            app,
+            progress_spec,
+            runtime_id,
+            "downloading",
+            completed_bytes,
+            package_bytes,
+            None,
+        );
         let mut stream = response.bytes_stream();
+        let mut source_error = None;
         while let Some(chunk) = stream.next().await {
             if token.is_cancelled() {
                 let _ = fs::remove_file(&partial);
                 return Err("Download cancelled".to_string());
             }
-            let chunk =
-                chunk.map_err(|error| format!("Resource download was interrupted: {error}"))?;
+            let chunk = match chunk {
+                Ok(chunk) => chunk,
+                Err(error) => {
+                    source_error = Some(format!("Resource download was interrupted: {error}"));
+                    break;
+                }
+            };
             downloaded += chunk.len() as u64;
             if downloaded > maximum {
-                let _ = fs::remove_file(&partial);
-                return Err("Resource download is larger than expected".to_string());
+                source_error = Some("Resource download is larger than expected".to_string());
+                break;
             }
             file.write_all(&chunk)
                 .map_err(|error| format!("Could not save resource: {error}"))?;
-            emit_progress(&app, spec, "downloading", downloaded, total, None);
+            emit_progress(
+                app,
+                progress_spec,
+                runtime_id,
+                "downloading",
+                completed_bytes.saturating_add(downloaded.min(spec.expected_size)),
+                package_bytes,
+                None,
+            );
+        }
+        if let Some(message) = source_error {
+            drop(file);
+            let _ = fs::remove_file(&partial);
+            last_error = Some(message);
+            continue;
         }
         file.flush()
             .map_err(|error| format!("Could not finish resource file: {error}"))?;
         drop(file);
-        verify_file(&partial, spec)?;
+        if let Err(error) = verify_file(&partial, spec) {
+            let _ = fs::remove_file(&partial);
+            last_error = Some(error);
+            continue;
+        }
         match spec.archive {
             ArchiveKind::None => {
                 let target = target_dir.join(spec.file_name);
+                if let Some(parent) = target.parent() {
+                    fs::create_dir_all(parent)
+                        .map_err(|error| format!("Could not create model directory: {error}"))?;
+                }
                 if target.exists() {
                     fs::remove_file(&target)
                         .map_err(|error| format!("Could not replace model: {error}"))?;
@@ -1681,24 +2883,106 @@ pub async fn download_transcription_resource(
                     .map_err(|error| format!("Could not remove runtime archive: {error}"))?;
             }
         }
+        return Ok(());
+    }
+    Err(last_error.unwrap_or_else(|| "No download source is available".to_string()))
+}
+
+#[tauri::command]
+pub async fn download_transcription_resource(
+    app: AppHandle,
+    state: State<'_, TranscriptionDownloadState>,
+    kind: String,
+    id: String,
+    runtime_id: String,
+) -> Result<(), String> {
+    validate_storage_runtime(&runtime_id)?;
+    if (kind == "runtime" && id != runtime_id)
+        || (kind == "model" && !model_is_compatible_with_runtime(&id, &runtime_id))
+    {
+        return Err(
+            "This resource does not belong to the selected transcription engine".to_string(),
+        );
+    }
+    let spec = resource_spec(&kind, &id)?;
+    let bundle = resource_bundle(&kind, &id)?;
+    let keys = bundle
+        .iter()
+        .map(|item| download_key(item.kind, item.id, &runtime_id))
+        .collect::<Vec<_>>();
+    let token = CancellationToken::new();
+    {
+        let mut downloads = state
+            .downloads
+            .lock()
+            .map_err(|_| "Download state is unavailable")?;
+        if keys.iter().any(|key| downloads.contains_key(key)) {
+            return Err(
+                "This resource or one of its dependencies is already downloading".to_string(),
+            );
+        }
+        for key in &keys {
+            downloads.insert(key.clone(), token.clone());
+        }
+    }
+    let package_bytes = bundle
+        .iter()
+        .filter(|item| !installed_path(**item, &runtime_id).is_file())
+        .map(|item| item.expected_size)
+        .sum::<u64>()
+        .max(1);
+    let result: Result<(), String> = async {
+        let mut completed_bytes = 0_u64;
+        for item in bundle {
+            let already_installed = installed_path(item, &runtime_id).is_file();
+            download_resource_spec(
+                &app,
+                item,
+                &runtime_id,
+                &token,
+                spec,
+                completed_bytes,
+                package_bytes,
+            )
+            .await?;
+            if !already_installed {
+                completed_bytes = completed_bytes.saturating_add(item.expected_size);
+            }
+        }
+        if kind == "runtime" && id == "firered" {
+            emit_progress(
+                &app,
+                spec,
+                &runtime_id,
+                "downloading",
+                package_bytes,
+                package_bytes,
+                None,
+            );
+            prepare_firered_runtime(&token).await?;
+        }
         emit_progress(
             &app,
             spec,
+            &runtime_id,
             "installed",
-            spec.expected_size,
-            spec.expected_size,
+            package_bytes,
+            package_bytes,
             None,
         );
         Ok(())
     }
     .await;
     if let Ok(mut downloads) = state.downloads.lock() {
-        downloads.remove(&key);
+        for key in &keys {
+            downloads.remove(key);
+        }
     }
     if let Err(message) = &result {
         emit_progress(
             &app,
             spec,
+            &runtime_id,
             if token.is_cancelled() {
                 "cancelled"
             } else {
@@ -1717,8 +3001,9 @@ pub fn cancel_transcription_download(
     state: State<'_, TranscriptionDownloadState>,
     kind: String,
     id: String,
+    runtime_id: String,
 ) -> Result<(), String> {
-    let key = format!("{kind}:{id}");
+    let key = download_key(&kind, &id, &runtime_id);
     if let Some(token) = state
         .downloads
         .lock()
@@ -1731,21 +3016,38 @@ pub fn cancel_transcription_download(
 }
 
 #[tauri::command]
-pub fn remove_transcription_resource(kind: String, id: String) -> Result<(), String> {
-    let spec = resource_spec(&kind, &id)?;
-    let target = installed_path(spec);
-    let removal = match spec.archive {
-        ArchiveKind::None => fs::remove_file(target),
-        _ => target
-            .parent()
-            .map(fs::remove_dir_all)
-            .unwrap_or_else(|| Err(std::io::Error::other("Invalid resource path"))),
-    };
-    match removal {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(format!("Could not remove transcription resource: {error}")),
+pub fn remove_transcription_resource(
+    kind: String,
+    id: String,
+    runtime_id: String,
+) -> Result<(), String> {
+    let bundle = resource_bundle(&kind, &id)?;
+    if kind == "model" && matches!(id.as_str(), "fireredasr2-aed" | "fireredasr2-llm") {
+        let directory = resource_root_for_runtime(&runtime_id)
+            .join("models")
+            .join(&id);
+        return match fs::remove_dir_all(directory) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(format!("Could not remove transcription resource: {error}")),
+        };
     }
+    for spec in bundle {
+        let target = installed_path(spec, &runtime_id);
+        let removal = match spec.archive {
+            ArchiveKind::None => fs::remove_file(target),
+            _ => target
+                .parent()
+                .map(fs::remove_dir_all)
+                .unwrap_or_else(|| Err(std::io::Error::other("Invalid resource path"))),
+        };
+        match removal {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("Could not remove transcription resource: {error}")),
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1766,6 +3068,94 @@ mod tests {
         assert_eq!(local_whisper_language("zh"), Some("zh"));
         assert_eq!(local_whisper_language("en"), Some("en"));
         assert_eq!(local_whisper_language("auto"), None);
+    }
+
+    #[test]
+    fn storage_config_keeps_legacy_directory_as_a_fallback() {
+        let config: TranscriptionStorageConfig =
+            serde_json::from_str(r#"{"directory":"D:\\Speech"}"#)
+                .expect("legacy transcription storage should deserialize");
+        assert_eq!(config.directory.as_deref(), Some(r"D:\Speech"));
+        assert!(config.directories.is_empty());
+    }
+
+    #[test]
+    fn storage_migration_rejects_resource_subtrees_but_allows_family_siblings() {
+        let current = Path::new("storage/transcription");
+        assert!(storage_destination_is_unsafe(
+            current,
+            &current.join("runtimes").join("funasr").join("new")
+        ));
+        assert!(storage_destination_is_unsafe(
+            current,
+            &current.join("models").join("new")
+        ));
+        assert!(storage_destination_is_unsafe(current, Path::new("storage")));
+        assert!(!storage_destination_is_unsafe(
+            current,
+            &current.join("FunASR")
+        ));
+        assert!(!storage_destination_is_unsafe(
+            current,
+            Path::new("other/TierNote Transcription/FunASR")
+        ));
+    }
+
+    #[test]
+    fn whisper_models_can_live_with_either_whisper_runtime() {
+        assert!(model_is_compatible_with_runtime("standard", "native"));
+        assert!(model_is_compatible_with_runtime("standard", "cuda"));
+        assert!(!model_is_compatible_with_runtime("standard", "funasr"));
+        assert!(model_is_compatible_with_runtime(
+            "sensevoice-small",
+            "funasr"
+        ));
+        assert!(model_is_compatible_with_runtime(
+            "fireredasr2-aed",
+            "firered"
+        ));
+        assert!(!model_is_compatible_with_runtime(
+            "fireredasr2-aed",
+            "funasr"
+        ));
+    }
+
+    #[test]
+    fn firered_models_are_complete_verified_bundles() {
+        let aed = firered_model_bundle("fireredasr2-aed").expect("AED bundle should exist");
+        assert_eq!(aed.len(), 4);
+        assert!(aed.iter().all(|item| !item.sha256.is_empty()));
+        assert!(aed
+            .iter()
+            .any(|item| item.file_name.ends_with("train_bpe1000.model")));
+
+        let llm = firered_model_bundle("fireredasr2-llm").expect("LLM bundle should exist");
+        assert_eq!(llm.len(), 14);
+        assert!(llm.iter().all(|item| !item.sha256.is_empty()));
+        assert_eq!(
+            llm.iter()
+                .filter(|item| item.file_name.ends_with(".safetensors"))
+                .count(),
+            4
+        );
+    }
+
+    #[test]
+    fn firered_runtime_source_is_revision_pinned() {
+        let runtime = runtime_spec("firered").expect("FireRedASR2 runtime should exist");
+        assert!(runtime.urls[0].contains(FIRERED_SOURCE_REVISION));
+        assert_eq!(runtime.expected_size, 7_782_929);
+        assert_eq!(runtime.sha256.len(), 64);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn display_path_hides_windows_extended_path_prefixes() {
+        assert_eq!(display_path(Path::new(r"\\?\E:\Speech")), r"E:\Speech");
+        assert_eq!(
+            display_path(Path::new(r"\\?\UNC\server\speech")),
+            r"\\server\speech"
+        );
     }
 
     #[test]
@@ -1932,12 +3322,48 @@ mod tests {
             model_spec("fast").unwrap(),
             model_spec("standard").unwrap(),
             model_spec("accurate").unwrap(),
+            model_spec("sensevoice-small").unwrap(),
+            model_spec("paraformer-large").unwrap(),
+            model_spec("funasr-nano").unwrap(),
             media_fetcher_spec().unwrap(),
         ] {
             assert_eq!(spec.sha256.len(), 64);
             assert!(spec.expected_size > 0);
-            assert!(spec.url.starts_with("https://"));
+            assert!(spec.urls.iter().all(|url| url.starts_with("https://")));
         }
+    }
+
+    #[test]
+    fn chinese_models_and_engines_are_separate_downloads() {
+        for id in ["sensevoice-small", "paraformer-large", "funasr-nano"] {
+            let spec = model_spec(id).expect("Chinese model should be available");
+            assert!(spec.urls[0].starts_with("https://modelscope.cn/"));
+            assert!(spec.urls.iter().any(|url| url.contains("huggingface.co")));
+            let bundle = resource_bundle("model", id).expect("model package should resolve");
+            assert_eq!(bundle.last().map(|item| item.id), Some(id));
+            assert!(!bundle.iter().any(|item| item.id == "funasr"));
+        }
+        let nano = resource_bundle("model", "funasr-nano").unwrap();
+        assert!(nano.iter().any(|item| item.id == "funasr-nano-encoder"));
+        let runtime = resource_bundle("runtime", "funasr").unwrap();
+        assert_eq!(runtime.first().map(|item| item.id), Some("funasr"));
+        assert!(runtime.iter().any(|item| item.id == "funasr-vad"));
+    }
+
+    #[test]
+    fn firered_sources_keep_mirrors_behind_one_download_action() {
+        let aed = external_resource_sources("model", "fireredasr2-aed").unwrap();
+        assert!(aed[0].contains("modelscope.cn"));
+        assert!(aed[1].contains("huggingface.co"));
+        let runtime = external_resource_sources("runtime", "firered").unwrap();
+        assert!(runtime[0].contains("gitcode.com"));
+        assert!(runtime[1].contains("github.com"));
+    }
+
+    #[test]
+    fn funasr_srt_output_becomes_plain_transcript() {
+        let source = "1\n00:00:00,190 --> 00:00:02,300\n你好，世界。\n";
+        assert_eq!(parse_caption_text(source), "你好，世界。");
     }
 
     #[test]

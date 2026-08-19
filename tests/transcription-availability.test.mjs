@@ -21,8 +21,8 @@ function config(overrides = {}) {
   };
 }
 
-function resource(kind, id, installed = true) {
-  return { kind, id, installed, downloading: false, bytes: installed ? 1 : 0 };
+function resource(kind, id, installed = true, runtimeId = 'native') {
+  return { kind, id, runtimeId, installed, downloading: false, bytes: installed ? 1 : 0 };
 }
 
 test('no transcription configuration exposes no usable mode', () => {
@@ -58,5 +58,6 @@ test('local transcription rejects incomplete, uninstalled, and stale selections'
   assert.equal(transcriptionAvailability(config({ activeModel: '' }), [runtime, model]).local, false);
   assert.equal(transcriptionAvailability(config(), [resource('runtime', 'native', false), model]).local, false);
   assert.equal(transcriptionAvailability(config(), [runtime, resource('model', 'fast', false)]).local, false);
+  assert.equal(transcriptionAvailability(config(), [runtime, resource('model', 'fast', true, 'cuda')]).local, false);
   assert.equal(transcriptionAvailability(config({ activeModel: 'missing' }), [runtime, model]).local, false);
 });

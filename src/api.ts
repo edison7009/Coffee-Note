@@ -27,6 +27,7 @@ import type {
   TranscriptionSettingsConfig,
   TranscriptionResourceProgress,
   TranscriptionResourceStatus,
+  TranscriptionStorageInfo,
   MessageSettingsConfig,
   MessageChannelStatus,
   WeixinLoginStart,
@@ -665,19 +666,48 @@ export async function listTranscriptionResources(): Promise<TranscriptionResourc
   return invoke<TranscriptionResourceStatus[]>('list_transcription_resources');
 }
 
-export async function downloadTranscriptionResource(kind: 'runtime' | 'model', id: string): Promise<void> {
+export async function getTranscriptionStorage(runtimeId: string): Promise<TranscriptionStorageInfo | null> {
+  if (!isTauri) return null;
+  return invoke<TranscriptionStorageInfo>('get_transcription_storage', { runtimeId });
+}
+
+export async function chooseTranscriptionStorageDirectory(): Promise<string | null> {
+  if (!isTauri) return null;
+  const selected = await open({ directory: true, multiple: false });
+  return typeof selected === 'string' ? selected : null;
+}
+
+export async function setTranscriptionStorageDirectory(runtimeId: string, directory: string): Promise<TranscriptionStorageInfo> {
+  if (!isTauri) throw new Error('Storage settings are only available in the desktop app.');
+  return invoke<TranscriptionStorageInfo>('set_transcription_storage_directory', { runtimeId, directory });
+}
+
+export async function openTranscriptionStorageDirectory(runtimeId: string): Promise<void> {
+  if (!isTauri) return;
+  await invoke('open_transcription_storage_directory', { runtimeId });
+}
+
+export async function resolveTranscriptionResourceSource(
+  kind: 'runtime' | 'model',
+  id: string,
+): Promise<string> {
+  if (!isTauri) throw new Error('Automatic source selection is only available in the desktop app.');
+  return invoke<string>('resolve_transcription_resource_source', { kind, id });
+}
+
+export async function downloadTranscriptionResource(kind: 'runtime' | 'model', id: string, runtimeId: string): Promise<void> {
   if (!isTauri) throw new Error('Resource downloads are only available in the desktop app.');
-  await invoke('download_transcription_resource', { kind, id });
+  await invoke('download_transcription_resource', { kind, id, runtimeId });
 }
 
-export async function cancelTranscriptionDownload(kind: 'runtime' | 'model', id: string): Promise<void> {
+export async function cancelTranscriptionDownload(kind: 'runtime' | 'model', id: string, runtimeId: string): Promise<void> {
   if (!isTauri) return;
-  await invoke('cancel_transcription_download', { kind, id });
+  await invoke('cancel_transcription_download', { kind, id, runtimeId });
 }
 
-export async function removeTranscriptionResource(kind: 'runtime' | 'model', id: string): Promise<void> {
+export async function removeTranscriptionResource(kind: 'runtime' | 'model', id: string, runtimeId: string): Promise<void> {
   if (!isTauri) return;
-  await invoke('remove_transcription_resource', { kind, id });
+  await invoke('remove_transcription_resource', { kind, id, runtimeId });
 }
 
 export async function onTranscriptionResourceProgress(
