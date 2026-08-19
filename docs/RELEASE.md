@@ -1,7 +1,7 @@
 # TierNote 发布流程
 
 > 每次修改版本号、创建 tag 或发布 GitHub Release 前都必须重新阅读本文。
-> 核心顺序：**版本提交 → 本地预检 → 推送 main → 等 CI 全绿 → 创建 tag → 守到正式发布 → 验收下载**。
+> 核心顺序：**版本提交 → 本地预检 → 推送 main → 核对远程 SHA → 创建 tag → 守到正式发布 → 验收下载**。
 
 ## 一、发布前先看状态
 
@@ -11,13 +11,13 @@
 git fetch origin main --tags
 git status --short
 git rev-list --left-right --count HEAD...origin/main
-gh run list --repo edison7009/TierNote --workflow CI --limit 5
 gh run list --repo edison7009/TierNote --workflow "Release desktop apps" --limit 5
 ```
 
 - 必须在 `main` 上发布，且本地与 `origin/main` 同步。
 - 除明确保留的用户文件外，不得带着未确认改动发布。
-- 最近的 `main` CI 若为红色，先读取失败日志并修复，不能用 Release 工作流代替 CI 验证。
+- TierNote 不运行常规 push/PR CI；发布前必须在版本提交的准确文件树上完成本地 `release:preflight`。
+- 最近的 Release 工作流若为红色，先读取失败日志并确认当前版本已修复，不能忽略发布质量检查。
 - `vX.Y.Z` tag 或同版本 Release 已存在时，先查明原因；不要直接覆盖一个已经公开的版本。
 
 ## 二、统一修改 6 个版本文件
@@ -57,16 +57,19 @@ npm run release:preflight
 
 任何一步失败都不得打 tag。提交版本号前再检查 `git diff --check`，且不能提交 `node_modules/`、`dist/`、`src-tauri/target/` 或 `src-tauri/binaries/`。
 
-## 四、先推版本提交，等 main CI 全绿
+## 四、先推版本提交，核对远程 SHA
 
 ```powershell
 git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock website/version.json
 git commit -m "chore: bump version to X.Y.Z"
 git push origin main
-gh run list --repo edison7009/TierNote --workflow CI --branch main --limit 3
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
 ```
 
-找到与版本提交 SHA 对应的 CI run，并等待它 `completed/success`。CI 的前端与 Rust 质量门都必须成功后才能继续。
+两个 SHA 必须完全相同，且工作区除明确保留的用户文件外保持干净。常规提交不触发
+GitHub CI；标签触发的 `Release desktop apps` 会在创建 Release 和构建安装包前重复执行
+前端、双语资源、版本、Rust 格式、Clippy 和完整 Rust 测试。任何检查失败都不会发布。
 
 ## 五、只创建一次 tag，触发正式发布
 
@@ -97,7 +100,7 @@ gh run watch RUN_ID --repo edison7009/TierNote --exit-status
 正式版必须满足：
 
 - GitHub Release 为非 draft、非 prerelease、latest；
-- tag 指向已经通过 main CI 的版本提交；
+- tag 指向已经通过本地完整预检、且与远程 `main` 一致的版本提交；
 - 共有 9 个附件：Windows EXE/MSI、macOS arm64/x64 DMG、Linux x64 DEB/RPM/AppImage、Linux arm64 DEB/RPM；
 - 附件名全部为 `TierNote_X.Y.Z_*`；
 - `https://tiernote.org/version.json?platform=windows` 返回 `{"version":"X.Y.Z"}`；
