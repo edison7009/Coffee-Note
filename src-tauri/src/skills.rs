@@ -1474,6 +1474,14 @@ mod tests {
     }
 
     #[test]
+    fn media_skill_uses_navigation_friendly_titles_and_faithful_polish() {
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("7–10 visible characters"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("3–6 words"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("Never add a fact, opinion"));
+        assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("Never place a duplicate H1 title"));
+    }
+
+    #[test]
     fn bundled_media_plugin_declares_a_shared_prewarmed_runtime() {
         let plugin = builtin_media_manifest();
         assert_eq!(plugin.id, BUILTIN_MEDIA_PLUGIN_ID);

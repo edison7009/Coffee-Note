@@ -869,6 +869,14 @@ existing note-organization model to produce editable Markdown. Ordinary web
 URLs retain the existing HTML extraction path. Direct local audio/video file
 selection is not implemented yet.
 
+The bundled media-to-text skill treats the generated note title as a narrow
+navigation label rather than a copy of the source headline. Chinese titles aim
+for 7–10 visible characters and English titles for 3–6 words, while preserving
+necessary proper names instead of truncating them. Transcript polishing removes
+speech and caption noise plus generic AI framing, but must preserve the source's
+meaning, uncertainty, attribution, names, numbers, and voice; it may not invent
+facts, opinions, examples, or conclusions merely to make the note read smoothly.
+
 ## Phone message channels (updated 2026-08-14)
 
 TierNote supports two paired private phone channels: Tencent Weixin iLink
