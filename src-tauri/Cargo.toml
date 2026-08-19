@@ -5,7 +5,7 @@ description = "Local-first workspace agent with tier-based organization and AI a
 authors = ["TierNote Team"]
 license = "AGPL-3.0-or-later"
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.88"
 
 [lib]
 name = "tiernote_lib"
@@ -30,6 +30,7 @@ chrono = "0.4"
 futures = "0.3"
 uuid = { version = "1", features = ["v4"] }
 log = "0.4"
+anydoc = "=0.1.9"
 tokio = { version = "1", features = ["sync", "rt", "macros", "time", "fs", "io-util", "process"] }
 reqwest-eventsource = "0.6"
 tokio-util = "0.7"

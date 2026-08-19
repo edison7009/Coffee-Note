@@ -246,9 +246,10 @@ fn validate_slide(mut slide: PresentationSlide, index: usize) -> Result<Presenta
         }
         "content" if slide.image_path.is_some() => estimated_lines(&slide.body, 52) <= 17,
         "content" => estimated_lines(&slide.body, 86) <= 18,
-        "quote" => slide.body.first().map_or(true, |quote| {
-            estimated_lines(std::slice::from_ref(quote), 64) <= 7
-        }),
+        "quote" => slide
+            .body
+            .first()
+            .is_none_or(|quote| estimated_lines(std::slice::from_ref(quote), 64) <= 7),
         _ => true,
     };
     if !fits {

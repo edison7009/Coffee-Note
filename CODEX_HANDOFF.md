@@ -73,6 +73,15 @@ or temporary deployment credentials.
   focus, so externally downloaded files appear without a restart while collapsed
   branches stay inexpensive. Their context menu also supports the existing workspace
   file operations and opening through the system application.
+- **Structured local document ingestion (2026-08-19):** Existing Word,
+  PowerPoint, Excel, OpenDocument, RTF, EPUB, CSV, and text-based PDF files are
+  converted locally to structured Markdown with the pinned MIT-licensed anydoc
+  Rust library before reaching the Agent. This replaces TierNote's former light
+  OOXML/PDF text scraping, preserves document structure more faithfully, and
+  adds fixed parser resource limits. Scanned or image-only PDFs still require a
+  separate OCR path. Keep the native TierNote DOCX/PDF generators: anydoc is an
+  input parser, not an output-document generator. Do not invoke its npx skill or
+  bind the app to a developer-local checkout.
 - The current Agent tool surface can edit text files but cannot execute terminal
   commands. It must state that honestly and never claim builds or tests ran. Add
   shell execution only together with an explicit user approval and safety model.

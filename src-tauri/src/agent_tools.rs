@@ -280,8 +280,8 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
             name: "read_local_file".into(),
             description: "Read the content of a local file outside the selected workspace when the \
                 user explicitly supplies its absolute path. Use this when the user asks you to \
-                import a local document — a PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), \
-                HTML file, plain text, or an image (for multimodal models). \
+                import a local document — PDF, Word, PowerPoint, Excel, OpenDocument, RTF, EPUB, \
+                CSV, HTML, plain text, or an image (for multimodal models). \
                 Text-based files are read as text; images are returned as paths for vision. \
                 Follow the user's requested outcome; do not automatically turn the file into a note. \
                 The file path must be absolute, e.g. 'C:/Users/name/Downloads/report.pdf'."
@@ -1475,10 +1475,7 @@ async fn exec_read_local_file(args: &Value, locale: &str) -> ToolResult {
                         }
                     };
                     let transcript = match crate::transcription::transcribe_local_media_file(
-                        &file_path,
-                        "api",
-                        &config,
-                        locale,
+                        &file_path, "api", &config, locale,
                     )
                     .await
                     {
@@ -1505,14 +1502,19 @@ async fn exec_read_local_file(args: &Value, locale: &str) -> ToolResult {
                         success: false,
                         output: format!(
                             "The file '{}' has an unsupported format (.{}). \
-                             Supported: .txt .md .html .docx .pptx .xlsx .pdf, images, and audio/video.",
+                             Supported: plain text/HTML; PDF; Word, PowerPoint, Excel, \
+                             OpenDocument, RTF, EPUB, and CSV documents; images; and audio/video.",
                             content.label, content.extension
                         ),
                     }
                 }
             };
             if output.len() > 300_000 {
-                output.truncate(300_000);
+                let mut boundary = 300_000;
+                while !output.is_char_boundary(boundary) {
+                    boundary -= 1;
+                }
+                output.truncate(boundary);
                 output.push_str("\n…[truncated]");
             }
             ToolResult {

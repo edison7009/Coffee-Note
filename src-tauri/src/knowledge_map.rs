@@ -245,7 +245,7 @@ fn retrieve_context_scoped(
             .filter_map(|(note_index, note)| {
                 let allowed = explicitly_allowed
                     .as_ref()
-                    .map_or(true, |indices| indices.contains(&note_index));
+                    .is_none_or(|indices| indices.contains(&note_index));
                 let excluded = excluded_prefixes
                     .iter()
                     .any(|prefix| path_has_prefix(&note.path, prefix));
