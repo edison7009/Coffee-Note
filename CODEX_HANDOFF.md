@@ -16,12 +16,13 @@ or temporary deployment credentials.
   fixed note system or a longevity product. The user selects an ordinary directory
   and asks the Agent to work in it. Notes are common work, but source code, documents,
   data, and other tasks are equally valid.
-- The TierNote rebrand preserves the v0.1.8 persisted identity as a compatibility
-  layer: `app.coffeenote.desktop`, the `Coffee Note` app-data directory,
-  `.coffee-note` workspace metadata, and `coffee-note:` browser storage keys.
-  These legacy identifiers keep provider credentials, conversations, plugin state,
-  message channels, and tier ordering available after upgrade and must not be
-  renamed without an explicit, tested migration.
+- **Identifier migration (2026-08-20):** Current releases use
+  `app.tiernote.desktop`, the `TierNote` app-data directory, `.tiernote` workspace
+  metadata, `tiernote:` browser storage keys, and `tiernote-*` built-in plugin,
+  skill, runtime, and sidecar IDs. Startup performs a tested one-time migration
+  from the v0.1.8 identity before initializing the WebView or backend stores, so
+  provider credentials, conversations, plugin state, message channels, local UI
+  preferences, and tier ordering remain available after upgrade.
 - GitHub release and feedback URLs use the `edison7009/TierNote` repository.
 - **Licensing (2026-08-19):** TierNote uses AGPL-3.0-or-later for current
   releases, with paid commercial licensing available for closed-source
@@ -73,6 +74,13 @@ or temporary deployment credentials.
   focus, so externally downloaded files appear without a restart while collapsed
   branches stay inexpensive. Their context menu also supports the existing workspace
   file operations and opening through the system application.
+- **Local document ingestion (2026-08-20):** TierNote owns its document-reading
+  implementation. DOCX, PPTX, XLSX, HTML, plain text, and text-based PDF files
+  are read locally before reaching the Agent; audio and video continue through
+  TierNote's existing transcription pipeline. External projects may inform test
+  cases and product requirements, but must not be added as conversion runtimes or
+  code dependencies without explicit approval. Scanned or image-only PDFs still
+  require a separate OCR path.
 - The current Agent tool surface can edit text files but cannot execute terminal
   commands. It must state that honestly and never claim builds or tests ran. Add
   shell execution only together with an explicit user approval and safety model.
@@ -87,7 +95,7 @@ or temporary deployment credentials.
   `TierNote Media` package is the first manifest-driven
   official plugin: its media-to-text skill, publisher, version, and
   prewarmed `media-transcription` runtime are declared under
-  `src-tauri/builtin-plugins/coffee-media/` instead of being duplicated as a Rust
+  `src-tauri/builtin-plugins/tiernote-media/` instead of being duplicated as a Rust
   prompt constant. Official plugins may bundle many independently switchable skills;
   a skill must never install its own runtime. Git skill packages remain supported as
   prompt-only community extensions, and TierNote never automatically executes
@@ -99,7 +107,7 @@ or temporary deployment credentials.
   skills removes the corresponding Agent tool and the backend rejects direct calls
   as a second guard.
 - **Native presentation plugin (2026-08-17):** The bundled `TierNote Presentation`
-  package lives under `src-tauri/builtin-plugins/coffee-presentation/`. Its
+  package lives under `src-tauri/builtin-plugins/tiernote-presentation/`. Its
   `create-presentation` skill sends a complete structured deck to the shared,
   prewarmed `presentation-engine` runtime. The runtime is compiled into the desktop
   app, writes editable widescreen `.pptx` packages without installing PowerPoint,
@@ -108,7 +116,7 @@ or temporary deployment credentials.
   workspace-image layouts. Generated files use a new filename instead of silently
   overwriting an existing deck.
 - **Native document plugin (2026-08-17):** The bundled `TierNote Documents` package
-  lives under `src-tauri/builtin-plugins/coffee-documents/` and exposes independent
+  lives under `src-tauri/builtin-plugins/tiernote-documents/` and exposes independent
   `create-docx` and `create-pdf` skills on one prewarmed `document-engine`. Both
   submit a complete semantic block list to the guarded `create_document` tool.
   `src-tauri/src/document.rs` writes editable Open XML `.docx` packages and lays out
@@ -151,7 +159,7 @@ or temporary deployment credentials.
   presentation tool by relative path. This version is cloud-only and does not expose
   an unfinished local OCR tab.
 - **Built-in storyboard director and text-to-video fallback (2026-08-17):** The bundled
-  `TierNote Video` package lives under `src-tauri/builtin-plugins/coffee-video/`. It exposes
+  `TierNote Video` package lives under `src-tauri/builtin-plugins/tiernote-video/`. It exposes
   a storyboard-only director skill and a render skill; both receive the same bundled,
   model-neutral cinematic specification. They establish a director brief, beat map,
   continuity bible, motivated camera language, and paired keyframe/motion prompts before
@@ -235,7 +243,7 @@ or temporary deployment credentials.
   video encoder is a narrowly invoked application-managed binary, not an agent runtime.
 - **Capture recognition preference (2026-08-14):** The Import Your Materials dialog
   stores its last cloud/local speech-recognition choice under the local UI key
-  `coffee-note:capture-transcription-mode:v1` and restores it the next time the dialog
+  `tiernote:capture-transcription-mode:v1` and restores it the next time the dialog
   or desktop app opens. The dialog only presents usable recognition modes as radio
   choices: an unconfigured mode is an explicit link to the matching cloud/local tab
   in Settings > Audio to text; if exactly one mode is usable it is automatically
@@ -529,7 +537,7 @@ to the product template.
   resolves from the interface language until the user makes an explicit choice.
   CNY and USD use DeepSeek's official
   regional token prices directly rather than converting through an exchange
-  rate. Persist the preference locally under `coffee-note:currency`.
+  rate. Persist the preference locally under `tiernote:currency`.
 - The composer skill picker and Settings > Skills share one source-backed
   catalog. Adding a skill plugin asks only for a Git repository URL and a TierNote
   category; package names, descriptions, versions, and skill instructions
@@ -596,7 +604,7 @@ to the product template.
   **My Plan** shortcuts (supplements, exercise, diet, daily routine, health log) below; when a note
   is open its sources appear as a third section. The old header star toggle is
   gone (favorites are always visible). On first launch the favorites are seeded
-  once with Bryan Johnson (flag `coffee-note:favorites-seeded:v1`); a user's
+  once with Bryan Johnson (flag `tiernote:favorites-seeded:v1`); a user's
   later edits are never overwritten.
 - The **My Plan** rail has five sections: supplements (补剂计划), exercise (运动计划), diet (饮食计划), daily routine (作息计划), and health log (健康记录). Clicking a section opens its own **note page** — `plans/supplements.md`, `plans/exercise.md`, `plans/diet.md`, `plans/daily-routine.md` — rendered like any other library note (new page, back navigation); the health log opens the per-day editor page. The AI maintains the four plan pages via the `update_plan` tool (standard format: goals, current status, concrete arrangements, review notes).
 - AI tools follow the general workspace model described above. Generic text/code
@@ -606,7 +614,7 @@ to the product template.
   selected workspace, so a new workspace starts empty and switching roots never
   leaks the Demo list. Loading reads only the first 32 KB needed for metadata rather
   than parsing note bodies. Drag order is workspace-local metadata in
-  `.coffee-note/tier-order.json`; Markdown frontmatter remains the source of truth
+  `.tiernote/tier-order.json`; Markdown frontmatter remains the source of truth
   for tier membership. Frontend workspace work is generation-scoped: selecting
   another root immediately invalidates pending loads and mutations so an old root
   can never republish its snapshot over the new workspace. The frontend reloads
@@ -707,7 +715,7 @@ to the product template.
   in the user message so the system prompt stays cache-stable.
 - The visible My Contexts (`我的设定`) page exposes AI-retrieval switches for its five content notes.
   All five default on and persist locally under
-  `coffee-note:my-info-retrieval:v1`; Add Material remains an action rather than a
+  `tiernote:my-info-retrieval:v1`; Add Material remains an action rather than a
   retrievable section. Every agent request sends the enabled stable IDs, and
   Rust applies the resulting localized-path allowlist to both question-aware
   Library Graph context and always-on memory injection. My Contexts cards are direct

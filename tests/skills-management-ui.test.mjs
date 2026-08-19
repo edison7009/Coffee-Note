@@ -14,17 +14,17 @@ const appBackendSource = await readFile(new URL('../src-tauri/src/lib.rs', impor
 const transcriptionBackendSource = await readFile(new URL('../src-tauri/src/transcription.rs', import.meta.url), 'utf8');
 const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
 const presentationSource = await readFile(new URL('../src-tauri/src/presentation.rs', import.meta.url), 'utf8');
-const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/coffee-plugin.json', import.meta.url), 'utf8');
-const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-presentation/skills/create-presentation/SKILL.md', import.meta.url), 'utf8');
+const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-presentation/tiernote-plugin.json', import.meta.url), 'utf8');
+const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-presentation/skills/create-presentation/SKILL.md', import.meta.url), 'utf8');
 const videoSource = await readFile(new URL('../src-tauri/src/video.rs', import.meta.url), 'utf8');
-const videoManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/coffee-plugin.json', import.meta.url), 'utf8');
-const videoSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/skills/create-video/SKILL.md', import.meta.url), 'utf8');
-const storyboardSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/skills/storyboard-director/SKILL.md', import.meta.url), 'utf8');
-const storyboardSpec = await readFile(new URL('../src-tauri/builtin-plugins/coffee-video/references/cinematic-storyboard.md', import.meta.url), 'utf8');
+const videoManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-video/tiernote-plugin.json', import.meta.url), 'utf8');
+const videoSkill = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-video/skills/create-video/SKILL.md', import.meta.url), 'utf8');
+const storyboardSkill = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-video/skills/storyboard-director/SKILL.md', import.meta.url), 'utf8');
+const storyboardSpec = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-video/references/cinematic-storyboard.md', import.meta.url), 'utf8');
 const documentSource = await readFile(new URL('../src-tauri/src/document.rs', import.meta.url), 'utf8');
-const documentManifest = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/coffee-plugin.json', import.meta.url), 'utf8');
-const docxSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/skills/create-docx/SKILL.md', import.meta.url), 'utf8');
-const pdfSkill = await readFile(new URL('../src-tauri/builtin-plugins/coffee-documents/skills/create-pdf/SKILL.md', import.meta.url), 'utf8');
+const documentManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-documents/tiernote-plugin.json', import.meta.url), 'utf8');
+const docxSkill = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-documents/skills/create-docx/SKILL.md', import.meta.url), 'utf8');
+const pdfSkill = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-documents/skills/create-pdf/SKILL.md', import.meta.url), 'utf8');
 
 test('settings includes a plugin market backed by one shared catalog', () => {
   assert.match(appSource, /type SettingsSectionId = 'general' \| 'appearance' \| 'model' \| 'skills' \| 'transcription' \| 'multimodal'/);
@@ -359,10 +359,10 @@ test('audio-to-text keeps file transcription protocols and current model choices
 });
 
 test('video is a bundled fallback plugin backed by guarded shared tools', () => {
-  assert.match(videoManifest, /"id": "coffee-video"/);
-  assert.match(videoManifest, /"id": "coffee-video-engine"/);
+  assert.match(videoManifest, /"id": "tiernote-video"/);
+  assert.match(videoManifest, /"id": "tiernote-video-engine"/);
   assert.match(videoManifest, /"categoryId": "video"/);
-  assert.match(videoManifest, /"id": "coffee-note-video-storyboard"/);
+  assert.match(videoManifest, /"id": "tiernote-video-storyboard"/);
   assert.match(videoManifest, /电影分镜导演/);
   assert.match(videoSkill, /generate_image/);
   assert.match(videoSkill, /create_video/);
@@ -374,8 +374,8 @@ test('video is a bundled fallback plugin backed by guarded shared tools', () => 
   assert.match(storyboardSpec, /Movement is a response to change/);
   assert.match(storyboardSpec, /continuity bible/i);
   assert.match(rustSource, /BUILTIN_VIDEO_STORYBOARD_SPEC/);
-  assert.match(rustSource, /coffee-note-video-storyboard/);
-  assert.match(videoSource, /sidecar\("coffee-video-ffmpeg"\)/);
+  assert.match(rustSource, /tiernote-video-storyboard/);
+  assert.match(videoSource, /sidecar\("tiernote-video-ffmpeg"\)/);
   assert.match(videoSource, /generate_speech_audio/);
   assert.match(videoSource, /subtitles=scene\.ass/);
   assert.match(agentSource, /video: crate::skills::builtin_tool_enabled\("create_video"\)/);
@@ -415,12 +415,12 @@ test('plugin market is one workspace and keeps runtime details internal', () => 
   assert.doesNotMatch(settingsSource, /plugin\.publisher|plugin\.runtimeId|selectedPlugin\.permissions/);
   assert.doesNotMatch(cssSource, /\.skills-row-meta|\.skills-package-facts|\.skills-permissions/);
   assert.doesNotMatch(cssSource, /\.skills-market-installed/);
-  assert.match(rustSource, /coffee-plugin\.json/);
+  assert.match(rustSource, /tiernote-plugin\.json/);
   assert.match(rustSource, /runtime_id: Option<String>/);
 });
 
 test('presentation is a bundled plugin backed by one reusable native runtime', () => {
-  assert.match(presentationManifest, /"id": "coffee-presentation"/);
+  assert.match(presentationManifest, /"id": "tiernote-presentation"/);
   assert.match(presentationManifest, /"id": "presentation-engine"/);
   assert.match(presentationManifest, /"lifecycle": "application"/);
   assert.match(presentationManifest, /"shared": true/);
@@ -441,10 +441,10 @@ test('presentation is a bundled plugin backed by one reusable native runtime', (
 });
 
 test('documents are two bundled skills backed by one native DOCX and PDF runtime', () => {
-  assert.match(documentManifest, /"id": "coffee-documents"/);
+  assert.match(documentManifest, /"id": "tiernote-documents"/);
   assert.match(documentManifest, /"id": "document-engine"/);
-  assert.match(documentManifest, /coffee-note-document-create-docx/);
-  assert.match(documentManifest, /coffee-note-document-create-pdf/);
+  assert.match(documentManifest, /tiernote-document-create-docx/);
+  assert.match(documentManifest, /tiernote-document-create-pdf/);
   assert.match(documentManifest, /"skillCount"|"skills"/);
   assert.match(docxSkill, /create_document/);
   assert.match(docxSkill, /format` set to `docx/);

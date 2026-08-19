@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
-  "id": "coffee-video",
+  "id": "tiernote-video",
   "name": "文字生成视频",
   "description": "用专业镜头语言设计分镜，并可继续生成画面、旁白和可分享的 MP4 视频。",
   "version": "1.0.0",
   "publisher": "TierNote Team",
   "categoryId": "video",
   "runtime": {
-    "id": "coffee-video-engine",
+    "id": "tiernote-video-engine",
     "lifecycle": "application",
     "shared": true,
     "prewarm": true
   },
   "skills": [
     {
-      "id": "coffee-note-video-create",
+      "id": "tiernote-video-create",
       "path": "skills/create-video/SKILL.md",
       "title": "文字生成视频",
       "description": "从文案、笔记或对话内容生成带旁白和字幕的 MP4 视频。"
     },
     {
-      "id": "coffee-note-video-storyboard",
+      "id": "tiernote-video-storyboard",
       "path": "skills/storyboard-director/SKILL.md",
       "title": "电影分镜导演",
       "description": "把想法或脚本拆成具有叙事节奏、专业镜头语言与连续性的电影分镜。"

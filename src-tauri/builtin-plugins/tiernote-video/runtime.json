@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "coffee-video-engine",
+  "id": "tiernote-video-engine",
   "lifecycle": "application",
   "shared": true,
   "prewarm": true,

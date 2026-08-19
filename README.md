@@ -142,7 +142,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - Your note library and complete conversation records stay on your computer by default.
 - Only requests you initiate send the selected context to your configured model provider.
 - Knowledge-library access is path-scoped and canonicalized to block traversal outside the selected root.
-- Provider configuration, including API keys, is stored as plaintext JSON only in the current user's legacy-compatible local app-data directory. The existing Coffee Note path is intentionally retained during the TierNote transition so upgrades do not lose configuration. It is never written into this repository or the note library.
+- Provider configuration, including API keys, is stored as plaintext JSON only in the current user's local `TierNote` app-data directory. A startup migration moves data from the v0.1.8 location before the app initializes. Configuration is never written into this repository or the note library.
 - No telemetry service is required for the local note workflow.
 
 ## Release process

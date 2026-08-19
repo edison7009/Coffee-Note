@@ -45,6 +45,41 @@ const LEGACY_MULTIMODAL_CONFIG_KEY = storageKey('multimodal-config');
 const CAPTURES_KEY = storageKey('captures');
 const SKILLS_KEY = storageKey('skill-sources-v2');
 
+const LEGACY_BUILTIN_ID_MAP: Record<string, string> = {
+  'coffee-media': 'tiernote-media',
+  'coffee-note-media-transcribe': 'tiernote-media-transcribe',
+  'coffee-documents': 'tiernote-documents',
+  'coffee-note-document-create-docx': 'tiernote-document-create-docx',
+  'coffee-note-document-create-pdf': 'tiernote-document-create-pdf',
+  'coffee-presentation': 'tiernote-presentation',
+  'coffee-note-presentation-create': 'tiernote-presentation-create',
+  'coffee-video': 'tiernote-video',
+  'coffee-video-engine': 'tiernote-video-engine',
+  'coffee-note-video-create': 'tiernote-video-create',
+  'coffee-note-video-storyboard': 'tiernote-video-storyboard',
+};
+
+function currentBuiltinId(id: string | undefined): string | undefined {
+  return id ? (LEGACY_BUILTIN_ID_MAP[id] ?? id) : id;
+}
+
+function migrateFallbackBuiltinIds(catalog: SkillCatalog): SkillCatalog {
+  return {
+    ...catalog,
+    plugins: (catalog.plugins ?? []).map((plugin) => ({
+      ...plugin,
+      id: currentBuiltinId(plugin.id)!,
+      runtimeId: currentBuiltinId(plugin.runtimeId),
+    })),
+    skills: (catalog.skills ?? []).map((skill) => ({
+      ...skill,
+      id: currentBuiltinId(skill.id)!,
+      sourceId: currentBuiltinId(skill.sourceId)!,
+      runtimeId: currentBuiltinId(skill.runtimeId),
+    })),
+  };
+}
+
 const fallbackSkillCatalog: SkillCatalog = {
   categories: [
     { id: 'copywriting', label: '文案编写', fixed: true },
@@ -54,12 +89,12 @@ const fallbackSkillCatalog: SkillCatalog = {
   ],
   skills: [
     {
-      id: 'coffee-note-media-transcribe',
+      id: 'tiernote-media-transcribe',
       title: '媒体转文字',
       description: '把视频或音频链接、本地媒体文件转成文字，并整理成笔记。',
       categoryId: 'media',
       codexCompatible: true,
-      sourceId: 'coffee-media',
+      sourceId: 'tiernote-media',
       sourceUrl: '',
       sourceVersion: '1.0.0',
       enabled: true,
@@ -67,12 +102,12 @@ const fallbackSkillCatalog: SkillCatalog = {
       runtimeId: 'media-transcription',
     },
     {
-      id: 'coffee-note-presentation-create',
+      id: 'tiernote-presentation-create',
       title: '生成演示文稿',
       description: '从笔记、选中文档或对话内容生成可编辑的 .pptx 文件。',
       categoryId: 'ppt',
       codexCompatible: true,
-      sourceId: 'coffee-presentation',
+      sourceId: 'tiernote-presentation',
       sourceUrl: '',
       sourceVersion: '1.0.0',
       enabled: true,
@@ -80,12 +115,12 @@ const fallbackSkillCatalog: SkillCatalog = {
       runtimeId: 'presentation-engine',
     },
     {
-      id: 'coffee-note-document-create-docx',
+      id: 'tiernote-document-create-docx',
       title: '生成 DOCX',
       description: '从笔记、资料或对话内容生成结构清晰、可继续编辑的 Word 文档。',
       categoryId: 'copywriting',
       codexCompatible: true,
-      sourceId: 'coffee-documents',
+      sourceId: 'tiernote-documents',
       sourceUrl: '',
       sourceVersion: '1.0.0',
       enabled: true,
@@ -93,12 +128,12 @@ const fallbackSkillCatalog: SkillCatalog = {
       runtimeId: 'document-engine',
     },
     {
-      id: 'coffee-note-document-create-pdf',
+      id: 'tiernote-document-create-pdf',
       title: '生成 PDF',
       description: '从笔记、资料或对话内容生成排版清晰、可直接分享的 PDF。',
       categoryId: 'copywriting',
       codexCompatible: true,
-      sourceId: 'coffee-documents',
+      sourceId: 'tiernote-documents',
       sourceUrl: '',
       sourceVersion: '1.0.0',
       enabled: true,
@@ -108,7 +143,7 @@ const fallbackSkillCatalog: SkillCatalog = {
   ],
   plugins: [
     {
-      id: 'coffee-media',
+      id: 'tiernote-media',
       name: '媒体处理',
       description: '把音视频内容转换为可编辑、可继续整理的本地文字。',
       version: '1.0.0',
@@ -123,7 +158,7 @@ const fallbackSkillCatalog: SkillCatalog = {
       runtimeId: 'media-transcription',
     },
     {
-      id: 'coffee-presentation',
+      id: 'tiernote-presentation',
       name: '演示文稿',
       description: '把笔记、资料和想法整理为结构清晰、可继续编辑的 PowerPoint 演示文稿。',
       version: '1.0.0',
@@ -138,7 +173,7 @@ const fallbackSkillCatalog: SkillCatalog = {
       runtimeId: 'presentation-engine',
     },
     {
-      id: 'coffee-documents',
+      id: 'tiernote-documents',
       name: '文档生成',
       description: '把笔记、资料和对话内容整理为可编辑的 Word 文档或可直接分享的 PDF。',
       version: '1.0.0',
@@ -157,10 +192,11 @@ const fallbackSkillCatalog: SkillCatalog = {
 };
 
 function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
+  catalog = migrateFallbackBuiltinIds(catalog);
   const builtinPlugins = fallbackSkillCatalog.plugins.map((fallback) => {
     const existing = catalog.plugins.find((plugin) => (
       plugin.id === fallback.id
-      || (fallback.id === 'coffee-media' && plugin.id === 'coffee-note-media-transcribe')
+      || (fallback.id === 'tiernote-media' && plugin.id === 'tiernote-media-transcribe')
     ));
     return {
       ...fallback,
@@ -184,7 +220,7 @@ function normalizeFallbackSkillCatalog(catalog: SkillCatalog): SkillCatalog {
   });
   const builtinSkillIds = new Set(builtinSkills.map((skill) => skill.id));
   const builtinPluginIds = new Set(builtinPlugins.flatMap((plugin) => (
-    plugin.id === 'coffee-media' ? [plugin.id, 'coffee-note-media-transcribe'] : [plugin.id]
+    plugin.id === 'tiernote-media' ? [plugin.id, 'tiernote-media-transcribe'] : [plugin.id]
   )));
   const fixedCategoryIds = new Set(fallbackSkillCatalog.categories.map((category) => category.id));
   const categories = [
@@ -545,7 +581,7 @@ export async function setBuiltinPluginEnabled(id: string, enabled: boolean): Pro
 }
 
 export async function setBuiltinSkillEnabled(enabled: boolean): Promise<SkillCatalog> {
-  return setBuiltinPluginEnabled('coffee-media', enabled);
+  return setBuiltinPluginEnabled('tiernote-media', enabled);
 }
 
 export async function createSkillCategory(label: string): Promise<SkillCatalog> {

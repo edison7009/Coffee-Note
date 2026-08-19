@@ -1053,7 +1053,7 @@ mod tests {
     #[test]
     fn creates_an_editable_widescreen_pptx_package() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-presentation-test-{}-{}",
+            "tiernote-presentation-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -1110,7 +1110,7 @@ mod tests {
                 }
             }
         }
-        if let Ok(smoke_output) = std::env::var("COFFEE_PRESENTATION_SMOKE_OUTPUT") {
+        if let Ok(smoke_output) = std::env::var("TIERNOTE_PRESENTATION_SMOKE_OUTPUT") {
             fs::copy(&result.path, smoke_output).expect("smoke presentation should be copied");
         }
         drop(archive);
@@ -1119,8 +1119,10 @@ mod tests {
 
     #[test]
     fn rejects_output_paths_and_oversized_decks() {
-        let root =
-            std::env::temp_dir().join(format!("coffee-presentation-guard-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "tiernote-presentation-guard-{}",
+            std::process::id()
+        ));
         let traversal = create_presentation(
             request(json!({
                 "title": "Unsafe",
@@ -1144,7 +1146,7 @@ mod tests {
     #[test]
     fn rejects_text_that_would_overflow_the_selected_layout() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-presentation-density-{}-{}",
+            "tiernote-presentation-density-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -1173,7 +1175,7 @@ mod tests {
     #[test]
     fn repeated_titles_reserve_distinct_output_files() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-presentation-unique-{}-{}",
+            "tiernote-presentation-unique-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -1197,7 +1199,7 @@ mod tests {
         use base64::Engine;
 
         let root = std::env::temp_dir().join(format!(
-            "coffee-presentation-image-{}-{}",
+            "tiernote-presentation-image-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));

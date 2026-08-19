@@ -19,7 +19,6 @@ export interface WeatherLocation {
   timezone?: string;
   source: 'search' | 'device';
 }
-
 export interface WeatherDay {
   date: string;
   weatherCode: number;
@@ -46,7 +45,7 @@ export interface WeatherSearchResult extends WeatherLocation {
 const LOCATION_KEY = storageKey('weather-location:v1');
 const CACHE_KEY = storageKey('weather-cache:v1');
 const RECENT_LOCATIONS_KEY = storageKey('weather-recent-locations:v1');
-export const WEATHER_LOCATION_CHANGED_EVENT = 'coffee-note:weather-location-changed';
+export const WEATHER_LOCATION_CHANGED_EVENT = 'tiernote:weather-location-changed';
 export const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000;
 export const WEATHER_RECENT_LOCATIONS_LIMIT = 10;
 

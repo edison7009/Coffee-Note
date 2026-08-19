@@ -235,11 +235,11 @@ import {
 
 const APP_VERSION = packageMetadata.version;
 const PRODUCT_WEBSITE = 'https://tiernote.org/';
-const BUILTIN_MEDIA_SKILL_ID = 'coffee-note-media-transcribe';
-const BUILTIN_DOCX_SKILL_ID = 'coffee-note-document-create-docx';
-const BUILTIN_PDF_SKILL_ID = 'coffee-note-document-create-pdf';
-const BUILTIN_PRESENTATION_SKILL_ID = 'coffee-note-presentation-create';
-const BUILTIN_VIDEO_SKILL_ID = 'coffee-note-video-create';
+const BUILTIN_MEDIA_SKILL_ID = 'tiernote-media-transcribe';
+const BUILTIN_DOCX_SKILL_ID = 'tiernote-document-create-docx';
+const BUILTIN_PDF_SKILL_ID = 'tiernote-document-create-pdf';
+const BUILTIN_PRESENTATION_SKILL_ID = 'tiernote-presentation-create';
+const BUILTIN_VIDEO_SKILL_ID = 'tiernote-video-create';
 const FEEDBACK_URL = 'https://github.com/edison7009/TierNote/issues';
 const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 const CAPTURE_TRANSCRIPTION_MODE_KEY = storageKey('capture-transcription-mode:v1');
@@ -4231,12 +4231,15 @@ const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v'
 const AUDIO_FILE_EXTENSIONS = new Set(['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'wma']);
 const IMAGE_FILE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'heic', 'avif']);
 const ARCHIVE_FILE_EXTENSIONS = new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz']);
-const SPREADSHEET_FILE_EXTENSIONS = new Set(['csv', 'tsv', 'xls', 'xlsx', 'ods']);
+const SPREADSHEET_FILE_EXTENSIONS = new Set(['csv', 'tsv', 'xls', 'xlsx', 'xlsm', 'xlsb', 'ods']);
 const CODE_FILE_EXTENSIONS = new Set([
   'js', 'jsx', 'ts', 'tsx', 'py', 'rs', 'go', 'java', 'c', 'cc', 'cpp', 'h', 'hpp',
   'html', 'css', 'scss', 'json', 'yaml', 'yml', 'toml', 'xml', 'sh', 'ps1', 'sql',
 ]);
-const DOCUMENT_FILE_EXTENSIONS = new Set(['txt', 'log', 'rtf', 'pdf', 'doc', 'docx', 'ppt', 'pptx', 'odt']);
+const DOCUMENT_FILE_EXTENSIONS = new Set([
+  'txt', 'log', 'rtf', 'pdf', 'epub', 'doc', 'docx', 'docm', 'odt',
+  'ppt', 'pps', 'pot', 'pptx', 'pptm', 'ppsx', 'ppsm', 'odp',
+]);
 
 function workspaceFileIcon(
   path: string,
@@ -7573,7 +7576,7 @@ function ConversationView({
           </div>
           <p className="chat-empty-features">
             {locale === 'zh'
-              ? 'DeepSeek 高效缓存引擎 · 双向记忆路由 · Library Graph · 自动压缩'
+              ? '高效缓存引擎 · 双向记忆路由 · Library Graph · 自动压缩'
               : 'DeepSeek cache optimization · bidirectional memory routing · Library Graph · automatic compaction'}
           </p>
         </div>

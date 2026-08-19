@@ -47,7 +47,33 @@ const IMAGE_SETTINGS_CONFIG_FILE: &str = "image-models.json";
 const LEGACY_MULTIMODAL_CONFIG_FILE: &str = "multimodal.json";
 const MAX_AGENT_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const TIER_METADATA_MAX_BYTES: u64 = 32 * 1024;
-const TIER_ORDER_RELATIVE_PATH: &str = ".coffee-note/tier-order.json";
+const TIER_ORDER_RELATIVE_PATH: &str = ".tiernote/tier-order.json";
+const LEGACY_TIER_ORDER_RELATIVE_PATH: &str = ".coffee-note/tier-order.json";
+const APP_DATA_DIR_NAME: &str = "TierNote";
+const LEGACY_APP_DATA_DIR_NAME: &str = "Coffee Note";
+const APP_IDENTIFIER_DIR_NAME: &str = "app.tiernote.desktop";
+const LEGACY_APP_IDENTIFIER_DIR_NAME: &str = "app.coffeenote.desktop";
+const APP_DATA_MIGRATION_ENTRIES: &[&str] = &[
+    "config.json",
+    "conversations",
+    "dsh",
+    "generated-files.json",
+    "image-models.json",
+    "library",
+    "library-graph",
+    "memory",
+    "message-jobs.json",
+    "messages.json",
+    "multimodal.json",
+    "runtime",
+    "sessions",
+    "skill-sources",
+    "skills",
+    "skills.json",
+    "transcription",
+    "transcription-storage.json",
+    "transcription.json",
+];
 pub(crate) const MODEL_APP_URL: &str = "https://tiernote.org";
 pub(crate) const MODEL_APP_TITLE: &str = "TierNote";
 include!(concat!(env!("OUT_DIR"), "/starter_files.rs"));
@@ -437,23 +463,151 @@ impl From<LegacyModelConfig> for ModelSettings {
 }
 
 pub(crate) fn app_data_dir() -> PathBuf {
-    let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-    // Keep the v0.1.8 data location so the rebrand does not strand provider
-    // credentials, conversations, plugins, or message-channel state.
-    base.join("Coffee Note")
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(APP_DATA_DIR_NAME)
 }
 
-fn legacy_workspace_home() -> PathBuf {
-    let base = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    base.join(".coffee-note")
+fn workspace_home() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".tiernote")
 }
 
 fn my_info_root() -> PathBuf {
-    legacy_workspace_home().join("我的资料")
+    workspace_home().join("我的资料")
 }
 
 fn default_knowledge_root() -> PathBuf {
-    legacy_workspace_home().join("我的笔记(演示)")
+    workspace_home().join("我的笔记(演示)")
+}
+
+fn migrate_path_without_overwrite(source: &Path, target: &Path) -> Result<bool, String> {
+    let source_metadata = match fs::symlink_metadata(source) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
+        Err(error) => return Err(format!("Could not inspect {}: {error}", source.display())),
+    };
+    if source_metadata.file_type().is_symlink() {
+        return Err(format!(
+            "Refusing to migrate symbolic link {}",
+            source.display()
+        ));
+    }
+
+    if !target.exists() {
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("Could not create {}: {error}", parent.display()))?;
+        }
+        if fs::rename(source, target).is_ok() {
+            return Ok(true);
+        }
+        if source_metadata.is_file() {
+            fs::copy(source, target).map_err(|error| {
+                format!(
+                    "Could not copy {} to {}: {error}",
+                    source.display(),
+                    target.display()
+                )
+            })?;
+            fs::remove_file(source)
+                .map_err(|error| format!("Could not remove {}: {error}", source.display()))?;
+            return Ok(true);
+        }
+        fs::create_dir_all(target)
+            .map_err(|error| format!("Could not create {}: {error}", target.display()))?;
+    }
+
+    if source_metadata.is_file() || !target.is_dir() {
+        return Ok(false);
+    }
+
+    let mut complete = true;
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("Could not read {}: {error}", source.display()))?
+    {
+        let entry = entry
+            .map_err(|error| format!("Could not read an entry in {}: {error}", source.display()))?;
+        complete &= migrate_path_without_overwrite(&entry.path(), &target.join(entry.file_name()))?;
+    }
+    if complete {
+        fs::remove_dir(source)
+            .map_err(|error| format!("Could not remove {}: {error}", source.display()))?;
+    }
+    Ok(complete)
+}
+
+fn next_migration_backup_path(parent: &Path) -> PathBuf {
+    let base = parent.join("EBWebView.before-tiernote-migration-v1");
+    if !base.exists() {
+        return base;
+    }
+    for suffix in 2..10_000 {
+        let candidate = parent.join(format!("EBWebView.before-tiernote-migration-v1-{suffix}"));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    parent.join(format!(
+        "EBWebView.before-tiernote-migration-v1-{}",
+        std::process::id()
+    ))
+}
+
+fn migrate_webview_identity(local_data: &Path, suffix: &str) -> Result<(), String> {
+    let legacy_parent = local_data.join(format!("{LEGACY_APP_IDENTIFIER_DIR_NAME}{suffix}"));
+    let current_parent = local_data.join(format!("{APP_IDENTIFIER_DIR_NAME}{suffix}"));
+    let marker = current_parent.join(".tiernote-identity-migrated-v1");
+    if marker.is_file() {
+        return Ok(());
+    }
+    fs::create_dir_all(&current_parent)
+        .map_err(|error| format!("Could not create {}: {error}", current_parent.display()))?;
+    let legacy_webview = legacy_parent.join("EBWebView");
+    let current_webview = current_parent.join("EBWebView");
+    if legacy_webview.exists() {
+        if current_webview.exists() {
+            let backup = next_migration_backup_path(&current_parent);
+            fs::rename(&current_webview, &backup).map_err(|error| {
+                format!(
+                    "Could not preserve {} as {}: {error}",
+                    current_webview.display(),
+                    backup.display()
+                )
+            })?;
+        }
+        if !migrate_path_without_overwrite(&legacy_webview, &current_webview)? {
+            return Err("Could not fully migrate the previous WebView data".to_string());
+        }
+    }
+    fs::write(&marker, b"complete\n")
+        .map_err(|error| format!("Could not write {}: {error}", marker.display()))
+}
+
+fn migrate_legacy_identity_at(local_data: &Path, home: &Path) -> Result<(), String> {
+    migrate_webview_identity(local_data, "")?;
+    migrate_webview_identity(local_data, ".dev")?;
+
+    let legacy_app_data = local_data.join(LEGACY_APP_DATA_DIR_NAME);
+    let current_app_data = local_data.join(APP_DATA_DIR_NAME);
+    fs::create_dir_all(&current_app_data)
+        .map_err(|error| format!("Could not create {}: {error}", current_app_data.display()))?;
+    for entry in APP_DATA_MIGRATION_ENTRIES {
+        migrate_path_without_overwrite(
+            &legacy_app_data.join(entry),
+            &current_app_data.join(entry),
+        )?;
+    }
+
+    migrate_path_without_overwrite(&home.join(".coffee-note"), &home.join(".tiernote"))?;
+    Ok(())
+}
+
+fn migrate_legacy_identity() -> Result<(), String> {
+    let local_data = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    migrate_legacy_identity_at(&local_data, &home)
 }
 
 fn model_config_path() -> PathBuf {
@@ -676,7 +830,7 @@ async fn check_image_recognition(
         .header("HTTP-Referer", MODEL_APP_URL)
         .header("X-OpenRouter-Title", MODEL_APP_TITLE)
         .header("X-Title", MODEL_APP_TITLE)
-        .header("x-goog-api-client", "coffee-note/openai-compatible")
+        .header("x-goog-api-client", "tiernote/openai-compatible")
         .json(&payload)
         .send()
         .await
@@ -757,7 +911,7 @@ async fn check_image_generation(
     request = if provider.protocol == "gemini-interactions" {
         request
             .header("x-goog-api-key", provider.api_key.trim())
-            .header("x-goog-api-client", "coffee-note/image-generation")
+            .header("x-goog-api-client", "tiernote/image-generation")
     } else {
         request.bearer_auth(provider.api_key.trim())
     };
@@ -971,7 +1125,7 @@ async fn check_music_generation(
             client
                 .get(endpoint)
                 .header("x-goog-api-key", provider.api_key.trim())
-                .header("x-goog-api-client", "coffee-note/music-generation")
+                .header("x-goog-api-client", "tiernote/music-generation")
         }
         "elevenlabs-music" => {
             endpoint.set_path("/v1/user");
@@ -1935,7 +2089,7 @@ fn collect_markdown_paths(root: &Path) -> Vec<PathBuf> {
                 let name = entry.file_name().to_string_lossy().to_string();
                 if matches!(
                     name.as_str(),
-                    ".coffee-note" | ".git" | "node_modules" | "target"
+                    ".tiernote" | ".coffee-note" | ".git" | "node_modules" | "target"
                 ) {
                     continue;
                 }
@@ -1964,7 +2118,25 @@ fn tier_order_path(root: &Path) -> PathBuf {
     root.join(TIER_ORDER_RELATIVE_PATH)
 }
 
+fn migrate_legacy_tier_order(root: &Path) -> Result<(), String> {
+    let legacy = root.join(LEGACY_TIER_ORDER_RELATIVE_PATH);
+    let current = tier_order_path(root);
+    if current.is_file() || !legacy.is_file() {
+        return Ok(());
+    }
+    if !migrate_path_without_overwrite(&legacy, &current)? {
+        return Err("Could not migrate the previous tier-order metadata".to_string());
+    }
+    if let Some(legacy_directory) = legacy.parent() {
+        let _ = fs::remove_dir(legacy_directory);
+    }
+    Ok(())
+}
+
 fn load_tier_order(root: &Path) -> TierOrderIndex {
+    if let Err(error) = migrate_legacy_tier_order(root) {
+        log::warn!("Tier-order migration failed: {error}");
+    }
     fs::read_to_string(tier_order_path(root))
         .ok()
         .and_then(|contents| serde_json::from_str(&contents).ok())
@@ -4518,6 +4690,9 @@ fn set_tray_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> 
 pub fn run() {
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 
+    migrate_legacy_identity().unwrap_or_else(|error| {
+        panic!("TierNote could not migrate its previous local data: {error}")
+    });
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -4651,7 +4826,86 @@ mod tests {
     use super::*;
 
     fn temp_fixture(prefix: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("coffee-note-{prefix}-{}", uuid::Uuid::new_v4()))
+        std::env::temp_dir().join(format!("tiernote-{prefix}-{}", uuid::Uuid::new_v4()))
+    }
+
+    #[test]
+    fn legacy_identity_migration_preserves_local_data_and_webview_storage() {
+        let fixture = temp_fixture("identity-migration");
+        let local_data = fixture.join("local");
+        let home = fixture.join("home");
+        let legacy_app_data = local_data.join(LEGACY_APP_DATA_DIR_NAME);
+        let current_app_data = local_data.join(APP_DATA_DIR_NAME);
+        fs::create_dir_all(legacy_app_data.join("conversations"))
+            .expect("previous conversation directory should exist");
+        fs::create_dir_all(&current_app_data).expect("current app data should exist");
+        fs::write(legacy_app_data.join("config.json"), "previous-config")
+            .expect("previous config should be writable");
+        fs::write(current_app_data.join("config.json"), "current-config")
+            .expect("current config should be writable");
+        fs::write(
+            legacy_app_data.join("conversations/index.json"),
+            "previous-conversations",
+        )
+        .expect("previous conversation index should be writable");
+
+        let legacy_webview = local_data
+            .join(LEGACY_APP_IDENTIFIER_DIR_NAME)
+            .join("EBWebView");
+        let current_webview = local_data.join(APP_IDENTIFIER_DIR_NAME).join("EBWebView");
+        fs::create_dir_all(&legacy_webview).expect("previous WebView data should exist");
+        fs::create_dir_all(&current_webview).expect("current WebView data should exist");
+        fs::write(legacy_webview.join("Local Storage"), "previous-storage")
+            .expect("previous storage should be writable");
+        fs::write(current_webview.join("Cache"), "current-cache")
+            .expect("current cache should be writable");
+
+        let legacy_workspace = home.join(".coffee-note");
+        fs::create_dir_all(&legacy_workspace).expect("previous workspace should exist");
+        fs::write(legacy_workspace.join("note.md"), "user note")
+            .expect("previous workspace note should be writable");
+
+        migrate_legacy_identity_at(&local_data, &home).expect("migration should succeed");
+
+        assert_eq!(
+            fs::read_to_string(current_app_data.join("config.json")).unwrap(),
+            "current-config",
+            "current data must win conflicts"
+        );
+        assert_eq!(
+            fs::read_to_string(current_app_data.join("conversations/index.json")).unwrap(),
+            "previous-conversations"
+        );
+        assert_eq!(
+            fs::read_to_string(current_webview.join("Local Storage")).unwrap(),
+            "previous-storage"
+        );
+        assert!(current_app_data
+            .parent()
+            .unwrap()
+            .join(APP_IDENTIFIER_DIR_NAME)
+            .join("EBWebView.before-tiernote-migration-v1/Cache")
+            .is_file());
+        assert_eq!(
+            fs::read_to_string(home.join(".tiernote/note.md")).unwrap(),
+            "user note"
+        );
+        fs::remove_dir_all(fixture).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn tier_order_metadata_moves_to_the_tiernote_directory() {
+        let root = temp_fixture("tier-order-migration");
+        let previous = root.join(LEGACY_TIER_ORDER_RELATIVE_PATH);
+        fs::create_dir_all(previous.parent().unwrap()).expect("metadata directory should exist");
+        fs::write(&previous, r#"{"version":1,"tiers":{"T1":["note.md"]}}"#)
+            .expect("previous order should be writable");
+
+        let migrated = load_tier_order(&root);
+        assert_eq!(migrated.tiers["T1"], vec!["note.md"]);
+        assert!(root.join(TIER_ORDER_RELATIVE_PATH).is_file());
+        assert!(!previous.exists());
+        fs::remove_dir_all(root).expect("fixture should be removed");
     }
 
     #[test]
@@ -4890,7 +5144,7 @@ mod tests {
 
     #[test]
     fn unique_destination_appends_number_when_name_exists() {
-        let dir = std::env::temp_dir().join(format!("coffee-note-unique-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("tiernote-unique-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("a.md"), "x").unwrap();
         let first = unique_destination(&dir, "a.md");
@@ -4903,7 +5157,7 @@ mod tests {
 
     #[test]
     fn library_file_commands_round_trip_on_a_temp_root() {
-        let root = std::env::temp_dir().join(format!("coffee-note-fs-{}", uuid::Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("tiernote-fs-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(root.join("dossiers")).unwrap();
         fs::write(root.join("dossiers/strength-training.md"), "# 力量训练\n").unwrap();
         fs::write(root.join("dossiers/interview.mp4"), b"video-placeholder").unwrap();
@@ -5063,7 +5317,7 @@ mod tests {
     #[test]
     fn model_settings_round_trip_two_providers_as_plain_json() {
         let unique = format!(
-            "coffee-note-config-{}-{}",
+            "tiernote-config-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -5176,7 +5430,7 @@ mod tests {
     #[test]
     fn legacy_model_config_migrates_without_losing_values() {
         let unique = format!(
-            "coffee-note-legacy-config-{}-{}",
+            "tiernote-legacy-config-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -5211,7 +5465,7 @@ mod tests {
     #[test]
     fn removed_economy_mode_is_ignored_and_not_resaved() {
         let unique = format!(
-            "coffee-note-removed-economy-{}-{}",
+            "tiernote-removed-economy-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );
@@ -5657,7 +5911,7 @@ mod tests {
         assert_eq!(draft.title, "Creatine trial");
 
         let unique = format!(
-            "coffee-note-capture-{}-{}",
+            "tiernote-capture-{}-{}",
             std::process::id(),
             Local::now().timestamp_nanos_opt().unwrap_or_default()
         );

@@ -11,8 +11,10 @@ const VALID_KINDS: &[&str] = &[
     "correction",
     "health_context",
 ];
-const MEMORY_MARKER_PREFIX: &str = "<!-- coffee-note-memory:";
-const MEMORY_SECTION_MARKER: &str = "<!-- coffee-note-memory-section:v1 -->";
+const MEMORY_MARKER_PREFIX: &str = "<!-- tiernote-memory:";
+const MEMORY_SECTION_MARKER: &str = "<!-- tiernote-memory-section:v1 -->";
+const LEGACY_MEMORY_MARKER_PREFIX: &str = "<!-- coffee-note-memory:";
+const LEGACY_MEMORY_SECTION_MARKER: &str = "<!-- coffee-note-memory-section:v1 -->";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -256,7 +258,9 @@ fn parse_visible_memory_line(line: &str) -> Option<(&str, String, String)> {
     }
     let content_start = kind_end + 2;
     let memory_text = &rest[content_start..];
-    let (content, marker) = memory_text.split_once(MEMORY_MARKER_PREFIX)?;
+    let (content, marker) = memory_text
+        .split_once(MEMORY_MARKER_PREFIX)
+        .or_else(|| memory_text.split_once(LEGACY_MEMORY_MARKER_PREFIX))?;
     let content = content.trim();
     let id = marker.strip_suffix("-->")?.trim().to_string();
     if content.is_empty() || id.is_empty() {
@@ -343,10 +347,12 @@ fn append_to_my_info(root: &Path, item: &MemoryItem, locale: &str) -> Result<Str
         }
     };
     let marker = format!("{MEMORY_MARKER_PREFIX}{} -->", item.id);
-    if markdown.contains(&marker) {
+    let legacy_marker = format!("{LEGACY_MEMORY_MARKER_PREFIX}{} -->", item.id);
+    if markdown.contains(&marker) || markdown.contains(&legacy_marker) {
         return Ok(relative.to_string());
     }
-    if !markdown.contains(MEMORY_SECTION_MARKER) {
+    if !markdown.contains(MEMORY_SECTION_MARKER) && !markdown.contains(LEGACY_MEMORY_SECTION_MARKER)
+    {
         let heading = if locale == "en" {
             "Confirmed memory"
         } else {
@@ -535,7 +541,7 @@ mod tests {
     #[test]
     fn confirmed_memory_is_written_to_visible_personal_markdown() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-note-memory-test-{}-{}",
+            "tiernote-memory-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -556,7 +562,7 @@ mod tests {
         let markdown = std::fs::read_to_string(root.join("plans/exercise.md"))
             .expect("plan should be readable");
         assert!(markdown.contains("每周走路三次"));
-        assert!(markdown.contains("coffee-note-memory:memory-1"));
+        assert!(markdown.contains("tiernote-memory:memory-1"));
         let index_json = std::fs::read_to_string(&index).expect("index should be readable");
         assert!(!index_json.contains("每周走路三次"));
         let duplicate = confirm_at(suggestion, &root, &index).expect("duplicate should dedupe");
@@ -567,7 +573,7 @@ mod tests {
     #[test]
     fn visible_markdown_prevents_duplicate_when_index_is_missing() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-note-memory-dedupe-test-{}-{}",
+            "tiernote-memory-dedupe-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
@@ -575,7 +581,7 @@ mod tests {
         std::fs::create_dir_all(root.join("plans")).expect("test root should exist");
         std::fs::write(
             root.join("plans/lessons.md"),
-            "# 我的教训\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [constraint] 不使用含糖饮料 <!-- coffee-note-memory:existing -->\n",
+            "# 我的教训\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [constraint] 不使用含糖饮料 <!-- tiernote-memory:existing -->\n",
         )
         .expect("plan should be readable");
         let suggestion = MemorySuggestion {
@@ -593,16 +599,28 @@ mod tests {
     }
 
     #[test]
+    fn legacy_visible_memory_markers_remain_readable_after_rebrand() {
+        let parsed = parse_visible_memory_line(
+            "- [preference] 请使用简洁回答 <!-- coffee-note-memory:legacy-preference -->",
+        )
+        .expect("legacy marker should remain readable");
+
+        assert_eq!(parsed.0, "preference");
+        assert_eq!(parsed.1, "请使用简洁回答");
+        assert_eq!(parsed.2, "legacy-preference");
+    }
+
+    #[test]
     fn always_on_context_keeps_preferences_without_question_term_overlap() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-note-memory-routing-test-{}-{}",
+            "tiernote-memory-routing-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
         std::fs::create_dir_all(root.join("plans")).expect("test root should exist");
         std::fs::write(
             root.join("plans/supplements.md"),
-            "# 我的资料\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [preference] 请始终使用简洁回答 <!-- coffee-note-memory:p -->\n",
+            "# 我的资料\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [preference] 请始终使用简洁回答 <!-- tiernote-memory:p -->\n",
         )
         .expect("plan should be readable");
         let context = build_always_on_context(&root, "zh", 2_000);
@@ -613,19 +631,19 @@ mod tests {
     #[test]
     fn filtered_always_on_context_excludes_disabled_sources() {
         let root = std::env::temp_dir().join(format!(
-            "coffee-note-memory-filter-test-{}-{}",
+            "tiernote-memory-filter-test-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
         std::fs::create_dir_all(root.join("plans")).expect("plans directory should exist");
         std::fs::write(
             root.join("plans/supplements.md"),
-            "# 我的简历\n\n- [preference] 简历偏好 <!-- coffee-note-memory:resume -->\n",
+            "# 我的简历\n\n- [preference] 简历偏好 <!-- tiernote-memory:resume -->\n",
         )
         .expect("resume fixture should be written");
         std::fs::write(
             root.join("plans/lessons.md"),
-            "# 我的教训\n\n- [constraint] 教训边界 <!-- coffee-note-memory:lesson -->\n",
+            "# 我的教训\n\n- [constraint] 教训边界 <!-- tiernote-memory:lesson -->\n",
         )
         .expect("lesson fixture should be written");
 

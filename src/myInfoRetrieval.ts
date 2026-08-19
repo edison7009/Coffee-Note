@@ -1,5 +1,5 @@
-export const MY_INFO_RETRIEVAL_KEY = 'coffee-note:my-info-retrieval:v1';
-export const MY_PRIORITIES_RETRIEVAL_KEY = 'coffee-note:my-priorities-retrieval:v1';
+export const MY_INFO_RETRIEVAL_KEY = 'tiernote:my-info-retrieval:v1';
+export const MY_PRIORITIES_RETRIEVAL_KEY = 'tiernote:my-priorities-retrieval:v1';
 
 export const MY_INFO_SECTION_IDS = [
   'supplements',

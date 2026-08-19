@@ -1608,7 +1608,7 @@ mod tests {
     #[test]
     fn my_info_exclusion_prefixes_cover_equal_nested_and_unrelated_roots() {
         let root =
-            std::env::temp_dir().join(format!("coffee-note-agent-root-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("tiernote-agent-root-{}", uuid::Uuid::new_v4()));
         let managed = root.join("managed");
         std::fs::create_dir_all(managed.join("plans")).expect("fixture should exist");
         assert_eq!(my_info_exclusion_prefixes(&root, &managed), vec!["managed"]);

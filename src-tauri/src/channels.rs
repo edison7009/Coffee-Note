@@ -828,7 +828,7 @@ async fn weixin_send(
                 "msg": {
                     "from_user_id": "",
                     "to_user_id": to,
-                    "client_id": format!("coffee-note:{}", uuid::Uuid::new_v4()),
+                    "client_id": format!("tiernote:{}", uuid::Uuid::new_v4()),
                     "message_type": 2,
                     "message_state": 2,
                     "item_list": [{ "type": 1, "text_item": { "text": part } }],
@@ -1516,7 +1516,7 @@ mod tests {
     #[test]
     fn settings_round_trip_outside_the_library() {
         let path = std::env::temp_dir().join(format!(
-            "coffee-note-message-settings-{}.json",
+            "tiernote-message-settings-{}.json",
             uuid::Uuid::new_v4()
         ));
         let settings = MessageSettings {

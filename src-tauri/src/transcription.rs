@@ -666,8 +666,7 @@ async fn transcribe_local(
 
     let executable = runtime_executable(runtime, model)?;
     let model_path = model_file(model, runtime)?;
-    let workspace =
-        std::env::temp_dir().join(format!("coffee-note-whisper-{}", uuid::Uuid::new_v4()));
+    let workspace = std::env::temp_dir().join(format!("tiernote-whisper-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&workspace)
         .map_err(|error| format!("Could not create local transcription workspace: {error}"))?;
     let _guard = TempMediaDir(workspace.clone());
@@ -719,8 +718,7 @@ async fn transcribe_local_firered(model: &str, audio: &Path) -> Result<String, S
     if !cli.is_file() {
         return Err("The FireRedASR2 command-line runner is missing".to_string());
     }
-    let workspace =
-        std::env::temp_dir().join(format!("coffee-note-firered-{}", uuid::Uuid::new_v4()));
+    let workspace = std::env::temp_dir().join(format!("tiernote-firered-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&workspace)
         .map_err(|error| format!("Could not create local transcription workspace: {error}"))?;
     let _guard = TempMediaDir(workspace.clone());
@@ -800,8 +798,7 @@ async fn transcribe_local_funasr(model: &str, audio: &Path) -> Result<String, St
     let executable = runtime_executable("funasr", model)?;
     let model_path = model_file(model, "funasr")?;
     let vad_path = model_file("funasr-vad", "funasr")?;
-    let workspace =
-        std::env::temp_dir().join(format!("coffee-note-funasr-{}", uuid::Uuid::new_v4()));
+    let workspace = std::env::temp_dir().join(format!("tiernote-funasr-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&workspace)
         .map_err(|error| format!("Could not create local transcription workspace: {error}"))?;
     let _guard = TempMediaDir(workspace.clone());
@@ -1728,7 +1725,7 @@ async fn download_media_captions(
     }
     let executable = ensure_media_fetcher().await?;
     let directory =
-        std::env::temp_dir().join(format!("coffee-note-captions-{}", uuid::Uuid::new_v4()));
+        std::env::temp_dir().join(format!("tiernote-captions-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Could not create caption workspace: {error}"))?;
     let guard = TempMediaDir(directory.clone());
@@ -1927,8 +1924,7 @@ async fn create_fresh_browser_cookie_session(
         .into_iter()
         .next()
         .ok_or_else(|| "No Chromium browser is installed".to_string())?;
-    let directory =
-        std::env::temp_dir().join(format!("coffee-note-browser-{}", uuid::Uuid::new_v4()));
+    let directory = std::env::temp_dir().join(format!("tiernote-browser-{}", uuid::Uuid::new_v4()));
     let profile = directory.join("profile");
     fs::create_dir_all(&profile)
         .map_err(|error| format!("Could not create a temporary browser session: {error}"))?;
@@ -3057,7 +3053,7 @@ mod tests {
 
     fn fixture_root(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "coffee-note-transcription-{label}-{}-{}",
+            "tiernote-transcription-{label}-{}-{}",
             std::process::id(),
             uuid::Uuid::new_v4()
         ))

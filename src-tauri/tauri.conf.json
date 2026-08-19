@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TierNote",
   "version": "0.1.9",
-  "identifier": "app.coffeenote.desktop",
+  "identifier": "app.tiernote.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5173",
@@ -50,7 +50,7 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "binaries/coffee-video-ffmpeg"
+      "binaries/tiernote-video-ffmpeg"
     ],
     "windows": {
       "nsis": {

@@ -17,14 +17,13 @@ test('Home greeting includes the ambient weather readout', () => {
   assert.match(app, /<WeatherAmbient locale=\{locale\} onOpenGeneralSettings=\{onOpenGeneralSettings\} \/>/);
   assert.match(app, /className="hero-copy"/);
 });
-
 test('weather remains opt-in and stores only rounded device coordinates', () => {
   assert.match(settings, /onClick=\{useCurrentLocation\}/);
   assert.doesNotMatch(settings, /useEffect\([^)]*navigator\.geolocation/s);
   assert.match(weather, /Math\.round\(value \* 10\) \/ 10/);
   assert.match(weather, /storageKey\('weather-location:v1'\)/);
-  assert.match(storage, /STORAGE_PREFIX = 'coffee-note:'/);
-  assert.match(storage, /const STORAGE_PREFIX = 'coffee-note:'/);
+  assert.match(storage, /STORAGE_PREFIX = 'tiernote:'/);
+  assert.match(storage, /const STORAGE_PREFIX = 'tiernote:'/);
 });
 
 test('weather keeps a local, deduplicated recent-city history', () => {

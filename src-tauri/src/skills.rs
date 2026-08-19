@@ -14,45 +14,61 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const INDEX_FILE: &str = "skills.json";
-const INDEX_VERSION: u8 = 3;
+const INDEX_VERSION: u8 = 4;
 const MAX_SKILL_BYTES: u64 = 512 * 1024;
 const MAX_SKILL_ICON_BYTES: u64 = 3 * 1024 * 1024;
 const FIXED_CATEGORY_IDS: [&str; 4] = ["copywriting", "ppt", "video", "media"];
-const BUILTIN_MEDIA_PLUGIN_ID: &str = "coffee-media";
-const BUILTIN_MEDIA_SKILL_ID: &str = "coffee-note-media-transcribe";
+const BUILTIN_MEDIA_PLUGIN_ID: &str = "tiernote-media";
+const BUILTIN_MEDIA_SKILL_ID: &str = "tiernote-media-transcribe";
 const BUILTIN_MEDIA_PLUGIN_MANIFEST: &str =
-    include_str!("../builtin-plugins/coffee-media/coffee-plugin.json");
+    include_str!("../builtin-plugins/tiernote-media/tiernote-plugin.json");
 const BUILTIN_MEDIA_SKILL_PROMPT: &str =
-    include_str!("../builtin-plugins/coffee-media/skills/media-to-text/SKILL.md");
-const BUILTIN_DOCUMENT_PLUGIN_ID: &str = "coffee-documents";
-const BUILTIN_DOCX_SKILL_ID: &str = "coffee-note-document-create-docx";
-const BUILTIN_PDF_SKILL_ID: &str = "coffee-note-document-create-pdf";
+    include_str!("../builtin-plugins/tiernote-media/skills/media-to-text/SKILL.md");
+const BUILTIN_DOCUMENT_PLUGIN_ID: &str = "tiernote-documents";
+const BUILTIN_DOCX_SKILL_ID: &str = "tiernote-document-create-docx";
+const BUILTIN_PDF_SKILL_ID: &str = "tiernote-document-create-pdf";
 const BUILTIN_DOCUMENT_PLUGIN_MANIFEST: &str =
-    include_str!("../builtin-plugins/coffee-documents/coffee-plugin.json");
+    include_str!("../builtin-plugins/tiernote-documents/tiernote-plugin.json");
 const BUILTIN_DOCX_SKILL_PROMPT: &str =
-    include_str!("../builtin-plugins/coffee-documents/skills/create-docx/SKILL.md");
+    include_str!("../builtin-plugins/tiernote-documents/skills/create-docx/SKILL.md");
 const BUILTIN_PDF_SKILL_PROMPT: &str =
-    include_str!("../builtin-plugins/coffee-documents/skills/create-pdf/SKILL.md");
-const BUILTIN_PRESENTATION_PLUGIN_ID: &str = "coffee-presentation";
-const BUILTIN_PRESENTATION_SKILL_ID: &str = "coffee-note-presentation-create";
+    include_str!("../builtin-plugins/tiernote-documents/skills/create-pdf/SKILL.md");
+const BUILTIN_PRESENTATION_PLUGIN_ID: &str = "tiernote-presentation";
+const BUILTIN_PRESENTATION_SKILL_ID: &str = "tiernote-presentation-create";
 const BUILTIN_PRESENTATION_PLUGIN_MANIFEST: &str =
-    include_str!("../builtin-plugins/coffee-presentation/coffee-plugin.json");
+    include_str!("../builtin-plugins/tiernote-presentation/tiernote-plugin.json");
 const BUILTIN_PRESENTATION_SKILL_PROMPT: &str =
-    include_str!("../builtin-plugins/coffee-presentation/skills/create-presentation/SKILL.md");
+    include_str!("../builtin-plugins/tiernote-presentation/skills/create-presentation/SKILL.md");
 const BUILTIN_PRESENTATION_DECK_SPEC: &str = include_str!(
-    "../builtin-plugins/coffee-presentation/skills/create-presentation/references/deck-spec.md"
+    "../builtin-plugins/tiernote-presentation/skills/create-presentation/references/deck-spec.md"
 );
-const BUILTIN_VIDEO_PLUGIN_ID: &str = "coffee-video";
-const BUILTIN_VIDEO_SKILL_ID: &str = "coffee-note-video-create";
-const BUILTIN_VIDEO_STORYBOARD_SKILL_ID: &str = "coffee-note-video-storyboard";
+const BUILTIN_VIDEO_PLUGIN_ID: &str = "tiernote-video";
+const BUILTIN_VIDEO_SKILL_ID: &str = "tiernote-video-create";
+const BUILTIN_VIDEO_STORYBOARD_SKILL_ID: &str = "tiernote-video-storyboard";
 const BUILTIN_VIDEO_PLUGIN_MANIFEST: &str =
-    include_str!("../builtin-plugins/coffee-video/coffee-plugin.json");
+    include_str!("../builtin-plugins/tiernote-video/tiernote-plugin.json");
 const BUILTIN_VIDEO_SKILL_PROMPT: &str =
-    include_str!("../builtin-plugins/coffee-video/skills/create-video/SKILL.md");
+    include_str!("../builtin-plugins/tiernote-video/skills/create-video/SKILL.md");
 const BUILTIN_VIDEO_STORYBOARD_SKILL_PROMPT: &str =
-    include_str!("../builtin-plugins/coffee-video/skills/storyboard-director/SKILL.md");
+    include_str!("../builtin-plugins/tiernote-video/skills/storyboard-director/SKILL.md");
 const BUILTIN_VIDEO_STORYBOARD_SPEC: &str =
-    include_str!("../builtin-plugins/coffee-video/references/cinematic-storyboard.md");
+    include_str!("../builtin-plugins/tiernote-video/references/cinematic-storyboard.md");
+
+const LEGACY_BUILTIN_IDENTIFIERS: [(&str, &str); 9] = [
+    ("coffee-media", BUILTIN_MEDIA_PLUGIN_ID),
+    ("coffee-note-media-transcribe", BUILTIN_MEDIA_SKILL_ID),
+    ("coffee-documents", BUILTIN_DOCUMENT_PLUGIN_ID),
+    ("coffee-note-document-create-docx", BUILTIN_DOCX_SKILL_ID),
+    ("coffee-note-document-create-pdf", BUILTIN_PDF_SKILL_ID),
+    ("coffee-presentation", BUILTIN_PRESENTATION_PLUGIN_ID),
+    (
+        "coffee-note-presentation-create",
+        BUILTIN_PRESENTATION_SKILL_ID,
+    ),
+    ("coffee-video", BUILTIN_VIDEO_PLUGIN_ID),
+    ("coffee-note-video-create", BUILTIN_VIDEO_SKILL_ID),
+];
+const LEGACY_VIDEO_STORYBOARD_SKILL_ID: &str = "coffee-note-video-storyboard";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -368,6 +384,66 @@ fn empty_index() -> SkillIndex {
     }
 }
 
+fn current_builtin_id(id: &str) -> Option<&'static str> {
+    LEGACY_BUILTIN_IDENTIFIERS
+        .iter()
+        .find_map(|(legacy, current)| (*legacy == id).then_some(*current))
+        .or_else(|| {
+            (id == LEGACY_VIDEO_STORYBOARD_SKILL_ID).then_some(BUILTIN_VIDEO_STORYBOARD_SKILL_ID)
+        })
+}
+
+fn migrate_builtin_identifiers(index: &mut SkillIndex) -> bool {
+    let plugin_mappings = [
+        ("coffee-media", BUILTIN_MEDIA_PLUGIN_ID),
+        ("coffee-documents", BUILTIN_DOCUMENT_PLUGIN_ID),
+        ("coffee-presentation", BUILTIN_PRESENTATION_PLUGIN_ID),
+        ("coffee-video", BUILTIN_VIDEO_PLUGIN_ID),
+    ];
+    let mut changed = false;
+    for (legacy_id, current_id) in plugin_mappings {
+        let Some(mut legacy_state) = index.builtin_plugins.remove(legacy_id) else {
+            continue;
+        };
+        legacy_state.disabled_skill_ids = legacy_state
+            .disabled_skill_ids
+            .into_iter()
+            .map(|id| match current_builtin_id(&id) {
+                Some(current) => current.to_string(),
+                None => id,
+            })
+            .collect();
+        match index.builtin_plugins.entry(current_id.to_string()) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(legacy_state);
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                let current = entry.get_mut();
+                current.enabled &= legacy_state.enabled;
+                current
+                    .disabled_skill_ids
+                    .extend(legacy_state.disabled_skill_ids);
+            }
+        }
+        changed = true;
+    }
+    for state in index.builtin_plugins.values_mut() {
+        let migrated = state
+            .disabled_skill_ids
+            .iter()
+            .map(|id| match current_builtin_id(id) {
+                Some(current) => current.to_string(),
+                None => id.clone(),
+            })
+            .collect::<BTreeSet<_>>();
+        if migrated != state.disabled_skill_ids {
+            state.disabled_skill_ids = migrated;
+            changed = true;
+        }
+    }
+    changed
+}
+
 fn ensure_store() -> Result<SkillIndex, String> {
     fs::create_dir_all(skills_sources_root())
         .map_err(|error| format!("Could not create the skill source directory: {error}"))?;
@@ -392,16 +468,17 @@ fn load_index() -> Result<SkillIndex, String> {
             .unwrap_or(true);
         let mut index: SkillIndex = serde_json::from_value(value)
             .map_err(|error| format!("Could not parse the skills index: {error}"))?;
-        index.version = INDEX_VERSION;
         let mut changed = stored_version < INDEX_VERSION as u64;
-        if stored_version < INDEX_VERSION as u64 {
-            index.builtin_plugins.insert(
-                BUILTIN_MEDIA_PLUGIN_ID.to_string(),
-                BuiltinPluginState {
+        changed |= migrate_builtin_identifiers(&mut index);
+        index.version = INDEX_VERSION;
+        if stored_version < 3 {
+            index
+                .builtin_plugins
+                .entry(BUILTIN_MEDIA_PLUGIN_ID.to_string())
+                .or_insert(BuiltinPluginState {
                     enabled: legacy_media_enabled,
                     disabled_skill_ids: BTreeSet::new(),
-                },
-            );
+                });
         }
         for manifest in builtin_manifests() {
             if let std::collections::btree_map::Entry::Vacant(entry) =
@@ -642,7 +719,7 @@ fn json_string(value: &Value, names: &[&str]) -> Option<String> {
 
 fn package_manifest(root: &Path) -> Option<Value> {
     [
-        root.join("coffee-plugin.json"),
+        root.join("tiernote-plugin.json"),
         root.join("reasonix-plugin.json"),
         root.join(".codex-plugin").join("plugin.json"),
         root.join(".claude-plugin").join("plugin.json"),
@@ -1467,6 +1544,31 @@ mod tests {
     }
 
     #[test]
+    fn previous_builtin_ids_migrate_without_losing_disabled_state() {
+        let mut index = empty_index();
+        index.builtin_plugins.clear();
+        index.builtin_plugins.insert(
+            "coffee-video".to_string(),
+            BuiltinPluginState {
+                enabled: false,
+                disabled_skill_ids: BTreeSet::from([
+                    "coffee-note-video-create".to_string(),
+                    "coffee-note-video-storyboard".to_string(),
+                ]),
+            },
+        );
+
+        assert!(migrate_builtin_identifiers(&mut index));
+        assert!(!index.builtin_plugins.contains_key("coffee-video"));
+        let video = &index.builtin_plugins[BUILTIN_VIDEO_PLUGIN_ID];
+        assert!(!video.enabled);
+        assert!(video.disabled_skill_ids.contains(BUILTIN_VIDEO_SKILL_ID));
+        assert!(video
+            .disabled_skill_ids
+            .contains(BUILTIN_VIDEO_STORYBOARD_SKILL_ID));
+    }
+
+    #[test]
     fn media_skill_never_saves_a_placeholder_after_transcription_failure() {
         assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("Stop without writing a file"));
         assert!(BUILTIN_MEDIA_SKILL_PROMPT.contains("without `path`"));
@@ -1534,7 +1636,7 @@ mod tests {
         assert_eq!(plugin.skills[0].id, BUILTIN_VIDEO_SKILL_ID);
         assert_eq!(plugin.skills[1].id, BUILTIN_VIDEO_STORYBOARD_SKILL_ID);
         assert_eq!(plugin.skills.len(), 2);
-        assert_eq!(plugin.runtime.id, "coffee-video-engine");
+        assert_eq!(plugin.runtime.id, "tiernote-video-engine");
         assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("create_video"));
         assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("Never install a"));
         assert!(BUILTIN_VIDEO_STORYBOARD_SKILL_PROMPT.contains("continuity bible"));
@@ -1579,7 +1681,7 @@ mod tests {
 
     #[test]
     fn skill_file_metadata_is_read_only_source_data() {
-        let root = std::env::temp_dir().join(format!("coffee-note-skill-test-{}", Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("tiernote-skill-test-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).expect("fixture directory should be created");
         fs::write(
             root.join("SKILL.md"),
@@ -1598,7 +1700,7 @@ mod tests {
     #[test]
     fn repositories_can_contain_hundreds_of_skills() {
         let root =
-            std::env::temp_dir().join(format!("coffee-note-large-skill-test-{}", Uuid::new_v4()));
+            std::env::temp_dir().join(format!("tiernote-large-skill-test-{}", Uuid::new_v4()));
         for index in 0..200 {
             let directory = root.join(format!("skill-{index}"));
             fs::create_dir_all(&directory).expect("fixture directory should be created");
@@ -1625,7 +1727,7 @@ mod tests {
     #[test]
     fn nested_codex_plugins_supply_icons_to_their_skills() {
         let root =
-            std::env::temp_dir().join(format!("coffee-note-skill-icon-test-{}", Uuid::new_v4()));
+            std::env::temp_dir().join(format!("tiernote-skill-icon-test-{}", Uuid::new_v4()));
         let plugin_root = root.join("plugins").join("shopify");
         let skill_root = plugin_root.join("skills").join("shopify-hydrogen");
         let second_skill_root = plugin_root.join("skills").join("shopify-theme-check");

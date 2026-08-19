@@ -873,7 +873,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock should be valid")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!("coffee-note-knowledge-map-{unique}"));
+        let root = std::env::temp_dir().join(format!("tiernote-knowledge-map-{unique}"));
         fs::create_dir_all(root.join("dossiers")).expect("fixture directory should be created");
         fs::create_dir_all(root.join("sources")).expect("fixture directory should be created");
         root

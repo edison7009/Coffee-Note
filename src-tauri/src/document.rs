@@ -651,7 +651,7 @@ mod tests {
 
     fn fixture_root(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "coffee-document-{label}-{}-{}",
+            "tiernote-document-{label}-{}-{}",
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ))
@@ -678,11 +678,11 @@ mod tests {
         .expect("DOCX should be created");
         assert!(output.editable);
         assert_eq!(output.format, "docx");
-        if let Ok(smoke_dir) = std::env::var("COFFEE_DOCUMENT_SMOKE_DIR") {
+        if let Ok(smoke_dir) = std::env::var("TIERNOTE_DOCUMENT_SMOKE_DIR") {
             fs::create_dir_all(&smoke_dir).expect("smoke directory should be created");
             fs::copy(
                 &output.path,
-                Path::new(&smoke_dir).join("coffee-note-smoke.docx"),
+                Path::new(&smoke_dir).join("tiernote-smoke.docx"),
             )
             .expect("smoke DOCX should be copied");
         }
@@ -739,11 +739,11 @@ mod tests {
         )
         .expect("PDF should be created");
         assert_eq!(output.page_count, Some(2));
-        if let Ok(smoke_dir) = std::env::var("COFFEE_DOCUMENT_SMOKE_DIR") {
+        if let Ok(smoke_dir) = std::env::var("TIERNOTE_DOCUMENT_SMOKE_DIR") {
             fs::create_dir_all(&smoke_dir).expect("smoke directory should be created");
             fs::copy(
                 &output.path,
-                Path::new(&smoke_dir).join("coffee-note-smoke.pdf"),
+                Path::new(&smoke_dir).join("tiernote-smoke.pdf"),
             )
             .expect("smoke PDF should be copied");
         }

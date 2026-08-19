@@ -2,11 +2,11 @@
 
 TierNote is a sister product forked from the original longevity app. Its visible
 product name is **TierNote**. The repository directory and developer package
-names use `TierNote` or `tiernote`. Persisted v0.1.8 identifiers intentionally
-remain `app.coffeenote.desktop`, the `Coffee Note` app-data directory,
-`.coffee-note` workspace metadata, and `coffee-note:` browser storage keys so
-existing users keep their local data after upgrading. Do not rename those
-legacy identifiers without an explicit, tested migration.
+names use `TierNote` or `tiernote`. Current identifiers are
+`app.tiernote.desktop`, the `TierNote` app-data directory, `.tiernote` workspace
+metadata, and `tiernote:` browser storage keys. The startup migration recognizes
+the v0.1.8 names and moves existing user data before the application initializes;
+do not remove that compatibility migration without a separately tested upgrade path.
 The copied longevity content is transitional and will be replaced with a clean,
 general-purpose note model. The homepage tier list remains the core experience.
 

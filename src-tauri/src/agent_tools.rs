@@ -280,8 +280,8 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
             name: "read_local_file".into(),
             description: "Read the content of a local file outside the selected workspace when the \
                 user explicitly supplies its absolute path. Use this when the user asks you to \
-                import a local document — a PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), \
-                HTML file, plain text, or an image (for multimodal models). \
+                import a local document — PDF, modern Word/PowerPoint/Excel, OpenDocument, RTF, \
+                EPUB, CSV, HTML, plain text, or an image (for multimodal models). \
                 Text-based files are read as text; images are returned as paths for vision. \
                 Follow the user's requested outcome; do not automatically turn the file into a note. \
                 The file path must be absolute, e.g. 'C:/Users/name/Downloads/report.pdf'."
@@ -1475,10 +1475,7 @@ async fn exec_read_local_file(args: &Value, locale: &str) -> ToolResult {
                         }
                     };
                     let transcript = match crate::transcription::transcribe_local_media_file(
-                        &file_path,
-                        "api",
-                        &config,
-                        locale,
+                        &file_path, "api", &config, locale,
                     )
                     .await
                     {
@@ -1505,14 +1502,19 @@ async fn exec_read_local_file(args: &Value, locale: &str) -> ToolResult {
                         success: false,
                         output: format!(
                             "The file '{}' has an unsupported format (.{}). \
-                             Supported: .txt .md .html .docx .pptx .xlsx .pdf, images, and audio/video.",
+                             Supported: plain text/HTML; PDF; modern Word, PowerPoint, Excel, \
+                             OpenDocument, RTF, EPUB, and CSV documents; images; and audio/video.",
                             content.label, content.extension
                         ),
                     }
                 }
             };
             if output.len() > 300_000 {
-                output.truncate(300_000);
+                let mut boundary = 300_000;
+                while !output.is_char_boundary(boundary) {
+                    boundary -= 1;
+                }
+                output.truncate(boundary);
                 output.push_str("\n…[truncated]");
             }
             ToolResult {
@@ -1663,7 +1665,7 @@ fn exec_save_note(args: &Value, root: &Path, _locale: &str) -> ToolResult {
 
 fn content_without_memory_section(content: &str) -> String {
     let marker_pos = [
-        "<!-- coffee-note-memory-section:v1 -->",
+        "<!-- tiernote-memory-section:v1 -->",
         "<!-- coffee-note-memory-section:v1 -->",
     ]
     .iter()
@@ -1682,7 +1684,7 @@ fn content_without_memory_section(content: &str) -> String {
 fn preserve_confirmed_memory(content: &str, existing: &str) -> String {
     let clean_content = content_without_memory_section(content);
     let marker_pos = [
-        "<!-- coffee-note-memory-section:v1 -->",
+        "<!-- tiernote-memory-section:v1 -->",
         "<!-- coffee-note-memory-section:v1 -->",
     ]
     .iter()
@@ -2269,7 +2271,7 @@ mod tests {
     #[test]
     fn workspace_tools_read_write_list_and_replace_code_files() {
         let dir = std::env::temp_dir().join(format!(
-            "coffee-note-workspace-tools-{}-{}",
+            "tiernote-workspace-tools-{}-{}",
             std::process::id(),
             chrono::Local::now()
                 .timestamp_nanos_opt()
@@ -2317,7 +2319,7 @@ mod tests {
     #[test]
     fn workspace_tools_reject_traversal_and_sensitive_files() {
         let dir = std::env::temp_dir().join(format!(
-            "coffee-note-workspace-guards-{}-{}",
+            "tiernote-workspace-guards-{}-{}",
             std::process::id(),
             chrono::Local::now()
                 .timestamp_nanos_opt()
@@ -2384,7 +2386,7 @@ mod tests {
     #[test]
     fn scoped_search_and_read_cannot_retrieve_excluded_notes() {
         let dir = std::env::temp_dir().join(format!(
-            "coffee-note-tool-scope-{}-{}",
+            "tiernote-tool-scope-{}-{}",
             std::process::id(),
             chrono::Local::now()
                 .timestamp_nanos_opt()
@@ -2457,7 +2459,7 @@ mod tests {
         fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
         fs::write(
             dir.join("plans/exercise.md"),
-            "# 运动计划\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [goal] 每周走路三次 <!-- coffee-note-memory:id -->\n",
+            "# 运动计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 每周走路三次 <!-- tiernote-memory:id -->\n",
         )
         .expect("existing plan should be writable");
         let result = exec_update_plan(
@@ -2482,11 +2484,11 @@ mod tests {
         fs::create_dir_all(dir.join("plans")).expect("test plans dir should exist");
         fs::write(
             dir.join("plans/exercise.md"),
-            "# 运动计划\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [goal] 真实记忆 <!-- coffee-note-memory:real -->\n",
+            "# 运动计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 真实记忆 <!-- tiernote-memory:real -->\n",
         )
         .expect("existing plan should be writable");
         let result = exec_update_plan(
-            &json!({"module": "exercise", "content": "# 新计划\n\n## 已确认记忆\n\n<!-- coffee-note-memory-section:v1 -->\n\n- [goal] 模型伪造 <!-- coffee-note-memory:fake -->"}),
+            &json!({"module": "exercise", "content": "# 新计划\n\n## 已确认记忆\n\n<!-- tiernote-memory-section:v1 -->\n\n- [goal] 模型伪造 <!-- tiernote-memory:fake -->"}),
             &dir,
             "zh",
         );

@@ -19,12 +19,12 @@ coding agent，不绑定昂贵模型，以完成笔记治理任务为优先，�
 
 ## 独立资料库
 
-TierNote 为兼容 v0.1.8，继续读取原有的本地资料目录：
+TierNote 使用统一的本地资料目录；v0.1.8 数据会在启动时迁移到这里：
 
 ```text
-Windows  %USERPROFILE%/.coffee-note/演示笔记
-macOS    ~/.coffee-note/演示笔记
-Linux    ~/.coffee-note/演示笔记
+Windows  %USERPROFILE%/.tiernote/我的笔记(演示)
+macOS    ~/.tiernote/我的笔记(演示)
+Linux    ~/.tiernote/我的笔记(演示)
 ```
 
 首次启动由应用创建目录和入门内容。`starter-knowledge/` 只包含公开的
@@ -97,5 +97,5 @@ TierNote 的记忆路由有两个用户可见的真源，以及一份可重建�
 - 路径 canonicalize 后检查，阻止 `../` 越界；
 - AI 收录只写入 `knowledge/inbox/`，且不会覆盖同名文件；
 - AI 服务商配置（包括 API Key）以明文 JSON 保存在当前用户的兼容应用数据
-  目录 `Coffee Note/config.json`，不写入仓库或知识库；
+  目录 `TierNote/config.json`，不写入仓库或知识库；
 - 个人资料只在用户发起模型请求时发送给其配置的模型服务商。

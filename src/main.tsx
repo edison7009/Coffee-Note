@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { readStorageValue, storageKey } from './storage';
+import { migrateLegacyStorage, readStorageValue, storageKey } from './storage';
 
 type StartupTheme = 'system' | 'light' | 'dark';
 
@@ -25,6 +25,7 @@ function applyStartupTheme() {
   document.documentElement.style.colorScheme = resolvedTheme;
 }
 
+migrateLegacyStorage();
 applyStartupTheme();
 
 // Suppress the WebView's built-in context menu. App-level components render

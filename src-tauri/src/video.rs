@@ -105,7 +105,7 @@ fn safe_video_stem(title: &str, file_name: Option<&str>) -> Result<String, Strin
         .take(80)
         .collect::<String>();
     Ok(if stem.is_empty() {
-        "coffee-video".to_string()
+        "tiernote-video".to_string()
     } else {
         stem
     })
@@ -195,7 +195,7 @@ async fn run_encoder(
 ) -> Result<(), String> {
     let output = app
         .shell()
-        .sidecar("coffee-video-ffmpeg")
+        .sidecar("tiernote-video-ffmpeg")
         .map_err(|error| format!("Could not locate the bundled video encoder: {error}"))?
         .current_dir(working_dir)
         .args(args)
@@ -360,7 +360,7 @@ pub async fn create_video_in(
     workspace_root: &Path,
     output_root: &Path,
 ) -> Result<VideoOutput, String> {
-    let temp_root = std::env::temp_dir().join(format!("coffee-note-video-{}", Uuid::new_v4()));
+    let temp_root = std::env::temp_dir().join(format!("tiernote-video-{}", Uuid::new_v4()));
     fs::create_dir_all(&temp_root)
         .map_err(|error| format!("Could not prepare the video workspace: {error}"))?;
     let result = render_video(app, &request, workspace_root, output_root, &temp_root).await;
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn completed_videos_copy_non_destructively_to_the_output_directory() {
-        let fixture = std::env::temp_dir().join(format!("coffee-video-copy-{}", Uuid::new_v4()));
+        let fixture = std::env::temp_dir().join(format!("tiernote-video-copy-{}", Uuid::new_v4()));
         let output = fixture.join("output");
         let rendered = fixture.join("rendered.mp4");
         fs::create_dir_all(&output).expect("output fixture should exist");

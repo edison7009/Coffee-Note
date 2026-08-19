@@ -840,7 +840,12 @@
   };
 
   // Other locales fall back to English for now.
-  const LANG_STORAGE = 'coffee-note-lang';
+  const LANG_STORAGE = 'tiernote-lang';
+  const LEGACY_LANG_STORAGE = 'coffee-note-lang';
+  if (!localStorage.getItem(LANG_STORAGE) && localStorage.getItem(LEGACY_LANG_STORAGE)) {
+    localStorage.setItem(LANG_STORAGE, localStorage.getItem(LEGACY_LANG_STORAGE));
+  }
+  localStorage.removeItem(LEGACY_LANG_STORAGE);
   let currentLang = localStorage.getItem(LANG_STORAGE) || 'en';
   // Detect OS language on first visit (Chinese OS → zh).
   if (!localStorage.getItem(LANG_STORAGE)) {

@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn custom_directory_round_trips_and_must_be_absolute() {
-        let fixture = std::env::temp_dir().join(format!("coffee-note-output-{}", Uuid::new_v4()));
+        let fixture = std::env::temp_dir().join(format!("tiernote-output-{}", Uuid::new_v4()));
         let output = fixture.join("exports");
         let settings_path = fixture.join("generated-files.json");
         fs::create_dir_all(&output).expect("fixture output should exist");
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn missing_config_defaults_to_the_current_workspace() {
-        let fixture = std::env::temp_dir().join(format!("coffee-note-output-{}", Uuid::new_v4()));
+        let fixture = std::env::temp_dir().join(format!("tiernote-output-{}", Uuid::new_v4()));
         let workspace = fixture.join("workspace");
         let settings_path = fixture.join("generated-files.json");
         fs::create_dir_all(&workspace).expect("fixture workspace should exist");
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn invalid_workspace_does_not_erase_a_custom_directory() {
-        let fixture = std::env::temp_dir().join(format!("coffee-note-output-{}", Uuid::new_v4()));
+        let fixture = std::env::temp_dir().join(format!("tiernote-output-{}", Uuid::new_v4()));
         let custom = fixture.join("custom");
         let settings_path = fixture.join("generated-files.json");
         fs::create_dir_all(&custom).expect("fixture custom directory should exist");

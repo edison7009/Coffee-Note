@@ -28,7 +28,6 @@ interface SkillsSettingsProps {
   error: string;
   onCatalogChange: (catalog: SkillCatalog) => void;
 }
-
 const EMPTY_DRAFT: SkillSourceDraft = {
   sourceUrl: '',
   categoryId: 'copywriting',
@@ -44,32 +43,32 @@ function categoryLabel(id: string, fallback: string, locale: Locale) {
 }
 
 function pluginName(plugin: SkillPlugin, locale: Locale) {
-  if (locale === 'en' && plugin.id === 'coffee-media') return 'TierNote Media';
-  if (locale === 'en' && plugin.id === 'coffee-documents') return 'Documents';
-  if (locale === 'en' && plugin.id === 'coffee-presentation') return 'Presentations';
+  if (locale === 'en' && plugin.id === 'tiernote-media') return 'TierNote Media';
+  if (locale === 'en' && plugin.id === 'tiernote-documents') return 'Documents';
+  if (locale === 'en' && plugin.id === 'tiernote-presentation') return 'Presentations';
   return plugin.name;
 }
 
 function pluginDescription(plugin: SkillPlugin, locale: Locale) {
-  if (locale === 'en' && plugin.id === 'coffee-media') return 'Turn audio and video into editable local text.';
-  if (locale === 'en' && plugin.id === 'coffee-documents') return 'Create editable DOCX files and shareable PDFs from notes and source material.';
-  if (locale === 'en' && plugin.id === 'coffee-presentation') return 'Turn notes and source material into editable PowerPoint presentations.';
+  if (locale === 'en' && plugin.id === 'tiernote-media') return 'Turn audio and video into editable local text.';
+  if (locale === 'en' && plugin.id === 'tiernote-documents') return 'Create editable DOCX files and shareable PDFs from notes and source material.';
+  if (locale === 'en' && plugin.id === 'tiernote-presentation') return 'Turn notes and source material into editable PowerPoint presentations.';
   return plugin.description;
 }
 
 function childSkillTitle(skill: SkillDefinition, locale: Locale) {
-  if (locale === 'en' && skill.id === 'coffee-note-media-transcribe') return 'Media to text';
-  if (locale === 'en' && skill.id === 'coffee-note-document-create-docx') return 'Create DOCX';
-  if (locale === 'en' && skill.id === 'coffee-note-document-create-pdf') return 'Create PDF';
-  if (locale === 'en' && skill.id === 'coffee-note-presentation-create') return 'Create presentation';
+  if (locale === 'en' && skill.id === 'tiernote-media-transcribe') return 'Media to text';
+  if (locale === 'en' && skill.id === 'tiernote-document-create-docx') return 'Create DOCX';
+  if (locale === 'en' && skill.id === 'tiernote-document-create-pdf') return 'Create PDF';
+  if (locale === 'en' && skill.id === 'tiernote-presentation-create') return 'Create presentation';
   return skill.title;
 }
 
 function childSkillDescription(skill: SkillDefinition, locale: Locale) {
-  if (locale === 'en' && skill.id === 'coffee-note-media-transcribe') return 'Transcribe audio or video and organize it into a note.';
-  if (locale === 'en' && skill.id === 'coffee-note-document-create-docx') return 'Create an editable Word document from notes, documents, or conversation content.';
-  if (locale === 'en' && skill.id === 'coffee-note-document-create-pdf') return 'Create a polished PDF from notes, documents, or conversation content.';
-  if (locale === 'en' && skill.id === 'coffee-note-presentation-create') return 'Create an editable .pptx file from notes, documents, or conversation content.';
+  if (locale === 'en' && skill.id === 'tiernote-media-transcribe') return 'Transcribe audio or video and organize it into a note.';
+  if (locale === 'en' && skill.id === 'tiernote-document-create-docx') return 'Create an editable Word document from notes, documents, or conversation content.';
+  if (locale === 'en' && skill.id === 'tiernote-document-create-pdf') return 'Create a polished PDF from notes, documents, or conversation content.';
+  if (locale === 'en' && skill.id === 'tiernote-presentation-create') return 'Create an editable .pptx file from notes, documents, or conversation content.';
   return skill.description;
 }
 

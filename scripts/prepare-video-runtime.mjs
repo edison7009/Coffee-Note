@@ -23,7 +23,7 @@ const destination = path.join(
   root,
   'src-tauri',
   'binaries',
-  `coffee-video-ffmpeg-${triple}${extension}`,
+  `tiernote-video-ffmpeg-${triple}${extension}`,
 );
 await mkdir(path.dirname(destination), { recursive: true });
 await copyFile(ffmpeg.path, destination);
