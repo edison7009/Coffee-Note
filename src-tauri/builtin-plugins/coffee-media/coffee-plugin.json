@@ -4,7 +4,7 @@
   "name": "媒体处理",
   "description": "把音视频内容转换为可编辑、可继续整理的本地文字。",
   "version": "1.0.0",
-  "publisher": "TierNote",
+  "publisher": "TierNote Team",
   "categoryId": "media",
   "runtime": {
     "id": "media-transcription",

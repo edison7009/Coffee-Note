@@ -4,7 +4,7 @@
   "name": "演示文稿",
   "description": "把笔记、资料和想法整理为结构清晰、可继续编辑的 PowerPoint 演示文稿。",
   "version": "1.0.0",
-  "publisher": "TierNote",
+  "publisher": "TierNote Team",
   "categoryId": "ppt",
   "runtime": {
     "id": "presentation-engine",

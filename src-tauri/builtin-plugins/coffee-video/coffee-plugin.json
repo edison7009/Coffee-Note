@@ -4,7 +4,7 @@
   "name": "文字生成视频",
   "description": "用专业镜头语言设计分镜，并可继续生成画面、旁白和可分享的 MP4 视频。",
   "version": "1.0.0",
-  "publisher": "TierNote",
+  "publisher": "TierNote Team",
   "categoryId": "video",
   "runtime": {
     "id": "coffee-video-engine",

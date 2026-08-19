@@ -37,6 +37,7 @@
   "bundle": {
     "active": true,
     "publisher": "TierNote Team",
+    "copyright": "Copyright © 2026 TierNote Team",
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "Local-first notes organized with a clear tier system.",
