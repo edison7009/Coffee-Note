@@ -1,10 +1,8 @@
-<p align="center">
-  <img src="docs/images/readme-banner-en.png" width="100%" alt="The AI note tool that saves you money, deeply optimized for DeepSeek">
-</p>
-
 <div align="center">
   <img src="app-icon.png" width="96" height="96" alt="TierNote icon">
   <h1>TierNote</h1>
+
+  <p><strong>Notes from first principles.</strong><br>Reduce complexity to what matters, make priorities visible, and turn notes into action.</p>
 
   <p>
     <a href="https://github.com/edison7009/TierNote/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/edison7009/TierNote?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
@@ -27,20 +25,22 @@
 
 ## Overview
 
-TierNote is a cross-platform desktop note agent built around local Markdown files. Its core experience is an editable **T1–T5 priority map**: your most important notes stay visible, while AI can search, organize, summarize, and create without turning the app into a coding tool or task manager.
+TierNote is a cross-platform desktop note agent built from a first-principles idea: before adding more information, make what matters clear. Its editable **T1–T5 priority map** keeps important notes visible, while local-first AI can search, organize, summarize, and create without turning the app into a coding tool or task manager.
 
 | Project | Current state |
 | --- | --- |
 | Desktop | Windows, macOS, Linux |
 | Storage | Local Markdown library and local conversation records |
 | Model protocols | OpenAI-compatible APIs and Anthropic Messages API |
-| Primary optimization | DeepSeek prefix-cache reuse and usage visibility |
+| Design principle | First-principles decomposition through visible T1–T5 tiers |
+| Model efficiency | DeepSeek prefix-cache reuse and usage visibility |
 | License | AGPL-3.0-or-later |
 
 > Release binaries are currently unsigned. Windows and macOS may show an unverified-publisher warning during installation.
 
 ## What it does
 
+- **First-principles workspace** — reduce a complicated body of notes to visible T1–T5 priorities, then build decisions and outputs from what matters.
 - **DeepSeek-aware AI chat** — stable request prefixes improve cache reuse; requests, cache hits, tokens, context use, and estimated cost remain visible.
 - **Library Graph retrieval** — searches titles, paths, headings, body text, Markdown links, and nearby notes without an embedding API, vector database, or indexing tokens.
 - **Local-first notes** — browse and edit ordinary Markdown files in a restrained three-pane desktop workspace.
@@ -142,7 +142,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - Your note library and complete conversation records stay on your computer by default.
 - Only requests you initiate send the selected context to your configured model provider.
 - Knowledge-library access is path-scoped and canonicalized to block traversal outside the selected root.
-- Provider configuration, including API keys, is stored as plaintext JSON only in the current user's TierNote app-data directory. It is never written into this repository or the note library.
+- Provider configuration, including API keys, is stored as plaintext JSON only in the current user's legacy-compatible local app-data directory. The existing Coffee Note path is intentionally retained during the TierNote transition so upgrades do not lose configuration. It is never written into this repository or the note library.
 - No telemetry service is required for the local note workflow.
 
 ## Release process

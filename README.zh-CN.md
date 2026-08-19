@@ -1,10 +1,8 @@
-<p align="center">
-  <img src="docs/images/readme-banner-zh.png" width="100%" alt="帮你省钱的 AI 笔记工具，深度优化 DeepSeek">
-</p>
-
 <div align="center">
   <img src="app-icon.png" width="96" height="96" alt="TierNote 图标">
   <h1>TierNote</h1>
+
+  <p><strong>从第一性原理出发的笔记。</strong><br>把复杂问题拆回本质，让优先级清晰可见，再让笔记成为行动。</p>
 
   <p>
     <a href="https://github.com/edison7009/TierNote/releases/latest"><img alt="最新版本" src="https://img.shields.io/github/v/release/edison7009/TierNote?display_name=tag&amp;sort=semver&amp;color=d4a584"></a>
@@ -27,20 +25,22 @@
 
 ## 项目概览
 
-TierNote 是围绕本地 Markdown 文件构建的跨平台桌面 Note Agent。产品核心是一张可编辑的 **T1–T5 优先级地图**：重要笔记始终保持可见，AI 可以检索、整理、总结与创作，但不会把笔记软件变成编程工具或任务管理器。
+TierNote 是从一个第一性原理出发构建的跨平台桌面 Note Agent：在增加更多信息之前，先看清真正重要的事。可编辑的 **T1–T5 优先级地图**让重要笔记始终保持可见；本地优先的 AI 可以检索、整理、总结与创作，但不会把笔记软件变成编程工具或任务管理器。
 
 | 项目 | 当前状态 |
 | --- | --- |
 | 桌面平台 | Windows、macOS、Linux |
 | 数据存储 | 本地 Markdown 笔记库与本地对话记录 |
 | 模型协议 | OpenAI 兼容 API、Anthropic Messages API |
-| 核心优化 | DeepSeek 前缀缓存复用与用量可视化 |
+| 设计原则 | 用可见的 T1–T5 分层拆解复杂问题 |
+| 模型效率 | DeepSeek 前缀缓存复用与用量可视化 |
 | 开源协议 | AGPL-3.0-or-later |
 
 > 当前发布包尚未进行代码签名，Windows 与 macOS 安装时可能提示“未知发布者”或“无法验证开发者”。
 
 ## 核心能力
 
+- **第一性原理工作区**：把复杂笔记拆回清晰可见的 T1–T5 优先级，再从真正重要的内容生成决策与成果。
 - **DeepSeek 优化的 AI 对话**：稳定请求前缀提高缓存复用机会，对话中直接显示请求数、缓存命中、Token、上下文用量与费用估算。
 - **Library Graph 本地检索**：综合标题、路径、章节、正文、Markdown 链接与邻近笔记，无需 Embedding API、向量数据库或索引 Token。
 - **本地优先笔记**：在安静的三栏桌面工作区浏览和编辑普通 Markdown 文件。
@@ -142,7 +142,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - 笔记库与完整对话记录默认保存在当前电脑上。
 - 只有用户主动发起模型请求时，所选上下文才会发送给已配置的模型服务商。
 - 知识库访问会进行路径限定和 canonicalize 检查，阻止越过所选根目录。
-- 模型配置（包括 API Key）仅以明文 JSON 保存在当前用户的 TierNote 应用数据目录，不会写入仓库或笔记库。
+- 模型配置（包括 API Key）仅以明文 JSON 保存在当前用户的兼容性本地应用数据目录。TierNote 过渡期间有意保留原 Coffee Note 路径，避免升级后丢失配置；这些内容不会写入仓库或笔记库。
 - 本地笔记工作流不依赖遥测服务。
 
 ## 发布流程
