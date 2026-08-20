@@ -1,7 +1,7 @@
 {
   "name": "tiernote",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A local-first workspace agent with tier-based organization and AI assistance.",
   "author": "TierNote Team",
   "license": "AGPL-3.0-or-later",
