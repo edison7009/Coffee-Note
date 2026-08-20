@@ -4,6 +4,7 @@
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use tauri::Manager;
 
 use crate::knowledge_map;
 use crate::llm_stream::ToolDef;
@@ -337,6 +338,30 @@ pub fn get_tool_definitions(availability: ToolAvailability) -> Vec<ToolDef> {
             }),
         },
         ToolDef {
+            name: "deploy_transcription_model".into(),
+            description: "Automatically install, verify, select, or repair one of TierNote's pinned local speech-recognition models and its required engine. Use this when the user asks to deploy or repair local audio transcription. This is a guarded application installer, not arbitrary shell access.".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "runtimeId": {
+                        "type": "string",
+                        "enum": ["funasr", "native", "cuda"],
+                        "description": "Engine family to deploy"
+                    },
+                    "modelId": {
+                        "type": "string",
+                        "enum": ["sensevoice-small", "paraformer-large", "funasr-nano", "fast", "standard", "accurate"],
+                        "description": "Compatible local speech model to deploy"
+                    },
+                    "repair": {
+                        "type": "boolean",
+                        "description": "Re-run engine verification and repair even when installed; default false"
+                    }
+                },
+                "required": ["runtimeId", "modelId"]
+            }),
+        },
+        ToolDef {
             name: "create_document".into(),
             description: "Create a polished DOCX or PDF file in the user's configured generated-files directory from a complete structured document. Submit the document once with headings, paragraphs, bullet lists, quotes, and optional page breaks. DOCX output remains editable; PDF output is laid out locally without requiring Microsoft Office or LibreOffice. The runtime validates content and chooses a non-destructive filename.".into(),
             parameters: json!({
@@ -640,6 +665,7 @@ pub async fn execute_tool(
         "read_local_file" => exec_read_local_file(args, locale).await,
         "web_fetch" => exec_web_fetch(args, web_reader).await,
         "transcribe_media" => exec_transcribe_media(args, locale, workspace_root).await,
+        "deploy_transcription_model" => exec_deploy_transcription_model(app, args, locale).await,
         "create_document" => exec_create_document(args, workspace_root),
         "create_presentation" => exec_create_presentation(args, workspace_root),
         "create_video" => exec_create_video(app, args, workspace_root).await,
@@ -887,6 +913,51 @@ async fn exec_web_fetch(args: &Value, settings: &WebReaderSettings) -> ToolResul
     ToolResult {
         success: true,
         output: pages.join("\n\n---\n\n"),
+    }
+}
+
+async fn exec_deploy_transcription_model(
+    app: &tauri::AppHandle,
+    args: &Value,
+    locale: &str,
+) -> ToolResult {
+    let Some(runtime_id) = args.get("runtimeId").and_then(Value::as_str) else {
+        return ToolResult {
+            success: false,
+            output: "deploy_transcription_model requires runtimeId.".into(),
+        };
+    };
+    let Some(model_id) = args.get("modelId").and_then(Value::as_str) else {
+        return ToolResult {
+            success: false,
+            output: "deploy_transcription_model requires modelId.".into(),
+        };
+    };
+    let repair = args.get("repair").and_then(Value::as_bool).unwrap_or(false);
+    let state = app.state::<crate::transcription::TranscriptionDownloadState>();
+    match crate::transcription::deploy_transcription_model(
+        app, &state, runtime_id, model_id, repair,
+    )
+    .await
+    {
+        Ok(()) => match crate::activate_transcription_model_for_agent(runtime_id, model_id) {
+            Ok(()) => ToolResult {
+                success: true,
+                output: if locale == "en" {
+                    format!("Local transcription is ready: {model_id} on {runtime_id}.")
+                } else {
+                    format!("本地转写已就绪：{model_id}（{runtime_id}）。")
+                },
+            },
+            Err(error) => ToolResult {
+                success: false,
+                output: format!("The model was deployed but could not be selected: {error}"),
+            },
+        },
+        Err(error) => ToolResult {
+            success: false,
+            output: format!("Could not deploy local transcription: {error}"),
+        },
     }
 }
 

@@ -15,7 +15,7 @@ test('switching libraries invalidates older asynchronous library work immediatel
 test('agent requests use the latest selected library as their work directory', () => {
   assert.match(
     appSource,
-    /knowledgeRoot: libraryRootRef\.current \|\| library\.root/,
+    /knowledgeRoot: workspaceRootOverride \|\| libraryRootRef\.current \|\| library\.root/,
   );
   assert.doesNotMatch(appSource, /knowledgeRoot: library\.root/);
 });

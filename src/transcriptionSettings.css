@@ -609,6 +609,21 @@
   transition: width 90ms linear;
 }
 
+.transcription-download-progress.is-processing span {
+  width: 34%;
+  animation: transcription-installing-progress 1.5s ease-in-out infinite;
+}
+
+@keyframes transcription-installing-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(310%);
+  }
+}
+
 @media (max-width: 900px) {
   .transcription-settings-header {
     align-items: flex-start;
@@ -682,5 +697,12 @@
   .transcription-model-switch > span,
   .transcription-select-trigger svg {
     transition: none;
+  }
+
+  .transcription-download-progress.is-processing span {
+    width: 100%;
+    opacity: .45;
+    animation: none;
+    transform: none;
   }
 }

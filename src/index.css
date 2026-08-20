@@ -5561,7 +5561,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   cursor: default;
   line-height: 20px;
   list-style: none;
-  user-select: none;
+  user-select: text;
 }
 
 .tool-activity-summary::-webkit-details-marker {
@@ -5782,7 +5782,7 @@ html:lang(en) .add-material-dialog .capture-guide-actions button {
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: agent-turn-status-shimmer 2.4s linear infinite;
+  animation: agent-turn-status-shimmer 8s linear infinite;
 }
 
 .agent-turn-status-caret {

@@ -684,14 +684,6 @@ export async function openTranscriptionStorageDirectory(runtimeId: string): Prom
   await invoke('open_transcription_storage_directory', { runtimeId });
 }
 
-export async function resolveTranscriptionResourceSource(
-  kind: 'runtime' | 'model',
-  id: string,
-): Promise<string> {
-  if (!isTauri) throw new Error('Automatic source selection is only available in the desktop app.');
-  return invoke<string>('resolve_transcription_resource_source', { kind, id });
-}
-
 export async function downloadTranscriptionResource(kind: 'runtime' | 'model', id: string, runtimeId: string): Promise<void> {
   if (!isTauri) throw new Error('Resource downloads are only available in the desktop app.');
   await invoke('download_transcription_resource', { kind, id, runtimeId });

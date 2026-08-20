@@ -218,7 +218,7 @@ or temporary deployment credentials.
   line appears after the activity stream with Coffee-CLI's compact Braille-dot spinner
   on its left. Its warm
   orange label cycles the complete supported-language verb lists with the left
-  flower glyph sequence, typewriter erase/type timing, 2.4-second text shimmer,
+  flower glyph sequence, typewriter erase/type timing, 8-second text shimmer,
   and a caret during rewrites. Elapsed time appears only after 15 seconds and stays
   muted and static; reduced motion disables the shimmer and caret. Completed rows
   remain static muted text, failures keep a semantic error state, and provider
@@ -258,8 +258,8 @@ or temporary deployment credentials.
   copy, and retries on the actual media request if background preparation failed.
   Startup and first-use preparation share one process-local lock so they never write
   the same partial download concurrently. Speech-recognition runtimes, CUDA support,
-  and models remain explicit user downloads; the AI never asks the user to configure
-  or repeatedly install the media-import environment.
+  and models use the separate guarded Agent deployment flow; the AI never asks the user
+  to configure or repeatedly install the media-import environment.
 - **Windows local transcription compatibility (2026-08-15):** The pinned whisper.cpp
   Windows runtime normally selects its fastest CPU backend. If it exits immediately
   after loading that backend, TierNote retries in an isolated temporary runtime
@@ -271,32 +271,30 @@ or temporary deployment credentials.
   separates storage, inference engines, and model weights. SenseVoiceSmall Q8 is the
   lightweight default, with Paraformer Large Q8
   and Fun-ASR-Nano Q4 available through the official self-contained FunASR llama.cpp
-  runtime and shared FSMN-VAD long-audio segmentation. Model downloads use pinned
+  runtime and shared FSMN-VAD long-audio segmentation. Model deployment uses pinned
   ModelScope revisions first in China, fall back to pinned Hugging Face revisions,
-  and verify exact sizes and SHA-256 digests. Runtime and model downloads are shown
-  separately so users can understand and manage each layer. Existing Whisper
+  and verify exact sizes and SHA-256 digests. Runtime and model state remain visible
+  separately, but the user starts one Agent-managed deployment check from the runtime
+  section; the Agent selects the current, already-installed, or recommended model and then
+  installs or repairs the matching runtime and model as needed. Existing Whisper
   base/small/medium IDs and files remain compatible but
   are explicitly labeled as multilingual fallbacks with limited Chinese accuracy.
-  FireRedASR2-AED and FireRedASR2-LLM are first-class catalog entries with one Download
-  action: TierNote probes the China mirror and silently falls back to the official
-  international source instead of making users choose a route. They clearly state their
-  separate Python/PyTorch or vLLM requirements; do not report them as locally installed
-  until TierNote owns that runtime. Each of the four engine families has its own
+  Each of the three supported engine families has its own
   configurable storage root and folder under `TierNote Transcription`; changing the
   directory migrates only that engine and its models, so large families can live on
   different drives. Legacy one-directory storage remains a read-compatible fallback,
   and Windows extended path prefixes such as `\\?\` must never be shown in the UI.
   Storage opens in the system file manager. The top navigation separates local
-  recognition into FireRedASR2, FunASR, Whisper CPU, and Whisper NVIDIA tabs (FireRedASR2
-  stays first for the Chinese-first product); each tab contains only its own runtime and compatible models, with
+  recognition into FunASR, Whisper CPU, and Whisper NVIDIA tabs; each tab contains only
+  its own runtime and compatible models, with
   no secondary engine-browser state. Cloud is visually separated from those local
   families. Exactly one local model can be configured through the theme-color switches.
   A model switch appears only when both that model and the matching runtime are installed;
-  an installed model whose runtime is missing shows the static `Engine missing` state instead
-  of leaving the row action area blank. Only a fully usable selection may give its family tab
-  the theme-color `In use` state. Downloaded engines show `Downloaded` in the row action area.
+  an installed model whose runtime is missing shows `Engine missing`. Only a fully usable
+  selection may give its family tab the theme-color `In use` state. Runtime and model rows keep
+  their manual install/download actions; the section header additionally owns troubleshooting.
   Recommendation badges are scoped within each
-  family (SenseVoiceSmall for FunASR, FireRedASR2-AED for FireRed, Whisper Small for Whisper).
+  family (SenseVoiceSmall for FunASR and Whisper Small for Whisper).
 - **Working conversation indicator (2026-08-14):** While the agent is busy, the
   active conversation card in the right history rail replaces its delete action with
   a small always-visible, geometrically centered theme-color dot and exposes `aria-busy`.
@@ -846,10 +844,10 @@ API key. The hosted path has separate request adapters for OpenAI-compatible,
 Deepgram, and AssemblyAI protocols and streams audio files instead of reading
 the whole upload into memory.
 
-The local path downloads pinned runtime and model resources into the current
+The local path deploys pinned runtime and model resources into the current
 user's local app-data `TierNote/transcription/` directory by default. Audio to
 text now exposes one tab and one independently configurable storage directory
-for FireRedASR2, FunASR, Whisper CPU, and Whisper NVIDIA. Moving a directory
+for FunASR, Whisper CPU, and Whisper NVIDIA. Moving a directory
 migrates only that engine family, rejects targets inside its current models or
 runtimes subtree, and ignores stale migration results after the user changes
 tabs. Every fixed resource
@@ -857,20 +855,24 @@ has an expected byte size and SHA-256 digest; archives are extracted only after
 verification. Windows supports Whisper CPU/NVIDIA and FunASR, Linux supports
 Whisper CPU and FunASR, and Apple silicon supports FunASR.
 
-FireRedASR2 is a real managed local route rather than an external-link
-placeholder. Its official source is pinned to revision
-`4e7d9aaf4482a47cec1724807026b9b151926eb5`; installation creates an isolated
-Python environment, tries the Tsinghua PyPI mirror before the default index,
-installs the pinned official package plus the omitted binary feature-bank and PEFT dependencies,
-and marks the engine ready only after imports succeed. Windows uses Python 3.11–3.13 because the
-feature-bank package does not provide a Python 3.14 Windows x64 wheel; macOS and Linux also allow 3.14.
-an incompatible partial environment is rebuilt on retry. Runtime installation failures remain
-available from backend status when the user leaves and reopens the settings page. AED and
-LLM model bundles prefer ModelScope and fall back to revision-pinned Hugging
-Face files; every required file is size- and SHA-256-checked. Local input is
-decoded and converted to 16 kHz mono PCM WAV, then TierNote invokes the selected
-engine/model. FireRed disables the optional VAD/LID/punctuation modules for the
-single-file route and reads the official CLI's `result.jsonl` output.
+Local speech setup has two deliberately separate paths. Runtime and model rows keep their normal
+manual Install/Download actions. A `疑难检测` action beside Runtime engines closes Settings, opens
+the AI conversation, and starts an Agent turn for the visible engine and the active, installed, or
+recommended model. The Agent diagnoses installation and hardware fit, then uses the guarded
+`deploy_transcription_model` tool to repair missing or damaged resources. Ordinary local
+transcription never starts a hidden download. Troubleshooting uses TierNote's always-present managed
+context directory as its technical workspace, so a disconnected user-selected note directory cannot
+prevent the Agent from starting. This is not arbitrary shell access: resource versions,
+mirrors, sizes, hashes, compatible pairs, and install commands remain owned by the application.
+Download progress switches from a numeric percentage to `正在安装…` for runtime post-processing or
+`正在校验…` for model post-processing once the transferred files reach 100%; the indeterminate bar
+continues until installation and verification actually finish.
+
+FireRedASR2 was removed on 2026-08-20 after Windows deployment proved too costly and
+fragile for the intended one-click experience. Its catalog, runtime installer, model bundles,
+local inference route, and Agent deployment options are no longer part of TierNote. Loading a
+legacy configuration that selected FireRed clears that local selection without affecting hosted
+provider settings or the remaining FunASR and Whisper resources.
 
 The home capture flow now treats YouTube, Bilibili, TikTok, Douyin, Xiaohongshu,
 X, and their supported short-link hosts as media sources. It first asks the

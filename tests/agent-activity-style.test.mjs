@@ -8,7 +8,7 @@ const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 test('running agent activity follows the latest tool with neutral shimmer', () => {
   assert.match(
     css,
-    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--ink\)[\s\S]*?background-position:\s*200% center;[^}]*background-size:\s*200% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 2\.4s linear infinite;/s,
+    /\.agent-turn-status-shimmer\s*\{[^}]*background:\s*linear-gradient\([\s\S]*?var\(--ink\)[\s\S]*?background-position:\s*200% center;[^}]*background-size:\s*200% 100%;[^}]*background-clip:\s*text;[^}]*animation:\s*agent-turn-status-shimmer 8s linear infinite;/s,
   );
   assert.match(css, /\.agent-turn-status\s*\{[^}]*font-weight:\s*400;/s);
   assert.match(app, /formatAgentToolPhrase/);
@@ -52,6 +52,8 @@ test('tool rows keep static aligned marks and settle to completion checks', () =
     css,
     /\.conversation-history-working-dot\s*\{[^}]*width:\s*7px;[^}]*height:\s*7px;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--switch-on\);/s,
   );
+  assert.match(app, /`执行 \$\{fallbackName\} 失败`/);
+  assert.match(css, /\.tool-activity-summary\s*\{[^}]*user-select:\s*text;/s);
 });
 
 test('conversation history gives titles the full row and overlays delete on hover', () => {

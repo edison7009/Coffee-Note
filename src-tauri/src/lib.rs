@@ -637,9 +637,18 @@ fn load_transcription_config_from(
     }
     let contents = fs::read_to_string(path)
         .map_err(|error| format!("Could not read transcription config: {error}"))?;
-    serde_json::from_str(&contents)
-        .map(Some)
-        .map_err(|error| format!("Could not parse transcription config: {error}"))
+    let mut config: TranscriptionSettingsConfig = serde_json::from_str(&contents)
+        .map_err(|error| format!("Could not parse transcription config: {error}"))?;
+    if config.active_runtime == "firered"
+        || matches!(
+            config.active_model.as_str(),
+            "fireredasr2-aed" | "fireredasr2-llm"
+        )
+    {
+        config.active_runtime.clear();
+        config.active_model.clear();
+    }
+    Ok(Some(config))
 }
 
 fn save_transcription_config_to(
@@ -664,6 +673,22 @@ fn load_transcription_config() -> Result<Option<TranscriptionSettingsConfig>, St
 pub(crate) fn load_transcription_config_for_agent(
 ) -> Result<Option<TranscriptionSettingsConfig>, String> {
     load_transcription_config_from(&transcription_config_path())
+}
+
+pub(crate) fn activate_transcription_model_for_agent(
+    runtime_id: &str,
+    model_id: &str,
+) -> Result<(), String> {
+    let mut config =
+        load_transcription_config_for_agent()?.unwrap_or(TranscriptionSettingsConfig {
+            active_provider: String::new(),
+            providers: BTreeMap::new(),
+            active_runtime: String::new(),
+            active_model: String::new(),
+        });
+    config.active_runtime = runtime_id.to_string();
+    config.active_model = model_id.to_string();
+    save_transcription_config_to(&transcription_config_path(), &config)
 }
 
 #[tauri::command]
@@ -4766,7 +4791,6 @@ pub fn run() {
             transcription::get_transcription_storage,
             transcription::set_transcription_storage_directory,
             transcription::open_transcription_storage_directory,
-            transcription::resolve_transcription_resource_source,
             transcription::list_transcription_resources,
             transcription::download_transcription_resource,
             transcription::cancel_transcription_download,
@@ -5522,6 +5546,26 @@ mod tests {
         assert!(fs::read_to_string(&path)
             .unwrap()
             .contains("local-test-key"));
+
+        fs::remove_dir_all(root).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn removed_transcription_engine_selection_is_cleared_on_load() {
+        let root = temp_fixture("removed-transcription-engine");
+        let path = root.join("transcription.json");
+        fs::create_dir_all(&root).expect("config fixture should exist");
+        fs::write(
+            &path,
+            r#"{"activeProvider":"","providers":{},"activeRuntime":"firered","activeModel":"fireredasr2-llm"}"#,
+        )
+        .expect("legacy config should be writable");
+
+        let loaded = load_transcription_config_from(&path)
+            .expect("legacy config should load")
+            .expect("legacy config should exist");
+        assert!(loaded.active_runtime.is_empty());
+        assert!(loaded.active_model.is_empty());
 
         fs::remove_dir_all(root).expect("config fixture should be removed");
     }

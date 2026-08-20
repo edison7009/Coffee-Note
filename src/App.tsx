@@ -3032,6 +3032,7 @@ function App() {
     question: string,
     priorMessages: ChatMessage[],
     skillIdOverride?: string | null,
+    workspaceRootOverride?: string,
   ) => {
     const clean = question.trim();
     if (!clean) return;
@@ -3094,7 +3095,7 @@ function App() {
         webReader: modelSettings.webReader,
         message: clean,
         locale,
-        knowledgeRoot: libraryRootRef.current || library.root,
+        knowledgeRoot: workspaceRootOverride || libraryRootRef.current || library.root,
         skillId: skillIdOverride === undefined
           ? selectedSkillId || undefined
           : skillIdOverride || undefined,
@@ -3140,6 +3141,37 @@ function App() {
 
     const conversationId = await ensureConversation();
     await startAgentTurn(conversationId, clean, chatMessages, skillId);
+  };
+
+  const handleTranscriptionTroubleshoot = async (runtimeId: string, modelId: string) => {
+    setSettingsOpen(false);
+    navigate('ai');
+    if (chatBusy) {
+      setToast({
+        message: locale === 'zh' ? '当前 AI 任务完成后再开始疑难检测。' : 'Wait for the current AI task before troubleshooting.',
+        kind: 'status',
+      });
+      return;
+    }
+    const runtimeName: Record<string, string> = {
+      funasr: 'FunASR',
+      native: 'Whisper CPU',
+      cuda: 'Whisper NVIDIA',
+    };
+    if (activeConversationId) {
+      await persistConversationMessages(activeConversationId, chatMessages);
+    }
+    const summary = await createConversation(locale === 'zh'
+      ? `${runtimeName[runtimeId] ?? runtimeId} 疑难检测`
+      : `${runtimeName[runtimeId] ?? runtimeId} troubleshooting`);
+    setConversationSummaries((current) => [summary, ...current.filter((item) => item.id !== summary.id)]);
+    conversationSaveSnapshotRef.current = { id: summary.id, json: '[]' };
+    setActiveConversationId(summary.id);
+    setChatMessages([]);
+    const prompt = locale === 'zh'
+      ? `请对本机 ${runtimeName[runtimeId] ?? runtimeId} 音频转写引擎进行疑难检测并修复，目标模型为 ${modelId}。先分析当前安装状态与硬件适配性，再使用受控的转写部署工具修复缺失或损坏的环境；如果目标模型不适合这台电脑，请改用同一引擎下兼容的推荐模型。完成后告诉我检查了什么、修复了什么，以及当前可用状态。`
+      : `Troubleshoot and repair the local ${runtimeName[runtimeId] ?? runtimeId} transcription engine for model ${modelId}. Inspect the installation and hardware fit, then use the guarded transcription deployment tool to repair missing or damaged resources. If this model does not fit the computer, use a compatible recommended model for the same engine. Report what you checked, what you repaired, and the final status.`;
+    await startAgentTurn(summary.id, prompt, [], null, library.myInfoRoot);
   };
 
   const handleNewChat = async () => {
@@ -3259,6 +3291,7 @@ function App() {
           currencyMode={currencyMode}
           onCurrencyMode={setCurrencyMode}
           onClose={() => setSettingsOpen(false)}
+          onTranscriptionTroubleshoot={handleTranscriptionTroubleshoot}
           t={t}
         />
       ) : (
@@ -7649,10 +7682,10 @@ function ConversationView({
             const label = toolLabels[message.toolName || '']?.[status]
               || (locale === 'zh'
                 ? status === 'running'
-                  ? `正在执行${fallbackName}`
+                  ? `正在执行 ${fallbackName}`
                   : status === 'failed'
-                    ? `执行${fallbackName}失败`
-                    : `已执行${fallbackName}`
+                    ? `执行 ${fallbackName} 失败`
+                    : `已执行 ${fallbackName}`
                 : status === 'running'
                   ? `Running ${fallbackName}`
                   : status === 'failed'
@@ -9617,6 +9650,7 @@ function SettingsPage({
   onSurfaceScheme,
   onCurrencyMode,
   onClose,
+  onTranscriptionTroubleshoot,
   t,
 }: {
   initialSection: SettingsSectionId;
@@ -9641,6 +9675,7 @@ function SettingsPage({
   onSurfaceScheme: (surfaceScheme: SurfaceSchemeId) => void;
   onCurrencyMode: (currencyMode: CurrencyMode) => void;
   onClose: () => void;
+  onTranscriptionTroubleshoot: (runtimeId: string, modelId: string) => void;
   t: (key: TranslationKey) => string;
 }) {
   const [draft, setDraft] = useState(config);
@@ -9805,7 +9840,11 @@ function SettingsPage({
             )}
 
             {visibleSection === 'transcription' && (
-              <TranscriptionSettings locale={locale} initialTab={transcriptionInitialTab} />
+              <TranscriptionSettings
+                locale={locale}
+                initialTab={transcriptionInitialTab}
+                onTroubleshoot={onTranscriptionTroubleshoot}
+              />
             )}
 
             {visibleSection === 'multimodal' && (

@@ -271,7 +271,7 @@
 - **AI activity:** Tool rows and history indicators stay static. The active turn's
   separate line animates its compact Braille-dot status, while its
   EchoBird-style status line is the chat animation exception: its warm orange text
-  shimmer runs linearly for 2.4 seconds while the left flower glyph and rewrite caret
+  shimmer runs linearly for 8 seconds while the left flower glyph and rewrite caret
   follow the matching typewriter cycle. The elapsed-time text updates once per second
   after the first 15 seconds but stays muted and static. Reduced motion disables the
   shimmer and caret.
@@ -328,4 +328,5 @@
 | 2026-08-19 | Make video model presets protocol-aware | Video generation offers selectable official OpenAI and Runway model IDs while preserving stored custom model values. Runway receives its own protocol and a non-generating credential check; other vendors stay custom until their task creation and polling contracts are implemented. |
 | 2026-08-19 | Add protocol-aware music model settings | Multimodal models gains a fifth Music generation tab with official Google Lyria, ElevenLabs Music, and MiniMax Music presets. Connection checks only read model or account metadata and never submit a billable generation request. The configuration is intentionally not exposed to the Agent until a guarded audio-generation and local-save workflow exists. |
 | 2026-08-19 | Separate STT from generated audio | Audio to text remains the recorded-file STT/ASR surface and adds protocol-correct OpenAI, Deepgram, AssemblyAI, and ElevenLabs choices, including speaker-labelled diarized responses. Multimodal models gains an independent Sound effects generation tab instead of mixing effects with music. Both music and sound checks are non-generating, and neither capability reaches the Agent before guarded local audio saving exists. |
+| 2026-08-20 | Separate manual speech setup from Agent troubleshooting | Audio to text keeps the normal runtime Install and model Download actions. Each Runtime engines heading also has one `疑难检测` action that exits Settings, opens the AI conversation, and submits a diagnosis-and-repair task for the visible engine. This technical task uses an always-present managed workspace rather than depending on the selected note directory. The Agent may use only TierNote's guarded transcription deployment tool; ordinary local transcription never triggers a hidden download. |
 | 2026-08-19 | Expose the full direct video-provider catalog | Video generation lists Runway and direct Seedance, Kling, Vertex AI Veo, MiniMax/Hailuo, Luma, Vidu, Pika, Wan, Tencent Cloud Hunyuan/Youtu and PixVerse, LTX, Adobe Firefly, and Sora services with protocol-specific endpoints, model IDs, and credential fields. Safe account endpoints are used where available; otherwise Check configuration validates completeness locally and never starts a paid render. Sora remains for migration but is marked with its announced shutdown date. |

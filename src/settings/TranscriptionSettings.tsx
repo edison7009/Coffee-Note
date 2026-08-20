@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bot,
   Check,
   ChevronDown,
   Cpu,
@@ -29,7 +30,7 @@ import type { Locale, TranscriptionProviderConfig, TranscriptionSettingsConfig, 
 import '../transcriptionSettings.css';
 
 type ComponentState = 'available' | 'downloading' | 'installed';
-type TranscriptionTab = 'api' | 'funasr' | 'native' | 'cuda' | 'firered';
+type TranscriptionTab = 'api' | 'funasr' | 'native' | 'cuda';
 
 interface DownloadableComponent {
   id: string;
@@ -43,21 +44,6 @@ interface DownloadableComponent {
 }
 
 const TRANSCRIPTION_MODELS: DownloadableComponent[] = [
-  {
-    id: 'fireredasr2-aed',
-    name: { zh: 'FireRedASR2-AED', en: 'FireRedASR2-AED' },
-    detail: { zh: '中文、20+ 方言、中英混合与歌声 · 官方第一梯队', en: 'Chinese, 20+ dialects, code-switching, and singing · top-tier official model' },
-    size: '4.4 GB',
-    recommended: true,
-    runtimeId: 'firered',
-  },
-  {
-    id: 'fireredasr2-llm',
-    name: { zh: 'FireRedASR2-LLM', en: 'FireRedASR2-LLM' },
-    detail: { zh: '最高中文与方言精度 · 需要大显存 NVIDIA GPU', en: 'Highest Chinese and dialect accuracy · large-memory NVIDIA GPU required' },
-    size: '17.6 GB',
-    runtimeId: 'firered',
-  },
   {
     id: 'sensevoice-small',
     name: { zh: 'SenseVoiceSmall', en: 'SenseVoiceSmall' },
@@ -292,14 +278,7 @@ function currentPlatform(): 'windows' | 'macos' | 'linux' {
 }
 
 function runtimeComponents(platform: ReturnType<typeof currentPlatform>): DownloadableComponent[] {
-  const fireredPythonVersions = platform === 'windows' ? '3.11–3.13' : '3.11–3.14';
   const runtimes: DownloadableComponent[] = [
-    {
-      id: 'firered',
-      name: { zh: 'FireRedASR2 官方环境', en: 'Official FireRedASR2 environment' },
-      detail: { zh: `自动配置官方代码与 PyTorch · 支持 Python ${fireredPythonVersions}`, en: `Sets up the official code and PyTorch · supports Python ${fireredPythonVersions}` },
-      size: `Python ${fireredPythonVersions}`,
-    },
     {
       id: 'funasr',
       name: { zh: 'FunASR 本地引擎', en: 'FunASR local engine' },
@@ -347,9 +326,11 @@ function platformLabel(platform: ReturnType<typeof currentPlatform>, locale: Loc
 export function TranscriptionSettings({
   locale,
   initialTab = 'api',
+  onTroubleshoot,
 }: {
   locale: Locale;
   initialTab?: 'api' | 'local';
+  onTroubleshoot: (runtimeId: string, modelId: string) => void;
 }) {
   const platform = useMemo(currentPlatform, []);
   const runtimes = useMemo(() => runtimeComponents(platform), [platform]);
@@ -362,7 +343,7 @@ export function TranscriptionSettings({
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [activeRuntime, setActiveRuntime] = useState('');
   const [activeModel, setActiveModel] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TranscriptionTab>(initialTab === 'api' ? 'api' : 'firered');
+  const [activeTab, setActiveTab] = useState<TranscriptionTab>(initialTab === 'api' ? 'api' : 'funasr');
   const [apiProvider, setApiProvider] = useState('siliconflow');
   const [apiUrl, setApiUrl] = useState(TRANSCRIPTION_API_PROVIDERS[0].endpoint);
   const [apiModel, setApiModel] = useState(TRANSCRIPTION_API_PROVIDERS[0].model);
@@ -541,6 +522,12 @@ export function TranscriptionSettings({
     const state = kind === 'runtime' ? runtimeStates[item.id] : modelStates[modelStateKey(runtimeId, item.id)];
     const key = resourceStateKey(kind, runtimeId, item.id);
     const value = progress[key] ?? 0;
+    const postProcessing = state === 'downloading' && value >= 100;
+    const progressLabel = postProcessing
+      ? (locale === 'zh'
+        ? (kind === 'runtime' ? '正在安装…' : '正在校验…')
+        : (kind === 'runtime' ? 'Installing…' : 'Verifying…'))
+      : `${value}%`;
     const compatibleRuntimes = item.compatibleRuntimeIds ?? (item.runtimeId ? [item.runtimeId] : []);
     const runtimeReady = kind === 'runtime'
       || (activeTab !== 'api' && compatibleRuntimes.includes(activeTab) && runtimeStates[activeTab] === 'installed');
@@ -562,14 +549,19 @@ export function TranscriptionSettings({
           </div>
           <p>{item.detail[locale]}</p>
           {state === 'downloading' && (
-            <div className="transcription-download-progress" aria-label={locale === 'zh' ? `下载进度 ${value}%` : `Download progress ${value}%`}>
-              <span style={{ width: `${value}%` }} />
+            <div
+              className={`transcription-download-progress${postProcessing ? ' is-processing' : ''}`}
+              aria-label={postProcessing
+                ? progressLabel
+                : locale === 'zh' ? `下载进度 ${value}%` : `Download progress ${value}%`}
+            >
+              <span style={postProcessing ? undefined : { width: `${value}%` }} />
             </div>
           )}
           {resourceErrors[key] && <p className="transcription-resource-error" role="alert">{resourceErrors[key]}</p>}
         </div>
         <div className="transcription-component-meta">
-          {state === 'downloading' ? `${value}% · ${item.size}` : item.size}
+          {state === 'downloading' ? `${progressLabel} · ${item.size}` : item.size}
         </div>
         <div className="transcription-component-actions">
           {kind === 'runtime' && state === 'installed' && (
@@ -616,6 +608,12 @@ export function TranscriptionSettings({
     const compatible = model.compatibleRuntimeIds ?? (model.runtimeId ? [model.runtimeId] : []);
     return compatible.includes(selectedRuntime.id);
   });
+  const troubleshootingModel = visibleModels.find((model) => (
+    activeRuntime === selectedRuntime.id
+    && activeModel === model.id
+  )) ?? visibleModels.find((model) => modelStates[modelStateKey(selectedRuntime.id, model.id)] === 'installed')
+    ?? visibleModels.find((model) => model.recommended)
+    ?? visibleModels[0];
   const configuredModel = TRANSCRIPTION_MODELS.find((model) => model.id === activeModel);
   const configuredRuntimeIds = configuredModel?.compatibleRuntimeIds
     ?? (configuredModel?.runtimeId ? [configuredModel.runtimeId] : []);
@@ -734,7 +732,6 @@ export function TranscriptionSettings({
             {runtime.id === 'funasr' && 'FunASR'}
             {runtime.id === 'native' && 'Whisper CPU'}
             {runtime.id === 'cuda' && 'Whisper NVIDIA'}
-            {runtime.id === 'firered' && 'FireRedASR2'}
             {configuredModelReady
               && runtimeStates[runtime.id] === 'installed'
               && activeRuntime === runtime.id
@@ -837,7 +834,14 @@ export function TranscriptionSettings({
           <div>
             <h3>{locale === 'zh' ? '运行引擎' : 'Runtime engines'}</h3>
           </div>
-          <Cpu size={18} strokeWidth={1.7} aria-hidden="true" />
+          <button
+            type="button"
+            className="transcription-download-action"
+            onClick={() => troubleshootingModel && onTroubleshoot(selectedRuntime.id, troubleshootingModel.id)}
+          >
+            <Bot size={15} />
+            {locale === 'zh' ? '疑难检测' : 'Troubleshoot'}
+          </button>
         </div>
         <div className="transcription-component-list">{renderRows([selectedRuntime], 'runtime')}</div>
       </section>

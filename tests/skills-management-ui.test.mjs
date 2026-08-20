@@ -13,6 +13,7 @@ const rustSource = await readFile(new URL('../src-tauri/src/skills.rs', import.m
 const appBackendSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 const transcriptionBackendSource = await readFile(new URL('../src-tauri/src/transcription.rs', import.meta.url), 'utf8');
 const agentSource = await readFile(new URL('../src-tauri/src/agent_loop.rs', import.meta.url), 'utf8');
+const agentToolsSource = await readFile(new URL('../src-tauri/src/agent_tools.rs', import.meta.url), 'utf8');
 const presentationSource = await readFile(new URL('../src-tauri/src/presentation.rs', import.meta.url), 'utf8');
 const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-presentation/tiernote-plugin.json', import.meta.url), 'utf8');
 const presentationSkill = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-presentation/skills/create-presentation/SKILL.md', import.meta.url), 'utf8');
@@ -314,20 +315,14 @@ test('audio-to-text keeps file transcription protocols and current model choices
     assert.match(transcriptionSettingsSource, new RegExp(`id: '${model}'`));
     assert.match(transcriptionBackendSource, new RegExp(`"${model}"`));
   }
-  for (const model of ['fireredasr2-aed', 'fireredasr2-llm']) {
-    assert.match(transcriptionSettingsSource, new RegExp(`id: '${model}'`));
-  }
   assert.match(transcriptionSettingsSource, /可用模型/);
   assert.match(transcriptionSettingsSource, /运行引擎/);
-  for (const tab of ['FunASR', 'Whisper CPU', 'Whisper NVIDIA', 'FireRedASR2']) {
+  for (const tab of ['FunASR', 'Whisper CPU', 'Whisper NVIDIA']) {
     assert.match(transcriptionSettingsSource, new RegExp(`'${tab}'`));
   }
-  assert.match(transcriptionSettingsSource, /function runtimeComponents[\s\S]*?const runtimes[\s\S]*?id: 'firered'[\s\S]*?id: 'funasr'/);
-  assert.match(transcriptionSettingsSource, /platform === 'windows' \? '3\.11–3\.13' : '3\.11–3\.14'/);
+  assert.doesNotMatch(transcriptionSettingsSource, /firered/i);
   assert.match(transcriptionSettingsSource, /item\.error/);
   assert.match(transcriptionBackendSource, /failures: Mutex<BTreeMap<String, String>>/);
-  assert.match(transcriptionBackendSource, /kaldi-native-fbank==1\.22\.3/);
-  assert.match(transcriptionBackendSource, /supported_python_version_text/);
   assert.match(transcriptionSettingsSource, /visibleModels/);
   assert.doesNotMatch(transcriptionSettingsSource, /transcription-tabs-divider/);
   assert.match(transcriptionSettingsSource, /transcription-tab-active-state/);
@@ -348,7 +343,21 @@ test('audio-to-text keeps file transcription protocols and current model choices
   assert.match(transcriptionSettingsSource, /setTranscriptionStorageDirectory\(runtimeId, directory\)/);
   assert.match(transcriptionSettingsSource, /activeTabRef\.current === runtimeId/);
   assert.match(transcriptionSettingsSource, /displayStoragePath\(storageInfo\.directory\)/);
-  assert.match(transcriptionSettingsSource, /已下载/);
+  assert.match(transcriptionSettingsSource, /疑难检测/);
+  assert.match(transcriptionSettingsSource, /onTroubleshoot\(selectedRuntime\.id, troubleshootingModel\.id\)/);
+  assert.match(transcriptionSettingsSource, /downloadTranscriptionResource/);
+  assert.match(transcriptionSettingsSource, /cancelTranscriptionDownload/);
+  assert.match(transcriptionSettingsSource, /kind === 'runtime' \? '安装' : '下载'/);
+  assert.match(transcriptionSettingsSource, /const postProcessing = state === 'downloading' && value >= 100/);
+  assert.match(transcriptionSettingsSource, /kind === 'runtime' \? '正在安装…' : '正在校验…'/);
+  assert.match(transcriptionCssSource, /\.transcription-download-progress\.is-processing span[\s\S]*animation: transcription-installing-progress 1\.5s ease-in-out infinite/);
+  assert.match(appSource, /handleTranscriptionTroubleshoot/);
+  assert.match(appSource, /setSettingsOpen\(false\);[\s\S]*navigate\('ai'\)/);
+  assert.match(appSource, /使用受控的转写部署工具修复缺失或损坏的环境/);
+  assert.match(appSource, /startAgentTurn\(summary\.id, prompt, \[\], null, library\.myInfoRoot\)/);
+  assert.match(agentToolsSource, /name: "deploy_transcription_model"/);
+  assert.doesNotMatch(agentToolsSource, /Automatic local transcription deployment failed/);
+  assert.match(agentSource, /deploy_transcription_model/);
   assert.doesNotMatch(transcriptionSettingsSource, /transcription-tab-recommended/);
   assert.match(transcriptionCssSource, /\.transcription-tab-active-state[\s\S]*color: var\(--switch-on\)/);
   assert.match(transcriptionCssSource, /\.transcription-model-switch\[aria-checked='true'\][\s\S]*background: var\(--switch-on\)/);
@@ -357,9 +366,6 @@ test('audio-to-text keeps file transcription protocols and current model choices
   assert.doesNotMatch(transcriptionSettingsSource, /transcription-model-runtime/);
   assert.match(transcriptionSettingsSource, /选择目录/);
   assert.match(transcriptionSettingsSource, /打开目录/);
-  assert.match(transcriptionBackendSource, /gitcode\.com\/gh_mirrors\/fi\/FireRedASR2S/);
-  assert.match(transcriptionBackendSource, /huggingface\.co\/FireRedTeam\/FireRedASR2/);
-  assert.match(transcriptionBackendSource, /resolve_transcription_resource_source/);
   assert.match(transcriptionBackendSource, /set_transcription_storage_directory/);
   assert.match(transcriptionBackendSource, /directories: BTreeMap<String, String>/);
   assert.match(transcriptionBackendSource, /resource_root_for_runtime/);
@@ -368,10 +374,8 @@ test('audio-to-text keeps file transcription protocols and current model choices
   assert.match(transcriptionBackendSource, /modelscope\.cn\/models\/FunAudioLLM/);
   assert.match(transcriptionBackendSource, /runtime-llamacpp-v0\.2\.0/);
   assert.match(transcriptionBackendSource, /async fn transcribe_local_funasr/);
-  assert.match(transcriptionBackendSource, /async fn transcribe_local_firered/);
-  assert.match(transcriptionBackendSource, /prepare_firered_runtime/);
-  assert.match(transcriptionBackendSource, /modelscope\.cn\/models\/xukaituo\/FireRedASR2/);
-  assert.match(transcriptionBackendSource, /FireRedASR2S\/archive\/4e7d9aaf/);
+  assert.doesNotMatch(transcriptionBackendSource, /firered/i);
+  assert.doesNotMatch(agentToolsSource, /firered/i);
   assert.doesNotMatch(transcriptionSettingsSource, /externalOnly/);
   assert.doesNotMatch(transcriptionSettingsSource, /flux-general-en|flux-general/);
 });
