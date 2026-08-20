@@ -292,8 +292,10 @@ or temporary deployment credentials.
   no secondary engine-browser state. Cloud is visually separated from those local
   families. Exactly one local model can be configured through the theme-color switches.
   A model switch appears only when both that model and the matching runtime are installed;
-  only then may its family tab carry the theme-color `In use` state. Downloaded engines
-  show `Downloaded` in the row action area. Recommendation badges are scoped within each
+  an installed model whose runtime is missing shows the static `Engine missing` state instead
+  of leaving the row action area blank. Only a fully usable selection may give its family tab
+  the theme-color `In use` state. Downloaded engines show `Downloaded` in the row action area.
+  Recommendation badges are scoped within each
   family (SenseVoiceSmall for FunASR, FireRedASR2-AED for FireRed, Whisper Small for Whisper).
 - **Working conversation indicator (2026-08-14):** While the agent is busy, the
   active conversation card in the right history rail replaces its delete action with
@@ -859,8 +861,11 @@ FireRedASR2 is a real managed local route rather than an external-link
 placeholder. Its official source is pinned to revision
 `4e7d9aaf4482a47cec1724807026b9b151926eb5`; installation creates an isolated
 Python environment, tries the Tsinghua PyPI mirror before the default index,
-installs the pinned official package, and marks the engine ready only after
-imports succeed. Python 3.11+ must already be available on the device. AED and
+installs the pinned official package plus the omitted binary feature-bank and PEFT dependencies,
+and marks the engine ready only after imports succeed. Windows uses Python 3.11–3.13 because the
+feature-bank package does not provide a Python 3.14 Windows x64 wheel; macOS and Linux also allow 3.14.
+an incompatible partial environment is rebuilt on retry. Runtime installation failures remain
+available from backend status when the user leaves and reopens the settings page. AED and
 LLM model bundles prefer ModelScope and fall back to revision-pinned Hugging
 Face files; every required file is size- and SHA-256-checked. Local input is
 decoded and converted to 16 kHz mono PCM WAV, then TierNote invokes the selected

@@ -541,6 +541,12 @@
   white-space: nowrap;
 }
 
+.transcription-missing-engine-state {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .transcription-model-switch {
   position: relative;
   flex: 0 0 auto;

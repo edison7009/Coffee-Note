@@ -323,6 +323,11 @@ test('audio-to-text keeps file transcription protocols and current model choices
     assert.match(transcriptionSettingsSource, new RegExp(`'${tab}'`));
   }
   assert.match(transcriptionSettingsSource, /function runtimeComponents[\s\S]*?const runtimes[\s\S]*?id: 'firered'[\s\S]*?id: 'funasr'/);
+  assert.match(transcriptionSettingsSource, /platform === 'windows' \? '3\.11–3\.13' : '3\.11–3\.14'/);
+  assert.match(transcriptionSettingsSource, /item\.error/);
+  assert.match(transcriptionBackendSource, /failures: Mutex<BTreeMap<String, String>>/);
+  assert.match(transcriptionBackendSource, /kaldi-native-fbank==1\.22\.3/);
+  assert.match(transcriptionBackendSource, /supported_python_version_text/);
   assert.match(transcriptionSettingsSource, /visibleModels/);
   assert.doesNotMatch(transcriptionSettingsSource, /transcription-tabs-divider/);
   assert.match(transcriptionSettingsSource, /transcription-tab-active-state/);
@@ -332,6 +337,10 @@ test('audio-to-text keeps file transcription protocols and current model choices
   assert.match(transcriptionSettingsSource, /modelStates\[modelStateKey\(tabRuntime, modelId\)\] !== 'installed'/);
   assert.match(transcriptionSettingsSource, /runtimeStates\[tabRuntime\] !== 'installed'/);
   assert.match(transcriptionSettingsSource, /kind === 'model' && state === 'installed' && runtimeReady/);
+  assert.match(transcriptionSettingsSource, /kind === 'model' && state === 'installed' && !runtimeReady/);
+  assert.match(transcriptionSettingsSource, /transcription-missing-engine-state/);
+  assert.match(transcriptionSettingsSource, /缺少引擎/);
+  assert.match(transcriptionSettingsSource, /Engine missing/);
   assert.match(transcriptionSettingsSource, /runtimeStates\[runtime\.id\] === 'installed'/);
   assert.match(transcriptionSettingsSource, /modelStateKey\(item\.runtimeId, item\.id\)/);
   assert.match(transcriptionSettingsSource, /getTranscriptionStorage\(activeTab\)/);
@@ -343,6 +352,7 @@ test('audio-to-text keeps file transcription protocols and current model choices
   assert.doesNotMatch(transcriptionSettingsSource, /transcription-tab-recommended/);
   assert.match(transcriptionCssSource, /\.transcription-tab-active-state[\s\S]*color: var\(--switch-on\)/);
   assert.match(transcriptionCssSource, /\.transcription-model-switch\[aria-checked='true'\][\s\S]*background: var\(--switch-on\)/);
+  assert.match(transcriptionCssSource, /\.transcription-missing-engine-state[\s\S]*font-size: 13px/);
   assert.doesNotMatch(transcriptionSettingsSource, /推荐仅在当前体系内比较|所需引擎：|Required engine:/);
   assert.doesNotMatch(transcriptionSettingsSource, /transcription-model-runtime/);
   assert.match(transcriptionSettingsSource, /选择目录/);

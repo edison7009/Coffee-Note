@@ -26,6 +26,8 @@ use tokio_util::sync::CancellationToken;
 const RESOURCE_EVENT: &str = "transcription-resource-progress";
 const MAX_MEDIA_BYTES: u64 = 512 * 1024 * 1024;
 const FIRERED_SOURCE_REVISION: &str = "4e7d9aaf4482a47cec1724807026b9b151926eb5";
+const FIRERED_KALDI_FBANK: &str = "kaldi-native-fbank==1.22.3";
+const FIRERED_PEFT: &str = "peft==0.20.0";
 static MEDIA_FETCHER_SETUP_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static MEDIA_FETCHER_READY: tokio::sync::OnceCell<PathBuf> = tokio::sync::OnceCell::const_new();
 
@@ -40,6 +42,7 @@ fn configure_hidden_command(_command: &mut Command) {
 #[derive(Default)]
 pub struct TranscriptionDownloadState {
     downloads: Mutex<BTreeMap<String, CancellationToken>>,
+    failures: Mutex<BTreeMap<String, String>>,
 }
 
 fn model_file(id: &str, runtime: &str) -> Result<PathBuf, String> {
@@ -185,6 +188,10 @@ fn supported_python_version(output: &Output) -> bool {
     } else {
         String::from_utf8_lossy(&output.stdout)
     };
+    supported_python_version_text(&value)
+}
+
+fn supported_python_version_text(value: &str) -> bool {
     let version = value
         .split_whitespace()
         .find(|part| {
@@ -196,20 +203,34 @@ fn supported_python_version(output: &Output) -> bool {
     let mut parts = version
         .split('.')
         .filter_map(|part| part.parse::<u32>().ok());
-    matches!((parts.next(), parts.next()), (Some(major), Some(minor)) if major == 3 && minor >= 11)
+    match (parts.next(), parts.next()) {
+        (Some(3), Some(11..=13)) => true,
+        (Some(3), Some(14)) => !cfg!(windows),
+        _ => false,
+    }
 }
 
 async fn find_firered_python_launcher() -> Result<PythonLauncher, String> {
     let candidates: Vec<(&str, &[&str])> = if cfg!(windows) {
         vec![
-            ("py", &["-3"]),
+            ("py", &["-3.13"]),
+            ("py", &["-3.12"]),
             ("py", &["-3.11"]),
+            ("python3.13", &[]),
+            ("python3.12", &[]),
             ("python3.11", &[]),
             ("python", &[]),
             ("python3", &[]),
         ]
     } else {
-        vec![("python3.11", &[]), ("python3", &[]), ("python", &[])]
+        vec![
+            ("python3.14", &[]),
+            ("python3.13", &[]),
+            ("python3.12", &[]),
+            ("python3.11", &[]),
+            ("python3", &[]),
+            ("python", &[]),
+        ]
     };
     for (program, prefix) in candidates {
         let mut command = Command::new(program);
@@ -224,7 +245,45 @@ async fn find_firered_python_launcher() -> Result<PythonLauncher, String> {
             }
         }
     }
-    Err("FireRedASR2 requires Python 3.11 or newer. Install Python, then retry.".to_string())
+    let uv_versions = if cfg!(windows) {
+        &["3.13", "3.12", "3.11"][..]
+    } else {
+        &["3.14", "3.13", "3.12", "3.11"][..]
+    };
+    for version in uv_versions {
+        let mut find = Command::new("uv");
+        configure_hidden_command(&mut find);
+        find.args(["python", "find", version]);
+        let Ok(found) = find.output().await else {
+            break;
+        };
+        if !found.status.success() {
+            continue;
+        }
+        let path = String::from_utf8_lossy(&found.stdout).trim().to_string();
+        if path.is_empty() {
+            continue;
+        }
+        let mut verify = Command::new(&path);
+        configure_hidden_command(&mut verify);
+        verify.arg("--version");
+        if let Ok(output) = verify.output().await {
+            if output.status.success() && supported_python_version(&output) {
+                return Ok(PythonLauncher {
+                    program: PathBuf::from(path),
+                    prefix: Vec::new(),
+                });
+            }
+        }
+    }
+    let versions = if cfg!(windows) {
+        "3.11, 3.12, or 3.13"
+    } else {
+        "3.11, 3.12, 3.13, or 3.14"
+    };
+    Err(format!(
+        "FireRedASR2 requires Python {versions}. Install a supported version, then retry."
+    ))
 }
 
 async fn run_cancellable_command(
@@ -265,6 +324,22 @@ async fn prepare_firered_runtime(token: &CancellationToken) -> Result<(), String
         .ok_or_else(|| "The downloaded FireRedASR2 source archive is incomplete".to_string())?;
     let launcher = find_firered_python_launcher().await?;
     let python = firered_venv_python();
+    if python.is_file() {
+        let mut version = Command::new(&python);
+        configure_hidden_command(&mut version);
+        version.arg("--version");
+        let compatible = version
+            .output()
+            .await
+            .is_ok_and(|output| output.status.success() && supported_python_version(&output));
+        if !compatible {
+            fs::remove_dir_all(runtime_root.join("venv")).map_err(|error| {
+                format!(
+                    "Could not replace the incompatible FireRedASR2 Python environment: {error}"
+                )
+            })?;
+        }
+    }
     if !python.is_file() {
         let mut command = Command::new(&launcher.program);
         command
@@ -293,7 +368,10 @@ async fn prepare_firered_runtime(token: &CancellationToken) -> Result<(), String
         if let Some(index_url) = index_url {
             command.arg("--index-url").arg(index_url);
         }
-        command.arg(&source);
+        command
+            .arg(&source)
+            .arg(FIRERED_KALDI_FBANK)
+            .arg(FIRERED_PEFT);
         command
     };
     let mut preferred = install(Some("https://pypi.tuna.tsinghua.edu.cn/simple"));
@@ -1094,6 +1172,7 @@ pub struct TranscriptionResourceStatus {
     installed: bool,
     downloading: bool,
     bytes: u64,
+    error: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -2549,6 +2628,10 @@ pub fn list_transcription_resources(
         .downloads
         .lock()
         .map_err(|_| "Download state is unavailable")?;
+    let failures = state
+        .failures
+        .lock()
+        .map_err(|_| "Download failure state is unavailable")?;
     let mut specs = ["sensevoice-small", "paraformer-large", "funasr-nano"]
         .into_iter()
         .map(|id| (model_spec(id).unwrap(), "funasr"))
@@ -2596,6 +2679,9 @@ pub fn list_transcription_resources(
                     .iter()
                     .map(|item| resource_bytes(*item, runtime_id))
                     .sum(),
+                error: failures
+                    .get(&download_key(spec.kind, spec.id, runtime_id))
+                    .cloned(),
             }
         })
         .collect())
@@ -2921,6 +3007,11 @@ pub async fn download_transcription_resource(
             downloads.insert(key.clone(), token.clone());
         }
     }
+    state
+        .failures
+        .lock()
+        .map_err(|_| "Download failure state is unavailable")?
+        .remove(&download_key(&kind, &id, &runtime_id));
     let package_bytes = bundle
         .iter()
         .filter(|item| !installed_path(**item, &runtime_id).is_file())
@@ -2975,6 +3066,11 @@ pub async fn download_transcription_resource(
         }
     }
     if let Err(message) = &result {
+        if !token.is_cancelled() {
+            if let Ok(mut failures) = state.failures.lock() {
+                failures.insert(download_key(&kind, &id, &runtime_id), message.clone());
+            }
+        }
         emit_progress(
             &app,
             spec,
@@ -2988,6 +3084,8 @@ pub async fn download_transcription_resource(
             spec.expected_size,
             Some(message.clone()),
         );
+    } else if let Ok(mut failures) = state.failures.lock() {
+        failures.remove(&download_key(&kind, &id, &runtime_id));
     }
     result
 }
@@ -3064,6 +3162,22 @@ mod tests {
         assert_eq!(local_whisper_language("zh"), Some("zh"));
         assert_eq!(local_whisper_language("en"), Some("en"));
         assert_eq!(local_whisper_language("auto"), None);
+    }
+
+    #[test]
+    fn firered_accepts_only_python_versions_with_binary_fbank_support() {
+        for version in ["Python 3.11.15", "Python 3.12.9", "Python 3.13.7"] {
+            assert!(supported_python_version_text(version), "{version}");
+        }
+        for version in ["Python 3.10.18", "Python 4.0.0"] {
+            assert!(!supported_python_version_text(version), "{version}");
+        }
+        assert_eq!(
+            supported_python_version_text("Python 3.14.0"),
+            !cfg!(windows)
+        );
+        assert_eq!(FIRERED_KALDI_FBANK, "kaldi-native-fbank==1.22.3");
+        assert_eq!(FIRERED_PEFT, "peft==0.20.0");
     }
 
     #[test]

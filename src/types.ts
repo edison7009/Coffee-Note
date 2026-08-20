@@ -292,6 +292,7 @@ export interface TranscriptionResourceStatus {
   installed: boolean;
   downloading: boolean;
   bytes: number;
+  error?: string;
 }
 
 export interface TranscriptionResourceProgress {

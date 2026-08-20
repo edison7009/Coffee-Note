@@ -292,12 +292,13 @@ function currentPlatform(): 'windows' | 'macos' | 'linux' {
 }
 
 function runtimeComponents(platform: ReturnType<typeof currentPlatform>): DownloadableComponent[] {
+  const fireredPythonVersions = platform === 'windows' ? '3.11–3.13' : '3.11–3.14';
   const runtimes: DownloadableComponent[] = [
     {
       id: 'firered',
       name: { zh: 'FireRedASR2 官方环境', en: 'Official FireRedASR2 environment' },
-      detail: { zh: '自动配置官方代码与 PyTorch · 需要 Python 3.11+', en: 'Sets up the official code and PyTorch · requires Python 3.11+' },
-      size: 'Python 3.11+',
+      detail: { zh: `自动配置官方代码与 PyTorch · 支持 Python ${fireredPythonVersions}`, en: `Sets up the official code and PyTorch · supports Python ${fireredPythonVersions}` },
+      size: `Python ${fireredPythonVersions}`,
     },
     {
       id: 'funasr',
@@ -395,6 +396,9 @@ export function TranscriptionSettings({
       const modelEntries = resources.filter((item) => item.kind === 'model');
       setRuntimeStates((current) => ({ ...current, ...Object.fromEntries(runtimeEntries.map((item) => [item.id, item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
       setModelStates((current) => ({ ...current, ...Object.fromEntries(modelEntries.map((item) => [modelStateKey(item.runtimeId, item.id), item.downloading ? 'downloading' : item.installed ? 'installed' : 'available'])) }));
+      setResourceErrors(Object.fromEntries(resources
+        .filter((item) => item.error)
+        .map((item) => [resourceStateKey(item.kind, item.runtimeId, item.id), item.error!])));
     });
     let unlisten: (() => void) | undefined;
     void onTranscriptionResourceProgress((event) => {
@@ -414,6 +418,8 @@ export function TranscriptionSettings({
       }
       if (event.message && event.status === 'error') {
         setResourceErrors((errors) => ({ ...errors, [key]: event.message! }));
+      } else if (event.status === 'downloading' || event.status === 'installed') {
+        setResourceErrors((errors) => ({ ...errors, [key]: '' }));
       }
     }).then((stop) => { unlisten = stop; });
     return () => { alive = false; unlisten?.(); };
@@ -594,6 +600,11 @@ export function TranscriptionSettings({
               <span aria-hidden="true" />
             </button>
           )}
+          {kind === 'model' && state === 'installed' && !runtimeReady && (
+            <span className="transcription-missing-engine-state">
+              {locale === 'zh' ? '缺少引擎' : 'Engine missing'}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -624,6 +635,9 @@ export function TranscriptionSettings({
         if (!resources) return;
         setRuntimeStates((current) => ({ ...current, ...Object.fromEntries(resources.filter((item) => item.kind === 'runtime').map((item) => [item.id, item.installed ? 'installed' : 'available'])) }));
         setModelStates((current) => ({ ...current, ...Object.fromEntries(resources.filter((item) => item.kind === 'model').map((item) => [modelStateKey(item.runtimeId, item.id), item.installed ? 'installed' : 'available'])) }));
+        setResourceErrors(Object.fromEntries(resources
+          .filter((item) => item.error)
+          .map((item) => [resourceStateKey(item.kind, item.runtimeId, item.id), item.error!])));
       });
     }).catch((error) => {
       if (activeTabRef.current === runtimeId) {
