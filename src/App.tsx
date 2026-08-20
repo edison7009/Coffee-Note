@@ -1676,6 +1676,7 @@ function App() {
     loadConversationUsage,
   );
   const [chatBusy, setChatBusy] = useState(false);
+  const [agentRunStartedAtByConversation, setAgentRunStartedAtByConversation] = useState<Record<string, number>>({});
   const activeConversationIdRef = useRef(activeConversationId);
   activeConversationIdRef.current = activeConversationId;
   const appViewRef = useRef(view);
@@ -2990,6 +2991,11 @@ function App() {
         case 'request_started': {
           const conversationId = event.conversationId || activeConversationIdRef.current;
           if (!conversationId) break;
+          setAgentRunStartedAtByConversation((current) =>
+            current[conversationId]
+              ? current
+              : { ...current, [conversationId]: Date.now() },
+          );
           setUsageByConversation((current) => {
             const previous = current[conversationId] || EMPTY_USAGE;
             return {
@@ -3000,10 +3006,32 @@ function App() {
           break;
         }
         case 'done':
+          {
+            const conversationId = event.conversationId || activeConversationIdRef.current;
+            if (conversationId) {
+              setAgentRunStartedAtByConversation((current) => {
+                if (!(conversationId in current)) return current;
+                const next = { ...current };
+                delete next[conversationId];
+                return next;
+              });
+            }
+          }
           setChatBusy(false);
           void refreshLibraryAfterAgent();
           break;
         case 'error':
+          {
+            const conversationId = event.conversationId || activeConversationIdRef.current;
+            if (conversationId) {
+              setAgentRunStartedAtByConversation((current) => {
+                if (!(conversationId in current)) return current;
+                const next = { ...current };
+                delete next[conversationId];
+                return next;
+              });
+            }
+          }
           setChatMessages((prev) => [
             ...prev,
             {
@@ -3050,6 +3078,10 @@ function App() {
     };
     setChatMessages((current) => [...current, userMessage]);
     if (view !== 'ai') setView('ai');
+    setAgentRunStartedAtByConversation((current) => ({
+      ...current,
+      [conversationId]: Date.now(),
+    }));
     setChatBusy(true);
 
     if (
@@ -3067,6 +3099,12 @@ function App() {
         createdAt: Date.now(),
       };
       setChatMessages((current) => [...current, assistantMessage]);
+      setAgentRunStartedAtByConversation((current) => {
+        if (!(conversationId in current)) return current;
+        const next = { ...current };
+        delete next[conversationId];
+        return next;
+      });
       setChatBusy(false);
       return;
     }
@@ -3131,6 +3169,12 @@ function App() {
           createdAt: Date.now(),
         },
       ]);
+      setAgentRunStartedAtByConversation((current) => {
+        if (!(conversationId in current)) return current;
+        const next = { ...current };
+        delete next[conversationId];
+        return next;
+      });
       setChatBusy(false);
     }
   };
@@ -3353,6 +3397,7 @@ function App() {
                   locale={locale}
                   messages={chatMessages}
                   busy={chatBusy}
+                  startedAt={agentRunStartedAtByConversation[activeConversationId]}
                   onInternalNavigate={openInternalNote}
                   onConfirmMemory={handleConfirmMemory}
                   onDismissMemory={handleDismissMemory}
@@ -4152,12 +4197,11 @@ function UpdateButton({ locale }: { locale: Locale }) {
       await downloadAndInstallUpdate();
     } catch {
       setUpdatePhase('error');
-      try {
-        await openExternalUrl(PRODUCT_WEBSITE);
-      } finally {
-        setInstallingUpdate(false);
-        setUpdateProgress(0);
-      }
+      // The installer is launched by the desktop backend. Do not open the
+      // website as a fallback here: a process-exit race can reject the invoke
+      // even after the installer was downloaded and started.
+      setInstallingUpdate(false);
+      setUpdateProgress(0);
     } finally {
       stopListening?.();
     }
@@ -7314,16 +7358,25 @@ function formatAgentToolPhrase(toolName: string | undefined, locale: Locale): st
   return locale === 'zh' ? `正在执行 ${name} >` : `Running ${name} >`;
 }
 
-function AgentTurnStatus({ locale, toolName }: { locale: Locale; toolName?: string }) {
-  const [startedAt] = useState(() => Date.now());
+function AgentTurnStatus({
+  locale,
+  toolName,
+  startedAt,
+}: {
+  locale: Locale;
+  toolName?: string;
+  startedAt?: number;
+}) {
+  const [fallbackStartedAt] = useState(() => Date.now());
+  const runStartedAt = startedAt ?? fallbackStartedAt;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
-    const update = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    const update = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - runStartedAt) / 1000)));
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [startedAt]);
+  }, [runStartedAt]);
 
   const phrase = formatAgentToolPhrase(toolName, locale);
 
@@ -7345,6 +7398,7 @@ function ConversationView({
   locale,
   messages,
   busy,
+  startedAt,
   onInternalNavigate,
   onConfirmMemory,
   onDismissMemory,
@@ -7353,6 +7407,7 @@ function ConversationView({
   locale: Locale;
   messages: ChatMessage[];
   busy: boolean;
+  startedAt?: number;
   onInternalNavigate: (target: Omit<InternalNoteTarget, 'label'>) => void;
   onConfirmMemory: (messageId: string, suggestion: MemorySuggestion) => void;
   onDismissMemory: (messageId: string) => void;
@@ -7824,7 +7879,13 @@ function ConversationView({
             </div>
           );
         })}
-        {busy && <AgentTurnStatus locale={locale} toolName={latestRunningTool} />}
+        {busy && (
+          <AgentTurnStatus
+            locale={locale}
+            toolName={latestRunningTool}
+            startedAt={startedAt}
+          />
+        )}
         <div ref={endRef} />
       </div>
       {textMenu && (

@@ -1413,6 +1413,10 @@ pub async fn run_agent(
                 let exclusions = excluded_prefixes.clone();
                 let web_reader = request.web_reader.clone();
                 let app_handle = app.clone();
+                let force_note_workspace_root = request
+                    .skill_id
+                    .as_deref()
+                    .is_some_and(|id| id == "tiernote-media-transcribe");
                 handles.push(tokio::spawn(async move {
                     // Arguments were validated above; `{}` is only an
                     // unreachable safety net.
@@ -1427,6 +1431,7 @@ pub async fn run_agent(
                             locale: &loc,
                             excluded_prefixes: &exclusions,
                             web_reader: &web_reader,
+                            force_note_workspace_root,
                         },
                     )
                     .await
@@ -1475,6 +1480,10 @@ pub async fn run_agent(
                         locale: &request.locale,
                         excluded_prefixes: &excluded_prefixes,
                         web_reader: &request.web_reader,
+                        force_note_workspace_root: request
+                            .skill_id
+                            .as_deref()
+                            .is_some_and(|id| id == "tiernote-media-transcribe"),
                     },
                 )
                 .await;

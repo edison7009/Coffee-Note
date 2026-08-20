@@ -35,6 +35,9 @@ test('running agent activity follows the latest tool with neutral shimmer', () =
 
 test('the active turn clock uses the muted tabular style', () => {
   assert.match(app, /formatAgentRunDuration\(elapsedSeconds, locale\)/);
+  assert.match(app, /agentRunStartedAtByConversation/);
+  assert.match(app, /startedAt=\{agentRunStartedAtByConversation\[activeConversationId\]\}/);
+  assert.match(app, /const runStartedAt = startedAt \?\? fallbackStartedAt/);
   assert.match(
     css,
     /\.agent-turn-status-clock\s*\{[^}]*color:\s*var\(--muted\);[^}]*font-size:\s*12px;[^}]*font-variant-numeric:\s*tabular-nums;[^}]*-webkit-text-fill-color:\s*var\(--muted\);/s,

@@ -589,6 +589,20 @@ pub struct ToolExecutionContext<'a> {
     pub locale: &'a str,
     pub excluded_prefixes: &'a [String],
     pub web_reader: &'a WebReaderSettings,
+    pub force_note_workspace_root: bool,
+}
+
+fn note_args_for_workspace_root(args: &Value, force_workspace_root: bool) -> Value {
+    if !force_workspace_root {
+        return args.clone();
+    }
+    let mut normalized = args.clone();
+    if let Some(object) = normalized.as_object_mut() {
+        // The media skill's contract is a root note. The transcript may mention
+        // existing Downloads files, but those are source media, not note output.
+        object.remove("path");
+    }
+    normalized
 }
 
 pub async fn execute_tool(
@@ -603,6 +617,7 @@ pub async fn execute_tool(
         locale,
         excluded_prefixes,
         web_reader,
+        force_note_workspace_root,
     } = context;
 
     if name == "create_document" {
@@ -652,7 +667,10 @@ pub async fn execute_tool(
         "read_workspace_file" => exec_read_workspace_file(args, workspace_root),
         "write_workspace_file" => exec_write_workspace_file(args, workspace_root),
         "replace_workspace_text" => exec_replace_workspace_text(args, workspace_root),
-        "save_note" => exec_save_note(args, workspace_root, locale),
+        "save_note" => {
+            let note_args = note_args_for_workspace_root(args, force_note_workspace_root);
+            exec_save_note(&note_args, workspace_root, locale)
+        }
         "update_plan" => exec_update_plan(args, my_info_root, locale),
         "update_note" => exec_update_note(args, workspace_root, locale),
         "update_tier" => exec_update_tier(args, workspace_root, locale),
@@ -2316,6 +2334,22 @@ mod tests {
         assert!(dir.join("健身计划.md").exists());
         assert!(result.output.contains(&dir.to_string_lossy().to_string()));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn media_skill_note_destination_stays_at_workspace_root() {
+        let args = json!({
+            "title": "转写笔记",
+            "content": "内容",
+            "path": "Downloads/转写笔记.md"
+        });
+        let normalized = note_args_for_workspace_root(&args, true);
+        assert!(normalized.get("path").is_none());
+        assert_eq!(normalized.get("title"), args.get("title"));
+        assert_eq!(normalized.get("content"), args.get("content"));
+
+        let unchanged = note_args_for_workspace_root(&args, false);
+        assert_eq!(unchanged.get("path"), args.get("path"));
     }
 
     #[test]

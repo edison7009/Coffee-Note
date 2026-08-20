@@ -4440,6 +4440,7 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
     };
 
     emit("checking", 0);
+    let exit_app = app.clone();
     let result = async {
         let client = release_client()?;
         // Prefer the website download endpoint, but fall back to the GitHub
@@ -4523,13 +4524,16 @@ async fn run_windows_update(app: tauri::AppHandle) -> Result<(), String> {
         emit("downloading", 100);
         emit("launching", 100);
 
-        // Start the installer before closing the app. Destroying the last
-        // window first can end the process before this spawn call runs.
+        // Start the installer before closing the app. Return from this command
+        // first so the WebView does not turn a successful install launch into
+        // a rejected invoke when the application exits.
         Command::new(&installer_path)
             .spawn()
             .map_err(|error| format!("Unable to launch the update installer: {error}"))?;
-        std::thread::sleep(Duration::from_millis(800));
-        app.exit(0);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(800));
+            exit_app.exit(0);
+        });
         Ok(())
     }
     .await;
