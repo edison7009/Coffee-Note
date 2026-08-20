@@ -33,43 +33,24 @@ const EMPTY_DRAFT: SkillSourceDraft = {
   categoryId: 'copywriting',
 };
 
-function categoryLabel(id: string, fallback: string, locale: Locale) {
-  if (locale === 'zh') return fallback;
-  if (id === 'copywriting') return 'Copywriting';
-  if (id === 'ppt') return 'Presentations';
-  if (id === 'video') return 'Video';
-  if (id === 'media') return 'Audio & video';
-  return fallback;
+function categoryLabel(label: string, labelEn: string | undefined, locale: Locale) {
+  return locale === 'en' ? labelEn || label : label;
 }
 
 function pluginName(plugin: SkillPlugin, locale: Locale) {
-  if (locale === 'en' && plugin.id === 'tiernote-media') return 'TierNote Media';
-  if (locale === 'en' && plugin.id === 'tiernote-documents') return 'Documents';
-  if (locale === 'en' && plugin.id === 'tiernote-presentation') return 'Presentations';
-  return plugin.name;
+  return locale === 'en' ? plugin.nameEn || plugin.name : plugin.name;
 }
 
 function pluginDescription(plugin: SkillPlugin, locale: Locale) {
-  if (locale === 'en' && plugin.id === 'tiernote-media') return 'Turn audio and video into editable local text.';
-  if (locale === 'en' && plugin.id === 'tiernote-documents') return 'Create editable DOCX files and shareable PDFs from notes and source material.';
-  if (locale === 'en' && plugin.id === 'tiernote-presentation') return 'Turn notes and source material into editable PowerPoint presentations.';
-  return plugin.description;
+  return locale === 'en' ? plugin.descriptionEn || plugin.description : plugin.description;
 }
 
 function childSkillTitle(skill: SkillDefinition, locale: Locale) {
-  if (locale === 'en' && skill.id === 'tiernote-media-transcribe') return 'Media to text';
-  if (locale === 'en' && skill.id === 'tiernote-document-create-docx') return 'Create DOCX';
-  if (locale === 'en' && skill.id === 'tiernote-document-create-pdf') return 'Create PDF';
-  if (locale === 'en' && skill.id === 'tiernote-presentation-create') return 'Create presentation';
-  return skill.title;
+  return locale === 'en' ? skill.titleEn || skill.title : skill.title;
 }
 
 function childSkillDescription(skill: SkillDefinition, locale: Locale) {
-  if (locale === 'en' && skill.id === 'tiernote-media-transcribe') return 'Transcribe audio or video and organize it into a note.';
-  if (locale === 'en' && skill.id === 'tiernote-document-create-docx') return 'Create an editable Word document from notes, documents, or conversation content.';
-  if (locale === 'en' && skill.id === 'tiernote-document-create-pdf') return 'Create a polished PDF from notes, documents, or conversation content.';
-  if (locale === 'en' && skill.id === 'tiernote-presentation-create') return 'Create an editable .pptx file from notes, documents, or conversation content.';
-  return skill.description;
+  return locale === 'en' ? skill.descriptionEn || skill.description : skill.description;
 }
 
 export function SkillsSettings({
@@ -173,8 +154,8 @@ export function SkillsSettings({
       setUpdatedPluginNotice({
         pluginId: plugin.id,
         message: locale === 'zh'
-          ? `「${updated?.name ?? plugin.name}」已更新${updated?.version ? `至 ${updated.version}` : ''}。`
-          : `“${updated?.name ?? plugin.name}” is up to date${updated?.version ? ` at ${updated.version}` : ''}.`,
+          ? `「${pluginName(updated ?? plugin, locale)}」已更新${updated?.version ? `至 ${updated.version}` : ''}。`
+          : `“${pluginName(updated ?? plugin, locale)}” is up to date${updated?.version ? ` at ${updated.version}` : ''}.`,
       });
     } catch (nextError) {
       setActionError(String(nextError));
@@ -340,8 +321,8 @@ export function SkillsSettings({
               aria-checked={selectedPlugin.enabled}
               disabled={togglingPluginId !== null || togglingSkillId !== null}
               aria-label={locale === 'zh'
-                ? `${selectedPlugin.enabled ? '停用' : '启用'}技能包 ${selectedPlugin.name}`
-                : `${selectedPlugin.enabled ? 'Disable' : 'Enable'} skill package ${selectedPlugin.name}`}
+                ? `${selectedPlugin.enabled ? '停用' : '启用'}技能包 ${pluginName(selectedPlugin, locale)}`
+                : `${selectedPlugin.enabled ? 'Disable' : 'Enable'} skill package ${pluginName(selectedPlugin, locale)}`}
               onClick={() => void togglePluginEnabled(selectedPlugin)}
             >
               <span aria-hidden="true" />
@@ -371,8 +352,8 @@ export function SkillsSettings({
                   aria-checked={skill.enabled}
                   disabled={!selectedPlugin.enabled || togglingSkillId !== null || togglingPluginId !== null}
                   aria-label={locale === 'zh'
-                    ? `${skill.enabled ? '停用' : '启用'}技能 ${skill.title}`
-                    : `${skill.enabled ? 'Disable' : 'Enable'} skill ${skill.title}`}
+                    ? `${skill.enabled ? '停用' : '启用'}技能 ${childSkillTitle(skill, locale)}`
+                    : `${skill.enabled ? 'Disable' : 'Enable'} skill ${childSkillTitle(skill, locale)}`}
                   onClick={() => void toggleSkillEnabled(skill)}
                 >
                   <span aria-hidden="true" />
@@ -416,7 +397,7 @@ export function SkillsSettings({
               }}
               key={category.id}
             >
-              {categoryLabel(category.id, category.label, locale)}
+              {categoryLabel(category.label, category.labelEn, locale)}
             </button>
           ))}
           <button
@@ -508,7 +489,7 @@ export function SkillsSettings({
                 value={draft.categoryId}
                 options={catalog.categories.map((category) => ({
                   value: category.id,
-                  label: categoryLabel(category.id, category.label, locale),
+                  label: categoryLabel(category.label, category.labelEn, locale),
                 }))}
                 onChange={(categoryId) => setDraft((current) => ({ ...current, categoryId }))}
                 ariaLabel={locale === 'zh' ? '选择技能分类' : 'Choose skill category'}
@@ -552,7 +533,7 @@ export function SkillsSettings({
                 <button
                   type="button"
                   className="skills-row-open"
-                  aria-label={locale === 'zh' ? `打开技能包 ${plugin.name}` : `Open skill package ${plugin.name}`}
+                  aria-label={locale === 'zh' ? `打开技能包 ${pluginName(plugin, locale)}` : `Open skill package ${pluginName(plugin, locale)}`}
                   onClick={() => setSelectedPluginId(plugin.id)}
                 >
                   <div className="skills-row-icon" aria-hidden="true">
@@ -583,8 +564,8 @@ export function SkillsSettings({
                     aria-checked={plugin.enabled}
                     disabled={togglingPluginId !== null}
                     aria-label={locale === 'zh'
-                      ? `${plugin.enabled ? '停用' : '启用'}插件 ${plugin.name}`
-                      : `${plugin.enabled ? 'Disable' : 'Enable'} plugin ${plugin.name}`}
+                      ? `${plugin.enabled ? '停用' : '启用'}插件 ${pluginName(plugin, locale)}`
+                      : `${plugin.enabled ? 'Disable' : 'Enable'} plugin ${pluginName(plugin, locale)}`}
                     onClick={() => void togglePluginEnabled(plugin)}
                   >
                     <span aria-hidden="true" />
@@ -593,7 +574,7 @@ export function SkillsSettings({
                     <button
                       type="button"
                       disabled={updatingPluginId !== null}
-                      aria-label={locale === 'zh' ? `编辑插件 ${plugin.name}` : `Edit plugin ${plugin.name}`}
+                      aria-label={locale === 'zh' ? `编辑插件 ${pluginName(plugin, locale)}` : `Edit plugin ${pluginName(plugin, locale)}`}
                       onClick={() => startEditPlugin(plugin)}
                     >
                       <Pencil size={15} />
@@ -602,7 +583,7 @@ export function SkillsSettings({
                     <button
                       type="button"
                       disabled={updatingPluginId !== null}
-                      aria-label={locale === 'zh' ? `更新插件 ${plugin.name}` : `Update plugin ${plugin.name}`}
+                      aria-label={locale === 'zh' ? `更新插件 ${pluginName(plugin, locale)}` : `Update plugin ${pluginName(plugin, locale)}`}
                       onClick={() => void refreshPlugin(plugin)}
                     >
                       <RefreshCw className={updatingPluginId === plugin.id ? 'is-spinning' : ''} size={15} />
@@ -613,7 +594,7 @@ export function SkillsSettings({
                     <button
                       type="button"
                       className="danger"
-                      aria-label={locale === 'zh' ? `移除插件 ${plugin.name}` : `Remove plugin ${plugin.name}`}
+                      aria-label={locale === 'zh' ? `移除插件 ${pluginName(plugin, locale)}` : `Remove plugin ${pluginName(plugin, locale)}`}
                       onClick={() => void removePlugin(plugin)}
                     >
                       <Trash2 size={15} />
@@ -627,8 +608,8 @@ export function SkillsSettings({
                   <div className="skills-editor-heading">
                     <strong>
                       {locale === 'zh'
-                        ? `编辑技能插件「${plugin.name}」`
-                        : `Edit skill plugin “${plugin.name}”`}
+                        ? `编辑技能插件「${pluginName(plugin, locale)}」`
+                        : `Edit skill plugin “${pluginName(plugin, locale)}”`}
                     </strong>
                     <button type="button" aria-label={locale === 'zh' ? '关闭编辑' : 'Close'} onClick={cancelEditPlugin}>
                       <X size={17} />
@@ -645,7 +626,7 @@ export function SkillsSettings({
                         value={editCategoryId}
                         options={catalog.categories.map((category) => ({
                           value: category.id,
-                          label: categoryLabel(category.id, category.label, locale),
+                          label: categoryLabel(category.label, category.labelEn, locale),
                         }))}
                         onChange={setEditCategoryId}
                         ariaLabel={locale === 'zh' ? '选择技能分类' : 'Choose skill category'}

@@ -2,7 +2,9 @@
   "schemaVersion": 1,
   "id": "tiernote-media",
   "name": "媒体处理",
+  "nameEn": "Media processing",
   "description": "把音视频内容转换为可编辑、可继续整理的本地文字。",
+  "descriptionEn": "Turn audio and video into editable local text.",
   "version": "1.0.0",
   "publisher": "TierNote Team",
   "categoryId": "media",
@@ -17,7 +19,9 @@
       "id": "tiernote-media-transcribe",
       "path": "skills/media-to-text/SKILL.md",
       "title": "媒体转文字",
-      "description": "把媒体链接或本地音视频文件转成文字，并整理成笔记。"
+      "titleEn": "Media to text",
+      "description": "把媒体链接或本地音视频文件转成文字，并整理成笔记。",
+      "descriptionEn": "Transcribe media links or local audio and video files, then organize the result into a note."
     }
   ]
 }

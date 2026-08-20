@@ -2,7 +2,9 @@
   "schemaVersion": 1,
   "id": "tiernote-video",
   "name": "文字生成视频",
+  "nameEn": "Video creation",
   "description": "用专业镜头语言设计分镜，并可继续生成画面、旁白和可分享的 MP4 视频。",
+  "descriptionEn": "Design storyboards with cinematic direction, then generate visuals, narration, and a shareable MP4 video.",
   "version": "1.0.0",
   "publisher": "TierNote Team",
   "categoryId": "video",
@@ -17,13 +19,17 @@
       "id": "tiernote-video-create",
       "path": "skills/create-video/SKILL.md",
       "title": "文字生成视频",
-      "description": "从文案、笔记或对话内容生成带旁白和字幕的 MP4 视频。"
+      "titleEn": "Create video",
+      "description": "从文案、笔记或对话内容生成带旁白和字幕的 MP4 视频。",
+      "descriptionEn": "Create a narrated and captioned MP4 video from copy, notes, or conversation content."
     },
     {
       "id": "tiernote-video-storyboard",
       "path": "skills/storyboard-director/SKILL.md",
       "title": "电影分镜导演",
-      "description": "把想法或脚本拆成具有叙事节奏、专业镜头语言与连续性的电影分镜。"
+      "titleEn": "Cinematic storyboard director",
+      "description": "把想法或脚本拆成具有叙事节奏、专业镜头语言与连续性的电影分镜。",
+      "descriptionEn": "Turn an idea or script into a cinematic storyboard with narrative pacing, professional camera language, and visual continuity."
     }
   ]
 }

@@ -37,6 +37,10 @@ import type {
 import { normalizeModelSettings } from './modelSettings';
 import { normalizeModelCatalog } from './modelCatalog';
 import { readStorageValue, storageKey, writeStorageValue } from './storage';
+import documentsPluginManifest from '../src-tauri/builtin-plugins/tiernote-documents/tiernote-plugin.json';
+import mediaPluginManifest from '../src-tauri/builtin-plugins/tiernote-media/tiernote-plugin.json';
+import presentationPluginManifest from '../src-tauri/builtin-plugins/tiernote-presentation/tiernote-plugin.json';
+import videoPluginManifest from '../src-tauri/builtin-plugins/tiernote-video/tiernote-plugin.json';
 
 const MODEL_CONFIG_KEY = storageKey('model-config');
 const TRANSCRIPTION_CONFIG_KEY = storageKey('transcription-config');
@@ -80,114 +84,71 @@ function migrateFallbackBuiltinIds(catalog: SkillCatalog): SkillCatalog {
   };
 }
 
+interface BuiltinPluginManifest {
+  id: string;
+  name: string;
+  nameEn?: string;
+  description: string;
+  descriptionEn?: string;
+  version: string;
+  publisher: string;
+  categoryId: string;
+  runtime: { id: string };
+  skills: Array<{
+    id: string;
+    title: string;
+    titleEn?: string;
+    description: string;
+    descriptionEn?: string;
+  }>;
+}
+
+const builtinPluginManifests: BuiltinPluginManifest[] = [
+  mediaPluginManifest,
+  documentsPluginManifest,
+  presentationPluginManifest,
+  videoPluginManifest,
+];
+
 const fallbackSkillCatalog: SkillCatalog = {
   categories: [
-    { id: 'copywriting', label: '文案编写', fixed: true },
-    { id: 'ppt', label: '制作PPT', fixed: true },
-    { id: 'video', label: '制作视频', fixed: true },
-    { id: 'media', label: '音视频', fixed: true },
+    { id: 'copywriting', label: '文案编写', labelEn: 'Copywriting', fixed: true },
+    { id: 'ppt', label: '制作PPT', labelEn: 'Presentations', fixed: true },
+    { id: 'video', label: '制作视频', labelEn: 'Video', fixed: true },
+    { id: 'media', label: '音视频', labelEn: 'Audio & video', fixed: true },
   ],
-  skills: [
-    {
-      id: 'tiernote-media-transcribe',
-      title: '媒体转文字',
-      description: '把视频或音频链接、本地媒体文件转成文字，并整理成笔记。',
-      categoryId: 'media',
-      codexCompatible: true,
-      sourceId: 'tiernote-media',
-      sourceUrl: '',
-      sourceVersion: '1.0.0',
-      enabled: true,
-      builtin: true,
-      runtimeId: 'media-transcription',
-    },
-    {
-      id: 'tiernote-presentation-create',
-      title: '生成演示文稿',
-      description: '从笔记、选中文档或对话内容生成可编辑的 .pptx 文件。',
-      categoryId: 'ppt',
-      codexCompatible: true,
-      sourceId: 'tiernote-presentation',
-      sourceUrl: '',
-      sourceVersion: '1.0.0',
-      enabled: true,
-      builtin: true,
-      runtimeId: 'presentation-engine',
-    },
-    {
-      id: 'tiernote-document-create-docx',
-      title: '生成 DOCX',
-      description: '从笔记、资料或对话内容生成结构清晰、可继续编辑的 Word 文档。',
-      categoryId: 'copywriting',
-      codexCompatible: true,
-      sourceId: 'tiernote-documents',
-      sourceUrl: '',
-      sourceVersion: '1.0.0',
-      enabled: true,
-      builtin: true,
-      runtimeId: 'document-engine',
-    },
-    {
-      id: 'tiernote-document-create-pdf',
-      title: '生成 PDF',
-      description: '从笔记、资料或对话内容生成排版清晰、可直接分享的 PDF。',
-      categoryId: 'copywriting',
-      codexCompatible: true,
-      sourceId: 'tiernote-documents',
-      sourceUrl: '',
-      sourceVersion: '1.0.0',
-      enabled: true,
-      builtin: true,
-      runtimeId: 'document-engine',
-    },
-  ],
-  plugins: [
-    {
-      id: 'tiernote-media',
-      name: '媒体处理',
-      description: '把音视频内容转换为可编辑、可继续整理的本地文字。',
-      version: '1.0.0',
-      categoryId: 'media',
-      codexCompatible: true,
-      sourceUrl: '',
-      skillCount: 1,
-      enabled: true,
-      builtin: true,
-      publisher: 'TierNote',
-      origin: 'bundled',
-      runtimeId: 'media-transcription',
-    },
-    {
-      id: 'tiernote-presentation',
-      name: '演示文稿',
-      description: '把笔记、资料和想法整理为结构清晰、可继续编辑的 PowerPoint 演示文稿。',
-      version: '1.0.0',
-      categoryId: 'ppt',
-      codexCompatible: true,
-      sourceUrl: '',
-      skillCount: 1,
-      enabled: true,
-      builtin: true,
-      publisher: 'TierNote',
-      origin: 'bundled',
-      runtimeId: 'presentation-engine',
-    },
-    {
-      id: 'tiernote-documents',
-      name: '文档生成',
-      description: '把笔记、资料和对话内容整理为可编辑的 Word 文档或可直接分享的 PDF。',
-      version: '1.0.0',
-      categoryId: 'copywriting',
-      codexCompatible: true,
-      sourceUrl: '',
-      skillCount: 2,
-      enabled: true,
-      builtin: true,
-      publisher: 'TierNote',
-      origin: 'bundled',
-      runtimeId: 'document-engine',
-    },
-  ],
+  skills: builtinPluginManifests.flatMap((plugin) => plugin.skills.map((skill) => ({
+    id: skill.id,
+    title: skill.title,
+    titleEn: skill.titleEn,
+    description: skill.description,
+    descriptionEn: skill.descriptionEn,
+    categoryId: plugin.categoryId,
+    codexCompatible: true,
+    sourceId: plugin.id,
+    sourceUrl: '',
+    sourceVersion: plugin.version,
+    enabled: true,
+    builtin: true,
+    runtimeId: plugin.runtime.id,
+  }))),
+  plugins: builtinPluginManifests.map((plugin) => ({
+    id: plugin.id,
+    name: plugin.name,
+    nameEn: plugin.nameEn,
+    description: plugin.description,
+    descriptionEn: plugin.descriptionEn,
+    version: plugin.version,
+    categoryId: plugin.categoryId,
+    codexCompatible: true,
+    sourceUrl: '',
+    skillCount: plugin.skills.length,
+    enabled: true,
+    builtin: true,
+    publisher: plugin.publisher,
+    origin: 'bundled' as const,
+    runtimeId: plugin.runtime.id,
+  })),
   icons: {},
 };
 

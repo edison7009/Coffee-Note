@@ -5,6 +5,10 @@ import test from 'node:test';
 const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const i18nSource = await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8');
 const cssSource = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+const mediaManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-media/tiernote-plugin.json', import.meta.url), 'utf8');
+const documentsManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-documents/tiernote-plugin.json', import.meta.url), 'utf8');
+const presentationManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-presentation/tiernote-plugin.json', import.meta.url), 'utf8');
+const videoManifest = await readFile(new URL('../src-tauri/builtin-plugins/tiernote-video/tiernote-plugin.json', import.meta.url), 'utf8');
 
 test('note title actions select the matching built-in creation skill without sending', () => {
   assert.match(appSource, /const BUILTIN_DOCX_SKILL_ID = 'tiernote-document-create-docx'/);
@@ -40,9 +44,11 @@ test('mobile long image is removed instead of remaining as a disabled future act
 });
 
 test('English built-in skill labels distinguish every creation capability', () => {
-  assert.match(appSource, /BUILTIN_MEDIA_SKILL_ID\) return 'Media to text'/);
-  assert.match(appSource, /BUILTIN_DOCX_SKILL_ID\) return 'Create DOCX'/);
-  assert.match(appSource, /BUILTIN_PDF_SKILL_ID\) return 'Create PDF'/);
-  assert.match(appSource, /BUILTIN_PRESENTATION_SKILL_ID\) return 'Create presentation'/);
-  assert.match(appSource, /BUILTIN_VIDEO_SKILL_ID\) return 'Create video'/);
+  assert.match(appSource, /locale === 'en' \? skill\.titleEn \|\| skill\.title : skill\.title/);
+  assert.match(mediaManifest, /"titleEn": "Media to text"/);
+  assert.match(documentsManifest, /"titleEn": "Create DOCX"/);
+  assert.match(documentsManifest, /"titleEn": "Create PDF"/);
+  assert.match(presentationManifest, /"titleEn": "Create presentation"/);
+  assert.match(videoManifest, /"titleEn": "Create video"/);
+  assert.match(videoManifest, /"titleEn": "Cinematic storyboard director"/);
 });

@@ -2,7 +2,9 @@
   "schemaVersion": 1,
   "id": "tiernote-documents",
   "name": "文档生成",
+  "nameEn": "Document creation",
   "description": "把笔记、资料和对话内容整理为可编辑的 Word 文档或可直接分享的 PDF。",
+  "descriptionEn": "Turn notes, source material, and conversations into editable Word documents or shareable PDFs.",
   "version": "1.0.0",
   "publisher": "TierNote Team",
   "categoryId": "copywriting",
@@ -17,13 +19,17 @@
       "id": "tiernote-document-create-docx",
       "path": "skills/create-docx/SKILL.md",
       "title": "生成 DOCX",
-      "description": "从笔记、资料或对话内容生成结构清晰、可继续编辑的 Word 文档。"
+      "titleEn": "Create DOCX",
+      "description": "从笔记、资料或对话内容生成结构清晰、可继续编辑的 Word 文档。",
+      "descriptionEn": "Create a well-structured, editable Word document from notes, source material, or conversation content."
     },
     {
       "id": "tiernote-document-create-pdf",
       "path": "skills/create-pdf/SKILL.md",
       "title": "生成 PDF",
-      "description": "从笔记、资料或对话内容生成排版清晰、可直接分享的 PDF。"
+      "titleEn": "Create PDF",
+      "description": "从笔记、资料或对话内容生成排版清晰、可直接分享的 PDF。",
+      "descriptionEn": "Create a polished, shareable PDF from notes, source material, or conversation content."
     }
   ]
 }

@@ -245,35 +245,11 @@ const CONVERSATION_USAGE_KEY = storageKey('conversation-usage:v1');
 const CAPTURE_TRANSCRIPTION_MODE_KEY = storageKey('capture-transcription-mode:v1');
 
 function skillTitle(skill: SkillDefinition, locale: Locale) {
-  if (skill.builtin && locale === 'en') {
-    if (skill.id === BUILTIN_MEDIA_SKILL_ID) return 'Media to text';
-    if (skill.id === BUILTIN_DOCX_SKILL_ID) return 'Create DOCX';
-    if (skill.id === BUILTIN_PDF_SKILL_ID) return 'Create PDF';
-    if (skill.id === BUILTIN_PRESENTATION_SKILL_ID) return 'Create presentation';
-    if (skill.id === BUILTIN_VIDEO_SKILL_ID) return 'Create video';
-  }
-  return skill.title;
+  return locale === 'en' ? skill.titleEn || skill.title : skill.title;
 }
 
 function skillDescription(skill: SkillDefinition, locale: Locale) {
-  if (skill.builtin && locale === 'en') {
-    if (skill.id === BUILTIN_MEDIA_SKILL_ID) {
-      return 'Transcribe media links or local files into notes.';
-    }
-    if (skill.id === BUILTIN_DOCX_SKILL_ID) {
-      return 'Turn the current content into an editable Word document.';
-    }
-    if (skill.id === BUILTIN_PDF_SKILL_ID) {
-      return 'Turn the current content into a polished shareable PDF.';
-    }
-    if (skill.id === BUILTIN_PRESENTATION_SKILL_ID) {
-      return 'Turn the current content into an editable PowerPoint presentation.';
-    }
-    if (skill.id === BUILTIN_VIDEO_SKILL_ID) {
-      return 'Turn the current content into a narrated MP4 video.';
-    }
-  }
-  return skill.description;
+  return locale === 'en' ? skill.descriptionEn || skill.description : skill.description;
 }
 
 type ConversationUsage = LlmUsage & { requestCount: number };
@@ -8429,10 +8405,12 @@ function ChatComposer({
                 type="button"
                 className="composer-skill-pill"
                 onClick={() => onSelectedSkillChange(null)}
-                aria-label={locale === 'zh' ? `关闭技能 ${selectedSkill.title}` : `Close skill ${selectedSkill.title}`}
+                aria-label={locale === 'zh'
+                  ? `关闭技能 ${skillTitle(selectedSkill, locale)}`
+                  : `Close skill ${skillTitle(selectedSkill, locale)}`}
               >
                 <X size={13} strokeWidth={2.4} />
-                <span>{selectedSkill.title}</span>
+                <span>{skillTitle(selectedSkill, locale)}</span>
               </button>
             ) : (
               <button
@@ -8465,7 +8443,7 @@ function ChatComposer({
                         setActiveSkillGroupId(group.id);
                       }}
                     >
-                      <span>{locale === 'en' && group.id === 'copywriting' ? 'Copywriting' : locale === 'en' && group.id === 'ppt' ? 'Presentations' : locale === 'en' && group.id === 'video' ? 'Video' : locale === 'en' && group.id === 'media' ? 'Media to text' : group.label}</span>
+                      <span>{locale === 'en' ? group.labelEn || group.label : group.label}</span>
                       <ChevronRight size={15} />
                     </button>
                   ))}
@@ -8487,7 +8465,7 @@ function ChatComposer({
                     ref={composerSkillItemsRef}
                     className="composer-skill-items"
                     role="menu"
-                    aria-label={activeSkillGroup.label}
+                    aria-label={locale === 'en' ? activeSkillGroup.labelEn || activeSkillGroup.label : activeSkillGroup.label}
                     style={{ bottom: `calc(100% - ${42 + activeSkillGroupIndex * 36}px)` }}
                   >
                     {activeSkills.map((skill) => (

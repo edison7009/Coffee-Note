@@ -75,6 +75,8 @@ const LEGACY_VIDEO_STORYBOARD_SKILL_ID: &str = "coffee-note-video-storyboard";
 pub struct SkillCategory {
     id: String,
     label: String,
+    #[serde(default)]
+    label_en: Option<String>,
     fixed: bool,
 }
 
@@ -83,7 +85,9 @@ pub struct SkillCategory {
 pub struct SkillDefinition {
     id: String,
     title: String,
+    title_en: Option<String>,
     description: String,
+    description_en: Option<String>,
     category_id: String,
     codex_compatible: bool,
     source_id: String,
@@ -100,7 +104,9 @@ pub struct SkillDefinition {
 pub struct SkillPlugin {
     id: String,
     name: String,
+    name_en: Option<String>,
     description: String,
+    description_en: Option<String>,
     version: Option<String>,
     category_id: String,
     codex_compatible: bool,
@@ -296,7 +302,11 @@ struct BuiltinSkillManifest {
     id: String,
     path: String,
     title: String,
+    #[serde(default)]
+    title_en: Option<String>,
     description: String,
+    #[serde(default)]
+    description_en: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -305,7 +315,11 @@ struct BuiltinPluginManifest {
     schema_version: u8,
     id: String,
     name: String,
+    #[serde(default)]
+    name_en: Option<String>,
     description: String,
+    #[serde(default)]
+    description_en: Option<String>,
     version: String,
     publisher: String,
     category_id: String,
@@ -335,7 +349,9 @@ struct DiscoveredSkill {
 #[derive(Debug)]
 struct DiscoveredPackage {
     name: String,
+    name_en: Option<String>,
     description: String,
+    description_en: Option<String>,
     version: Option<String>,
     skills: Vec<DiscoveredSkill>,
     icon_key: Option<String>,
@@ -355,21 +371,25 @@ fn fixed_categories() -> Vec<SkillCategory> {
         SkillCategory {
             id: "copywriting".into(),
             label: "文案编写".into(),
+            label_en: Some("Copywriting".into()),
             fixed: true,
         },
         SkillCategory {
             id: "ppt".into(),
             label: "制作PPT".into(),
+            label_en: Some("Presentations".into()),
             fixed: true,
         },
         SkillCategory {
             id: "video".into(),
             label: "制作视频".into(),
+            label_en: Some("Video".into()),
             fixed: true,
         },
         SkillCategory {
             id: "media".into(),
             label: "音视频".into(),
+            label_en: Some("Audio & video".into()),
             fixed: true,
         },
     ]
@@ -966,9 +986,18 @@ fn discover_package(
     let manifest_name = manifest
         .as_ref()
         .and_then(|value| json_string(value, &["displayName", "display_name", "name"]));
+    let manifest_name_en = manifest.as_ref().and_then(|value| {
+        json_string(
+            value,
+            &["displayNameEn", "display_name_en", "nameEn", "name_en"],
+        )
+    });
     let manifest_description = manifest
         .as_ref()
         .and_then(|value| json_string(value, &["description"]));
+    let manifest_description_en = manifest
+        .as_ref()
+        .and_then(|value| json_string(value, &["descriptionEn", "description_en"]));
     let manifest_version = manifest
         .as_ref()
         .and_then(|value| json_string(value, &["version"]));
@@ -982,6 +1011,8 @@ fn discover_package(
     } else {
         format!("包含 {} 个技能。", skills.len())
     };
+    let fallback_description_en =
+        (skills.len() > 1).then(|| format!("Includes {} skills.", skills.len()));
     let version = manifest_version.or_else(|| {
         if skills.len() == 1 {
             parse_skill_file(&root.join(&skills[0].relative_path))
@@ -994,7 +1025,9 @@ fn discover_package(
 
     Ok(DiscoveredPackage {
         name: manifest_name.unwrap_or(fallback_name),
+        name_en: manifest_name_en,
         description: manifest_description.unwrap_or(fallback_description),
+        description_en: manifest_description_en.or(fallback_description_en),
         version: version.or_else(|| git_version(root)),
         skills,
         icon_key: package_icon_key,
@@ -1063,7 +1096,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
         skills.extend(builtin.skills.iter().map(|skill| SkillDefinition {
             id: skill.id.clone(),
             title: skill.title.clone(),
+            title_en: skill.title_en.clone(),
             description: skill.description.clone(),
+            description_en: skill.description_en.clone(),
             category_id: builtin.category_id.clone(),
             codex_compatible: true,
             source_id: builtin.id.clone(),
@@ -1077,7 +1112,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
         plugins.push(SkillPlugin {
             id: builtin.id.clone(),
             name: builtin.name,
+            name_en: builtin.name_en,
             description: builtin.description,
+            description_en: builtin.description_en,
             version: Some(builtin.version),
             category_id: builtin.category_id,
             codex_compatible: true,
@@ -1111,7 +1148,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                     SkillDefinition {
                         id,
                         title: skill.title.clone(),
+                        title_en: None,
                         description: skill.description.clone(),
+                        description_en: None,
                         category_id: meta.category_id.clone(),
                         codex_compatible: true,
                         source_id: source_id.clone(),
@@ -1130,7 +1169,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
                 plugins.push(SkillPlugin {
                     id: source_id.clone(),
                     name: package.name,
+                    name_en: package.name_en,
                     description: package.description,
+                    description_en: package.description_en,
                     version: package.version,
                     category_id: meta.category_id.clone(),
                     codex_compatible: true,
@@ -1148,7 +1189,9 @@ fn catalog_from_index(index: &SkillIndex) -> SkillCatalog {
             Err(error) => plugins.push(SkillPlugin {
                 id: source_id.clone(),
                 name: repo_name_from_url(&meta.source_url),
+                name_en: None,
                 description: "无法读取插件元数据。".into(),
+                description_en: Some("Could not read plugin metadata.".into()),
                 version: None,
                 category_id: meta.category_id.clone(),
                 codex_compatible: false,
@@ -1415,6 +1458,7 @@ pub fn create_skill_category(label: String) -> Result<SkillCatalog, String> {
     index.custom_categories.push(SkillCategory {
         id: format!("custom-{}", &Uuid::new_v4().simple().to_string()[..8]),
         label,
+        label_en: None,
         fixed: false,
     });
     save_index(&index)?;
@@ -1587,7 +1631,9 @@ mod tests {
     fn bundled_media_plugin_declares_a_shared_prewarmed_runtime() {
         let plugin = builtin_media_manifest();
         assert_eq!(plugin.id, BUILTIN_MEDIA_PLUGIN_ID);
+        assert_eq!(plugin.name_en.as_deref(), Some("Media processing"));
         assert_eq!(plugin.skills[0].id, BUILTIN_MEDIA_SKILL_ID);
+        assert_eq!(plugin.skills[0].title_en.as_deref(), Some("Media to text"));
         assert_eq!(plugin.runtime.id, "media-transcription");
         assert_eq!(plugin.runtime.lifecycle, "application");
         assert!(plugin.runtime.shared);
@@ -1598,7 +1644,12 @@ mod tests {
     fn bundled_presentation_plugin_uses_the_native_shared_runtime() {
         let plugin = builtin_presentation_manifest();
         assert_eq!(plugin.id, BUILTIN_PRESENTATION_PLUGIN_ID);
+        assert_eq!(plugin.name_en.as_deref(), Some("Presentations"));
         assert_eq!(plugin.skills[0].id, BUILTIN_PRESENTATION_SKILL_ID);
+        assert_eq!(
+            plugin.skills[0].title_en.as_deref(),
+            Some("Create presentation")
+        );
         assert_eq!(plugin.runtime.id, "presentation-engine");
         assert_eq!(plugin.runtime.lifecycle, "application");
         assert!(plugin.runtime.shared);
@@ -1619,10 +1670,13 @@ mod tests {
     fn bundled_document_plugin_exposes_docx_and_pdf_on_one_native_runtime() {
         let plugin = builtin_document_manifest();
         assert_eq!(plugin.id, BUILTIN_DOCUMENT_PLUGIN_ID);
+        assert_eq!(plugin.name_en.as_deref(), Some("Document creation"));
         assert_eq!(plugin.runtime.id, "document-engine");
         assert_eq!(plugin.skills.len(), 2);
         assert_eq!(plugin.skills[0].id, BUILTIN_DOCX_SKILL_ID);
         assert_eq!(plugin.skills[1].id, BUILTIN_PDF_SKILL_ID);
+        assert_eq!(plugin.skills[0].title_en.as_deref(), Some("Create DOCX"));
+        assert_eq!(plugin.skills[1].title_en.as_deref(), Some("Create PDF"));
         assert!(BUILTIN_DOCX_SKILL_PROMPT.contains("create_document"));
         assert!(BUILTIN_DOCX_SKILL_PROMPT.contains("format` set to `docx"));
         assert!(BUILTIN_PDF_SKILL_PROMPT.contains("create_document"));
@@ -1633,9 +1687,15 @@ mod tests {
     fn bundled_video_plugin_uses_the_guarded_shared_runtime() {
         let plugin = builtin_video_manifest();
         assert_eq!(plugin.id, BUILTIN_VIDEO_PLUGIN_ID);
+        assert_eq!(plugin.name_en.as_deref(), Some("Video creation"));
         assert_eq!(plugin.skills[0].id, BUILTIN_VIDEO_SKILL_ID);
         assert_eq!(plugin.skills[1].id, BUILTIN_VIDEO_STORYBOARD_SKILL_ID);
         assert_eq!(plugin.skills.len(), 2);
+        assert_eq!(plugin.skills[0].title_en.as_deref(), Some("Create video"));
+        assert_eq!(
+            plugin.skills[1].title_en.as_deref(),
+            Some("Cinematic storyboard director")
+        );
         assert_eq!(plugin.runtime.id, "tiernote-video-engine");
         assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("create_video"));
         assert!(BUILTIN_VIDEO_SKILL_PROMPT.contains("Never install a"));
@@ -1715,6 +1775,11 @@ mod tests {
         let package = discover_package(&root, "https://example.com/large-market.git", false)
             .expect("large skill markets should not be truncated");
         assert_eq!(package.skills.len(), 200);
+        assert_eq!(package.description, "包含 200 个技能。");
+        assert_eq!(
+            package.description_en.as_deref(),
+            Some("Includes 200 skills.")
+        );
         fs::remove_dir_all(root).expect("fixture should be removed");
     }
 

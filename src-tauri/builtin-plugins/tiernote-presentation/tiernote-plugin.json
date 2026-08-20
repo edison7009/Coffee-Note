@@ -2,7 +2,9 @@
   "schemaVersion": 1,
   "id": "tiernote-presentation",
   "name": "演示文稿",
+  "nameEn": "Presentations",
   "description": "把笔记、资料和想法整理为结构清晰、可继续编辑的 PowerPoint 演示文稿。",
+  "descriptionEn": "Turn notes, source material, and ideas into well-structured, editable PowerPoint presentations.",
   "version": "1.0.0",
   "publisher": "TierNote Team",
   "categoryId": "ppt",
@@ -17,7 +19,9 @@
       "id": "tiernote-presentation-create",
       "path": "skills/create-presentation/SKILL.md",
       "title": "生成演示文稿",
-      "description": "从笔记、选中文档或对话内容生成可编辑的 .pptx 文件。"
+      "titleEn": "Create presentation",
+      "description": "从笔记、选中文档或对话内容生成可编辑的 .pptx 文件。",
+      "descriptionEn": "Create an editable .pptx file from notes, selected documents, or conversation content."
     }
   ]
 }

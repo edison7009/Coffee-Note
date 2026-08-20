@@ -324,13 +324,16 @@ export interface FileContent {
 export interface SkillCategory {
   id: string;
   label: string;
+  labelEn?: string;
   fixed: boolean;
 }
 
 export interface SkillDefinition {
   id: string;
   title: string;
+  titleEn?: string;
   description: string;
+  descriptionEn?: string;
   categoryId: string;
   codexCompatible: boolean;
   sourceId: string;
@@ -398,7 +401,9 @@ export interface WeixinLoginPoll {
 export interface SkillPlugin {
   id: string;
   name: string;
+  nameEn?: string;
   description: string;
+  descriptionEn?: string;
   version?: string;
   categoryId: string;
   codexCompatible: boolean;

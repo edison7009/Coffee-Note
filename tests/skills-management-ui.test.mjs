@@ -38,6 +38,14 @@ test('settings includes a plugin market backed by one shared catalog', () => {
   assert.match(settingsSource, /selectedPluginSkills\.map/);
 });
 
+test('browser fallback derives bundled plugin metadata from the manifests', () => {
+  assert.match(apiSource, /import mediaPluginManifest from .*tiernote-media\/tiernote-plugin\.json/);
+  assert.match(apiSource, /import videoPluginManifest from .*tiernote-video\/tiernote-plugin\.json/);
+  assert.match(apiSource, /skills: builtinPluginManifests\.flatMap/);
+  assert.match(apiSource, /plugins: builtinPluginManifests\.map/);
+  assert.doesNotMatch(apiSource, /titleEn: 'Create video'/);
+});
+
 test('plugin source form only asks for Git address and category', () => {
   assert.match(settingsSource, /className="skills-editor skills-source-form"/);
   assert.match(settingsSource, /draft\.sourceUrl/);
@@ -404,7 +412,8 @@ test('built-in media skill is visible, toggleable, and has no source actions', (
   assert.match(rustSource, /builtin_plugins/);
   assert.match(settingsSource, /plugin\.builtin/);
   assert.match(settingsSource, /skills-built-in-mark/);
-  assert.match(settingsSource, /id === 'media'.*Audio & video/s);
+  assert.match(settingsSource, /locale === 'en' \? labelEn \|\| label : label/);
+  assert.match(apiSource, /labelEn: 'Audio & video'/);
   assert.match(settingsSource, /plugin\.builtin\s*\?\s*setBuiltinPluginEnabled/);
   assert.match(settingsSource, /!plugin\.builtin/);
   assert.match(appSource, /captureMediaSkillDisabled/);
